@@ -40,7 +40,9 @@ from app.db.base import utcnow_iso
 from app.models import Workspace
 from app.models.migration import (
     MIGRATION_PHASE_ORDER,
+    MigrationConflict,
     MigrationPhase,
+    MigrationReport,
     MigrationRun,
     MigrationStatus,
 )
@@ -185,6 +187,12 @@ def _run_migration_locked(db: Session) -> None:
         with UnitOfWork(db):
             db.add(run)
     elif run.status == MigrationStatus.RECOVERABLE:
+        logger.info(
+            "v2 migration run %s resuming from phase %s (previous failure: %s)",
+            run.id,
+            run.phase,
+            run.failure_code,
+        )
         transition_status(db, run.id, MigrationStatus.RUNNING)
         with UnitOfWork(db):
             pass
@@ -208,8 +216,22 @@ def _run_migration_locked(db: Session) -> None:
         # never to have finished.
         with UnitOfWork(db):
             pass
+        report_count = db.scalar(
+            select(func.count())
+            .select_from(MigrationReport)
+            .where(MigrationReport.run_id == run.id)
+        )
+        conflict_count = db.scalar(
+            select(func.count())
+            .select_from(MigrationConflict)
+            .where(MigrationConflict.run_id == run.id)
+        )
         logger.info(
-            "v2 migration run %s complete (backup=%s)", run.id, run.backup_path
+            "v2 migration run %s complete (backup=%s, reports=%s, conflicts=%s)",
+            run.id,
+            run.backup_path,
+            report_count,
+            conflict_count,
         )
     except Exception as exc:  # noqa: BLE001 - must always fail the run, then re-raise
         logger.exception("v2 migration run %s failed in phase %s", run.id, run.phase)

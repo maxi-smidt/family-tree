@@ -18,6 +18,7 @@ import { UnsavedChangesGuard } from "@/components/layout/UnsavedChangesGuard";
 import { LoginPage } from "@/components/auth/LoginPage";
 import { AuthUnreachableScreen } from "@/components/auth/AuthUnreachableScreen";
 import { AppUpgradeRequiredScreen } from "@/components/auth/AppUpgradeRequiredScreen";
+import { MaintenanceScreen } from "@/components/auth/MaintenanceScreen";
 import { PublicTreeViewer } from "@/components/public/PublicTreeViewer";
 import { ReloginDialog } from "@/components/auth/ReloginDialog";
 import { Spinner } from "@/components/ui/spinner";
@@ -137,6 +138,10 @@ export const App = () => {
 
     if (status === "upgrade-required") {
       return <AppUpgradeRequiredScreen />;
+    }
+
+    if (status === "starting") {
+      return <MaintenanceScreen />;
     }
 
     if (status === "unauthenticated") {

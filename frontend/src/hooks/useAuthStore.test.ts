@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => {
     post: vi.fn(),
     unauthorizedHandler: null as (() => void) | null,
     schemaEpochMismatchHandler: null as (() => void) | null,
+    startupInProgressHandler: null as (() => void) | null,
     ApiError: MockApiError,
   };
 });
@@ -37,6 +38,10 @@ vi.mock("@/services/api", () => ({
   onSchemaEpochMismatch: (handler: () => void) => {
     mocks.schemaEpochMismatchHandler = handler;
   },
+  onStartupInProgress: (handler: () => void) => {
+    mocks.startupInProgressHandler = handler;
+  },
+  STARTUP_IN_PROGRESS_DETAIL: "startup_in_progress",
 }));
 
 import { useAuthStore } from "./useAuthStore";
@@ -243,6 +248,28 @@ describe("useAuthStore init", () => {
     expect(useAuthStore.getState().status).toBe("unreachable");
   });
 
+  it("leaves a startup-in-progress state alone instead of falling back to unreachable", async () => {
+    // The real api.ts fires onStartupInProgress (mocked below) before this
+    // rejection reaches the store — simulated here since that wiring lives
+    // outside the mocked module.
+    useAuthStore.setState({ status: "starting" });
+    mocks.get.mockRejectedValue(new ApiError(503, "startup_in_progress"));
+
+    await useAuthStore.getState().init();
+
+    expect(mocks.token).toBe("current-token");
+    expect(useAuthStore.getState().status).toBe("starting");
+  });
+
+  it("still falls back to unreachable on a 503 unrelated to the startup gate", async () => {
+    mocks.get.mockRejectedValue(new ApiError(503, "some_other_outage"));
+
+    await useAuthStore.getState().init();
+
+    expect(mocks.token).toBe("current-token");
+    expect(useAuthStore.getState().status).toBe("unreachable");
+  });
+
   it("bounds the startup /auth/config and /auth/me requests with a timeout", async () => {
     mocks.get.mockResolvedValue(USER);
 
@@ -303,5 +330,22 @@ describe("useAuthStore schema-epoch mismatch", () => {
     mocks.schemaEpochMismatchHandler?.();
 
     expect(useAuthStore.getState().status).toBe("upgrade-required");
+  });
+});
+
+describe("useAuthStore startup-in-progress", () => {
+  afterEach(() => {
+    useAuthStore.getState().logout();
+  });
+
+  it("moves an authenticated session to a starting state without signing out", () => {
+    useAuthStore.setState({ status: "authenticated", user: USER });
+
+    mocks.startupInProgressHandler?.();
+
+    expect(useAuthStore.getState()).toMatchObject({
+      status: "starting",
+      user: USER,
+    });
   });
 });

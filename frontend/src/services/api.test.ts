@@ -4,6 +4,7 @@ import {
   ApiError,
   FRONTEND_SCHEMA_EPOCH,
   onSchemaEpochMismatch,
+  onStartupInProgress,
   onUnauthorized,
   PUBLIC_PASSWORD_REQUIRED,
 } from "./api";
@@ -218,5 +219,38 @@ describe("api — schema epoch", () => {
     await api.post("/workspaces").catch(() => undefined);
 
     expect(mismatchHandler).not.toHaveBeenCalled();
+  });
+
+  it("invokes the startup-in-progress handler on a 503 startup_in_progress", async () => {
+    const startupHandler = vi.fn<() => void>();
+    onStartupInProgress(startupHandler);
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ detail: "startup_in_progress" }), {
+          status: 503,
+        }),
+      ),
+    ) as unknown as typeof fetch;
+
+    const error = await api.get("/workspaces").catch((err: unknown) => err);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(startupHandler).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not invoke the startup-in-progress handler for an unrelated 503", async () => {
+    const startupHandler = vi.fn<() => void>();
+    onStartupInProgress(startupHandler);
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ detail: "degraded" }), {
+          status: 503,
+        }),
+      ),
+    ) as unknown as typeof fetch;
+
+    await api.get("/workspaces").catch(() => undefined);
+
+    expect(startupHandler).not.toHaveBeenCalled();
   });
 });
