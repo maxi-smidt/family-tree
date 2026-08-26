@@ -5,6 +5,7 @@ import { resetLegalStoreForSession } from "@/hooks/useLegalStore";
 import { resetTreeStoreForSession, useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { resetTutorialStoreForSession } from "@/hooks/useTutorialStore";
 import { resetNotificationStoreForSession } from "@/hooks/useNotificationStore";
+import { migrateV1BrowserState } from "@/utils/migrateBrowserState";
 import { startRealtime, stopRealtime } from "@/services/realtime";
 import { useAdminViewStore } from "@/hooks/useAdminViewStore";
 import { useUserSettingsViewStore } from "@/hooks/useUserSettingsViewStore";
@@ -16,6 +17,7 @@ import { ErrorBoundary } from "@/components/layout/ErrorBoundary";
 import { UnsavedChangesGuard } from "@/components/layout/UnsavedChangesGuard";
 import { LoginPage } from "@/components/auth/LoginPage";
 import { AuthUnreachableScreen } from "@/components/auth/AuthUnreachableScreen";
+import { AppUpgradeRequiredScreen } from "@/components/auth/AppUpgradeRequiredScreen";
 import { PublicTreeViewer } from "@/components/public/PublicTreeViewer";
 import { ReloginDialog } from "@/components/auth/ReloginDialog";
 import { Spinner } from "@/components/ui/spinner";
@@ -58,6 +60,9 @@ export const App = () => {
     resetTreeStoreForSession();
     resetTutorialStoreForSession();
     resetNotificationStoreForSession();
+    // Best-effort and independent of the bootstrap sequence below — must
+    // never block login or tree loading (see migrateV1BrowserState's docs).
+    void migrateV1BrowserState();
 
     void (async () => {
       try {
@@ -128,6 +133,10 @@ export const App = () => {
 
     if (status === "unreachable") {
       return <AuthUnreachableScreen />;
+    }
+
+    if (status === "upgrade-required") {
+      return <AppUpgradeRequiredScreen />;
     }
 
     if (status === "unauthenticated") {

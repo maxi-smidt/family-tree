@@ -8,6 +8,7 @@ from app.core.exceptions import AccessDeniedError, ConflictError, InvalidInputEr
 from app.models.migration import (
     MigrationConflict,
     MigrationConflictStatus,
+    MigrationMapping,
     MigrationPhase,
     MigrationReport,
     MigrationRun,
@@ -204,6 +205,28 @@ def test_acknowledge_report_is_idempotent(db, owner):
     once = report_service.acknowledge_report(db, report, owner)
     twice = report_service.acknowledge_report(db, once, owner)
     assert once.acknowledged_at == twice.acknowledged_at
+
+
+def test_resolve_legacy_workspace_id_returns_the_mapped_target(db):
+    run = _make_run(db)
+    db.add(
+        MigrationMapping(
+            run_id=run.id,
+            source_workspace_id="old-workspace",
+            source_workspace_name="Old",
+            target_workspace_id="new-workspace",
+            is_survivor=False,
+        )
+    )
+    db.commit()
+    assert (
+        report_service.resolve_legacy_workspace_id(db, "old-workspace")
+        == "new-workspace"
+    )
+
+
+def test_resolve_legacy_workspace_id_returns_none_for_an_unknown_id(db):
+    assert report_service.resolve_legacy_workspace_id(db, "never-migrated") is None
 
 
 # --- conflicts -------------------------------------------------------------

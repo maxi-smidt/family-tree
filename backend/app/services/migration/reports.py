@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.exceptions import AccessDeniedError, NotFoundError
 from app.db.base import utcnow_iso
-from app.models.migration import MigrationReport, MigrationReportStatus
+from app.models.migration import MigrationMapping, MigrationReport, MigrationReportStatus
 from app.models.user import User
 from app.services.unit_of_work import UnitOfWork
 
@@ -43,6 +43,20 @@ def acknowledge_report(
             pass
         db.refresh(report)
     return report
+
+
+def resolve_legacy_workspace_id(db: Session, workspace_id: str) -> str | None:
+    """Where a pre-conversion workspace id ended up, for a stale deep link or
+    public bookmark (#1012). Unauthenticated-safe: this only ever hands back
+    an id, never workspace content — normal read authorization still applies
+    once the caller follows it."""
+    mapping = db.scalar(
+        select(MigrationMapping)
+        .where(MigrationMapping.source_workspace_id == workspace_id)
+        .order_by(MigrationMapping.created_at.desc())
+        .limit(1)
+    )
+    return mapping.target_workspace_id if mapping else None
 
 
 def create_report(

@@ -13,6 +13,14 @@ const TOKEN_KEY = "ft_token";
  *  public-password prompt instead of the global re-login handler. */
 export const PUBLIC_PASSWORD_REQUIRED = "public_password_required";
 
+/** This build's wire-contract epoch (#1012) — sent on every request so the
+ *  backend can reject a mutation from a stale cached frontend instead of
+ *  applying it under a contract the two sides don't share. Bump only
+ *  alongside a matching bump of backend SCHEMA_EPOCH. */
+export const FRONTEND_SCHEMA_EPOCH = 2;
+const SCHEMA_EPOCH_HEADER = "X-Schema-Epoch";
+const SCHEMA_EPOCH_MISMATCH_DETAIL = "schema_epoch_mismatch";
+
 /** 401 details that describe an application flow (a password prompt) rather
  *  than an invalid/expired session — none of these should invalidate the
  *  signed-in user's session or open the global re-login dialog. */
@@ -61,6 +69,15 @@ export function onUnauthorized(handler: () => void) {
   unauthorizedHandler = handler;
 }
 
+let schemaEpochMismatchHandler: (() => void) | null = null;
+
+/** Fires the first time the backend rejects a mutation as a schema-epoch
+ *  mismatch (see SCHEMA_EPOCH_MISMATCH_DETAIL) — the global upgrade-required
+ *  state, not per-caller error handling. */
+export function onSchemaEpochMismatch(handler: () => void) {
+  schemaEpochMismatchHandler = handler;
+}
+
 export class ApiError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -95,7 +112,9 @@ async function request<T>(
   path: string,
   options: RequestOptions = {},
 ): Promise<T> {
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = {
+    [SCHEMA_EPOCH_HEADER]: String(FRONTEND_SCHEMA_EPOCH),
+  };
   if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
   if (publicTreeToken) headers["X-Public-Workspace-Token"] = publicTreeToken;
 
@@ -143,6 +162,9 @@ async function request<T>(
     }
     if (response.status === 401 && !SEMANTIC_401_DETAILS.has(detail)) {
       unauthorizedHandler?.();
+    }
+    if (response.status === 409 && detail === SCHEMA_EPOCH_MISMATCH_DETAIL) {
+      schemaEpochMismatchHandler?.();
     }
     throw new ApiError(response.status, detail);
   }

@@ -61,3 +61,7 @@ class AuthConfig(BaseModel):
     allow_self_registration: bool
     authentik_login_url: str | None = None
     media_limits: MediaLimits
+    # The backend's current wire-contract epoch (#1012) — fetched before login
+    # so a stale cached frontend can show an upgrade prompt instead of
+    # signing the user out on the first mismatched mutation.
+    schema_epoch: int

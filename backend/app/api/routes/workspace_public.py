@@ -23,16 +23,34 @@ from app.schemas.workspace import (
     PublicPasswordUpdate,
     PublicWorkspaceUnlock,
     PublicWorkspaceUnlockResult,
+    WorkspaceLegacyIdResolution,
     WorkspaceOut,
 )
 from app.services.activity.activity import record_activity
 from app.services.event_bus import publish_workspace_event
+from app.services.migration import reports as migration_reports
 from app.services.system.admin_audit import record_admin_audit
 from app.services.unit_of_work import UnitOfWork
 from app.services.workspaces.public_links import resolve_public_grant
 from app.services.workspaces.workspace_view import tree_out
 
 router = APIRouter(prefix="/workspaces", tags=["workspaces"])
+
+
+@router.get(
+    "/{workspace_id}/resolve-legacy-id", response_model=WorkspaceLegacyIdResolution
+)
+def resolve_legacy_workspace_id(workspace_id: str, db: Session = Depends(get_db)):
+    """Anonymous: resolve a stale pre-conversion id from a cached deep link or
+    public bookmark (#1012) to its current workspace, if the v1->v2 migration
+    mapped it. Read authorization on the returned id is still enforced
+    normally by the caller's next request — this never reveals more than the
+    mapping itself."""
+    return WorkspaceLegacyIdResolution(
+        target_workspace_id=migration_reports.resolve_legacy_workspace_id(
+            db, workspace_id
+        )
+    )
 
 
 @router.patch("/{workspace_id}/public", response_model=WorkspaceOut)

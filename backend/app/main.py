@@ -12,12 +12,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.api.exception_handlers import install_domain_error_handler
 from app.api.router import api_router
 from app.core.config import settings, validate_production_credentials
 from app.core.logging_config import setup_logging
+from app.core.schema_epoch import (
+    SCHEMA_EPOCH,
+    SCHEMA_EPOCH_HEADER,
+    SCHEMA_EPOCH_MISMATCH_DETAIL,
+)
 from app.db.init_db import init_db
 from app.db.redis import close_redis, ping_redis
 from app.db.session import engine
@@ -114,6 +120,37 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title=settings.APP_NAME, version=settings.APP_VERSION, lifespan=lifespan)
 
+# Auth and health are exempt: a frontend must be able to learn the current
+# epoch (GET /auth/config) and bootstrap a session before it has anything to
+# declare, and neither route touches workspace-shaped data.
+_SCHEMA_EPOCH_EXEMPT_PREFIXES = (
+    f"{settings.API_PREFIX}/auth",
+    f"{settings.API_PREFIX}/health",
+)
+_SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+
+
+class SchemaEpochMiddleware(BaseHTTPMiddleware):
+    """Fails a mutation closed instead of applying it under the wrong wire
+    contract — a stale cached v1 frontend never sends this header at all, and
+    a frontend built for a different epoch than this backend sends a value
+    that won't match (see app.core.schema_epoch)."""
+
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+        if (
+            request.method not in _SAFE_METHODS
+            and path.startswith(settings.API_PREFIX)
+            and not path.startswith(_SCHEMA_EPOCH_EXEMPT_PREFIXES)
+            and request.headers.get(SCHEMA_EPOCH_HEADER) != str(SCHEMA_EPOCH)
+        ):
+            return JSONResponse(
+                status_code=409, content={"detail": SCHEMA_EPOCH_MISMATCH_DETAIL}
+            )
+        return await call_next(request)
+
+
+app.add_middleware(SchemaEpochMiddleware)
 app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)
 app.add_middleware(
     CORSMiddleware,
@@ -149,6 +186,7 @@ def health():
         "version": settings.APP_VERSION,
         "revision": settings.APP_REVISION,
         "build_date": settings.APP_BUILD_DATE,
+        "schema_epoch": SCHEMA_EPOCH,
     }
 
 

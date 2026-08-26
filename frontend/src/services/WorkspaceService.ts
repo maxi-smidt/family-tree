@@ -83,6 +83,19 @@ export class WorkspaceService {
     return api.get<RelationTypeDB[]>("/relation-types");
   }
 
+  // --- Legacy id resolution (#1012) -----------------------------------------
+  /** Where a stale pre-conversion id (a cached deep link or public bookmark)
+   *  was folded into during the v1->v2 migration, if it was a conversion
+   *  source at all. Unauthenticated-safe. */
+  static async resolveLegacyWorkspaceId(
+    workspaceId: string,
+  ): Promise<string | null> {
+    const { target_workspace_id } = await api.get<{
+      target_workspace_id: string | null;
+    }>(`/workspaces/${workspaceId}/resolve-legacy-id`);
+    return target_workspace_id;
+  }
+
   // --- Members -------------------------------------------------------------
   static getMembers(workspaceId: string, surface = false) {
     const url = surface
