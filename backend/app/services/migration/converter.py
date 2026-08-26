@@ -71,6 +71,7 @@ from app.models import (
     Workspace,
     WorkspaceInvitation,
     WorkspaceMembership,
+    WorkspaceSectionGrant,
     WorkspaceSectionPublicLink,
     WorkspaceUserState,
 )
@@ -171,14 +172,22 @@ def _record_idempotent(
 # ---------------------------------------------------------------------------
 
 
-def _validate_bridge_links(db: Session) -> list[dict]:
+def _classify_legacy_bridge_links(
+    db: Session,
+) -> tuple[set[tuple[str, str]], list[dict]]:
     """Classify every legacy ``Member.linked_workspace_id`` pointer.
 
-    Returns the pointers that are ``self``/``dangling``/``asymmetric`` (never
-    used as a component edge) for the owner-facing report. A pointer not
-    listed here is symmetric and valid.
+    Returns ``(valid_pairs, issues)``: ``valid_pairs`` holds every
+    canonically ordered ``(member_a_id, member_b_id)`` whose pointer is
+    reciprocal and workspace-consistent on both sides — the *only* pairs
+    eligible to union two workspaces into one same-owner component (see
+    ``_same_owner_components``). ``issues`` lists the ``self``/``dangling``/
+    ``asymmetric`` pointers for the owner-facing report; a one-way pointer
+    must never merge two otherwise-unrelated workspaces just because the
+    alembic conversion (over-)eagerly turned it into an identity link.
     """
     issues: list[dict] = []
+    valid_pairs: set[tuple[str, str]] = set()
     linked = list(db.scalars(select(Member).where(Member.linked_member_id.isnot(None))))
     by_id = {m.id: m for m in linked}
     for member in linked:
@@ -214,20 +223,24 @@ def _validate_bridge_links(db: Session) -> list[dict]:
                     "member_id": member.id,
                 }
             )
-    return issues
+            continue
+        valid_pairs.add(tuple(sorted((member.id, counterpart.id))))
+    return valid_pairs, issues
 
 
-def _same_owner_components(db: Session) -> list[list[Workspace]]:
+def _same_owner_components(
+    db: Session, valid_pairs: set[tuple[str, str]]
+) -> list[list[Workspace]]:
     """Every workspace, grouped into same-owner components.
 
     A standalone workspace forms its own singleton component (rule 1: every
     tree gets a workspace with one section). Edges come from *verified*
     legacy identity links (``verification_basis=legacy_dual_write_access``)
-    between two workspaces sharing an owner — this is a superset-safe source
-    for edges: the alembic conversion that created them already dropped
-    dangling pointers, and an edge that turns out asymmetric still needs to
-    be collapsed once its two members land in one workspace (see
-    ``_collapse_bridges``), so it isn't excluded here on that basis alone.
+    between two workspaces sharing an owner, restricted to ``valid_pairs`` —
+    a link the alembic conversion created from a self/dangling/asymmetric
+    legacy pointer (see ``_classify_legacy_bridge_links``) never represents a
+    genuine mutual tree-in-tree link, so it must not union two otherwise
+    unrelated workspaces into one destructively-consolidated component.
     """
     workspaces = list(db.scalars(select(Workspace)))
     by_id = {w.id: w for w in workspaces}
@@ -251,6 +264,8 @@ def _same_owner_components(db: Session) -> list[list[Workspace]]:
         )
     )
     for link in links:
+        if tuple(sorted((link.member_a_id, link.member_b_id))) not in valid_pairs:
+            continue
         a = by_id.get(link.workspace_a_id)
         b = by_id.get(link.workspace_b_id)
         if a is None or b is None or a.owner_id != b.owner_id:
@@ -414,41 +429,62 @@ def _seed_provenance(
         pass
 
 
-def _migrate_access(
+def _scope_legacy_access(
     db: Session, source: Workspace, survivor: Workspace, section: Section
 ) -> list[dict]:
+    """Convert ``source``'s legacy whole-workspace access into grants/links
+    scoped to ``section`` on ``survivor``, so consolidation cannot change
+    anyone's visibility.
+
+    Applies to the survivor's *own* pre-existing membership/invitations/
+    public link too, not only a non-survivor being absorbed: before
+    consolidation, the survivor *was* a single tree, so a collaborator's
+    ``WorkspaceMembership`` on it only ever covered that one tree's content.
+    Leaving that membership workspace-wide after consolidation would silently
+    hand them every newly-absorbed section for free, and leaving
+    ``Workspace.public_role`` set would do the same for anonymous access —
+    both are access widening the migration must not perform. Each legacy
+    membership is therefore replaced outright by an equivalent section grant
+    (deleting the ``WorkspaceMembership`` row), independently for the
+    survivor and for every other constituent workspace, so a user shared on
+    two of them ends up with two section grants — their original role and
+    restrictions preserved on each — rather than one grant silently winning.
+    """
     changes: list[dict] = []
-    for membership in db.scalars(
-        select(WorkspaceMembership).where(WorkspaceMembership.workspace_id == source.id)
-    ):
-        grant_exists = db.scalar(
-            select(WorkspaceMembership.user_id).where(
-                WorkspaceMembership.workspace_id == survivor.id,
-                WorkspaceMembership.user_id == membership.user_id,
+    for membership in list(
+        db.scalars(
+            select(WorkspaceMembership).where(
+                WorkspaceMembership.workspace_id == source.id
             )
         )
-        if grant_exists is not None:
-            # Already has whole-workspace access on the survivor; a narrower
-            # scoped grant would never win over it (see grants._best) and
-            # widening it further is an explicit owner action, not implicit
-            # migration behaviour.
-            continue
-        changes.append(
-            {
-                "user_id": membership.user_id,
-                "role": membership.role if membership.role in VALID_ROLES else "viewer",
-                "section_id": section.id,
-                "source_workspace_id": source.id,
-            }
+    ):
+        existing = db.scalar(
+            select(WorkspaceSectionGrant.id).where(
+                WorkspaceSectionGrant.workspace_id == survivor.id,
+                WorkspaceSectionGrant.section_id == section.id,
+                WorkspaceSectionGrant.user_id == membership.user_id,
+            )
         )
-        create_section_grant(
-            db,
-            workspace_id=survivor.id,
-            section_id=section.id,
-            user_id=membership.user_id,
-            role=membership.role,
-            restrictions=membership.restrictions,
-        )
+        if existing is None:
+            create_section_grant(
+                db,
+                workspace_id=survivor.id,
+                section_id=section.id,
+                user_id=membership.user_id,
+                role=membership.role,
+                restrictions=membership.restrictions,
+            )
+            changes.append(
+                {
+                    "user_id": membership.user_id,
+                    "role": membership.role
+                    if membership.role in VALID_ROLES
+                    else "viewer",
+                    "section_id": section.id,
+                    "source_workspace_id": source.id,
+                }
+            )
+        db.delete(membership)
 
     for invitation in db.scalars(
         select(WorkspaceInvitation).where(WorkspaceInvitation.workspace_id == source.id)
@@ -481,6 +517,10 @@ def _migrate_access(
                     "source_workspace_id": source.id,
                 }
             )
+        # The workspace-wide toggle is now redundant with (and, if left set,
+        # wider than) the section-scoped link above.
+        source.public_role = None
+        source.public_password_hash = None
     with UnitOfWork(db):
         pass
     return changes
@@ -853,15 +893,55 @@ def run_conversion(db: Session, run: MigrationRun) -> ConversionSummary:
     grant, merge, or report.
     """
     summary = ConversionSummary()
-    summary.invalid_bridge_links = _validate_bridge_links(db)
+    valid_pairs, summary.invalid_bridge_links = _classify_legacy_bridge_links(db)
 
     workspace_target: dict[str, str] = {}
     section_of: dict[str, str] = {}
     mappings_by_owner: dict[str, list[dict]] = defaultdict(list)
     grant_changes_by_owner: dict[str, list[dict]] = defaultdict(list)
 
-    components = _same_owner_components(db)
+    # Hydrate state for any source workspace an earlier, crashed attempt at
+    # this same run already absorbed and deleted: _same_owner_components
+    # below only sees *live* workspace rows, so without this a replay would
+    # rebuild workspace_target/section_of missing that source entirely,
+    # mis-scope a virtual view spanning it as "spans_multiple_workspaces",
+    # and omit it from the report — even though MigrationMapping already
+    # durably recorded where it went. A source still live is left for the
+    # loop below to (re)discover normally, so it isn't double-added here.
+    # grant_changes_by_owner has no equivalent durable record to hydrate
+    # from, so a report written after such a replay may omit that source's
+    # grant-change entries — the WorkspaceSectionGrant rows themselves are
+    # unaffected, this only narrows the report's informational audit list.
+    live_workspace_ids = set(db.scalars(select(Workspace.id)))
+    for mapping in db.scalars(
+        select(MigrationMapping).where(MigrationMapping.run_id == run.id)
+    ):
+        if mapping.source_workspace_id in live_workspace_ids:
+            continue
+        workspace_target[mapping.source_workspace_id] = mapping.target_workspace_id
+        if mapping.target_section_id is not None:
+            section_of[mapping.source_workspace_id] = mapping.target_section_id
+        survivor_ws = db.get(Workspace, mapping.target_workspace_id)
+        if survivor_ws is not None:
+            mappings_by_owner[survivor_ws.owner_id].append(
+                {
+                    "source_workspace_id": mapping.source_workspace_id,
+                    "source_workspace_name": mapping.source_workspace_name,
+                    "target_workspace_id": mapping.target_workspace_id,
+                    "target_section_id": mapping.target_section_id,
+                    "is_survivor": mapping.is_survivor,
+                }
+            )
+
+    components = _same_owner_components(db, valid_pairs)
     summary.components = len(components)
+
+    # Workspaces are only deleted once every component has been fully
+    # absorbed and virtual views converted below: VirtualViewSource.
+    # workspace_id cascades on delete, so deleting a source workspace before
+    # _convert_virtual_views runs would silently truncate — or mis-scope as
+    # single-workspace — any view spanning it.
+    pending_deletes: list[Workspace] = []
 
     for workspaces in components:
         survivor, tie_break = _select_survivor(db, workspaces)
@@ -895,10 +975,17 @@ def run_conversion(db: Session, run: MigrationRun) -> ConversionSummary:
                 mapping.target_section_id = section.id
                 with UnitOfWork(db):
                     pass
+
+            # Scoping legacy access applies to the survivor's own
+            # pre-existing membership/invitations/public link too — see
+            # _scope_legacy_access's docstring for why leaving those
+            # workspace-wide would widen access to the newly-absorbed
+            # sections.
+            grant_changes = _scope_legacy_access(db, source, survivor, section)
+            grant_changes_by_owner[owner_id].extend(grant_changes)
+
             if not is_survivor:
                 summary.sections_created += 1
-                grant_changes = _migrate_access(db, source, survivor, section)
-                grant_changes_by_owner[owner_id].extend(grant_changes)
 
                 to_collapse = _prepare_bridge_collapses(db, source.id, survivor.id)
                 _repoint_content(db, source.id, survivor.id)
@@ -909,7 +996,7 @@ def run_conversion(db: Session, run: MigrationRun) -> ConversionSummary:
                     elif outcome in ("conflict", "cycle"):
                         summary.bridge_pairs_conflicted += 1
 
-                db.delete(source)
+                pending_deletes.append(source)
                 with UnitOfWork(db):
                     pass
                 summary.workspaces_absorbed += 1
@@ -929,6 +1016,12 @@ def run_conversion(db: Session, run: MigrationRun) -> ConversionSummary:
     )
     summary.saved_views_converted = len(converted)
     summary.virtual_views_dropped = len(dropped)
+
+    for workspace in pending_deletes:
+        db.delete(workspace)
+    if pending_deletes:
+        with UnitOfWork(db):
+            pass
 
     validation_summary = {
         "invalid_bridge_links": summary.invalid_bridge_links,

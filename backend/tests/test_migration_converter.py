@@ -8,9 +8,14 @@ from app.models import (
     MigrationMapping,
     MigrationReport,
     MigrationRun,
+    SavedView,
+    SavedViewSection,
     Section,
     SectionMember,
+    VirtualView,
+    VirtualViewSource,
     Workspace,
+    WorkspaceMembership,
     WorkspaceSectionGrant,
 )
 from app.models.identity_link import IdentityLink, IdentityLinkStatus
@@ -214,3 +219,186 @@ def test_run_conversion_is_idempotent_on_replay(db, owner):
     )
     assert db.scalar(select(func.count()).select_from(Member)) == member_count_1
     assert db.scalar(select(func.count()).select_from(MigrationReport)) == report_count_1
+
+
+def test_asymmetric_legacy_pointer_does_not_merge_unrelated_workspaces(db, owner):
+    tree_a = make_tree(db, owner, name="A")
+    tree_b = make_tree(db, owner, name="B")
+    member_a = add_member(db, tree_a, "m-a")
+    member_b = add_member(db, tree_b, "m-b")
+
+    # One-way pointer: a points at b, b never points back.
+    member_a.linked_workspace_id = tree_b.id
+    member_a.linked_member_id = member_b.id
+    db.commit()
+    # Simulates the alembic backfill, which turns even a one-way pointer
+    # into an identity link (it only requires one side to resolve).
+    _identity_link(db, member_a, member_b)
+
+    run = _make_run(db)
+    summary = run_conversion(db, run)
+
+    assert summary.components == 2
+    assert db.get(Workspace, tree_a.id) is not None
+    assert db.get(Workspace, tree_b.id) is not None
+    assert any(issue["reason"] == "asymmetric" for issue in summary.invalid_bridge_links)
+
+
+def test_survivors_own_membership_is_scoped_to_its_own_section_only(db, owner):
+    big = make_tree(db, owner, name="Big")
+    small = make_tree(db, owner, name="Small")
+    add_member(db, big, "big0")
+    add_member(db, small, "small0")
+    bridge_big = add_member(db, big, "bridge-big")
+    bridge_small = add_member(db, small, "bridge-small")
+    _wire_bridge(db, bridge_big, bridge_small)
+    _identity_link(db, bridge_big, bridge_small)
+
+    # Shared only on the survivor's own original tree, never on "Small".
+    collaborator = make_user(db, "collab")
+    share(db, big, collaborator, role="editor")
+
+    run = _make_run(db)
+    run_conversion(db, run)
+
+    big_section = db.scalar(
+        select(Section).where(Section.workspace_id == big.id, Section.name == "Big")
+    )
+    small_section = db.scalar(
+        select(Section).where(Section.workspace_id == big.id, Section.name == "Small")
+    )
+
+    # The old blanket membership is gone...
+    assert db.get(WorkspaceMembership, (big.id, collaborator.id)) is None
+    # ...replaced by a grant scoped to Big's own section only.
+    grant_big = db.scalar(
+        select(WorkspaceSectionGrant).where(
+            WorkspaceSectionGrant.workspace_id == big.id,
+            WorkspaceSectionGrant.section_id == big_section.id,
+            WorkspaceSectionGrant.user_id == collaborator.id,
+        )
+    )
+    assert grant_big is not None
+    assert grant_big.role == "editor"
+
+    grant_small = db.scalar(
+        select(WorkspaceSectionGrant).where(
+            WorkspaceSectionGrant.workspace_id == big.id,
+            WorkspaceSectionGrant.section_id == small_section.id,
+            WorkspaceSectionGrant.user_id == collaborator.id,
+        )
+    )
+    assert grant_small is None
+
+
+def test_user_shared_on_both_constituent_trees_gets_two_scoped_grants(db, owner):
+    big = make_tree(db, owner, name="Big")
+    small = make_tree(db, owner, name="Small")
+    add_member(db, big, "big0")
+    add_member(db, small, "small0")
+    bridge_big = add_member(db, big, "bridge-big")
+    bridge_small = add_member(db, small, "bridge-small")
+    _wire_bridge(db, bridge_big, bridge_small)
+    _identity_link(db, bridge_big, bridge_small)
+
+    collaborator = make_user(db, "collab")
+    share(db, big, collaborator, role="viewer")
+    share(db, small, collaborator, role="editor")
+
+    run = _make_run(db)
+    run_conversion(db, run)
+
+    big_section = db.scalar(
+        select(Section).where(Section.workspace_id == big.id, Section.name == "Big")
+    )
+    small_section = db.scalar(
+        select(Section).where(Section.workspace_id == big.id, Section.name == "Small")
+    )
+    grant_big = db.scalar(
+        select(WorkspaceSectionGrant).where(
+            WorkspaceSectionGrant.workspace_id == big.id,
+            WorkspaceSectionGrant.section_id == big_section.id,
+            WorkspaceSectionGrant.user_id == collaborator.id,
+        )
+    )
+    grant_small = db.scalar(
+        select(WorkspaceSectionGrant).where(
+            WorkspaceSectionGrant.workspace_id == big.id,
+            WorkspaceSectionGrant.section_id == small_section.id,
+            WorkspaceSectionGrant.user_id == collaborator.id,
+        )
+    )
+    assert grant_big is not None and grant_big.role == "viewer"
+    assert grant_small is not None and grant_small.role == "editor"
+
+
+def test_virtual_view_across_a_consolidated_pair_keeps_both_sections(db, owner):
+    big = make_tree(db, owner, name="Big")
+    small = make_tree(db, owner, name="Small")
+    add_member(db, big, "big0")
+    add_member(db, small, "small0")
+    bridge_big = add_member(db, big, "bridge-big")
+    bridge_small = add_member(db, small, "bridge-small")
+    _wire_bridge(db, bridge_big, bridge_small)
+    _identity_link(db, bridge_big, bridge_small)
+
+    view = VirtualView(name="Combined", owner_id=owner.id)
+    db.add(view)
+    db.flush()
+    db.add(VirtualViewSource(view_id=view.id, position=0, workspace_id=big.id))
+    db.add(VirtualViewSource(view_id=view.id, position=1, workspace_id=small.id))
+    db.commit()
+
+    run = _make_run(db)
+    summary = run_conversion(db, run)
+
+    assert summary.virtual_views_dropped == 0
+    assert summary.saved_views_converted == 1
+    saved_view = db.scalar(select(SavedView).where(SavedView.name == "Combined"))
+    assert saved_view is not None
+    assert saved_view.workspace_id == big.id
+    section_ids = set(
+        db.scalars(
+            select(SavedViewSection.section_id).where(
+                SavedViewSection.saved_view_id == saved_view.id
+            )
+        )
+    )
+    # Both constituent trees' sections must survive — deleting "Small" before
+    # the view is converted would cascade its VirtualViewSource row away and
+    # silently drop it here.
+    assert len(section_ids) == 2
+
+
+def test_replay_hydrates_the_report_after_an_earlier_partial_crash(db, owner):
+    survivor = make_tree(db, owner, name="Survivor")
+    add_member(db, survivor, "s0")
+    run = _make_run(db)
+
+    # Simulate an earlier attempt that already absorbed "Ghost" into
+    # survivor and deleted it, but crashed before the report was written.
+    ghost_id = "ghost-workspace"
+    db.add(Workspace(id=ghost_id, name="Ghost", owner_id=owner.id))
+    db.commit()
+    db.add(
+        MigrationMapping(
+            run_id=run.id,
+            source_workspace_id=ghost_id,
+            source_workspace_name="Ghost",
+            target_workspace_id=survivor.id,
+            is_survivor=False,
+        )
+    )
+    db.commit()
+    db.delete(db.get(Workspace, ghost_id))
+    db.commit()
+
+    run_conversion(db, run)
+
+    report = db.scalar(
+        select(MigrationReport).where(
+            MigrationReport.run_id == run.id, MigrationReport.owner_user_id == owner.id
+        )
+    )
+    assert report is not None
+    assert any(m["source_workspace_id"] == ghost_id for m in report.workspace_mappings)
