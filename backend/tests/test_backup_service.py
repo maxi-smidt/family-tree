@@ -8,6 +8,7 @@ import pytest
 from sqlalchemy import delete, func, inspect, select
 
 from app.core.config import settings
+from app.core.exceptions import ConflictError
 from app.db.base import Base
 from app.models import (
     AppSetting,
@@ -19,6 +20,7 @@ from app.models import (
     GeocodeCache,
     LegalDocumentVersion,
     Member,
+    MigrationRun,
     QualityIssueDismissal,
     VirtualView,
     VirtualViewMemberMatch,
@@ -28,6 +30,7 @@ from app.models import (
     WorkspaceInvitation,
     WorkspaceUserState,
 )
+from app.models.migration import MigrationStatus
 from app.services.crypto_export import encrypt_bundle
 from app.services.system.backups import backup_service, streaming_archive
 from tests.conftest import add_member, make_tree, make_user
@@ -1106,3 +1109,79 @@ def test_deferred_member_links_are_flushed_and_restored_correctly(
     assert len(flushed_mappings) == 2
     assert db.get(Member, "member-1").linked_member_id == "member-2"
     assert db.get(Member, "member-2").linked_member_id == "member-1"
+
+
+# --- pre-migration backup retention (#994) ----------------------------------
+
+
+def _pre_migration_run(db, backup_id: str, status: str = MigrationStatus.RUNNING):
+    run = MigrationRun(
+        source_version="1.10.2",
+        target_version="2.0.0",
+        status=status,
+        backup_id=backup_id,
+    )
+    db.add(run)
+    db.commit()
+    return run
+
+
+def test_prune_backups_skips_unfinalized_pre_migration_backup(
+    db, tmp_path, monkeypatch
+):
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    monkeypatch.setattr(backup_service, "BACKUP_DIR", tmp_path / "backups")
+
+    pre_migration = backup_service.create_backup(db, trigger="pre_migration")
+    _pre_migration_run(db, pre_migration.id)
+    for _ in range(3):
+        backup_service.create_backup(db, trigger="scheduled")
+
+    backup_service.prune_backups(db, keep=1)
+
+    remaining_ids = {r.id for r in backup_service.list_backups(db)}
+    assert pre_migration.id in remaining_ids
+    assert len(remaining_ids) == 2  # the pre-migration backup + the newest scheduled one
+
+
+def test_prune_backups_removes_pre_migration_backup_once_finalized(
+    db, tmp_path, monkeypatch
+):
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    monkeypatch.setattr(backup_service, "BACKUP_DIR", tmp_path / "backups")
+
+    pre_migration = backup_service.create_backup(db, trigger="pre_migration")
+    _pre_migration_run(db, pre_migration.id, status=MigrationStatus.FINALIZED)
+    backup_service.create_backup(db, trigger="scheduled")
+
+    backup_service.prune_backups(db, keep=1)
+
+    remaining_ids = {r.id for r in backup_service.list_backups(db)}
+    assert pre_migration.id not in remaining_ids
+
+
+def test_delete_backup_rejects_unfinalized_pre_migration_backup(
+    db, tmp_path, monkeypatch
+):
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    monkeypatch.setattr(backup_service, "BACKUP_DIR", tmp_path / "backups")
+
+    pre_migration = backup_service.create_backup(db, trigger="pre_migration")
+    _pre_migration_run(db, pre_migration.id)
+
+    with pytest.raises(ConflictError):
+        backup_service.delete_backup(db, pre_migration)
+
+
+def test_delete_backup_allows_pre_migration_backup_once_finalized(
+    db, tmp_path, monkeypatch
+):
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    monkeypatch.setattr(backup_service, "BACKUP_DIR", tmp_path / "backups")
+
+    pre_migration = backup_service.create_backup(db, trigger="pre_migration")
+    _pre_migration_run(db, pre_migration.id, status=MigrationStatus.FINALIZED)
+
+    backup_service.delete_backup(db, pre_migration)
+
+    assert db.get(type(pre_migration), pre_migration.id) is None

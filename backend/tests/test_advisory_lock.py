@@ -3,6 +3,7 @@ background-loop wrappers."""
 
 import contextlib
 
+import pytest
 from sqlalchemy import create_engine
 
 from app.db.advisory_lock import single_leader
@@ -124,3 +125,76 @@ def test_backup_check_runs_only_when_leader(monkeypatch):
     _patch_leader(monkeypatch, bs, is_leader=True)
     bs._check_if_leader()
     assert calls == [True]
+
+
+# --- exclusive_lock (#994) ---------------------------------------------------
+
+
+class _FakeBlockingConn:
+    def __init__(self) -> None:
+        self.locked = False
+        self.unlocked = False
+        self.closed = False
+
+    def execute(self, statement, params=None):
+        sql = str(statement)
+        if "pg_advisory_lock" in sql and "unlock" not in sql:
+            self.locked = True
+            return _FakeResult(None)
+        if "pg_advisory_unlock" in sql:
+            self.unlocked = True
+            return _FakeResult(True)
+        return _FakeResult(None)
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class _FakeBlockingEngine:
+    def __init__(self) -> None:
+        self.conn = _FakeBlockingConn()
+
+    def connect(self):
+        return self.conn
+
+
+def test_exclusive_lock_acquires_and_releases():
+    from app.db.advisory_lock import exclusive_lock
+
+    engine = _FakeBlockingEngine()
+    with exclusive_lock(1, engine=engine):
+        assert engine.conn.locked is True
+    assert engine.conn.unlocked is True
+    assert engine.conn.closed is True
+
+
+def test_exclusive_lock_raises_on_connect_failure():
+    from app.db.advisory_lock import AdvisoryLockUnavailableError, exclusive_lock
+
+    class _BoomEngine:
+        def connect(self):
+            raise RuntimeError("database unreachable")
+
+    with pytest.raises(AdvisoryLockUnavailableError):
+        with exclusive_lock(1, engine=_BoomEngine()):
+            pytest.fail("body must not run without the lock")
+
+
+def test_exclusive_lock_raises_without_advisory_support():
+    from app.db.advisory_lock import AdvisoryLockUnavailableError, exclusive_lock
+
+    # SQLite has no pg_advisory_lock -> fail closed rather than degrade.
+    engine = create_engine("sqlite://")
+    with pytest.raises(AdvisoryLockUnavailableError):
+        with exclusive_lock(123, engine=engine):
+            pytest.fail("body must not run without the lock")
+
+
+def test_exclusive_lock_releases_on_body_exception():
+    from app.db.advisory_lock import exclusive_lock
+
+    engine = _FakeBlockingEngine()
+    with contextlib.suppress(ValueError), exclusive_lock(1, engine=engine):
+        raise ValueError("boom")
+    assert engine.conn.unlocked is True
+    assert engine.conn.closed is True

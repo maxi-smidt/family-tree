@@ -252,6 +252,60 @@ docker compose logs backend --tail 100   # the Alembic error is at the top of th
 > Tip: avoid `latest` drift in long-lived deployments by pinning explicit
 > release tags and bumping `APP_IMAGE_TAG` deliberately.
 
+### Upgrading from v1.x to v2.0.0
+
+The v2.0.0 cutover consolidates every user's separate trees into shared
+workspaces with sections — a one-time, in-place data conversion, not just a
+schema migration. The **general advice above does not apply to it**:
+pinning back to the v1 image after this conversion has started will not
+work, because the v1 application code cannot read the v2 schema.
+
+On first startup against a v1.x database, the backend (see
+`app.services.migration.orchestrator`):
+
+1. Runs `alembic upgrade head` as usual — every v2 schema change is additive
+   or a rename, so this step alone is safe and does not lose data.
+2. Takes and self-verifies an automatic, encrypted backup of the full
+   pre-conversion instance (database + media), recorded as a `pre_migration`
+   backup in Admin → Backups. This backup is exempt from scheduled pruning
+   and cannot be deleted until the migration is finalized.
+3. Converts the data: merges each user's trees into workspaces/sections,
+   relocates media, and writes a per-owner report.
+4. Only then does the backend start serving requests.
+
+A container running `WORKERS > 1`, or a second replica against the same
+database, blocks on the same step instead of running it twice — you will see
+one `pre_migration` backup and one conversion, not several.
+
+**If the conversion fails**, the backend container restart-loops (same as
+any other failed startup) and the run's status is recorded on its
+`migration_runs` row:
+
+- `recoverable` — the backend automatically resumes the conversion from its
+  last completed phase on every restart. Check `docker compose logs backend`
+  for what's blocking it (commonly: disk space); once resolved, just restart
+  the stack.
+- `failed` — the backend refuses to start until an operator intervenes,
+  rather than guess at resuming or reconverting. Restore the `pre_migration`
+  backup created in step 2 above into a **blank** database and media volume
+  running the **last v1.x image** (the version you upgraded from), using the
+  restore procedure in [Backup & restore](#backup--restore):
+
+  ```bash
+  # 1. Stop the stack; provision a blank database and an empty ${DATA_PATH}.
+  # 2. Pin APP_IMAGE_TAG back to the last v1.x release in .env, then:
+  docker compose -f docker-compose.prod.yml up -d db   # or your external Postgres
+  cd backend
+  uv run python -m app.services.system.backups.restore_backup /secure/pre_migration_backup.ftbackup
+  # 3. Start the v1.x stack normally and confirm the instance looks right,
+  #    then investigate the conversion failure before upgrading again.
+  ```
+
+  Alembic's `downgrade` is not a supported path here — v1 application code
+  cannot run against a partially- or fully-converted v2 schema either way, so
+  restoring the pinned pre-conversion snapshot into a blank instance is the
+  only supported rollback.
+
 ---
 
 ## HTTPS / reverse proxy
