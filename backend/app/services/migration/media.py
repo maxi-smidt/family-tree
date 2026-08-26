@@ -68,9 +68,6 @@ class MediaRelocationError(RuntimeError):
 class MediaRelocationSummary:
     workspaces_relocated: int = 0
     files_moved: int = 0
-    files_deduped: int = 0
-    files_renamed: int = 0
-    bytes_moved: int = 0
     reports_updated: int = 0
 
 
@@ -99,6 +96,51 @@ def _mark_relocated(
             target_id=target_workspace_id,
         )
     )
+
+
+# ---------------------------------------------------------------------------
+# Crash-safe journaling of in-progress relocations
+#
+# A file is gone from its source directory the instant relocate_workspace_media
+# moves it — there is no re-scanning our way back to its old URL afterward.
+# So the run's own MigrationIdempotencyKey (written only once a source is
+# fully done) is not enough on its own: a crash after some files moved but
+# before that key commits would otherwise leave their DB references pointing
+# at bytes that no longer exist there, with nothing left to notice or retry.
+# ``MigrationRun.checkpoint`` — explicitly documented as phase-private resume
+# state — is used as a durable, per-file journal instead: relocate_workspace_
+# media's on_file_relocated callback commits each mapping the moment that one
+# file lands, so replaying after any crash always has the complete picture
+# of what already moved, no matter how far the interrupted attempt got.
+# ---------------------------------------------------------------------------
+
+
+def _pending_map(run: MigrationRun, source_workspace_id: str) -> dict[str, str]:
+    pending = (run.checkpoint or {}).get("media_pending", {})
+    return dict(pending.get(source_workspace_id, {}))
+
+
+def _journal_callback(db: Session, run: MigrationRun, source_workspace_id: str):
+    def _on_file_relocated(old_url: str, new_url: str) -> None:
+        checkpoint = dict(run.checkpoint or {})
+        pending = dict(checkpoint.get("media_pending", {}))
+        source_pending = dict(pending.get(source_workspace_id, {}))
+        source_pending[old_url] = new_url
+        pending[source_workspace_id] = source_pending
+        checkpoint["media_pending"] = pending
+        run.checkpoint = checkpoint
+        with UnitOfWork(db):
+            pass
+
+    return _on_file_relocated
+
+
+def _clear_pending(run: MigrationRun, source_workspace_id: str) -> None:
+    checkpoint = dict(run.checkpoint or {})
+    pending = dict(checkpoint.get("media_pending", {}))
+    pending.pop(source_workspace_id, None)
+    checkpoint["media_pending"] = pending
+    run.checkpoint = checkpoint
 
 
 # ---------------------------------------------------------------------------
@@ -263,10 +305,16 @@ def run_media_relocation(db: Session, run: MigrationRun) -> MediaRelocationSumma
     """Run (or safely resume) the media-relocation phase for ``run``.
 
     Every source workspace's relocation is independently idempotency-keyed,
-    so replaying this after a crash only finishes the sources an earlier
-    attempt did not reach; a source it already finished is skipped outright,
-    and a source it left partially moved converges to the same result via
-    ``relocate_workspace_media``'s own name/hash-based resumability.
+    so replaying this after a crash only redoes the sources an earlier
+    attempt did not finish; ``relocate_workspace_media`` is always called
+    again for one of those (never skipped outright), since files it left
+    behind in the source directory still need moving — files it already
+    journaled (see ``_journal_callback``) are simply absent from that
+    directory by then and contribute nothing new. Owner usage is
+    recomputed for every workspace this run ever absorbed media into, not
+    only ones touched on this particular call, so a replay that finds
+    every source already done still leaves the report's recorded usage
+    correct rather than stale or missing.
     """
     summary = MediaRelocationSummary()
     owners_touched: set[str] = set()
@@ -281,35 +329,34 @@ def run_media_relocation(db: Session, run: MigrationRun) -> MediaRelocationSumma
     for mapping in mappings:
         source_id = mapping.source_workspace_id
         target_id = mapping.target_workspace_id
-        if _already_relocated(db, run.id, source_id):
-            continue
-
         target = db.get(Workspace, target_id)
         if target is None:
             continue  # defensive: the survivor must exist by construction
-
-        relocation = relocate_workspace_media(source_id, target_id)
-        _rewrite_url_columns(db, target_id, relocation.url_map)
-        _rewrite_activity_snapshots(db, target_id, relocation.url_map)
-        _rewrite_conflict_media(db, run.id, target_id, relocation.url_map)
-        _verify_url_map(relocation.url_map)
-
-        stats = {
-            "files_moved": relocation.files_moved,
-            "files_deduped": relocation.files_deduped,
-            "files_renamed": relocation.files_renamed,
-            "bytes_moved": relocation.bytes_moved,
-            "verified": True,
-        }
         owners_touched.add(target.owner_id)
+
+        if _already_relocated(db, run.id, source_id):
+            continue
+
+        relocate_workspace_media(
+            source_id, target_id, on_file_relocated=_journal_callback(db, run, source_id)
+        )
+        # The journal (kept current by the callback above) is the complete
+        # picture regardless of how much of it this call itself just did —
+        # it already carries forward anything a prior crashed attempt moved.
+        url_map = _pending_map(run, source_id)
+
+        _rewrite_url_columns(db, target_id, url_map)
+        _rewrite_activity_snapshots(db, target_id, url_map)
+        _rewrite_conflict_media(db, run.id, target_id, url_map)
+        _verify_url_map(url_map)
+
+        stats = {"files_moved": len(url_map), "verified": True}
         _update_report(db, run.id, target.owner_id, source_id, stats)
         _mark_relocated(db, run.id, source_id, target_id)
+        _clear_pending(run, source_id)
 
         summary.workspaces_relocated += 1
-        summary.files_moved += relocation.files_moved
-        summary.files_deduped += relocation.files_deduped
-        summary.files_renamed += relocation.files_renamed
-        summary.bytes_moved += relocation.bytes_moved
+        summary.files_moved += len(url_map)
         with UnitOfWork(db):
             pass
 

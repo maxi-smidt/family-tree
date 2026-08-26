@@ -2,6 +2,7 @@
 
 import json
 
+import pytest
 from sqlalchemy import select
 
 from app.core.config import settings
@@ -94,7 +95,11 @@ def test_media_relocation_rewrites_member_gallery_and_document_urls(
 
     now = utcnow_iso()
     doc_url = _write(media_root, small.id, "doc.pdf", b"document-bytes")
-    db.add(Document(id="doc1", workspace_id=small.id, title="D", created_at=now, updated_at=now))
+    db.add(
+        Document(
+            id="doc1", workspace_id=small.id, title="D", created_at=now, updated_at=now
+        )
+    )
     db.add(
         DocumentFile(
             id="df1",
@@ -204,7 +209,9 @@ def test_media_relocation_rewrites_activity_log_trashed_media_snapshot(
     )
 
 
-def test_media_relocation_rewrites_bridge_conflict_media(db, owner, tmp_path, monkeypatch):
+def test_media_relocation_rewrites_bridge_conflict_media(
+    db, owner, tmp_path, monkeypatch
+):
     monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
     media_root = settings.media_root
 
@@ -290,7 +297,8 @@ def test_media_relocation_populates_report_media_verification(
 
     mapping = db.scalar(
         select(MigrationMapping).where(
-            MigrationMapping.run_id == run.id, MigrationMapping.source_workspace_id == small.id
+            MigrationMapping.run_id == run.id,
+            MigrationMapping.source_workspace_id == small.id,
         )
     )
     report = db.scalar(
@@ -303,3 +311,118 @@ def test_media_relocation_populates_report_media_verification(
     assert report.media_verification[small.id]["verified"] is True
     assert "owner_usage_after_bytes" in report.media_verification
     assert mapping.target_workspace_id == big.id
+
+
+def test_media_relocation_recovers_a_crash_between_the_move_and_the_commit(
+    db, owner, tmp_path, monkeypatch
+):
+    """A crash right after the filesystem move but before this source's
+    per-source transaction commits must not strand a rewritten reference
+    against bytes that already live somewhere else.
+
+    ``relocate_workspace_media`` durably journals each file's old -> new URL
+    the instant it moves it (see ``_journal_callback``), independently of
+    whatever this source's own commit does — so replaying after exactly this
+    crash must still find and apply that mapping instead of treating the
+    source as done with stale references, or re-losing track of it.
+    """
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    media_root = settings.media_root
+
+    big = make_tree(db, owner, name="Big")
+    small = make_tree(db, owner, name="Small")
+    add_member(db, big, "big0")
+    add_member(db, big, "big1")
+    photo_url = _write(media_root, small.id, "p.webp", b"p-bytes")
+    add_member(db, small, "small0", image_data=photo_url)
+    bridge_big = add_member(db, big, "bridge-big")
+    bridge_small = add_member(db, small, "bridge-small")
+    _wire_bridge(db, bridge_big, bridge_small)
+    _identity_link(db, bridge_big, bridge_small)
+
+    run = _make_run(db)
+    run_conversion(db, run)
+
+    import app.services.migration.media as media_module
+
+    real_mark_relocated = media_module._mark_relocated
+    calls = {"n": 0}
+
+    def _mark_relocated_that_crashes_once(*args, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("simulated crash after the filesystem move")
+        return real_mark_relocated(*args, **kwargs)
+
+    monkeypatch.setattr(
+        media_module, "_mark_relocated", _mark_relocated_that_crashes_once
+    )
+
+    with pytest.raises(RuntimeError, match="simulated crash"):
+        run_media_relocation(db, run)
+    db.rollback()
+    run = db.get(MigrationRun, run.id)
+
+    # The bytes already moved and were journaled before the simulated
+    # crash — nothing is left stranded under the old workspace id.
+    assert not (media_root / small.id).exists()
+    assert (run.checkpoint or {}).get("media_pending", {}).get(small.id)
+
+    summary = run_media_relocation(db, run)
+    assert summary.workspaces_relocated == 1
+
+    member = db.get(Member, "small0")
+    assert member.image_data.startswith(f"{MEDIA_URL_PREFIX}/{big.id}/")
+    rel = member.image_data[len(MEDIA_URL_PREFIX) + 1 :]
+    assert (media_root / rel).read_bytes() == b"p-bytes"
+
+    # The journal is cleared once the source is fully, durably done.
+    run = db.get(MigrationRun, run.id)
+    assert not (run.checkpoint or {}).get("media_pending", {}).get(small.id)
+
+
+def test_media_relocation_recomputes_owner_usage_even_when_already_done(
+    db, owner, tmp_path, monkeypatch
+):
+    """Owner usage must be (re)computed on every call, not only for sources
+    this particular call actually relocated — otherwise a crash strictly
+    between a source's own commit and the final usage-recompute commit would
+    leave ``owner_usage_after_bytes`` permanently missing once every source
+    is already marked done on the next replay."""
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    media_root = settings.media_root
+
+    big = make_tree(db, owner, name="Big")
+    small = make_tree(db, owner, name="Small")
+    add_member(db, big, "big0")
+    add_member(db, big, "big1")
+    photo_url = _write(media_root, small.id, "p.webp", b"p-bytes")
+    add_member(db, small, "small0", image_data=photo_url)
+    bridge_big = add_member(db, big, "bridge-big")
+    bridge_small = add_member(db, small, "bridge-small")
+    _wire_bridge(db, bridge_big, bridge_small)
+    _identity_link(db, bridge_big, bridge_small)
+
+    run = _make_run(db)
+    run_conversion(db, run)
+    run_media_relocation(db, run)  # first pass: does the real relocation work
+
+    report = db.scalar(
+        select(MigrationReport).where(
+            MigrationReport.run_id == run.id, MigrationReport.owner_user_id == owner.id
+        )
+    )
+    # Simulate a crash strictly between the per-source commit (already
+    # durable) and the final usage-recompute commit, which never landed.
+    report.media_verification = {
+        k: v
+        for k, v in report.media_verification.items()
+        if k != "owner_usage_after_bytes"
+    }
+    db.commit()
+
+    summary = run_media_relocation(db, run)
+    assert summary.workspaces_relocated == 0  # every source was already done
+
+    db.refresh(report)
+    assert "owner_usage_after_bytes" in report.media_verification

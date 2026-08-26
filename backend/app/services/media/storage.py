@@ -644,7 +644,10 @@ def _relocate_original(src: Path, dest_dir: Path, new_stem: str) -> None:
 
 
 def relocate_workspace_media(
-    source_workspace_id: str, target_workspace_id: str
+    source_workspace_id: str,
+    target_workspace_id: str,
+    *,
+    on_file_relocated: Callable[[str, str], None] | None = None,
 ) -> MediaRelocationReport:
     """Physically merge *source_workspace_id*'s media directory into
     *target_workspace_id*'s.
@@ -656,6 +659,13 @@ def relocate_workspace_media(
     no-op returning an empty report) to call again for a source directory
     that was already fully relocated or never existed, and safe to call
     partway through a prior crashed attempt — see ``_relocate_one``.
+
+    Each individual file is gone from the source the instant it is moved, so
+    a caller that needs to survive a crash *between* two files (not just
+    before or after the whole directory) must durably record a file's
+    old-url -> new-url mapping before the next one moves — ``on_file_relocated``,
+    when given, is called with exactly that pair immediately after each
+    primary (non-``originals/``) file lands at its destination.
     """
     report = MediaRelocationReport()
     if source_workspace_id == target_workspace_id:
@@ -679,8 +689,10 @@ def relocate_workspace_media(
         if _is_upload_temp(src.name):
             src.unlink(missing_ok=True)
             return
+        old_url = f"{url_prefix}/{src.name}"
         final_name, deduped, size = _relocate_one(src, dest_files_dir)
-        report.url_map[f"{url_prefix}/{src.name}"] = f"{new_url_prefix}/{final_name}"
+        new_url = f"{new_url_prefix}/{final_name}"
+        report.url_map[old_url] = new_url
         report.files_moved += 1
         if deduped:
             report.files_deduped += 1
@@ -691,6 +703,8 @@ def relocate_workspace_media(
         new_stem = Path(final_name).stem
         for orig in originals:
             _relocate_original(orig, dest_originals_dir, new_stem)
+        if on_file_relocated is not None:
+            on_file_relocated(old_url, new_url)
 
     for entry in sorted(source_dir.iterdir(), key=lambda p: p.name):
         if entry.is_file():
