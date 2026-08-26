@@ -1,5 +1,6 @@
 """Tests for public read-only tree mode (issue #165)."""
 
+from app.models.migration import MigrationMapping, MigrationRun
 from tests.conftest import API, add_member, auth, make_tree, make_user
 
 
@@ -393,3 +394,32 @@ def test_public_member_payload_excludes_private_detail(client, db):
     )
     assert owner_detail.status_code == 200
     assert owner_detail.json()["additionalData"] == "private notes"
+
+
+# --- legacy id resolution (#1012) -------------------------------------------
+
+
+def test_resolve_legacy_id_route_returns_the_mapped_workspace(client, db):
+    run = MigrationRun(source_version="1.10.2", target_version="2.0.0")
+    db.add(run)
+    db.commit()
+    db.add(
+        MigrationMapping(
+            run_id=run.id,
+            source_workspace_id="old-workspace",
+            source_workspace_name="Old",
+            target_workspace_id="new-workspace",
+            is_survivor=False,
+        )
+    )
+    db.commit()
+
+    resp = client.get(f"{API}/workspaces/old-workspace/resolve-legacy-id")
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["target_workspace_id"] == "new-workspace"
+
+
+def test_resolve_legacy_id_route_is_unauthenticated_and_null_for_unknown_ids(client):
+    resp = client.get(f"{API}/workspaces/never-migrated/resolve-legacy-id")
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["target_workspace_id"] is None

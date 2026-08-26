@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import ACCOUNT_PENDING_DELETION, get_current_user
 from app.core.config import settings
 from app.core.rate_limit import login_rate_limiter
+from app.core.schema_epoch import SCHEMA_EPOCH
 from app.core.security import (
     consume_recovery_code,
     create_access_token,
@@ -98,6 +99,7 @@ def auth_config(db: Session = Depends(get_db)):
         allow_self_registration=get_bool_setting(db, "allow_self_registration", False),
         authentik_login_url=login_url,
         media_limits=get_media_limits(db),
+        schema_epoch=SCHEMA_EPOCH,
     )
 
 

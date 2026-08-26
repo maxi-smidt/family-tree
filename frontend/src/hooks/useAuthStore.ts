@@ -2,7 +2,9 @@ import { create } from "zustand";
 import {
   ApiError,
   api,
+  FRONTEND_SCHEMA_EPOCH,
   getAuthToken,
+  onSchemaEpochMismatch,
   onUnauthorized,
   setAuthToken,
 } from "@/services/api";
@@ -13,7 +15,11 @@ import { AuthConfig, LoginResponse, TokenResponse, User } from "@/types/user";
 import { decodeJwtExp } from "@/lib/utils";
 
 type AuthStatus =
-  "loading" | "authenticated" | "unauthenticated" | "unreachable";
+  | "loading"
+  | "authenticated"
+  | "unauthenticated"
+  | "unreachable"
+  | "upgrade-required";
 type AccountOperation =
   | "idle"
   | "setting-up-two-factor"
@@ -227,6 +233,18 @@ export const useAuthStore = create<AuthState>((set) => ({
         AUTH_CHECK_TIMEOUT_MS,
       );
       set({ config });
+      // A backend that reports a different epoch than this build never
+      // shares its wire contract — stop before /auth/me instead of signing
+      // the user in against routes/shapes it doesn't have. A backend that
+      // omits the field entirely (predates #1012) is treated as unknown,
+      // not a mismatch.
+      if (
+        config.schema_epoch !== undefined &&
+        config.schema_epoch !== FRONTEND_SCHEMA_EPOCH
+      ) {
+        set({ status: "upgrade-required" });
+        return;
+      }
     } catch {
       // backend unreachable; keep going so the login screen can still render
     }
@@ -455,4 +473,10 @@ onUnauthorized(() => {
   if (status === "authenticated" && !reloginRequired) {
     useAuthStore.setState({ reloginRequired: true });
   }
+});
+
+// A mid-session backend upgrade/rollback shows up as this instead of the
+// init()-time check above — same terminal, non-retrying state either way.
+onSchemaEpochMismatch(() => {
+  useAuthStore.setState({ status: "upgrade-required" });
 });

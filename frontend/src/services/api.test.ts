@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api, ApiError, onUnauthorized, PUBLIC_PASSWORD_REQUIRED } from "./api";
+import {
+  api,
+  ApiError,
+  FRONTEND_SCHEMA_EPOCH,
+  onSchemaEpochMismatch,
+  onUnauthorized,
+  PUBLIC_PASSWORD_REQUIRED,
+} from "./api";
 
 describe("api — postForm timeout", () => {
   const originalFetch = globalThis.fetch;
@@ -156,5 +163,60 @@ describe("api — 401 classification", () => {
 
     expect(error).toBeInstanceOf(ApiError);
     expect(unauthorizedHandler).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("api — schema epoch", () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it("sends this build's schema epoch on every request", async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(new Response(JSON.stringify({}), { status: 200 })),
+    ) as unknown as typeof fetch;
+    globalThis.fetch = fetchMock;
+
+    await api.get("/auth/config");
+
+    const [, init] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect((init.headers as Record<string, string>)["X-Schema-Epoch"]).toBe(
+      String(FRONTEND_SCHEMA_EPOCH),
+    );
+  });
+
+  it("invokes the schema-epoch-mismatch handler on a 409 schema_epoch_mismatch", async () => {
+    const mismatchHandler = vi.fn<() => void>();
+    onSchemaEpochMismatch(mismatchHandler);
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ detail: "schema_epoch_mismatch" }), {
+          status: 409,
+        }),
+      ),
+    ) as unknown as typeof fetch;
+
+    const error = await api.post("/workspaces").catch((err: unknown) => err);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(mismatchHandler).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not invoke the schema-epoch-mismatch handler for an unrelated 409", async () => {
+    const mismatchHandler = vi.fn<() => void>();
+    onSchemaEpochMismatch(mismatchHandler);
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ detail: "some_other_conflict" }), {
+          status: 409,
+        }),
+      ),
+    ) as unknown as typeof fetch;
+
+    await api.post("/workspaces").catch(() => undefined);
+
+    expect(mismatchHandler).not.toHaveBeenCalled();
   });
 });

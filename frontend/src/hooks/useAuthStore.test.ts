@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => {
     get: vi.fn(),
     post: vi.fn(),
     unauthorizedHandler: null as (() => void) | null,
+    schemaEpochMismatchHandler: null as (() => void) | null,
     ApiError: MockApiError,
   };
 });
@@ -25,12 +26,16 @@ vi.mock("@/services/api", () => ({
     post: mocks.post,
   },
   ApiError: mocks.ApiError,
+  FRONTEND_SCHEMA_EPOCH: 2,
   getAuthToken: () => mocks.token,
   setAuthToken: (token: string | null) => {
     mocks.token = token;
   },
   onUnauthorized: (handler: () => void) => {
     mocks.unauthorizedHandler = handler;
+  },
+  onSchemaEpochMismatch: (handler: () => void) => {
+    mocks.schemaEpochMismatchHandler = handler;
   },
 }));
 
@@ -265,5 +270,38 @@ describe("useAuthStore init", () => {
       user: USER,
     });
     expect(mocks.token).toBe("current-token");
+  });
+
+  it("shows an upgrade-required state and never calls /auth/me when the backend reports a different schema epoch", async () => {
+    mocks.get.mockResolvedValueOnce({ schema_epoch: 3 }); // /auth/config
+
+    await useAuthStore.getState().init();
+
+    expect(useAuthStore.getState().status).toBe("upgrade-required");
+    expect(mocks.get).toHaveBeenCalledTimes(1);
+  });
+
+  it("proceeds normally when the backend config omits schema_epoch (predates #1012)", async () => {
+    mocks.get
+      .mockResolvedValueOnce({}) // /auth/config, no schema_epoch field
+      .mockResolvedValueOnce(USER); // /auth/me
+
+    await useAuthStore.getState().init();
+
+    expect(useAuthStore.getState().status).toBe("authenticated");
+  });
+});
+
+describe("useAuthStore schema-epoch mismatch", () => {
+  afterEach(() => {
+    useAuthStore.getState().logout();
+  });
+
+  it("moves an authenticated session to upgrade-required when the backend rejects a mutation as a mismatch", () => {
+    useAuthStore.setState({ status: "authenticated", user: USER });
+
+    mocks.schemaEpochMismatchHandler?.();
+
+    expect(useAuthStore.getState().status).toBe("upgrade-required");
   });
 });

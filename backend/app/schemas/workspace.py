@@ -190,6 +190,14 @@ class PublicWorkspaceUnlockResult(BaseModel):
     token: str
 
 
+class WorkspaceLegacyIdResolution(BaseModel):
+    """Where a pre-conversion workspace id was folded into during the v1->v2
+    migration (#1012), for a stale deep link or public bookmark. Null when the
+    id was never a conversion source (already current, or unknown)."""
+
+    target_workspace_id: str | None
+
+
 class WorkspaceStorageUsageOut(BaseModel):
     """Owner-wide storage usage plus the owner's effective quota limits."""
 

@@ -244,6 +244,47 @@ describe("useWorkspaceStore — connect / selectTree", () => {
     expect(useWorkspaceStore.getState().selectedTree?.id).toBe(TREE_A.id);
   });
 
+  it("falls back to the migration-mapped id when the requested tree is a stale (404) v1 id", async () => {
+    mockEmptySubStores();
+    const oldId = "old-tree";
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path === `/workspaces/${oldId}`) {
+        return Promise.reject(new ApiError(404, "Not found"));
+      }
+      if (path === `/workspaces/${TREE_A.id}`) return Promise.resolve(TREE_A);
+      if (path.includes("/metadata")) return Promise.resolve({});
+      return Promise.resolve([]);
+    });
+    vi.mocked(WorkspaceService.resolveLegacyWorkspaceId).mockResolvedValue(
+      TREE_A.id,
+    );
+
+    const tree = await useWorkspaceStore.getState().openTreeById(oldId);
+
+    expect(tree).toEqual(TREE_A);
+    expect(WorkspaceService.resolveLegacyWorkspaceId).toHaveBeenCalledWith(
+      oldId,
+    );
+    expect(useWorkspaceStore.getState().selectedTree?.id).toBe(TREE_A.id);
+  });
+
+  it("rethrows the original error when a missing tree has no migration mapping", async () => {
+    mockEmptySubStores();
+    const oldId = "never-migrated";
+    const notFound = new ApiError(404, "Not found");
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path === `/workspaces/${oldId}`) return Promise.reject(notFound);
+      return Promise.resolve([]);
+    });
+    vi.mocked(WorkspaceService.resolveLegacyWorkspaceId).mockResolvedValue(
+      null,
+    );
+
+    await expect(
+      useWorkspaceStore.getState().openTreeById(oldId),
+    ).rejects.toBe(notFound);
+  });
+
   it("inserts the tree into the list when reopening one that's missing from it", async () => {
     // Mirrors clicking a "shared with you" notification for a tree that
     // loadTrees() had already dropped (e.g. from a prior connect failure) —

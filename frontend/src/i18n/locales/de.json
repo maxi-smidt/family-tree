@@ -1767,6 +1767,11 @@
       "setup-error": "2FA-Einrichtung konnte nicht gestartet werden. Bitte erneut versuchen."
     }
   },
+  "app-upgrade": {
+    "title": "Aktualisierung erforderlich",
+    "description": "Dieser Tab verwendet eine veraltete Version der App. Lade die Seite neu, um fortzufahren.",
+    "reload": "Neu laden"
+  },
   "admin": {
     "title": "Verwaltung",
     "back": "Zurück",

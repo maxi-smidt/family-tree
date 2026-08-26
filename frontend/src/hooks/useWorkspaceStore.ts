@@ -174,9 +174,28 @@ export const useWorkspaceStore = create<DatabaseState>((set, get) => ({
   // Resolve a tree before selecting it. This keeps link routing, including
   // public-tree links that are absent from a user's normal tree list, inside
   // the tree domain rather than making view components call the API directly.
+  //
+  // A 403/404 gets one fallback attempt through the v1->v2 migration mapping
+  // (#1012): the id may be a stale deep link or public bookmark from before
+  // the conversion folded that workspace into another one. This covers every
+  // caller — the authenticated deep-link bootstrap in App.tsx and the
+  // anonymous PublicTreeViewer both go through here.
   openTreeById: async (workspaceId: string) => {
     const requestVersion = ++treeRequestVersion;
-    const tree = await api.get<Workspace>(`/workspaces/${workspaceId}`);
+    let tree: Workspace;
+    try {
+      tree = await api.get<Workspace>(`/workspaces/${workspaceId}`);
+    } catch (error) {
+      const status = error instanceof ApiError ? error.status : undefined;
+      const targetId =
+        status === 403 || status === 404
+          ? await WorkspaceService.resolveLegacyWorkspaceId(workspaceId).catch(
+              () => null,
+            )
+          : null;
+      if (!targetId || targetId === workspaceId) throw error;
+      tree = await api.get<Workspace>(`/workspaces/${targetId}`);
+    }
     if (requestVersion !== treeRequestVersion) return tree;
     await get().selectTree(tree);
     return tree;
