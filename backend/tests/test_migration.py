@@ -437,6 +437,38 @@ def test_resolve_conflict_merge_applies_the_chosen_photo(db, owner):
     assert keep.image_data == "/api/media/x/b.jpg"
 
 
+def test_resolve_conflict_merge_maps_photo_choice_when_canonical_is_member_b(db, owner):
+    # canonical_member_id need not equal member_a_id — create_conflict doesn't
+    # sort them, and the converter sorts by raw id, not by which side
+    # survived. "b" must still mean "member_b_id's value" here, i.e. the
+    # canonical member's own (unchanged) photo, not the alternate.
+    tree = make_tree(db, owner)
+    keep = add_member(db, tree, "keep", image_data="/api/media/x/a.jpg")
+    run = _make_run(db)
+    conflict = _make_bridge_conflict(
+        db,
+        run,
+        owner,
+        tree,
+        keep,
+        member_a_id="removed-1",
+        member_b_id=keep.id,
+        conflicting_media=[
+            {
+                "member_id": "removed-1",
+                "image_data": "/api/media/x/b.jpg",
+                "canonical_member_id": keep.id,
+                "canonical_image_data": "/api/media/x/a.jpg",
+            }
+        ],
+    )
+    conflict_service.resolve_conflict(
+        db, conflict, owner, action="merge", fields={"image_data": "b"}
+    )
+    db.refresh(keep)
+    assert keep.image_data == "/api/media/x/a.jpg"
+
+
 def test_resolve_conflict_merge_detects_a_canonical_edit_made_after_migration(db, owner):
     tree = make_tree(db, owner)
     keep = add_member(db, tree, "keep", first_name="Anna")

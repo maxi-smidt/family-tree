@@ -85,7 +85,11 @@ def _apply_bridge_resolution(
     """
     if not fields or conflict.canonical_member_id is None:
         return None
-    member = db.get(Member, conflict.canonical_member_id)
+    # Row-locked so a concurrent normal edit of this member can't commit
+    # between the stale-value check below and this transaction's own commit
+    # and be silently overwritten — Member has no optimistic version column
+    # of its own to catch that otherwise.
+    member = db.get(Member, conflict.canonical_member_id, with_for_update=True)
     if member is None:
         raise NotFoundError("Canonical member no longer exists")
 
@@ -101,11 +105,20 @@ def _apply_bridge_resolution(
                 raise ConflictError(
                     "Canonical member changed after migration; reload and retry"
                 )
+            # "a"/"b" mean member_a_id's/member_b_id's value, same as the
+            # scalar-field branch below — canonical_member_id is only ever
+            # one of those two, and not always member_a_id, so it can't be
+            # assumed to mean "a".
+            photo_values = {
+                media["canonical_member_id"]: media["canonical_image_data"],
+                media["member_id"]: media["image_data"],
+            }
             if choice == "a":
-                continue
-            if choice != "b":
+                member.image_data = photo_values.get(conflict.member_a_id)
+            elif choice == "b":
+                member.image_data = photo_values.get(conflict.member_b_id)
+            else:
                 raise InvalidInputError(f"Unsupported choice for image_data: {choice!r}")
-            member.image_data = media["image_data"]
             continue
 
         values = conflict.field_values.get(field)
@@ -168,8 +181,13 @@ def resolve_conflict(
     conflict.resolved_by = user.id
     conflict.resolved_at = utcnow_iso()
 
-    workspace = db.get(Workspace, conflict.workspace_id) if member is not None else None
     try:
+        # Looked up inside the guarded block: it runs after conflict/member
+        # were already mutated above, so any flush it provokes must have its
+        # StaleDataError converted to a 409 below rather than escape raw.
+        workspace = (
+            db.get(Workspace, conflict.workspace_id) if member is not None else None
+        )
         with UnitOfWork(db) as uow:
             if member is not None:
                 label = " ".join(
