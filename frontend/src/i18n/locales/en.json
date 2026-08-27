@@ -2038,5 +2038,71 @@
       "tree_unshared": "Access to \"{{tree_name}}\" was removed",
       "invitation_received": "You've been invited to \"{{tree_name}}\""
     }
+  },
+  "workspace-nav": {
+    "aria-label": "Workspace navigation",
+    "expand": "Expand navigation",
+    "collapse": "Collapse navigation",
+    "explore": "Explore",
+    "sections": "Sections",
+    "no-sections": "No sections yet",
+    "section-actions": "Actions for {{name}}",
+    "rename": "Rename",
+    "delete": "Delete",
+    "saved-views": "Saved views",
+    "no-saved-views": "No saved views yet",
+    "search": {
+      "placeholder": "Search this workspace…",
+      "clear": "Clear search",
+      "searching": "Searching…",
+      "error": "Search failed — try again.",
+      "no-results": "No members found",
+      "unnamed": "Unnamed member",
+      "nee": "née {{name}}",
+      "unassigned": "Unassigned",
+      "show-more": "Show more",
+      "loading-more": "Loading…"
+    },
+    "create-section": {
+      "title": "Create section",
+      "description": "Sections organize the workspace only — creating one never copies, moves, or deletes people, relationships, media, or documents.",
+      "name-label": "Name",
+      "seed-label": "Seed from a person (optional)",
+      "seed-placeholder": "Choose a person…",
+      "seed-no-results": "No matching members",
+      "direction-label": "Include",
+      "direction-direct-family": "Direct family",
+      "direction-partnership": "Direct family and partners",
+      "preview-loading": "Loading preview…",
+      "preview-summary": "{{primary}} primary members, {{boundary}} boundary people",
+      "preview-overlap": "Connects to \"{{name}}\" ({{count}} shared members)",
+      "name-conflict": "A section with this name already exists.",
+      "create-error": "The section could not be created.",
+      "cancel": "Cancel",
+      "create": "Create"
+    },
+    "rename-section": {
+      "title": "Rename section",
+      "name-conflict": "A section with this name already exists.",
+      "rename-error": "The section could not be renamed.",
+      "cancel": "Cancel",
+      "save": "Save"
+    },
+    "delete-section": {
+      "title": "Delete \"{{name}}\"?",
+      "loading": "Checking what this section still holds…",
+      "description": "This removes the section and its layout only ({{count}} members keep their records). This cannot be undone.",
+      "blocked-description": "This section still holds things that need to be resolved first:",
+      "blocked-grants": "{{count}} scoped access grant(s) — revoke them first",
+      "blocked-invitations": "{{count}} pending invitation(s) — resolve them first",
+      "blocked-public-links": "{{count}} public link(s) scoped here — remove them first",
+      "blocked-content": "{{count}} {{domain}} record(s) scoped only to this section",
+      "load-error": "Could not check what this section holds.",
+      "delete-error": "The section could not be deleted.",
+      "cancel": "Cancel",
+      "close": "Close",
+      "confirm": "Delete",
+      "deleting": "Deleting…"
+    }
   }
 }

@@ -22,6 +22,9 @@ import { useStatisticsStore } from "@/hooks/useStatisticsStore";
 import { useQualityReportStore } from "@/hooks/useQualityReportStore";
 import { useStorageStore } from "@/hooks/useStorageStore";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
+import { useSectionStore } from "@/hooks/useSectionStore";
+import { useSavedViewStore } from "@/hooks/useSavedViewStore";
+import { useWorkspaceNavStore } from "@/hooks/useWorkspaceNavStore";
 
 // A 403/404 against `workspaceId` gets one fallback attempt through the
 // v1->v2 migration mapping (#1012): the id may be a stale deep link or
@@ -103,6 +106,9 @@ const clearDataStores = () => {
   useStatisticsStore.getState().clear();
   useQualityReportStore.getState().clear();
   useStorageStore.getState().clear();
+  useSectionStore.getState().clear();
+  useSavedViewStore.getState().clear();
+  useWorkspaceNavStore.getState().clear();
 };
 
 // Land on the most recently used remaining tree (the API sorts by
