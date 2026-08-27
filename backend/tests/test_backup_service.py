@@ -33,6 +33,7 @@ from app.models import (
 )
 from app.models.migration import MigrationStatus
 from app.services.crypto_export import encrypt_bundle
+from app.services.migration.legacy_cleanup import drop_legacy_structures
 from app.services.system.backups import backup_service, streaming_archive
 from tests.conftest import add_member, make_tree, make_user
 
@@ -1205,3 +1206,60 @@ def test_prune_backups_removes_a_failed_pre_migration_backup(db, tmp_path, monke
     backup_service.delete_backup(db, failed)  # must not raise ConflictError
 
     assert db.get(BackupRecord, failed.id) is None
+
+
+# --- Backups after legacy-structure cleanup (#1021 review) ------------------
+
+
+def test_create_backup_succeeds_after_legacy_structures_are_dropped(
+    db, tmp_path, monkeypatch
+):
+    """Once drop_legacy_structures has removed the virtual-view tables, an
+    ordinary backup must not fail trying to query them — they still appear
+    in BACKUP_MODELS (an older archive may still carry rows for them), but a
+    dropped table contributes a 0 count exactly like an empty one."""
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    monkeypatch.setattr(backup_service, "BACKUP_DIR", tmp_path / "backups")
+    admin = make_user(db, "admin", is_admin=True)
+    make_tree(db, admin)
+    db.commit()
+
+    drop_legacy_structures(db)
+    db.commit()
+    assert "virtual_views" not in inspect(db.get_bind()).get_table_names()
+
+    record = backup_service.create_backup(db, actor=admin)
+    assert record.status == "success"
+
+    manifest = backup_service.verify_archive(backup_service.BACKUP_DIR / record.filename)
+    assert manifest["table_row_counts"]["virtual_views"] == 0
+
+
+def test_restoring_a_pre_cleanup_backup_into_a_cleaned_up_target_drops_legacy_rows(
+    db, tmp_path, monkeypatch
+):
+    """An archive taken before #1021's cleanup can still carry virtual-view
+    rows; restoring it into an instance where those tables are already gone
+    must silently drop that data instead of erroring."""
+    media_root = tmp_path / "media"
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    monkeypatch.setattr(backup_service, "BACKUP_DIR", tmp_path / "backups")
+
+    admin = make_user(db, "admin", is_admin=True)
+    make_tree(db, admin)
+    view = VirtualView(id="vv-1", name="Compare", owner_id=admin.id, created_at="now")
+    db.add(view)
+    db.commit()
+
+    record = backup_service.create_backup(db, actor=admin)
+    assert record.status == "success"
+    backup_path = backup_service.BACKUP_DIR / record.filename
+
+    drop_legacy_structures(db)
+    db.commit()
+
+    backup_service.restore_backup_file(
+        db, backup_path, replace=True, media_root=media_root
+    )
+
+    assert "virtual_views" not in inspect(db.get_bind()).get_table_names()

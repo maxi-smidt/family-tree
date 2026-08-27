@@ -297,6 +297,23 @@ def _expected_table_names() -> set[str]:
 _MODEL_BY_TABLE: dict[str, type] = {model.__tablename__: model for model in BACKUP_MODELS}
 
 
+def _live_backup_models(db: Session) -> tuple[type, ...]:
+    """``BACKUP_MODELS`` restricted to tables that still physically exist.
+
+    A model here may outlive its table: once
+    ``app.services.migration.legacy_cleanup`` drops the legacy virtual-view
+    tables (#1021), the five ``VirtualView*`` models stay in ``BACKUP_MODELS``
+    (an archive predating that cleanup can still contain rows for them,
+    and the streaming format's manifest always records one row count per
+    ``BACKUP_MODELS`` entry — 0 for a table that no longer exists, exactly
+    like an empty one), but nothing may ``SELECT``/``DELETE`` against a
+    dropped table. Callers that touch the live database directly (as opposed
+    to reading an already-decoded archive) filter through this first.
+    """
+    existing = set(sa_inspect(db.connection()).get_table_names())
+    return tuple(model for model in BACKUP_MODELS if model.__tablename__ in existing)
+
+
 def _current_schema_epoch(db: Session) -> str:
     """Return the database's current Alembic head(s) as a stable string."""
     heads = MigrationContext.configure(db.connection()).get_current_heads()
@@ -464,7 +481,11 @@ def validate_bundle(bundle: BackupBundle | dict[str, Any]) -> BackupBundle:
 
 
 def _verify_database_counts(db: Session, expected_counts: dict[str, int]) -> None:
-    for model in BACKUP_MODELS:
+    # A table missing from this target (the legacy virtual-view tables,
+    # once dropped — #1021) was deliberately skipped by _insert_rows/
+    # _insert_row_batch above, so its restored count can never match an
+    # archive's pre-cleanup expectation; nothing else to verify for it.
+    for model in _live_backup_models(db):
         actual = db.scalar(select(func.count()).select_from(model))
         if actual != expected_counts[model.__tablename__]:
             raise BackupValidationError(
@@ -546,32 +567,43 @@ def _write_streaming_archive(db: Session, filepath: Path) -> None:
             {"t": "meta", "format": STREAM_FORMAT, "version": STREAM_FORMAT_VERSION}
         )
 
+        # A model in BACKUP_MODELS whose table has been physically dropped
+        # (the legacy virtual-view tables, once app.services.migration.
+        # legacy_cleanup runs — see #1021) contributes a 0 count exactly like
+        # an empty table would: no "row" frame is written for it either way
+        # (see the `if batch:` check below), so the manifest stays the same
+        # shape regardless of which BACKUP_MODELS tables this instance still
+        # physically has.
+        existing_tables = set(sa_inspect(db.connection()).get_table_names())
         table_row_counts: dict[str, int] = {}
         row_count_total = 0
         for model in BACKUP_MODELS:
             table = model.__tablename__
-            columns = [column.key for column in sa_inspect(model).mapper.column_attrs]
             count = 0
-            batch: list[dict[str, Any]] = []
-            batch_bytes = 0
-            query = select(model).execution_options(
-                yield_per=ROW_BATCH_TARGET_ROWS, stream_results=True
-            )
-            for item in db.scalars(query):
-                row = {column: getattr(item, column) for column in columns}
-                db.expunge(item)
-                batch.append(row)
-                batch_bytes += len(json.dumps(row, default=str))
-                count += 1
-                if (
-                    len(batch) >= ROW_BATCH_TARGET_ROWS
-                    or batch_bytes >= ROW_BATCH_TARGET_BYTES
-                ):
+            if table in existing_tables:
+                columns = [
+                    column.key for column in sa_inspect(model).mapper.column_attrs
+                ]
+                batch: list[dict[str, Any]] = []
+                batch_bytes = 0
+                query = select(model).execution_options(
+                    yield_per=ROW_BATCH_TARGET_ROWS, stream_results=True
+                )
+                for item in db.scalars(query):
+                    row = {column: getattr(item, column) for column in columns}
+                    db.expunge(item)
+                    batch.append(row)
+                    batch_bytes += len(json.dumps(row, default=str))
+                    count += 1
+                    if (
+                        len(batch) >= ROW_BATCH_TARGET_ROWS
+                        or batch_bytes >= ROW_BATCH_TARGET_BYTES
+                    ):
+                        writer.write_frame({"t": "row", "table": table, "rows": batch})
+                        batch = []
+                        batch_bytes = 0
+                if batch:
                     writer.write_frame({"t": "row", "table": table, "rows": batch})
-                    batch = []
-                    batch_bytes = 0
-            if batch:
-                writer.write_frame({"t": "row", "table": table, "rows": batch})
             table_row_counts[table] = count
             row_count_total += count
 
@@ -735,6 +767,13 @@ def _insert_row_batch(
         raise BackupValidationError(
             f"Backup archive contains a malformed row for {table}"
         )
+    # An archive taken before app.services.migration.legacy_cleanup dropped
+    # the legacy virtual-view tables (#1021) can still carry "row" frames for
+    # them; restoring into a target where they're already gone silently
+    # drops those rows rather than erroring — see the matching comment on
+    # _insert_rows.
+    if not sa_inspect(db.connection()).has_table(table):
+        return
     prepared = [dict(row) for row in rows]
     if model is MigrationRun:
         # See the matching comment in _insert_rows: BackupRecord is never
@@ -913,7 +952,8 @@ def _media_root_is_empty(media_root: Path) -> bool:
 
 def _database_is_empty(db: Session) -> bool:
     return all(
-        db.scalar(select(func.count()).select_from(model)) == 0 for model in BACKUP_MODELS
+        db.scalar(select(func.count()).select_from(model)) == 0
+        for model in _live_backup_models(db)
     )
 
 
@@ -923,7 +963,7 @@ def _clear_instance(db: Session) -> None:
     Media is handled separately by the journaled swap in ``restore_bundle``;
     this only ever touches the (uncommitted) database transaction.
     """
-    for model in reversed(BACKUP_MODELS):
+    for model in reversed(_live_backup_models(db)):
         db.execute(delete(model))
     db.flush()
 
@@ -1012,8 +1052,15 @@ def _sweep_orphaned_media_dirs(media_root: Path) -> None:
 
 
 def _insert_rows(db: Session, tables: dict[str, list[dict[str, Any]]]) -> None:
-    """Restore rows for every backed-up model."""
-    for model in BACKUP_MODELS:
+    """Restore rows for every backed-up model whose table still exists.
+
+    An archive taken before app.services.migration.legacy_cleanup dropped
+    the legacy virtual-view tables (#1021) can still carry rows for them;
+    restoring into a target where they're already gone silently drops those
+    rows rather than erroring — that data described a feature that no longer
+    exists to read it back.
+    """
+    for model in _live_backup_models(db):
         rows = [dict(row) for row in tables[model.__tablename__]]
         if model is MigrationRun:
             # BackupRecord is deliberately excluded from every restorable
