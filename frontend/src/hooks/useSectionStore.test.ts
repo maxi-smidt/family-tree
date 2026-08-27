@@ -27,7 +27,11 @@ function makeSection(overrides: Partial<SectionDB> = {}): SectionDB {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  useSectionStore.setState({ sections: [], initialized: false, loading: false });
+  useSectionStore.setState({
+    sections: [],
+    initialized: false,
+    loading: false,
+  });
   useWorkspaceStore.setState({ selectedTree: undefined });
 });
 
