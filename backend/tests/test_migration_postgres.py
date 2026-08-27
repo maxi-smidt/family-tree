@@ -498,8 +498,11 @@ def test_failure_at_a_checkpoint_resumes_without_redoing_earlier_phases(
             assert run.backup_id is not None
             backup_id_after_failure = run.backup_id
 
+        # orchestrator imports create_backup by name (`from ... import
+        # create_backup`), so the binding to patch is its own module's, not
+        # backup_service's — patching the latter wouldn't intercept the call.
         with patch(
-            "app.services.system.backups.backup_service.create_backup"
+            "app.services.migration.orchestrator.create_backup"
         ) as create_backup_spy:
             with session_factory() as db:
                 run_startup_migration(db)
