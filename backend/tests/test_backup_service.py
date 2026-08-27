@@ -1131,6 +1131,66 @@ def test_restore_streaming_backup_nulls_dangling_migration_run_backup_reference(
     assert restored.backup_path is None
 
 
+def test_restore_bundle_backfills_name_normalized_for_a_pre_1024_backup(
+    db, tmp_path, monkeypatch
+):
+    """A backup taken before Member.name_normalized existed (#1024) carries
+    no key for it at all; restoring must derive it, or the restored member
+    is permanently unsearchable at the "" server default."""
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    media_root = tmp_path / "media"
+
+    admin = make_user(db, "admin", is_admin=True)
+    tree = make_tree(db, admin)
+    add_member(db, tree, "member-1", first_name="Anna", last_name="Müller")
+
+    bundle = backup_service._collect_bundle(db).model_dump()
+    for row in bundle["tables"][Member.__tablename__]:
+        row.pop("name_normalized", None)
+    backup_path = tmp_path / "pre_1024.ftbackup"
+    backup_path.write_bytes(encrypt_bundle(bundle, None))
+
+    backup_service.restore_backup_file(
+        db, backup_path, replace=True, media_root=media_root
+    )
+
+    restored = db.get(Member, "member-1")
+    assert restored is not None
+    assert restored.name_normalized == "anna müller"
+
+
+def test_restore_streaming_backup_backfills_name_normalized(db, tmp_path, monkeypatch):
+    """The streaming (format version 3) restore path inserts rows through a
+    different function (_insert_row_batch, not _insert_rows) — it needs the
+    same backfill independently."""
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    monkeypatch.setattr(backup_service, "BACKUP_DIR", tmp_path / "backups")
+    media_root = tmp_path / "media"
+
+    admin = make_user(db, "admin", is_admin=True)
+    tree = make_tree(db, admin)
+    add_member(db, tree, "member-1", first_name="Anna", last_name="Müller")
+    # Simulate a pre-#1024 row (blank column) the same way an archive taken
+    # before the column existed would restore it — bypassing the ORM
+    # validator that would normally keep it in sync, exactly as the
+    # streaming archive's own generic column dump would carry it forward.
+    db.query(Member).filter_by(id="member-1").update({"name_normalized": ""})
+    db.commit()
+
+    record = backup_service.create_backup(db, trigger="manual")
+    assert record.status == "success"
+    backup_path = backup_service.BACKUP_DIR / record.filename
+    assert backup_service._is_streaming_archive(backup_path)
+
+    backup_service.restore_backup_file(
+        db, backup_path, replace=True, media_root=media_root
+    )
+
+    restored = db.get(Member, "member-1")
+    assert restored is not None
+    assert restored.name_normalized == "anna müller"
+
+
 def test_prune_backups_skips_unfinalized_pre_migration_backup(
     db, tmp_path, monkeypatch
 ):
