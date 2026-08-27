@@ -14,6 +14,7 @@ import {
   RelationDB,
   RelationType,
   RelationTypeDB,
+  WorkspaceSearchResultDB,
   mapMemberToDB,
 } from "@/types/member";
 import {
@@ -113,6 +114,21 @@ export class WorkspaceService {
   static searchMembers(workspaceId: string, q: string, limit = 20) {
     const params = new URLSearchParams({ q, limit: String(limit) });
     return api.get<MemberDB[]>(`${base(workspaceId)}/members/search?${params}`);
+  }
+
+  /** Paginated, section-aware search of the whole readable workspace, not
+   *  just the currently loaded graph (#1024). Authenticated callers only. */
+  static searchWorkspace(
+    workspaceId: string,
+    q: string,
+    limit = 20,
+    cursor?: string,
+  ) {
+    const params = new URLSearchParams({ q, limit: String(limit) });
+    if (cursor) params.set("cursor", cursor);
+    return api.get<WorkspaceSearchResultDB>(
+      `${base(workspaceId)}/search?${params}`,
+    );
   }
 
   /** Search readable workspaces other than the active one. */

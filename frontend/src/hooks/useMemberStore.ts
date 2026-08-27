@@ -6,6 +6,7 @@ import {
   MemberUpdate,
   RelationDB,
   RelationType,
+  WorkspaceSearchResultDB,
 } from "@/types/member";
 import { mapDiseaseFromDB, DiseaseDB, DiseaseInput } from "@/types/disease";
 import { mapMembersFromRows } from "@/utils/memberMapping";
@@ -229,6 +230,12 @@ interface MemberState {
     perTreeLimit?: number,
     limit?: number,
   ) => Promise<MemberSearchHitDB[]>;
+  searchWorkspace: (
+    workspaceId: string,
+    query: string,
+    limit?: number,
+    cursor?: string,
+  ) => Promise<WorkspaceSearchResultDB>;
   refreshMembers: (workspaceId?: string) => Promise<void>;
   setFocusRoot: (rootId: string) => Promise<void>;
   setNeighborhoodDepth: (up: number, down: number) => Promise<void>;
@@ -306,6 +313,9 @@ export const useMemberStore = create<MemberState>((set, get) => ({
 
   searchOtherTrees: (query, excludeWorkspaceId, perTreeLimit, limit) =>
     WorkspaceService.searchOtherTrees(query, excludeWorkspaceId, perTreeLimit, limit),
+
+  searchWorkspace: (workspaceId, query, limit, cursor) =>
+    WorkspaceService.searchWorkspace(workspaceId, query, limit, cursor),
 
   undo: async () => {
     const { undoStack } = get();

@@ -134,6 +134,13 @@ neighborhood_rate_limiter = RateLimiter(
     settings.NEIGHBORHOOD_RATE_LIMIT_WINDOW_SECONDS,
 )
 
+# GET .../search (#1024) — same request-volume throttle as the neighborhood
+# endpoint, keyed by principal + workspace.
+search_rate_limiter = RateLimiter(
+    settings.SEARCH_MAX_REQUESTS,
+    settings.SEARCH_RATE_LIMIT_WINDOW_SECONDS,
+)
+
 # Identity-link proposals (#985), keyed by proposer + target workspace, so
 # spamming one target with proposals is bounded without limiting a proposer
 # who is legitimately linking members across several different workspaces.

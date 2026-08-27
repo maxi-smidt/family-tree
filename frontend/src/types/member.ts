@@ -151,6 +151,29 @@ export interface MemberSearchHitDB extends MemberDB {
   workspaceName: string;
 }
 
+/** A section label on a `WorkspaceSearchHitDB`, readable by the caller. */
+export interface WorkspaceSearchSectionLabelDB {
+  id: string;
+  name: string;
+}
+
+/** A workspace-search hit (#1024): the member surface plus every section
+ *  label the caller may read. `unassigned` is only ever true for a
+ *  whole-workspace caller — a scoped caller cannot distinguish "no section"
+ *  from "a section they cannot see". */
+export interface WorkspaceSearchHitDB extends MemberDB {
+  sections: WorkspaceSearchSectionLabelDB[];
+  unassigned: boolean;
+}
+
+/** One page of `WorkspaceService.searchWorkspace()` results. */
+export interface WorkspaceSearchResultDB {
+  items: WorkspaceSearchHitDB[];
+  total: number;
+  has_more: boolean;
+  next_cursor: string | null;
+}
+
 export interface RelationDB {
   from_member_id: string;
   to_member_id: string;

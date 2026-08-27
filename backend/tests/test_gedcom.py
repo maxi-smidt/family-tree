@@ -755,6 +755,13 @@ class TestParseGedcomSortKeys:
         member = self._parse_member_with_dates(birt_date="1975")
         assert member["date_of_birth_sort"] == "1975-00-00"
 
+    def test_name_normalized_is_precomputed(self):
+        """parse_gedcom output must include name_normalized (#1024) — bulk
+        insert bypasses the ORM @validates hook that would otherwise derive
+        it, leaving imported members unsearchable."""
+        member = self._parse_member_with_dates()
+        assert member["name_normalized"] == "test person"
+
 
 # ---------------------------------------------------------------------------
 # 6. Adoption import / export (#502)

@@ -24,6 +24,7 @@ from app.services.interchange.gedcom.gedcom_records import (
     parse_lines,
 )
 from app.services.interchange.gedcom.genealogy_date import sort_key
+from app.services.members.member_search import normalize_member_name
 
 
 def parse_gedcom(text: str) -> GedcomParseResult:
@@ -90,6 +91,7 @@ def _new_member() -> GedcomMember:
         "date_of_death": None,
         "date_of_birth_sort": None,
         "date_of_death_sort": None,
+        "name_normalized": "",
         "deceased": False,
         "birthplace": None,
         "hometown": None,
@@ -250,6 +252,9 @@ def _parse_individuals(
 
         member["date_of_birth_sort"] = sort_key(member["date_of_birth"])
         member["date_of_death_sort"] = sort_key(member["date_of_death"])
+        member["name_normalized"] = normalize_member_name(
+            member["first_name"], member["last_name"], member["maiden_name"]
+        )
         members.append(member)
 
     return xref_to_member_id, members

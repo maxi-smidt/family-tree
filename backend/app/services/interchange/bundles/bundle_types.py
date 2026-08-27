@@ -32,6 +32,7 @@ class GedcomMember(TypedDict, total=False):
     date_of_death: str | None
     date_of_birth_sort: str | None
     date_of_death_sort: str | None
+    name_normalized: str
     deceased: bool
     birthplace: str | None
     hometown: str | None

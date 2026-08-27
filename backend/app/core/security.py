@@ -22,6 +22,7 @@ _TOTP_AUDIENCE = "family-tree-totp"
 _PUBLIC_TREE_AUDIENCE = "family-tree-public-tree"
 _SSE_AUDIENCE = "family-tree-sse"
 _NEIGHBORHOOD_AUDIENCE = "family-tree-neighborhood"
+_SEARCH_AUDIENCE = "family-tree-search"
 
 
 def _create_token(
@@ -181,6 +182,32 @@ def create_neighborhood_cursor(workspace_id: str, claims: dict[str, str | int]) 
 def decode_neighborhood_cursor(token: str) -> dict:
     """Validate a neighborhood cursor; return its claims or raise InvalidTokenError."""
     return _decode_token(token, audience=_NEIGHBORHOOD_AUDIENCE, token_type=_CURSOR_PHASE)
+
+
+# ---------------------------------------------------------------------------
+# Search continuation cursors (#1024). Same shape as the neighborhood cursor
+# above, minted under a distinct audience so the two can never be replayed
+# against each other's endpoint.
+# ---------------------------------------------------------------------------
+
+_SEARCH_CURSOR_PHASE = "search_cursor"
+
+
+def create_search_cursor(workspace_id: str, claims: dict[str, str | int]) -> str:
+    return _create_token(
+        workspace_id,
+        audience=_SEARCH_AUDIENCE,
+        token_type=_SEARCH_CURSOR_PHASE,
+        expires_delta=timedelta(minutes=_CURSOR_MINUTES),
+        extra_claims=claims,
+    )
+
+
+def decode_search_cursor(token: str) -> dict:
+    """Validate a search cursor; return its claims or raise InvalidTokenError."""
+    return _decode_token(
+        token, audience=_SEARCH_AUDIENCE, token_type=_SEARCH_CURSOR_PHASE
+    )
 
 
 # ---------------------------------------------------------------------------

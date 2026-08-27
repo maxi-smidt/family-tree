@@ -110,6 +110,33 @@ class MemberSearchHitOut(MemberSurfaceOut):
     workspace_name: str
 
 
+class SearchSectionLabel(BaseModel):
+    id: str
+    name: str
+
+
+class WorkspaceSearchHitOut(MemberSurfaceOut):
+    """A member surface annotated with the caller's readable section labels.
+
+    ``sections`` lists only the sections *this caller* may read — a scoped
+    caller never sees a label for a section their grant doesn't reach, even
+    when the member also belongs to one. ``unassigned`` is true only when a
+    whole-workspace caller can see the member belongs to no section at all;
+    it is always false for a scoped caller, who cannot tell "no sections"
+    apart from "sections I can't see" (#1024).
+    """
+
+    sections: list[SearchSectionLabel] = []
+    unassigned: bool = False
+
+
+class WorkspaceSearchResultOut(BaseModel):
+    items: list[WorkspaceSearchHitOut]
+    total: int
+    has_more: bool
+    next_cursor: str | None = None
+
+
 class PublicMemberOut(FamilyTreeOrmBaseModel):
     """Anonymous projection: enough to render a tree, without private detail."""
 

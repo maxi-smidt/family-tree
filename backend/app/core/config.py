@@ -83,6 +83,10 @@ class Settings(BaseSettings):
     # (tests).
     NEIGHBORHOOD_QUERY_TIMEOUT_MS: int = 5000
 
+    # Same guard as NEIGHBORHOOD_QUERY_TIMEOUT_MS, for the workspace search
+    # endpoint (#1024).
+    SEARCH_QUERY_TIMEOUT_MS: int = 5000
+
     # Number of uvicorn worker processes (mirrors the WORKERS env the Docker
     # CMD passes to `uvicorn --workers`). Read here purely so the app can warn
     # at startup when WORKERS > 1 without REDIS_URL — a config that silently
@@ -138,6 +142,10 @@ class Settings(BaseSettings):
     # never come close; it exists to bound a scripted replay/paginate loop.
     NEIGHBORHOOD_MAX_REQUESTS: int = 120
     NEIGHBORHOOD_RATE_LIMIT_WINDOW_SECONDS: int = 60
+
+    # Same throttle, for GET .../search (#1024), keyed the same way.
+    SEARCH_MAX_REQUESTS: int = 120
+    SEARCH_RATE_LIMIT_WINDOW_SECONDS: int = 60
 
     # Identity-link proposals (#985): how long a proposed link waits for the
     # other workspace's owner before a background sweep marks it expired.

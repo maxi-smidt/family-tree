@@ -22,6 +22,7 @@ from app.core.rate_limit import (
     neighborhood_rate_limiter,
     public_unlock_aggregate_rate_limiter,
     public_unlock_rate_limiter,
+    search_rate_limiter,
 )
 from app.core.security import create_access_token, hash_password
 from app.db.base import Base, utcnow_iso
@@ -114,6 +115,7 @@ def client(session_factory) -> TestClient:
     public_unlock_rate_limiter.clear()
     public_unlock_aggregate_rate_limiter.clear()
     neighborhood_rate_limiter.clear()
+    search_rate_limiter.clear()
     return TestClient(app)
 
 

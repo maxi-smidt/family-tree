@@ -55,6 +55,7 @@ from app.services.media.storage import (
     store_document,
 )
 from app.services.media.storage_usage import check_full_usage_quota
+from app.services.members.member_search import normalize_member_name
 from app.services.system.job_service import ProgressCallback
 from app.services.system.settings_service import get_media_limits
 from app.services.unit_of_work import UnitOfWork
@@ -217,6 +218,11 @@ def do_import(
                 data["date_of_birth_sort"] = _sort_key(data.get("date_of_birth"))
             if data.get("date_of_death_sort") is None:
                 data["date_of_death_sort"] = _sort_key(data.get("date_of_death"))
+            # Bypassing the ORM means Member._derive_name_normalized never
+            # runs (#1024) — derive it the same way here.
+            data["name_normalized"] = normalize_member_name(
+                data.get("first_name"), data.get("last_name"), data.get("maiden_name")
+            )
             member_dicts.append(data)
 
             if i % BULK_CHUNK == 0:
