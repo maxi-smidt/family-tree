@@ -300,6 +300,28 @@ def test_asymmetric_legacy_pointer_does_not_merge_unrelated_workspaces(db, owner
     assert any(issue["reason"] == "asymmetric" for issue in summary.invalid_bridge_links)
 
 
+def test_cross_owner_reciprocal_pair_does_not_merge_workspaces(db, owner):
+    other_owner = make_user(db, "other-owner")
+    tree_a = make_tree(db, owner, name="A")
+    tree_b = make_tree(db, other_owner, name="B")
+    member_a = add_member(db, tree_a, "m-a")
+    member_b = add_member(db, tree_b, "m-b")
+
+    # A fully valid, mutually reciprocal bridge — but the two workspaces
+    # belong to different owners, so _same_owner_components must not union
+    # them even though the pair itself passes _classify_legacy_bridge_links.
+    _wire_bridge(db, member_a, member_b)
+    _identity_link(db, member_a, member_b)
+
+    run = _make_run(db)
+    summary = run_conversion(db, run)
+
+    assert summary.components == 2
+    assert db.get(Workspace, tree_a.id) is not None
+    assert db.get(Workspace, tree_b.id) is not None
+    assert summary.invalid_bridge_links == []
+
+
 def test_survivors_own_membership_is_scoped_to_its_own_section_only(db, owner):
     big = make_tree(db, owner, name="Big")
     small = make_tree(db, owner, name="Small")
