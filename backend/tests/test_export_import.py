@@ -528,6 +528,58 @@ def test_import_old_bundle_without_sort_keys_recomputes_them(client, db):
     assert member_row.date_of_birth_sort == "1880-03-20"
 
 
+def test_import_populates_name_normalized_for_workspace_search(client, db):
+    """Bundle import bulk-inserts Member rows, bypassing the ORM validator
+    that normally derives ``name_normalized`` (#1024) — the import path must
+    derive it itself, or the imported member is invisible to search."""
+    owner = make_user(db, "search-index-owner")
+    tree = make_tree(db, owner, "Search Index Workspace")
+    headers = auth(owner)
+
+    resp = client.post(
+        f"{API}/workspaces/{tree.id}/members",
+        headers=headers,
+        json={
+            "id": "search-member-1",
+            "firstName": "Anna",
+            "lastName": "Müller",
+            "gender": "f",
+        },
+    )
+    assert resp.status_code == 201
+
+    exported = client.post(f"{API}/workspaces/{tree.id}/export", headers=headers, json={})
+    assert exported.status_code == 200
+
+    imported = client.post(
+        f"{API}/workspaces/import",
+        headers=headers,
+        files={
+            "file": (
+                "search-index.treedb",
+                io.BytesIO(exported.content),
+                "application/octet-stream",
+            )
+        },
+    )
+    assert imported.status_code == 202, imported.text
+    new_tree_id = wait_for_job(client, headers, imported.json()["job_id"])
+
+    from sqlalchemy import select as sa_select
+
+    member_row = db.scalars(
+        sa_select(Member).where(Member.workspace_id == new_tree_id)
+    ).first()
+    assert member_row is not None
+    assert member_row.name_normalized == "anna müller"
+
+    search = client.get(
+        f"{API}/workspaces/{new_tree_id}/search", headers=headers, params={"q": "müller"}
+    )
+    assert search.status_code == 200
+    assert [item["id"] for item in search.json()["items"]] == [member_row.id]
+
+
 def test_document_round_trip_preserves_files_and_links(client, db):
     """Export → import must reproduce a document, its files, the people it
     mentions, and its event/story links (documents #594)."""

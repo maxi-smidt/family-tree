@@ -104,6 +104,7 @@ from app.models.backup import BackupRecord
 from app.models.migration import MigrationStatus
 from app.schemas.backup import BackupBundle, MediaItem
 from app.services.crypto_export import decrypt_bundle
+from app.services.members.member_search import normalize_member_name
 from app.services.system.admin_audit import record_admin_audit
 from app.services.system.backups.streaming_archive import (
     HEADER_LEN,
@@ -757,6 +758,22 @@ class _MediaStager:
             self._active["handle"].close()
 
 
+def _backfill_member_name_normalized(rows: list[dict[str, Any]]) -> None:
+    """Derive ``Member.name_normalized`` for rows an older backup predates.
+
+    ``bulk_insert_mappings`` bypasses the ORM ``@validates`` hook that
+    normally derives this column (#1024), and a backup taken before the
+    column existed carries no key for it at all — without this, every
+    restored member would keep the ``""`` server default and be permanently
+    unsearchable until individually re-saved.
+    """
+    for row in rows:
+        if not row.get("name_normalized"):
+            row["name_normalized"] = normalize_member_name(
+                row.get("first_name"), row.get("last_name"), row.get("maiden_name")
+            )
+
+
 def _insert_row_batch(
     db: Session,
     table: str,
@@ -775,6 +792,8 @@ def _insert_row_batch(
     if not sa_inspect(db.connection()).has_table(table):
         return
     prepared = [dict(row) for row in rows]
+    if model is Member:
+        _backfill_member_name_normalized(prepared)
     if model is MigrationRun:
         # See the matching comment in _insert_rows: BackupRecord is never
         # part of a restorable archive, so a restored run's backup_id/
@@ -1062,6 +1081,8 @@ def _insert_rows(db: Session, tables: dict[str, list[dict[str, Any]]]) -> None:
     """
     for model in _live_backup_models(db):
         rows = [dict(row) for row in tables[model.__tablename__]]
+        if model is Member:
+            _backfill_member_name_normalized(rows)
         if model is MigrationRun:
             # BackupRecord is deliberately excluded from every restorable
             # archive (see BACKUP_EXCLUDED_MODELS below), so a restored run's

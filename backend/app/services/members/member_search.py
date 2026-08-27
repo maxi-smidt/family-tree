@@ -62,6 +62,21 @@ def _token_clause(token: str):
     return or_(*clauses)
 
 
+def normalize_member_name(
+    first_name: str | None, last_name: str | None, maiden_name: str | None
+) -> str:
+    """Derive ``Member.name_normalized`` from the same three fields
+    ``member_name_search_clause`` matches against (#1024).
+
+    Shared so every path that writes a member — the ORM validator on
+    ``Member`` for normal writes, and the bulk-insert import paths
+    (``tree_bundle_import``, GEDCOM) that bypass it — derives the identical
+    value.
+    """
+    parts = (first_name, last_name, maiden_name)
+    return " ".join(p.strip() for p in parts if p).lower()
+
+
 def member_name_search_clause(query: str):
     """Return the name fields shared by tree-local and global search.
 

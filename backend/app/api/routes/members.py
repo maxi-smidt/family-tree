@@ -14,8 +14,10 @@ from sqlalchemy.orm import Session
 from app.api.deps import (
     get_current_user,
     get_current_user_optional,
+    get_readable_workspace,
     get_readable_workspace_public,
     get_workspace_access,
+    get_workspace_access_authenticated,
     get_workspace_access_write,
     get_writable_workspace,
 )
@@ -23,7 +25,7 @@ from app.api.pagination import Pagination, apply_pagination, pagination_params
 from app.core.config import settings
 from app.core.db_timeout import statement_timeout
 from app.core.exceptions import QuotaExceeded
-from app.core.rate_limit import neighborhood_rate_limiter
+from app.core.rate_limit import neighborhood_rate_limiter, search_rate_limiter
 from app.core.request_ip import client_ip
 from app.db.session import get_db
 from app.models import Event, EventMemberLink, Member, Workspace
@@ -38,6 +40,9 @@ from app.schemas.family import (
     NeighborhoodContinuation,
     NeighborhoodOut,
     RelationOut,
+    SearchSectionLabel,
+    WorkspaceSearchHitOut,
+    WorkspaceSearchResultOut,
 )
 from app.schemas.merge import MemberMergePreviewOut, MemberMergeRequest
 from app.services.activity.activity import member_delete_snapshot, record_activity
@@ -72,6 +77,7 @@ from app.services.members.member_vitals import event_updates_allowed, sync_vital
 from app.services.saved_views.saved_views import degrade_saved_views_for_member
 from app.services.system.settings_service import get_media_limits
 from app.services.unit_of_work import UnitOfWork
+from app.services.workspaces import search_cursor
 from app.services.workspaces.neighborhood import (
     MAX_NEIGHBORHOOD_NODES,
     MAX_NEIGHBORHOOD_TOTAL,
@@ -87,6 +93,11 @@ from app.services.workspaces.neighborhood_cursor import (
     decode_cursor,
     encode_cursor,
     visibility_fingerprint,
+)
+from app.services.workspaces.search import (
+    count_workspace_search,
+    fetch_workspace_search_page,
+    search_revision,
 )
 from app.services.workspaces.visibility import PUBLIC_PRINCIPAL, WorkspaceAccessContext
 
@@ -387,6 +398,82 @@ def search_members(
     if public:
         return JSONResponse(content=public_member_payloads(rows))
     return [MemberSurfaceOut(**row._mapping) for row in rows]
+
+
+@router.get("/search", response_model=WorkspaceSearchResultOut)
+def search_workspace(
+    q: str = Query(..., min_length=1, max_length=200),
+    limit: int = Query(20, ge=1, le=50),
+    cursor: str | None = Query(None),
+    tree: Workspace = Depends(get_readable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_authenticated),
+    db: Session = Depends(get_db),
+):
+    """Paginated, visibility- and section-aware name search across the whole
+    workspace (#1024) — not just the currently loaded graph.
+
+    Authenticated only: unlike the public-safe ``/members/search``, hits here
+    carry the full member surface plus section labels, which an anonymous
+    public-link visitor must not see.
+
+    Every hit carries only the section labels this caller may read; a scoped
+    caller can never tell a hit also sits in a section their grant doesn't
+    reach, and never sees ``unassigned`` (only a whole-workspace caller can
+    tell "no section" apart from "a section I can't see"). ``cursor`` —
+    replayed with the same ``q``/``limit`` — continues where the previous
+    page stopped; one whose searchable set has moved on returns 409
+    ``stale_cursor``, one that doesn't belong to this request returns 400.
+
+    Rate limited and statement-timeout-bounded the same way as the
+    neighborhood endpoint (#1032, #983).
+    """
+    rate_key = f"{tree.id}:{context.principal}"
+    retry_after = search_rate_limiter.retry_after(rate_key)
+    if retry_after is not None:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many search requests. Please try again later.",
+            headers={"Retry-After": str(int(retry_after) + 1)},
+        )
+    search_rate_limiter.record_hit(rate_key)
+
+    with statement_timeout(db, settings.SEARCH_QUERY_TIMEOUT_MS):
+        visibility = search_cursor.visibility_fingerprint(context)
+        revision = search_revision(db, tree.id)
+        offset = 0
+        if cursor is not None:
+            offset = search_cursor.decode_cursor(
+                cursor, tree.id, q, limit, visibility=visibility, revision=revision
+            )
+        total = count_workspace_search(db, tree.id, context, q)
+        hits = fetch_workspace_search_page(
+            db, tree.id, context, q, offset=offset, limit=limit
+        )
+
+    items = [
+        WorkspaceSearchHitOut(
+            **hit.row._mapping,
+            sections=[SearchSectionLabel(id=s.id, name=s.name) for s in hit.sections],
+            unassigned=hit.unassigned,
+        )
+        for hit in hits
+    ]
+    has_more = offset + len(items) < total
+    next_cursor = (
+        search_cursor.encode_cursor(
+            tree.id,
+            q,
+            limit,
+            visibility=visibility,
+            revision=revision,
+            offset=offset + len(items),
+        )
+        if has_more
+        else None
+    )
+    return WorkspaceSearchResultOut(
+        items=items, total=total, has_more=has_more, next_cursor=next_cursor
+    )
 
 
 def _empty_neighborhood(total_count: int) -> NeighborhoodOut:
