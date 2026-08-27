@@ -77,17 +77,25 @@ class IdentityLink(Base):
         CheckConstraint(
             "member_a_id < member_b_id", name="ck_identity_link_canonical_order"
         ),
+        # Deferred to transaction-commit: app.services.migration.converter
+        # briefly has a link naming a member's about-to-be-vacated workspace
+        # while consolidating a same-owner component chaining 3+ workspaces
+        # together — see alembic/versions/v2_0_0_defer_identity_link_fks.py.
         ForeignKeyConstraint(
             ["workspace_a_id", "member_a_id"],
             ["members.workspace_id", "members.id"],
             ondelete="CASCADE",
             name="fk_identity_link_member_a",
+            deferrable=True,
+            initially="DEFERRED",
         ),
         ForeignKeyConstraint(
             ["workspace_b_id", "member_b_id"],
             ["members.workspace_id", "members.id"],
             ondelete="CASCADE",
             name="fk_identity_link_member_b",
+            deferrable=True,
+            initially="DEFERRED",
         ),
         Index("ix_identity_links_workspace_a", "workspace_a_id"),
         Index("ix_identity_links_workspace_b", "workspace_b_id"),

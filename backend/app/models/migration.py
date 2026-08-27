@@ -70,7 +70,10 @@ class MigrationRun(Base):
     __tablename__ = "migration_runs"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
-    source_version: Mapped[str] = mapped_column(String(20))
+    # Holds the current Alembic head id(s) when no prior run exists (see
+    # app.services.migration.orchestrator._source_version) — not a short
+    # semver like target_version, hence the wider column (#998).
+    source_version: Mapped[str] = mapped_column(String(255))
     target_version: Mapped[str] = mapped_column(String(20))
 
     status: Mapped[str] = mapped_column(String(20), default=MigrationStatus.RUNNING)
