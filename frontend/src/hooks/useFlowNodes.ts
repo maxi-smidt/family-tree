@@ -35,12 +35,7 @@ export const useFlowNodes = (
   isConnectionMode = false,
   hasConnectionPath = false,
   hiddenNodeIds: ReadonlySet<string> = EMPTY_MEMBER_IDS,
-  onOpenLinkedTree?: (workspaceId: string, memberId?: string | null) => void,
   purelyVisual = false,
-  // Workspace ids the current user has listed access to (own + shared). undefined
-  // = unknown (e.g. public view without a tree list) — badges then render
-  // normally instead of guessing.
-  accessibleTreeIds?: ReadonlySet<string>,
   isSelectionMode = false,
 ) => {
   const { t } = useTranslation();
@@ -55,9 +50,6 @@ export const useFlowNodes = (
           }
         : {};
 
-      const linkedWorkspaceId = (node.data as Member).linkedWorkspaceId ?? null;
-      const linkedMemberId = (node.data as Member).linkedMemberId ?? null;
-
       return {
         ...node,
         ...memberA11yProps,
@@ -66,20 +58,6 @@ export const useFlowNodes = (
         data: {
           ...node.data,
           isHighlighted: node.id === highlightedNodeId,
-          // The tree-in-tree badge is interactive even for viewers (navigation
-          // is a read action).
-          onOpenLinkedTree:
-            linkedWorkspaceId && onOpenLinkedTree
-              ? () => onOpenLinkedTree(linkedWorkspaceId, linkedMemberId)
-              : undefined,
-          // False only when we positively know the tree isn't in the user's
-          // list; the badge then renders muted and disabled with a "not
-          // shared with you" hint — navigating would open a tree that appears
-          // nowhere else in their UI.
-          linkedTreeAccessible:
-            !linkedWorkspaceId || !accessibleTreeIds
-              ? true
-              : accessibleTreeIds.has(linkedWorkspaceId),
           isConnectionSelected: connectionSelectedIds.has(node.id),
           isConnectionPath: connectionPathNodeIds.has(node.id),
           isConnectionDimmed:
@@ -142,9 +120,7 @@ export const useFlowNodes = (
     isConnectionMode,
     hasConnectionPath,
     hiddenNodeIds,
-    onOpenLinkedTree,
     purelyVisual,
-    accessibleTreeIds,
     isSelectionMode,
     t,
   ]);

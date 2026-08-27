@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { ResearchTask, ResearchTaskInput, mapTaskFromDB } from "@/types/task";
 import { WorkspaceService } from "@/services/WorkspaceService";
-import { activeTreeId, isActiveTree, isVirtualId } from "@/hooks/useWorkspaceStore";
+import { activeTreeId, isActiveTree } from "@/hooks/useWorkspaceStore";
 import { invalidateActivityView } from "@/hooks/invalidateDerivedViews";
 import { registerTaskStoreActions } from "@/hooks/taskStoreRegistry";
 
@@ -36,13 +36,6 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       set({ tasks: [], openTaskMemberIds: new Set() });
       return;
     }
-    // Research tasks are working data of a real tree; virtual views have no
-    // task endpoints.
-    if (isVirtualId(workspaceId)) {
-      set({ tasks: [], openTaskMemberIds: new Set(), initialized: true });
-      return;
-    }
-
     const rows = await WorkspaceService.getTasks(workspaceId);
     if (!isActiveTree(workspaceId)) return; // tree switched mid-flight — drop stale data
 

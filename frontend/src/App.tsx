@@ -92,11 +92,11 @@ export const App = () => {
           }
         }
 
-        // Re-open the most recently used tree (or virtual view). The API
-        // returns both lists sorted by `last_opened`, newest first.
-        const { selectedTree, workspaces, virtualViews, selectTree } =
+        // Re-open the most recently used tree. The API returns the list
+        // sorted by `last_opened`, newest first.
+        const { selectedTree, workspaces, selectTree } =
           useWorkspaceStore.getState();
-        const nextTree = workspaces[0] ?? virtualViews[0];
+        const nextTree = workspaces[0];
         if (!selectedTree && nextTree) {
           await selectTree(nextTree);
         }

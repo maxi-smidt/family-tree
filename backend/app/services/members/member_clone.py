@@ -1,11 +1,8 @@
-"""Shared Member row primitives: identity keys, cloning, and bridge wiring.
+"""Shared Member row primitives: identity keys, cloning, and field conflicts.
 
-Used by every workflow that copies or links a member across workspaces — tree
-merge (``app.services.workspaces.merge``),
-sub-tree extraction (``app.services.workspaces.extract``),
-linked-subtree creation (``app.services.members.member_subtrees``), same-tree member
-merge (``app.services.members.member_merge``), and the tree-link endpoints
-(``app.api.routes.members``).
+Used by every workflow that copies or merges a member — workspace merge
+(``app.services.workspaces.merge``) and same-tree member merge
+(``app.services.members.member_merge``).
 """
 
 from __future__ import annotations
@@ -114,19 +111,6 @@ def clone_member(m: Member, new_tree_id: str, new_id: str) -> Member:
     )
 
 
-def wire_bridge(source: Member, counterpart: Member) -> None:
-    """Point two member rows at each other as a bridge person pair.
-
-    Shared by every flow that establishes a tree-in-tree link (create-linked-
-    subtree, extract-subtree, and the link-existing-tree endpoint) so the
-    bidirectional wiring stays in one place.
-    """
-    source.linked_workspace_id = counterpart.workspace_id
-    source.linked_member_id = counterpart.id
-    counterpart.linked_workspace_id = source.workspace_id
-    counterpart.linked_member_id = source.id
-
-
 def apply_field_choices(
     clone: Member,
     ma: Member,
@@ -159,82 +143,3 @@ def apply_field_choices(
             setattr(clone, field, separator.join(seen) if seen else None)
 
 
-def reconcile_bridge_fields(
-    member: Member,
-    counterpart: Member,
-    choices: dict[str, FieldChoice] | None = None,
-) -> None:
-    """Reconcile the conflicting fields of a freshly-wired bridge pair.
-
-    Used by the link-existing-tree flow (mode="existing") right after
-    ``wire_bridge``: the two rows represent the same human, so once linked
-    their conflicting fields (dates, places, images, notes, ...) should agree
-    on both sides, not just drift until a later edit or bridge-sync.
-
-    For each field in ``CONFLICT_FIELDS`` an explicit choice ("a" | "b" |
-    "combine", a = ``member``, b = ``counterpart``) from ``choices`` is
-    applied when given; otherwise the fields are unioned (whichever side is
-    non-empty wins, preferring ``member`` when both are set) via the same
-    a/b/combine semantics as ``apply_field_choices``. ``image_data`` is copied
-    into the destination tree's media store, mirroring
-    ``bridge.copy_bridge_fields``.
-
-    ``choices`` keys may be camelCase (as sent by the frontend, matching its
-    ``RESOLVABLE_FIELDS``) or snake_case; both are normalised to the
-    ``Member`` attribute name.
-    """
-    choices = choices or {}
-    normalised_choices = {to_snake_case(k): v for k, v in choices.items()}
-    resolved: dict[str, FieldChoice] = {
-        k: v for k, v in normalised_choices.items() if k in CONFLICT_FIELDS
-    }
-    for field in CONFLICT_FIELDS:
-        if field in resolved:
-            continue
-        va = getattr(member, field, None)
-        vb = getattr(counterpart, field, None)
-        # Union default: prefer whichever side is non-empty; when both are
-        # set (a genuine conflict with no explicit choice) keep A's value.
-        resolved[field] = "a" if not _empty(va) or _empty(vb) else "b"
-
-    # Snapshot pre-reconciliation values so both a→b and b→a copies read the
-    # same source data even though `member` is mutated first below.
-    orig_member = {f: getattr(member, f, None) for f in CONFLICT_FIELDS}
-    orig_counterpart = {f: getattr(counterpart, f, None) for f in CONFLICT_FIELDS}
-
-    for field, choice in resolved.items():
-        if choice == "a":
-            value = orig_member[field]
-        elif choice == "b":
-            value = orig_counterpart[field]
-        else:  # combine
-            if field in {"additional_data", "places_lived"}:
-                separator = "\n\n" if field == "additional_data" else ", "
-                parts = [
-                    p
-                    for p in [orig_member[field], orig_counterpart[field]]
-                    if not _empty(p)
-                ]
-                seen: list[str] = []
-                for p in parts:
-                    if p not in seen:
-                        seen.append(p)
-                value = separator.join(seen) if seen else None
-            else:
-                # Combine doesn't apply to non-text fields; fall back to A.
-                value = orig_member[field]
-
-        if field == "image_data":
-            member.image_data = (
-                value
-                if value == orig_member["image_data"]
-                else copy_media_to_workspace(value, member.workspace_id)
-            )
-            counterpart.image_data = (
-                value
-                if value == orig_counterpart["image_data"]
-                else copy_media_to_workspace(value, counterpart.workspace_id)
-            )
-        else:
-            setattr(member, field, value)
-            setattr(counterpart, field, value)

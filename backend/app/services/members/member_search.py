@@ -38,8 +38,6 @@ MEMBER_SURFACE_COLUMNS = (
     Member.is_collapsed,
     Member.position_x,
     Member.position_y,
-    Member.linked_workspace_id,
-    Member.linked_member_id,
 )
 
 

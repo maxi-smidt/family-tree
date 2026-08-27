@@ -139,14 +139,12 @@ function mockSubStoresForGedcomTree() {
   );
   // persistPositions calls updateMemberPositions
   vi.mocked(WorkspaceService.updateMemberPositions).mockResolvedValue(undefined);
-  vi.mocked(WorkspaceService.listVirtualViews).mockResolvedValue([]);
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
   useWorkspaceStore.setState({
     workspaces: [],
-    virtualViews: [],
     selectedTree: undefined,
     metadata: {},
     relationTypes: [],

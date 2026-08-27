@@ -75,7 +75,6 @@ describe("MainPanel", () => {
 
     useWorkspaceStore.setState({
       workspaces: [],
-      virtualViews: [],
       selectedTree: undefined,
       metadata: {},
       relationTypes: [],

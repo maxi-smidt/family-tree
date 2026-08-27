@@ -63,7 +63,6 @@ function mockEmptySubStores() {
     actors: [],
   });
   vi.mocked(WorkspaceService.getRelationTypes).mockResolvedValue([]);
-  vi.mocked(WorkspaceService.listVirtualViews).mockResolvedValue([]);
 }
 
 /** Set up api.get to return `treeResponse` for the given tree id and {} for metadata. */
@@ -93,7 +92,6 @@ function seedActivityStore() {
 
 const INITIAL_TREE_STATE = {
   workspaces: [],
-  virtualViews: [],
   selectedTree: undefined,
   metadata: {},
   relationTypes: [],
@@ -109,7 +107,7 @@ beforeEach(() => {
   useDocumentStore.setState({ documents: [] });
   useGalleryStore.setState({ galleryImages: [] });
   useActivityStore.setState({ activities: [] });
-  useStatisticsStore.setState({ report: null, scope: "tree" });
+  useStatisticsStore.setState({ report: null });
   useQualityReportStore.setState({ report: null, showDismissed: false });
   useStorageStore.setState({ usage: null, error: false });
   useMemberSheetStore.setState({ openSheets: {} });
@@ -154,7 +152,6 @@ describe("useWorkspaceStore — session reset", () => {
   it("clears tree lists, selection, and loaded tree data", () => {
     useWorkspaceStore.setState({
       workspaces: [TREE_A],
-      virtualViews: [TREE_VIEWER],
       selectedTree: TREE_A,
       metadata: { id: TREE_A.id, name: TREE_A.name },
       relationTypes: [
@@ -179,7 +176,6 @@ describe("useWorkspaceStore — session reset", () => {
 
     expect(useWorkspaceStore.getState()).toMatchObject({
       workspaces: [],
-      virtualViews: [],
       selectedTree: undefined,
       metadata: {},
       relationTypes: [],
@@ -534,7 +530,7 @@ describe("useWorkspaceStore — connect / selectTree", () => {
       activities: [{ id: "a-stale" } as never],
       initialized: true,
     });
-    useStatisticsStore.setState({ report: {} as never, scope: "linked" });
+    useStatisticsStore.setState({ report: {} as never });
     useQualityReportStore.setState({
       report: {} as never,
       showDismissed: true,
@@ -566,7 +562,6 @@ describe("useWorkspaceStore — connect / selectTree", () => {
     });
     expect(useStatisticsStore.getState()).toMatchObject({
       report: null,
-      scope: "tree",
     });
     expect(useQualityReportStore.getState()).toMatchObject({
       report: null,
@@ -609,32 +604,6 @@ describe("useWorkspaceStore — connect / selectTree", () => {
     expect(WorkspaceService.getActivity).not.toHaveBeenCalled();
   });
 
-  it("virtual tree connect still defers secondary stores", async () => {
-    const VV: Workspace = {
-      id: "vv_x",
-      name: "Composite",
-      role: "viewer",
-      is_virtual: true,
-    };
-    mockEmptySubStores();
-    vi.mocked(api.get).mockImplementation((path: string) => {
-      if (path === `/virtual-views/${VV.id}`) return Promise.resolve(VV);
-      // hasLayout: true so connect() respects the saved overlay (no auto-layout).
-      if (path.includes("/metadata"))
-        return Promise.resolve({ hasLayout: true });
-      return Promise.resolve([]);
-    });
-
-    await useWorkspaceStore.getState().connect(VV);
-
-    expect(useWorkspaceStore.getState().selectedTree?.id).toBe(VV.id);
-    expect(useWorkspaceStore.getState().isReady).toBe(true);
-    // Secondary stores are deferred even for virtual workspaces.
-    expect(WorkspaceService.getGalleryImages).not.toHaveBeenCalled();
-    expect(WorkspaceService.getEvents).not.toHaveBeenCalled();
-    expect(WorkspaceService.getStories).not.toHaveBeenCalled();
-    expect(WorkspaceService.getActivity).not.toHaveBeenCalled();
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -706,7 +675,6 @@ describe("useWorkspaceStore — loadTrees", () => {
       if (path.includes("/metadata")) return Promise.resolve({});
       return Promise.resolve([]);
     });
-    vi.mocked(WorkspaceService.listVirtualViews).mockResolvedValue([]);
 
     await useWorkspaceStore.getState().loadTrees();
 
@@ -724,7 +692,6 @@ describe("useWorkspaceStore — loadTrees", () => {
     });
 
     vi.mocked(api.get).mockResolvedValueOnce([]);
-    vi.mocked(WorkspaceService.listVirtualViews).mockResolvedValueOnce([]);
 
     await useWorkspaceStore.getState().loadTrees();
 
@@ -740,7 +707,6 @@ describe("useWorkspaceStore — loadTrees", () => {
     });
 
     vi.mocked(api.get).mockResolvedValueOnce([TREE_A, TREE_B]);
-    vi.mocked(WorkspaceService.listVirtualViews).mockResolvedValueOnce([]);
 
     await useWorkspaceStore.getState().loadTrees();
 
@@ -761,7 +727,6 @@ describe("useWorkspaceStore — loadTrees", () => {
     });
 
     vi.mocked(api.get).mockResolvedValueOnce([retainedTree, TREE_B]);
-    vi.mocked(WorkspaceService.listVirtualViews).mockResolvedValueOnce([]);
 
     await useWorkspaceStore.getState().loadTrees();
 

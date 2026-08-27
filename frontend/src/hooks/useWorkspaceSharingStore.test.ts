@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/services/WorkspaceSharingService", () => ({
   WorkspaceSharingService: {
     getSharingData: vi.fn(),
-    getLinkedShareTrees: vi.fn(),
     listInvitations: vi.fn(),
     grantAccess: vi.fn(),
     revokeAccess: vi.fn(),
@@ -31,7 +30,6 @@ describe("useWorkspaceSharingStore", () => {
       access: [],
       candidates: [],
       invitations: [],
-      linkedTrees: [],
       loading: false,
       error: null,
     });
@@ -60,11 +58,9 @@ describe("useWorkspaceSharingStore", () => {
 
     const first = useWorkspaceSharingStore.getState().load("tree-1", {
       includeInvitations: false,
-      includeLinkedTrees: false,
     });
     await useWorkspaceSharingStore.getState().load("tree-2", {
       includeInvitations: false,
-      includeLinkedTrees: false,
     });
     resolveFirst({ access: [], candidates: [] });
     await first;
@@ -97,7 +93,6 @@ describe("useWorkspaceSharingStore", () => {
 
     const loading = useWorkspaceSharingStore.getState().load("tree-2", {
       includeInvitations: false,
-      includeLinkedTrees: false,
     });
 
     expect(useWorkspaceSharingStore.getState().access).toEqual([]);
@@ -266,20 +261,6 @@ describe("useWorkspaceSharingStore — action wrappers", () => {
       "secret123",
     );
     expect(result).toBe(tree);
-  });
-
-  it("getLinkedShareTrees forwards to WorkspaceSharingService.getLinkedShareTrees", async () => {
-    vi.mocked(WorkspaceSharingService.getLinkedShareTrees).mockResolvedValue([]);
-
-    const result = await useWorkspaceSharingStore
-      .getState()
-      .getLinkedShareTrees("tree-1", "bob");
-
-    expect(WorkspaceSharingService.getLinkedShareTrees).toHaveBeenCalledWith(
-      "tree-1",
-      "bob",
-    );
-    expect(result).toEqual([]);
   });
 
   it("grantAccessBatch forwards to WorkspaceSharingService.grantAccessBatch", async () => {

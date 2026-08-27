@@ -15,7 +15,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Member } from "@/types/member";
 import { NODE_WIDTH, NODE_HEIGHT } from "@/constants";
 import { useMemberStore } from "@/hooks/useMemberStore";
-import { useWorkspaceStore, isVirtualId } from "@/hooks/useWorkspaceStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { FlowPanelControls } from "@/components/view/tree-view/FlowPanelControls";
 import GenerationLines from "@/components/view/tree-view/GenerationLines";
@@ -50,7 +50,6 @@ import { SelectionModeController } from "@/components/view/tree-view/SelectionMo
 import { useRelationCreation } from "@/hooks/useRelationCreation";
 import { usePendingMember } from "@/hooks/usePendingMember";
 import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
 import { useTaskStore } from "@/hooks/useTaskStore";
 import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
@@ -98,9 +97,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   );
   const setOpenSheet = useMemberSheetStore((s) => s.setOpenSheet);
   const clearOpenSheet = useMemberSheetStore((s) => s.clearOpenSheet);
-  const availableTreeCount = useWorkspaceStore(
-    (s) => s.workspaces.length + s.virtualViews.length,
-  );
+  const availableTreeCount = useWorkspaceStore((s) => s.workspaces.length);
   const isMobile = useIsMobile();
   const {
     members,
@@ -115,11 +112,8 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     setPendingLocateMemberId,
   } = useMemberStore();
   const canWrite = activeTree?.role !== "viewer";
-  const isVirtualView = !!activeTree?.id && isVirtualId(activeTree.id);
   const isCanvasReadOnly = isMobile || !canWrite;
-  // Virtual views allow dragging even though canWrite is false (role: "viewer").
-  // Positions are persisted independently in VirtualViewPosition.
-  const canDragLayout = !isMobile && (canWrite || isVirtualView);
+  const canDragLayout = !isMobile && canWrite;
   useUndoRedo(!isCanvasReadOnly);
   const { isReady } = useWorkspaceStore();
 
@@ -150,11 +144,11 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   // --- Extracted hooks ---
   const locator = useMemberLocator(members, rfInstance);
 
-  // Center the counterpart after navigating into a linked tree: consume the
+  // Center the target member after following a member→tree link: consume the
   // one-shot locate request once the member shows up in the loaded set. In
-  // windowed mode the counterpart may lie outside the current neighborhood —
+  // windowed mode the target may lie outside the current neighborhood —
   // re-focus the window on it once and locate after the reload.
-  const attemptedLinkedFocusRef = useRef<string | null>(null);
+  const attemptedFocusRef = useRef<string | null>(null);
   const consumedLocateRef = useRef<string | null>(null);
   useEffect(() => {
     if (!pendingLocateMemberId) {
@@ -175,20 +169,20 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
       // store snapshot — don't re-center for each of them.
       if (consumedLocateRef.current === pendingLocateMemberId) return;
       consumedLocateRef.current = pendingLocateMemberId;
-      attemptedLinkedFocusRef.current = null;
+      attemptedFocusRef.current = null;
       setPendingLocateMemberId(null);
       locator.locateMember(target);
       return;
     }
     if (members.length === 0) return; // still loading
-    if (windowed && attemptedLinkedFocusRef.current !== pendingLocateMemberId) {
-      attemptedLinkedFocusRef.current = pendingLocateMemberId;
+    if (windowed && attemptedFocusRef.current !== pendingLocateMemberId) {
+      attemptedFocusRef.current = pendingLocateMemberId;
       void setFocusRoot(pendingLocateMemberId);
       return;
     }
     // Fully loaded (or window already re-focused) and still absent: the
     // counterpart no longer exists — drop the request.
-    attemptedLinkedFocusRef.current = null;
+    attemptedFocusRef.current = null;
     setPendingLocateMemberId(null);
   }, [
     pendingLocateMemberId,
@@ -327,8 +321,8 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
 
   // Use `nodes` (local state, updates on every drag frame) rather than `members`
   // (store, lags by the debounce) so union dots track their parents in real-time.
-  // Carry the measured height: card height varies with content (e.g. source-tree
-  // badges in virtual views), and the side handles sit at the measured mid-height.
+  // Carry the measured height: card height varies with content, and the side
+  // handles sit at the measured mid-height.
   const nodePositions = useMemo(
     () =>
       new Map(
@@ -450,27 +444,6 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     ],
   );
 
-  const openLinkedTree = useWorkspaceStore((s) => s.openLinkedTree);
-  const allTrees = useWorkspaceStore((s) => s.workspaces);
-  // Workspace ids the user has listed access to (own + shared) — used to mute
-  // linked-tree badges pointing at workspaces not shared with them. In the public
-  // view there is no tree list, so accessibility is unknown (undefined).
-  const accessibleTreeIds = useMemo(
-    () =>
-      publicView || allTrees.length === 0
-        ? undefined
-        : new Set(allTrees.map((tr) => tr.id)),
-    [publicView, allTrees],
-  );
-  const handleOpenLinkedTree = useMemo(
-    () => (workspaceId: string, memberId?: string | null) => {
-      void openLinkedTree(workspaceId, memberId).catch(() => {
-        toast.error(t("tree-view.linked-tree.open-error"));
-      });
-    },
-    [openLinkedTree, t],
-  );
-
   // Collapsed ancestors hide their descendant member nodes (handled in
   // useFlowNodes) and the union dots between them (above). Edges touching any
   // hidden member/union must also be hidden, otherwise React Flow keeps drawing
@@ -500,9 +473,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     connection.isConnectionMode,
     connection.hasConnectionPath,
     hiddenNodeIds,
-    handleOpenLinkedTree,
     publicView,
-    accessibleTreeIds,
     selection.isSelectionMode,
   );
   const viewEdges = useFlowEdges(
@@ -548,18 +519,6 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     prevFocusRootRef.current = focusRootId;
     requestAnimationFrame(() => fitViewToAllNodes(rfInstance, 0.2));
   }, [windowed, focusRootId, rfInstance]);
-
-  // Virtual views: the viewport is a global setting (not per-tree), so after a
-  // virtual view loads we must fit the view regardless of where the camera was.
-  // The ref prevents re-fitting on every drag (nodes change) — once per view id.
-  const fittedViewRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!isReady || !rfInstance || !isVirtualView || !activeTree) return;
-    if (nodes.length === 0) return;
-    if (fittedViewRef.current === activeTree.id) return;
-    fittedViewRef.current = activeTree.id;
-    requestAnimationFrame(() => fitViewToAllNodes(rfInstance, 0.2));
-  }, [isReady, rfInstance, isVirtualView, activeTree, nodes]);
 
   useEffect(() => {
     setSelectedNodes((prevSelected) => {
@@ -788,7 +747,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
             selectionDisabled={members.length < 1 || isLockedScreen}
           />
         </Panel>
-        {(!isCanvasReadOnly || isVirtualView) && (
+        {!isCanvasReadOnly && (
           <Panel position="bottom-right" className="pb-2">
             <MemberControls
               nodes={nodes}
@@ -797,7 +756,6 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
               onEditMember={(member) => pending.editExisting(member)}
               onCreateNewMember={(member) => pending.createNew(member)}
               onRearrange={rearrangeNodes}
-              readOnly={isVirtualView}
             />
           </Panel>
         )}

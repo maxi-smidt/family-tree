@@ -78,13 +78,6 @@ const viewerTree: Workspace = {
   role: "viewer",
 };
 
-const virtualTree: Workspace = {
-  id: "vv_tree-3",
-  name: "Virtual View",
-  role: "owner",
-  is_virtual: true,
-};
-
 describe("EditableCell — text field (firstName)", () => {
   const updateMemberPartial = vi.fn().mockResolvedValue(undefined);
 
@@ -240,15 +233,6 @@ describe("ListView — Quick edit toggle gating", () => {
 
   it("4a. Quick edit toggle is NOT rendered for a viewer-role tree", () => {
     useWorkspaceStore.setState({ selectedTree: viewerTree, isReady: true });
-    render(<ListView />);
-
-    expect(
-      screen.queryByRole("button", { name: /quick edit/i }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("4b. Quick edit toggle is NOT rendered for a virtual tree (vv_ prefix)", () => {
-    useWorkspaceStore.setState({ selectedTree: virtualTree, isReady: true });
     render(<ListView />);
 
     expect(

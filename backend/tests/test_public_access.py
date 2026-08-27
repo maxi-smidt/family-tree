@@ -362,7 +362,6 @@ def test_public_member_payload_excludes_private_detail(client, db):
         cemetery="Private cemetery",
         places_lived='[{"location":"Private address"}]',
         adopted=True,
-        linked_workspace_id=None,
     )
     client.patch(
         f"{API}/workspaces/{tree.id}/public",
@@ -381,8 +380,6 @@ def test_public_member_payload_excludes_private_detail(client, db):
         "cemetery",
         "placesLived",
         "adopted",
-        "linkedWorkspaceId",
-        "linkedMemberId",
     ):
         assert private_key not in payload
 

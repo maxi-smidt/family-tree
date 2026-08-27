@@ -2,15 +2,6 @@
  * A server-side family **tree**. (The UI still presents these to users as
  * "databases", but in code they are workspaces, matching the backend.)
  */
-export interface VirtualViewSource {
-  // The source id — a real tree id, or a `vv_` view id when `kind === "view"`.
-  workspace_id: string;
-  workspace_name: string;
-  accessible: boolean;
-  kind?: "tree" | "view";
-  is_virtual?: boolean;
-}
-
 export interface Workspace {
   id: string;
   name: string;
@@ -27,32 +18,6 @@ export interface Workspace {
   public_password_protected?: boolean;
   // Domains the current user may not see. Empty for owner/admin.
   restrictions?: string[];
-  // Set on virtual views returned by /virtual-views.
-  is_virtual?: boolean;
-  sources?: VirtualViewSource[];
-}
-
-/** Sub-tree extraction always relocates the branch into a new tree, linked
- * through the root member (the bridge person), which stays behind in the
- * source tree. "direct_family" (default) moves the root's family of
- * origin (parents, siblings and their branches, with married-in spouses);
- * the root's own children stay. "partnership" moves the root's partner(s),
- * the partner's family, and the children shared with them. */
-export type SubtreeExtractDirection = "direct_family" | "partnership";
-
-export interface SubtreeExtractPayload {
-  name: string;
-  source_workspace_id: string;
-  root_member_id: string;
-  direction: SubtreeExtractDirection;
-}
-
-/** Mirrors the backend `SubtreePreview` schema. */
-export interface SubtreeExtractPreview {
-  member_count: number;
-  relation_count: number;
-  severed_relation_count: number;
-  media_bytes: number;
 }
 
 export interface WorkspaceInvitation {
@@ -122,19 +87,4 @@ export interface ShareCandidate {
 export interface WorkspaceTransferResult {
   access: WorkspaceAccess[];
   undo_available_until: string | null;
-}
-
-/** A tree reachable from the anchor tree via member links, as offered by the
- * batch-sharing UI (see ShareTreeDialog). */
-export interface LinkedShareWorkspace {
-  workspace_id: string;
-  name: string;
-  member_count: number;
-  // True when the current user is this tree's owner (or an admin) and can
-  // actually grant/revoke access on it.
-  manageable: boolean;
-  // The target user's role on this tree, when looked up with a username
-  // ("owner" is possible here, unlike ShareRole). Null when not looked up or
-  // the user has no access.
-  target_role: ShareRole | "owner" | null;
 }

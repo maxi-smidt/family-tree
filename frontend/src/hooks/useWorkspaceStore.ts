@@ -1,9 +1,5 @@
 import { create } from "zustand";
-import {
-  SubtreeExtractPayload,
-  SubtreeExtractPreview,
-  Workspace,
-} from "@/types/workspace";
+import { Workspace } from "@/types/workspace";
 import { ApiError, api, setPublicTreeToken } from "@/services/api";
 import { WorkspaceService } from "@/services/WorkspaceService";
 import { WorkspaceSharingService } from "@/services/WorkspaceSharingService";
@@ -13,7 +9,7 @@ import {
   RelationTypeDB,
   mapMemberFromDB,
 } from "@/types/member";
-import { MergeFieldChoice, MergeResolution } from "@/types/merge";
+import { MergeResolution } from "@/types/merge";
 import { useJobStore } from "@/hooks/useJobStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
@@ -26,8 +22,6 @@ import { useStatisticsStore } from "@/hooks/useStatisticsStore";
 import { useQualityReportStore } from "@/hooks/useQualityReportStore";
 import { useStorageStore } from "@/hooks/useStorageStore";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
-
-export const isVirtualId = (id: string) => id.startsWith("vv_");
 
 // A 403/404 against `workspaceId` gets one fallback attempt through the
 // v1->v2 migration mapping (#1012): the id may be a stale deep link or
@@ -55,7 +49,6 @@ interface DatabaseMetaData {
   name?: string;
   createdAt?: string;
   lastOpened?: string;
-  hasLayout?: boolean;
   overlapCount?: number;
 }
 
@@ -67,7 +60,6 @@ interface WorkspaceNavEntry {
 
 interface DatabaseState {
   workspaces: Workspace[];
-  virtualViews: Workspace[];
   selectedTree: Workspace | undefined;
   metadata: DatabaseMetaData;
   relationTypes: RelationTypeDB[];
@@ -81,20 +73,6 @@ interface DatabaseState {
   openTreeAndLocateMember: (workspaceId: string, memberId: string) => Promise<void>;
   unlockPublicTree: (workspaceId: string, password: string) => Promise<Workspace>;
   createTree: (name: string, options?: { select?: boolean }) => Promise<Workspace>;
-  openLinkedTree: (
-    workspaceId: string,
-    focusMemberId?: string | null,
-  ) => Promise<void>;
-  createLinkedSubtree: (memberId: string, name: string) => Promise<Workspace>;
-  linkExistingTree: (
-    memberId: string,
-    body: {
-      linked_workspace_id: string;
-      mode: "existing" | "create";
-      counterpart_member_id?: string | null;
-      field_choices?: Partial<Record<string, MergeFieldChoice>>;
-    },
-  ) => Promise<Workspace>;
   navigateToTreeStack: (index: number) => Promise<void>;
   renameTree: (tree: Workspace, name: string) => Promise<void>;
   updateTree: (tree: Workspace) => void;
@@ -105,21 +83,7 @@ interface DatabaseState {
     sourceB?: string,
     resolutions?: MergeResolution[],
   ) => Promise<Workspace>;
-  extractSubtree: (payload: SubtreeExtractPayload) => Promise<Workspace>;
-  extractSubtreePreview: (
-    payload: Omit<SubtreeExtractPayload, "name">,
-  ) => Promise<SubtreeExtractPreview>;
   fetchTreeMembers: (workspaceId: string) => Promise<Member[]>;
-  createVirtualView: (name: string, sourceWorkspaceIds: string[]) => Promise<Workspace>;
-  renameVirtualView: (view: Workspace, name: string) => Promise<void>;
-  updateVirtualViewSources: (
-    view: Workspace,
-    sourceWorkspaceIds: string[],
-  ) => Promise<void>;
-  deleteVirtualView: (view: Workspace) => Promise<void>;
-  recomputeMatches: (
-    view: Workspace,
-  ) => Promise<{ groupCount: number; mergedMemberCount: number }>;
   selectTree: (tree: Workspace | undefined) => Promise<void>;
   connect: (tree: Workspace) => Promise<void>;
   disconnect: () => Promise<void>;
@@ -141,18 +105,17 @@ const clearDataStores = () => {
   useStorageStore.getState().clear();
 };
 
-// Land on the most recently used remaining tree/view (the API sorts by
+// Land on the most recently used remaining tree (the API sorts by
 // last_opened — same rule as startup in App.tsx) instead of leaving a blank
 // canvas, when nothing is currently selected. Shared by loadTrees() and
 // connect()'s revoked-access recovery — both disconnect first (for an
 // immediate, deterministic UI reset), which clears `selectedTree` before this
-// runs, so it must read the *current* workspaces/virtualViews rather than rely on
-// the stale selection that triggered the disconnect. Best effort: if the
+// runs, so it must read the *current* workspaces rather than rely on the
+// stale selection that triggered the disconnect. Best effort: if the
 // fallback tree fails to open, stay disconnected.
 const selectFallbackTree = async (get: () => DatabaseState) => {
   if (get().selectedTree) return;
-  const { workspaces, virtualViews } = get();
-  const next = [...workspaces, ...virtualViews][0];
+  const next = get().workspaces[0];
   if (next) {
     await get()
       .selectTree(next)
@@ -162,7 +125,6 @@ const selectFallbackTree = async (get: () => DatabaseState) => {
 
 export const useWorkspaceStore = create<DatabaseState>((set, get) => ({
   workspaces: [],
-  virtualViews: [],
   selectedTree: undefined,
   metadata: {},
   relationTypes: [],
@@ -170,16 +132,12 @@ export const useWorkspaceStore = create<DatabaseState>((set, get) => ({
   workspaceNavStack: [],
 
   loadTrees: async () => {
-    const [workspaces, virtualViews] = await Promise.all([
-      api.get<Workspace[]>("/workspaces"),
-      WorkspaceService.listVirtualViews().catch(() => [] as Workspace[]),
-    ]);
-    set({ workspaces, virtualViews });
+    const workspaces = await api.get<Workspace[]>("/workspaces");
+    set({ workspaces });
     // Drop a stale selection that no longer exists / is no longer accessible.
     const selected = get().selectedTree;
-    const allItems = [...workspaces, ...virtualViews];
     if (!selected) return;
-    const freshSelected = allItems.find((t) => t.id === selected.id);
+    const freshSelected = workspaces.find((t) => t.id === selected.id);
     if (freshSelected) {
       set({ selectedTree: freshSelected });
       return;
@@ -265,89 +223,6 @@ export const useWorkspaceStore = create<DatabaseState>((set, get) => ({
     return tree;
   },
 
-  // Follow a member→tree link: remember where we came from (breadcrumb), verify
-  // the target is accessible, then switch to it. Throws if the linked tree is
-  // missing or the user has no access, so callers can surface a message.
-  // When the link carries a counterpart member (the bridge person's row in the
-  // target tree), the canvas centers on it after the switch.
-  openLinkedTree: async (workspaceId: string, focusMemberId?: string | null) => {
-    const current = get().selectedTree;
-    if (!current || current.id === workspaceId) return;
-    const target = await api.get<Workspace>(`/workspaces/${workspaceId}`);
-    // Following a back-link to where we just came from behaves like "back":
-    // pop the breadcrumb instead of growing it (A → B → A stays two levels).
-    const stack = get().workspaceNavStack;
-    const last = stack[stack.length - 1];
-    if (last && last.id === workspaceId) {
-      set({ workspaceNavStack: stack.slice(0, -1) });
-    } else {
-      set({
-        workspaceNavStack: [...stack, { id: current.id, name: current.name }],
-      });
-    }
-    await get().connect(target);
-    if (focusMemberId) {
-      // Set after connect: the tree switch clears the member store, and the
-      // canvas consumes this once the counterpart is present in `members`.
-      useMemberStore.getState().setPendingLocateMemberId(focusMemberId);
-    }
-  },
-
-  // Workspace-in-tree "create & link": one atomic backend call creates the new
-  // tree, seeds it with a copy of the member (the bridge person) and links
-  // the two rows bidirectionally. The current tree stays selected; the
-  // updated anchor is reflected into the member store so the badge appears.
-  createLinkedSubtree: async (memberId: string, name: string) => {
-    const current = get().selectedTree;
-    if (!current) throw new Error("No tree selected");
-    const res = await WorkspaceService.createMemberSubtree(
-      current.id,
-      memberId,
-      name,
-    );
-    set((s) => ({ workspaces: [res.workspace, ...s.workspaces] }));
-    useMemberStore.setState((s) => ({
-      members: s.members.map((m) =>
-        m.id === memberId
-          ? {
-              ...m,
-              linkedWorkspaceId: res.anchor.linkedWorkspaceId ?? null,
-              linkedMemberId: res.anchor.linkedMemberId ?? null,
-            }
-          : m,
-      ),
-    }));
-    return res.workspace;
-  },
-
-  // Workspace-in-tree "link existing tree": resolves a bridge person against an
-  // already-existing target tree — either an existing member the caller
-  // asserts is the same person, or a fresh copy seeded into the target. The
-  // current tree stays selected; the updated anchor is reflected into the
-  // member store so the badge appears immediately.
-  linkExistingTree: async (memberId, body) => {
-    const current = get().selectedTree;
-    if (!current) throw new Error("No tree selected");
-    const res = await WorkspaceService.linkMemberToTree(current.id, memberId, body);
-    set((s) => ({
-      workspaces: s.workspaces.some((t) => t.id === res.workspace.id)
-        ? s.workspaces
-        : [res.workspace, ...s.workspaces],
-    }));
-    useMemberStore.setState((s) => ({
-      members: s.members.map((m) =>
-        m.id === memberId
-          ? {
-              ...m,
-              linkedWorkspaceId: res.anchor.linkedWorkspaceId ?? null,
-              linkedMemberId: res.anchor.linkedMemberId ?? null,
-            }
-          : m,
-      ),
-    }));
-    return res.workspace;
-  },
-
   // Jump back to an ancestor in the breadcrumb, dropping everything below it.
   navigateToTreeStack: async (index: number) => {
     const entry = get().workspaceNavStack[index];
@@ -399,73 +274,9 @@ export const useWorkspaceStore = create<DatabaseState>((set, get) => ({
     return tree;
   },
 
-  extractSubtree: async (payload) => {
-    const { job_id } = await WorkspaceService.extractSubtree(payload);
-    const workspaceId = await useJobStore.getState().trackJob(job_id);
-    const tree = await api.get<Workspace>(`/workspaces/${workspaceId}`);
-    await get().loadTrees();
-    await get().selectTree(tree);
-    return tree;
-  },
-
-  extractSubtreePreview: async (payload) => {
-    return WorkspaceService.previewSubtree(payload);
-  },
-
   fetchTreeMembers: async (workspaceId: string) => {
     const rows = await WorkspaceService.getMembers(workspaceId);
     return (rows as MemberDB[]).map((r) => mapMemberFromDB(r));
-  },
-
-  createVirtualView: async (name: string, sourceWorkspaceIds: string[]) => {
-    const view = await WorkspaceService.createVirtualView(name, sourceWorkspaceIds);
-    set((s) => ({ virtualViews: [view, ...s.virtualViews] }));
-    await get().selectTree(view);
-    return view;
-  },
-
-  renameVirtualView: async (view: Workspace, name: string) => {
-    const updated = await WorkspaceService.updateVirtualView(view.id, { name });
-    set((s) => ({
-      virtualViews: s.virtualViews.map((v) => (v.id === view.id ? updated : v)),
-      selectedTree: s.selectedTree?.id === view.id ? updated : s.selectedTree,
-    }));
-  },
-
-  updateVirtualViewSources: async (view: Workspace, sourceWorkspaceIds: string[]) => {
-    const updated = await WorkspaceService.updateVirtualView(view.id, {
-      source_workspace_ids: sourceWorkspaceIds,
-    });
-    set((s) => ({
-      virtualViews: s.virtualViews.map((v) => (v.id === view.id ? updated : v)),
-      selectedTree: s.selectedTree?.id === view.id ? updated : s.selectedTree,
-    }));
-  },
-
-  deleteVirtualView: async (view: Workspace) => {
-    await WorkspaceService.deleteVirtualView(view.id);
-    const wasSelected = get().selectedTree?.id === view.id;
-    set((s) => ({
-      virtualViews: s.virtualViews.filter((v) => v.id !== view.id),
-    }));
-    if (wasSelected) {
-      // Fall back to another tree (or remaining view) instead of leaving the
-      // app in the "no database" state.
-      const { workspaces, virtualViews } = get();
-      const next = workspaces[0] ?? virtualViews[0];
-      if (next) await get().selectTree(next);
-      else await get().disconnect();
-    }
-  },
-
-  recomputeMatches: async (view: Workspace) => {
-    const result = await WorkspaceService.recomputeVirtualViewMatches(view.id);
-    const workspaceId = get().selectedTree?.id;
-    if (workspaceId === view.id) {
-      await useMemberStore.getState().refreshMembers(workspaceId);
-      await get().refreshMetadata(workspaceId);
-    }
-    return result;
   },
 
   selectTree: async (tree: Workspace | undefined) => {
@@ -494,14 +305,9 @@ export const useWorkspaceStore = create<DatabaseState>((set, get) => ({
     // tree's data or initialized state while they wait for their first visit.
     clearDataStores();
 
-    const virtual = isVirtualId(tree.id);
-
-    // Marks the tree/view as "opened" server-side and returns the latest
-    // role + (for views) the resolved source list.
+    // Marks the tree as "opened" server-side and returns the latest role.
     try {
-      const fresh = await api.get<Workspace>(
-        virtual ? `/virtual-views/${tree.id}` : `/workspaces/${tree.id}`,
-      );
+      const fresh = await api.get<Workspace>(`/workspaces/${tree.id}`);
       // A later selection or disconnect supersedes this request. Do not let
       // its response restore a stale tree after the newer transition wins.
       if (!isActiveTree(tree.id)) return;
@@ -513,16 +319,9 @@ export const useWorkspaceStore = create<DatabaseState>((set, get) => ({
         // pruned it). Leaving it out here would connect successfully while
         // the tree selector (which only renders from this list) shows no
         // selection at all, since its value has no matching option.
-        workspaces: virtual
-          ? s.workspaces
-          : s.workspaces.some((t) => t.id === fresh.id)
-            ? s.workspaces.map((t) => (t.id === fresh.id ? fresh : t))
-            : [fresh, ...s.workspaces],
-        virtualViews: virtual
-          ? s.virtualViews.some((v) => v.id === fresh.id)
-            ? s.virtualViews.map((v) => (v.id === fresh.id ? fresh : v))
-            : [fresh, ...s.virtualViews]
-          : s.virtualViews,
+        workspaces: s.workspaces.some((t) => t.id === fresh.id)
+          ? s.workspaces.map((t) => (t.id === fresh.id ? fresh : t))
+          : [fresh, ...s.workspaces],
       }));
     } catch (error) {
       if (
@@ -566,18 +365,12 @@ export const useWorkspaceStore = create<DatabaseState>((set, get) => ({
     await Promise.allSettled(loads);
     if (!isActiveTree(tree.id)) return;
 
-    // Virtual workspaces are read-only composites: auto-arrange the layout only
-    // until the user saves an alignment overlay, then respect it.
-    if (virtual && get().metadata.hasLayout !== true) {
-      await useMemberStore.getState().updateLayout();
-    }
-
-    // Freshly extracted (or seeded) workspaces: every member sits at (0, 0)
-    // because they've never been arranged. Auto-arrange on first open,
-    // same as virtual views, instead of showing a pile of stacked nodes.
+    // Freshly created (or seeded) workspaces: every member sits at (0, 0)
+    // because they've never been arranged. Auto-arrange on first open instead
+    // of showing a pile of stacked nodes.
     const freshRole = get().selectedTree?.role;
     const canWrite = freshRole === "owner" || freshRole === "editor";
-    if (!virtual && canWrite) {
+    if (canWrite) {
       const members = useMemberStore.getState().members;
       if (
         members.length >= 2 &&
@@ -609,10 +402,9 @@ export const useWorkspaceStore = create<DatabaseState>((set, get) => ({
 
   refreshMetadata: async (workspaceId = activeTreeId()) => {
     if (!workspaceId) return;
-    const basePath = isVirtualId(workspaceId)
-      ? `/virtual-views/${workspaceId}`
-      : `/workspaces/${workspaceId}`;
-    const metadata = await api.get<DatabaseMetaData>(`${basePath}/metadata`);
+    const metadata = await api.get<DatabaseMetaData>(
+      `/workspaces/${workspaceId}/metadata`,
+    );
     if (!isActiveTree(workspaceId)) return;
     set({ metadata });
   },
@@ -634,7 +426,6 @@ export const isActiveTree = (workspaceId: string | undefined): boolean =>
 export const resetTreeStoreForSession = () => {
   useWorkspaceStore.setState({
     workspaces: [],
-    virtualViews: [],
     selectedTree: undefined,
     metadata: {},
     relationTypes: [],

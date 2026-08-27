@@ -60,10 +60,9 @@ function isEmptyValue(value: string | null | undefined): boolean {
  * `default_action` suggestion and its conflict list.
  *
  * A field defaults to "a" (source-A value) unless it's a one-sided conflict
- * (A empty, B has data) — then "b" wins, mirroring the backend's own default
- * for unresolved fields (`reconcile_bridge_fields` in app/services/merge.py).
- * Otherwise clicking through with defaults would silently discard the only
- * value either side has for that field (#812).
+ * (A empty, B has data) — then "b" wins. Otherwise clicking through with
+ * defaults would silently discard the only value either side has for that
+ * field (#812).
  */
 export function buildInitialResolutionState(
   pair: DuplicatePair,

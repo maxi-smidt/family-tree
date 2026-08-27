@@ -21,12 +21,7 @@ describe("remapOpenSheets", () => {
     expect(result).toEqual({ "new-tree": SHEET });
   });
 
-  it("drops a vv_ (virtual view) entry unconditionally", () => {
-    const result = remapOpenSheets({ vv_stale: SHEET }, new Map());
-    expect(result).toEqual({});
-  });
-
-  it("leaves an unmapped, non-virtual entry untouched", () => {
+  it("leaves an unmapped entry untouched", () => {
     const result = remapOpenSheets({ "current-tree": SHEET }, new Map());
     expect(result).toEqual({ "current-tree": SHEET });
   });
@@ -76,16 +71,6 @@ describe("migrateV1BrowserState", () => {
     expect(useMemberSheetStore.getState().openSheets).toEqual({
       "shared-new-tree": SHEET,
     });
-  });
-
-  it("never resolves a vv_ (virtual view) entry — it's dropped outright", async () => {
-    useMemberSheetStore.setState({ openSheets: { vv_stale: SHEET } });
-
-    await migrateV1BrowserState();
-
-    expect(WorkspaceService.resolveLegacyWorkspaceId).not.toHaveBeenCalled();
-    expect(useMemberSheetStore.getState().openSheets).toEqual({});
-    expect(localStorage.getItem(FLAG_KEY)).toBe("1");
   });
 
   it("is a no-op on a later call once the flag is set", async () => {

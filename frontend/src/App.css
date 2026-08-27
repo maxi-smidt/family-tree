@@ -227,7 +227,7 @@
    a target. The invisible `::after` grows the grab zone without changing the visible
    handle size; it inherits `pointer-events` from the handle, so it is inert while a
    handle is non-interactive (read-only / selection mode). Scoped to the family-tree
-   canvas so other React Flow graphs (e.g. the linked-trees diagram) are unaffected. */
+   canvas so other React Flow graphs elsewhere in the app are unaffected. */
 .ft-tree-canvas .react-flow__handle::after {
   content: "";
   position: absolute;

@@ -24,7 +24,21 @@ from app.models.identity_link import IdentityLink, IdentityLinkStatus
 from app.services.media.storage import MEDIA_URL_PREFIX
 from app.services.migration.converter import run_conversion
 from app.services.migration.media import run_media_relocation
-from tests.conftest import add_member, make_tree
+from tests.conftest import (
+    add_legacy_bridge_columns,
+    add_member,
+    make_tree,
+    set_legacy_bridge,
+)
+
+
+@pytest.fixture(autouse=True)
+def _legacy_bridge_schema(db):
+    """``run_conversion`` always reads the legacy bridge columns (#1021
+    removed them from the ORM model, so ``Base.metadata.create_all`` no
+    longer creates them) — every test in this module needs them present,
+    matching a real not-yet-converted instance's schema."""
+    add_legacy_bridge_columns(db)
 
 
 def _make_run(db) -> MigrationRun:
@@ -38,11 +52,8 @@ def _make_run(db) -> MigrationRun:
 
 
 def _wire_bridge(db, member_a: Member, member_b: Member) -> None:
-    member_a.linked_workspace_id = member_b.workspace_id
-    member_a.linked_member_id = member_b.id
-    member_b.linked_workspace_id = member_a.workspace_id
-    member_b.linked_member_id = member_a.id
-    db.commit()
+    set_legacy_bridge(db, member_a.id, member_b.workspace_id, member_b.id)
+    set_legacy_bridge(db, member_b.id, member_a.workspace_id, member_a.id)
 
 
 def _identity_link(db, member_a: Member, member_b: Member) -> IdentityLink:

@@ -11,8 +11,7 @@ export type ListColumnId =
   | "cemetery"
   | "age"
   | "childrenCount"
-  | "status"
-  | "sourceTree";
+  | "status";
 
 export const ALL_COLUMN_IDS: ListColumnId[] = [
   "photo",
@@ -28,7 +27,6 @@ export const ALL_COLUMN_IDS: ListColumnId[] = [
   "age",
   "childrenCount",
   "status",
-  "sourceTree",
 ];
 
 export const DEFAULT_HIDDEN_COLUMNS: ListColumnId[] = [
@@ -72,5 +70,4 @@ export const COLUMN_MAP: Record<ListColumnId, ColumnDef> = {
     sortKey: "childrenCount",
   },
   status: { titleKey: "table.status" },
-  sourceTree: { titleKey: "table.source-tree" },
 };

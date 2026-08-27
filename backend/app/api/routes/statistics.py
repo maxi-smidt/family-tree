@@ -12,12 +12,11 @@ from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_readable_workspace
+from app.api.deps import get_readable_workspace
 from app.db.session import get_db
-from app.models import User, Workspace
+from app.models import Workspace
 from app.models.family import Member
 from app.schemas.statistics import (
-    CombinedStatisticsReport,
     CustomWidgetAggregateConfig,
     CustomWidgetAggregateRequest,
     CustomWidgetAggregateResponse,
@@ -36,7 +35,6 @@ from app.services.cache import (
 from app.services.workspaces.statistics import AGE_BUCKETS, compute_statistics
 from app.services.workspaces.statistics import decade_label as _decade_label
 from app.services.workspaces.statistics import extract_year as _extract_year
-from app.services.workspaces.workspace_links import reachable_linked_trees
 
 router = APIRouter(
     prefix="/workspaces/{workspace_id}",
@@ -306,94 +304,17 @@ async def get_statistics(
     return report
 
 
-def _dedup_bridge_members(members: list[Member]) -> list[Member]:
-    """Collapse bridge-person pairs/chains to one representative each.
-
-    Union-find over the member ids present in ``members``: for every member
-    whose ``linked_member_id`` points at another member also present in this
-    list, union the two ids. A bridge whose counterpart lives in a tree that
-    isn't included here (absent/inaccessible) has no partner to union with,
-    so it simply keeps its own single row — still counted once.
-
-    The representative kept per component is the member whose id sorts
-    smallest, for determinism independent of query/iteration order.
-    """
-    present = {m.id: m for m in members}
-    parent: dict[str, str] = {mid: mid for mid in present}
-
-    def find(x: str) -> str:
-        while parent[x] != x:
-            parent[x] = parent[parent[x]]
-            x = parent[x]
-        return x
-
-    def union(a: str, b: str) -> None:
-        ra, rb = find(a), find(b)
-        if ra != rb:
-            parent[ra] = rb
-
-    for m in members:
-        if m.linked_member_id and m.linked_member_id in present:
-            union(m.id, m.linked_member_id)
-
-    representatives: dict[str, str] = {}
-    for mid in present:
-        root = find(mid)
-        current = representatives.get(root)
-        if current is None or mid < current:
-            representatives[root] = mid
-
-    keep = set(representatives.values())
-    return [m for m in members if m.id in keep]
-
-
-def _load_and_compute_combined(
-    db: Session, anchor: Workspace, user: User
-) -> CombinedStatisticsReport:
-    """Query members across the anchor tree + reachable linked workspaces.
-
-    Blocking, sync — kept separate so the route can run it in the threadpool.
-    """
-    workspaces = [anchor] + reachable_linked_trees(db, anchor, user)
-    workspace_ids = [t.id for t in workspaces]
-
-    members = list(
-        db.scalars(select(Member).where(Member.workspace_id.in_(workspace_ids))).all()
-    )
-    deduped = _dedup_bridge_members(members)
-
-    report = compute_statistics(deduped, anchor.id)
-    return CombinedStatisticsReport(
-        **report.model_dump(),
-        tree_count=len(workspaces),
-        included_workspace_ids=workspace_ids,
-    )
-
-
 def _load_custom_widget_aggregations(
     db: Session,
     anchor: Workspace,
-    user: User,
     payload: CustomWidgetAggregateRequest,
 ) -> CustomWidgetAggregateResponse:
-    """Load the requested scope once, then calculate every requested pivot."""
-    if payload.scope == "linked":
-        workspaces = [anchor] + reachable_linked_trees(db, anchor, user)
-        workspace_ids = [tree.id for tree in workspaces]
-        members = list(
-            db.scalars(
-                select(Member)
-                .where(Member.workspace_id.in_(workspace_ids))
-                .order_by(Member.id)
-            ).all()
-        )
-        members = _dedup_bridge_members(members)
-    else:
-        members = list(
-            db.scalars(
-                select(Member).where(Member.workspace_id == anchor.id).order_by(Member.id)
-            ).all()
-        )
+    """Load the tree's members once, then calculate every requested pivot."""
+    members = list(
+        db.scalars(
+            select(Member).where(Member.workspace_id == anchor.id).order_by(Member.id)
+        ).all()
+    )
 
     return CustomWidgetAggregateResponse(
         widgets=[
@@ -403,24 +324,6 @@ def _load_custom_widget_aggregations(
     )
 
 
-@router.get("/statistics/combined", response_model=CombinedStatisticsReport)
-async def get_combined_statistics(
-    tree: Workspace = Depends(get_readable_workspace),
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-) -> CombinedStatisticsReport:
-    """Statistics for the tree plus every tree reachable via tree-in-tree links.
-
-    Only workspaces the requesting user can read are folded in (same traversal as
-    the link graph). Bridge persons — the pair of member rows representing
-    the same human across two linked workspaces — are counted once. No Redis
-    caching here: the aggregation spans multiple workspaces so it's heavier than
-    the single-tree route, but keeping it uncached avoids invalidation
-    fan-out across every tree in the link graph.
-    """
-    return await run_in_threadpool(_load_and_compute_combined, db, tree, user)
-
-
 @router.post(
     "/statistics/widgets/aggregate",
     response_model=CustomWidgetAggregateResponse,
@@ -428,14 +331,7 @@ async def get_combined_statistics(
 async def get_custom_widget_aggregations(
     payload: CustomWidgetAggregateRequest,
     tree: Workspace = Depends(get_readable_workspace),
-    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> CustomWidgetAggregateResponse:
-    """Return safe, capped pivots for custom statistics widgets.
-
-    The linked scope shares the exact traversal and bridge-person
-    de-duplication used by ``/statistics/combined``.
-    """
-    return await run_in_threadpool(
-        _load_custom_widget_aggregations, db, tree, user, payload
-    )
+    """Return safe, capped pivots for custom statistics widgets."""
+    return await run_in_threadpool(_load_custom_widget_aggregations, db, tree, payload)

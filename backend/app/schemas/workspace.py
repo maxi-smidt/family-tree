@@ -3,7 +3,6 @@ from __future__ import annotations
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.schemas.base import FamilyTreeBaseModel
-from app.schemas.family import MemberOut
 from app.schemas.merge import MergeResolution
 
 
@@ -86,15 +85,6 @@ class WorkspaceMemberOut(BaseModel):
     restrictions: list[str] = Field(default_factory=list)
     # None = workspace-wide grant (every row before #993).
     section_id: str | None = None
-
-
-class MemberSubtreeOut(FamilyTreeBaseModel):
-    """Result of creating a linked subtree: the new tree plus the updated
-    anchor member (whose linked_workspace_id/linked_member_id now point at the
-    seeded counterpart)."""
-
-    workspace: WorkspaceOut
-    anchor: MemberOut
 
 
 class MemberRestrictionsUpdate(BaseModel):
@@ -208,57 +198,6 @@ class WorkspaceStorageUsageOut(BaseModel):
     # Effective quota limits for the tree's owner (None = unlimited).
     tree_quota_bytes: int | None = None
     media_quota_bytes: int | None = None
-
-
-class LinkGraphBridgeMember(BaseModel):
-    """A bridge person backing one tree-to-tree link on an edge."""
-
-    id: str
-    name: str | None = None
-
-
-class LinkGraphNode(BaseModel):
-    """A tree reachable from the start tree via member links."""
-
-    id: str
-    name: str | None = None
-    member_count: int | None = None
-    # The requesting user's role on this tree ("owner"/"editor"/"viewer"), or
-    # None for inaccessible placeholders.
-    role: str | None = None
-    accessible: bool = True
-    is_current: bool = False
-
-
-class LinkGraphEdge(BaseModel):
-    """One or more bridge-person links from a source tree to a target tree."""
-
-    source_workspace_id: str
-    target_workspace_id: str
-    count: int
-    bridge_members: list[LinkGraphBridgeMember] = Field(default_factory=list)
-
-
-class LinkGraphOut(BaseModel):
-    nodes: list[LinkGraphNode]
-    edges: list[LinkGraphEdge]
-    truncated: bool = False
-
-
-class LinkedShareWorkspaceOut(BaseModel):
-    """A tree reachable from the anchor tree via member links, as offered by
-    the batch-sharing UI."""
-
-    workspace_id: str
-    name: str
-    member_count: int
-    # True when the requesting user is this tree's owner (or an admin), i.e.
-    # they can actually grant/revoke access on it.
-    manageable: bool
-    # When a ``username`` was supplied: that user's role on this tree
-    # ("owner"/"editor"/"viewer"), or None if they have no access. Always
-    # None when no username was given.
-    target_role: str | None = None
 
 
 class WorkspaceShareBatch(BaseModel):

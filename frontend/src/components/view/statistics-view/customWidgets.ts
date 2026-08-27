@@ -8,11 +8,9 @@ import { getYear } from "@/utils/dateUtils";
  * compute per group), and an optional **breakdown** dimension that splits each
  * group into multiple series.
  *
- * The active-tree scope is computed client-side from the raw {@link Member}
- * records held in `useMemberStore`. Linked-tree scope goes through the backend
- * so it can reuse access-scoped traversal and bridge-person de-duplication.
- * The registries below are the stable contract a future widget marketplace
- * would serialize against.
+ * Aggregation is computed client-side from the raw {@link Member} records held
+ * in `useMemberStore`. The registries below are the stable contract a future
+ * widget marketplace would serialize against.
  */
 
 export type CustomChartType = CustomWidgetAggregationConfig["chartType"];

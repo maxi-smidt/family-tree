@@ -64,18 +64,6 @@ class StatisticsReport(BaseModel):
     top_last_names: list[NameCount]
 
 
-class CombinedStatisticsReport(StatisticsReport):
-    """Statistics aggregated across the anchor tree and its linked workspaces.
-
-    Same shape as ``StatisticsReport`` (``workspace_id`` stays the anchor tree's
-    id) plus how many workspaces were folded in and which ones, so the frontend
-    can show "across N workspaces" without a second request.
-    """
-
-    tree_count: int
-    included_workspace_ids: list[str]
-
-
 class CustomWidgetAggregateConfig(FamilyTreeBaseModel):
     """The safe, serializable portion of a custom-widget configuration."""
 
@@ -87,9 +75,8 @@ class CustomWidgetAggregateConfig(FamilyTreeBaseModel):
 
 
 class CustomWidgetAggregateRequest(FamilyTreeBaseModel):
-    """Batch widget pivots so one scope change produces one API request."""
+    """Batch widget pivots so one request can compute several pivots."""
 
-    scope: Literal["tree", "linked"] = "tree"
     widgets: list[CustomWidgetAggregateConfig] = Field(min_length=1, max_length=100)
 
 

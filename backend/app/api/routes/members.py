@@ -51,7 +51,6 @@ from app.services.media.storage import (
     process_image_field,
 )
 from app.services.media.storage_usage import check_media_quota, check_workspace_quota
-from app.services.members.bridge import sync_bridge_person
 from app.services.members.member_access import (
     PUBLIC_MEMBER_COLUMNS,
     public_member_payloads,
@@ -130,16 +129,6 @@ def create_member(
     db: Session = Depends(get_db),
 ):
     data = payload.model_dump()
-    if data.get("linked_workspace_id") is not None or (
-        data.get("linked_member_id") is not None
-    ):
-        # A brand-new member can't already have a bridge counterpart — that
-        # requires writing a row in another tree, which only the dedicated
-        # link endpoint does. See POST /members/{id}/link.
-        raise HTTPException(
-            status_code=400,
-            detail="Establish tree links via the link endpoint",
-        )
     new_image_url: str | None = None
     try:
         new_image_url_candidate = process_image_field(
@@ -323,9 +312,7 @@ def merge_members(
     context.require_write_member(db, payload.remove_id, mode="delete")
     keep = get_member_row(db, tree, payload.keep_id)
     remove = get_member_row(db, tree, payload.remove_id)
-    merged, details, counterpart, bridge_outcome = merge_members_in_place(
-        db, tree, keep, remove, payload.fields
-    )
+    merged, details = merge_members_in_place(db, tree, keep, remove, payload.fields)
 
     # Vital-event mirror consistency: dedup always runs (integrity cleanup);
     # the date/location resync is skipped when the actor can't touch Events,
@@ -336,19 +323,6 @@ def merge_members(
             db, tree, merged, "birth", merged.date_of_birth, merged.birthplace
         )
         sync_vital_event(db, tree, merged, "death", merged.date_of_death, merged.cemetery)
-
-    # Bridge-person drift: mirror field choices that changed keep's identity
-    # fields onto its own counterpart, same as update_member does. Uses
-    # keep_before (captured pre-merge) rather than remove's raw fields, since
-    # a "b" choice can pull remove's value while a "combine" produces a value
-    # neither side had.
-    keep_before = details["merge"]["keep_before"]
-    changed_fields = {
-        field: getattr(merged, field)
-        for field, before_value in keep_before.items()
-        if getattr(merged, field) != before_value
-    }
-    _, bridge_synced_tree = sync_bridge_person(db, merged, changed_fields, user)
 
     label = " ".join(filter(None, [merged.first_name, merged.last_name])) or None
     record_activity(
@@ -361,38 +335,6 @@ def merge_members(
         target_label=label,
         details=details,
     )
-
-    # A bridge person's counterpart lives in another tree: its own
-    # linked_workspace_id/linked_member_id just changed (re-pointed onto `merged`,
-    # or cleared entirely), so that tree gets its own activity entry too —
-    # same reasoning as the two record_activity calls in link_member_to_tree.
-    counterpart_tree: Workspace | None = None
-    if counterpart is not None and bridge_outcome is not None:
-        counterpart_tree = db.get(Workspace, counterpart.workspace_id)
-        counterpart_label = (
-            " ".join(filter(None, [counterpart.first_name, counterpart.last_name]))
-            or None
-        )
-        bridge_details = {
-            "after": (
-                {
-                    "linked_workspace_id": merged.workspace_id,
-                    "linked_member_id": merged.id,
-                }
-                if bridge_outcome == "inherited"
-                else {"linked_workspace_id": None, "linked_member_id": None}
-            )
-        }
-        record_activity(
-            db,
-            workspace_id=counterpart_tree.id,
-            actor=user,
-            action="update",
-            target_type="member",
-            target_id=counterpart.id,
-            target_label=counterpart_label,
-            details=bridge_details,
-        )
 
     with UnitOfWork(db) as uow:
         uow.after_commit(
@@ -413,40 +355,6 @@ def merge_members(
                 )
             )
         uow.after_commit(lambda: invalidate_stats(tree.id))
-
-        notified_tree_ids: set[str] = set()
-        if counterpart_tree is not None:
-            uow.after_commit(
-                lambda: publish_workspace_event(
-                    db,
-                    counterpart_tree,
-                    "activity.entry_added",
-                    {"workspace_id": counterpart_tree.id},
-                )
-            )
-            uow.after_commit(
-                lambda: publish_workspace_event(
-                    db,
-                    counterpart_tree,
-                    "workspace.content_changed",
-                    {"workspace_id": counterpart_tree.id, "domain": "member"},
-                )
-            )
-            uow.after_commit(lambda: invalidate_stats(counterpart_tree.id))
-            notified_tree_ids.add(counterpart_tree.id)
-        if (
-            bridge_synced_tree is not None
-            and bridge_synced_tree.id not in notified_tree_ids
-        ):
-            uow.after_commit(
-                lambda: publish_workspace_event(
-                    db,
-                    bridge_synced_tree,
-                    "workspace.content_changed",
-                    {"workspace_id": bridge_synced_tree.id, "domain": "member"},
-                )
-            )
-            uow.after_commit(lambda: invalidate_stats(bridge_synced_tree.id))
     db.refresh(merged)
     return merged
 
@@ -725,9 +633,7 @@ def update_member(
     result = update_member_service(
         db, tree=tree, user=user, member_id=member_id, payload=payload
     )
-    out = MemberOut.model_validate(result.member)
-    out.bridge_sync = result.bridge_sync
-    return out
+    return MemberOut.model_validate(result.member)
 
 
 @router.delete("/members/{member_id}", status_code=204)
@@ -740,18 +646,6 @@ def delete_member(
 ):
     context.require_write_member(db, member_id, mode="delete")
     member = get_member_row(db, tree, member_id)
-    # Deleting one half of a bridge person dissolves the tree-in-tree link: the
-    # surviving counterpart becomes an ordinary member again. The FK only SET
-    # NULLs its linked_member_id (the pointer at this row), leaving a dangling
-    # linked_workspace_id / broken badge — so clear both sides explicitly here.
-    counterpart: Member | None = None
-    counterpart_tree: Workspace | None = None
-    if member.linked_member_id is not None:
-        counterpart = db.get(Member, member.linked_member_id)
-        if counterpart is not None:
-            counterpart.linked_workspace_id = None
-            counterpart.linked_member_id = None
-            counterpart_tree = db.get(Workspace, counterpart.workspace_id)
     label = " ".join(filter(None, [member.first_name, member.last_name])) or None
     record_activity(
         db,
@@ -761,7 +655,7 @@ def delete_member(
         target_type="member",
         target_id=member.id,
         target_label=label,
-        details=member_delete_snapshot(db, member, counterpart),
+        details=member_delete_snapshot(db, member),
     )
     degrade_saved_views_for_member(db, tree.id, member.id)
     db.delete(member)
@@ -780,13 +674,3 @@ def delete_member(
             )
         )
         uow.after_commit(lambda: invalidate_stats(tree.id))
-        if counterpart_tree is not None:
-            uow.after_commit(
-                lambda: publish_workspace_event(
-                    db,
-                    counterpart_tree,
-                    "workspace.content_changed",
-                    {"workspace_id": counterpart_tree.id, "domain": "member"},
-                )
-            )
-            uow.after_commit(lambda: invalidate_stats(counterpart_tree.id))

@@ -61,7 +61,7 @@ def _undo(client, workspace_id, entry_id, user):
 
 
 # ---------------------------------------------------------------------------
-# Member: full cascade + bridge
+# Member: full cascade
 # ---------------------------------------------------------------------------
 
 
@@ -166,61 +166,6 @@ def test_undo_member_delete_restores_full_cascade(client, db):
     assert undo_row.target_type == "member"
     details = json.loads(undo_row.details)
     assert details["undo_of"] == entry.id
-
-
-def test_undo_bridge_member_delete_relinks_counterpart(client, db):
-    owner = make_user(db, "alice")
-    tree = make_tree(db, owner)
-    other = make_tree(db, owner, name="Linked")
-    add_member(db, tree, "m1", first_name="Ada")
-    add_member(db, other, "c1", first_name="Ada")
-    db.get(Member, "m1").linked_workspace_id = other.id
-    db.get(Member, "m1").linked_member_id = "c1"
-    db.get(Member, "c1").linked_workspace_id = tree.id
-    db.get(Member, "c1").linked_member_id = "m1"
-    db.commit()
-
-    res = client.delete(f"{API}/workspaces/{tree.id}/members/m1", headers=auth(owner))
-    assert res.status_code == 204
-    entry = _last_delete_entry(db, tree.id, "member")
-
-    res = _undo(client, tree.id, entry.id, owner)
-    assert res.status_code == 200
-    assert res.json()["skipped"] == []
-
-    m1 = db.get(Member, "m1")
-    c1 = db.get(Member, "c1")
-    assert m1.linked_workspace_id == other.id
-    assert m1.linked_member_id == "c1"
-    assert c1.linked_workspace_id == tree.id
-    assert c1.linked_member_id == "m1"
-
-
-def test_undo_bridge_member_delete_skips_gone_counterpart(client, db):
-    owner = make_user(db, "alice")
-    tree = make_tree(db, owner)
-    other = make_tree(db, owner, name="Linked")
-    add_member(db, tree, "m1", first_name="Ada")
-    add_member(db, other, "c1", first_name="Ada")
-    db.get(Member, "m1").linked_workspace_id = other.id
-    db.get(Member, "m1").linked_member_id = "c1"
-    db.get(Member, "c1").linked_workspace_id = tree.id
-    db.get(Member, "c1").linked_member_id = "m1"
-    db.commit()
-
-    res = client.delete(f"{API}/workspaces/{tree.id}/members/m1", headers=auth(owner))
-    assert res.status_code == 204
-    entry = _last_delete_entry(db, tree.id, "member")
-
-    # The bridge counterpart is gone by the time we undo.
-    res = client.delete(f"{API}/workspaces/{other.id}/members/c1", headers=auth(owner))
-    assert res.status_code == 204
-
-    res = _undo(client, tree.id, entry.id, owner)
-    assert res.status_code == 200
-    body = res.json()
-    assert db.get(Member, "m1") is not None
-    assert any(s["table"] == "members" for s in body["skipped"])
 
 
 def test_undo_member_delete_ignores_same_id_member_in_another_tree(client, db):

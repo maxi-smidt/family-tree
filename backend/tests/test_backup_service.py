@@ -33,6 +33,7 @@ from app.models import (
 )
 from app.models.migration import MigrationStatus
 from app.services.crypto_export import encrypt_bundle
+from app.services.migration.legacy_cleanup import drop_legacy_structures
 from app.services.system.backups import backup_service, streaming_archive
 from tests.conftest import add_member, make_tree, make_user
 
@@ -93,9 +94,7 @@ def test_backup_restores_full_instance_and_media(db, tmp_path, monkeypatch):
     friend = make_user(db, "friend")
     tree = make_tree(db, admin)
     first = add_member(db, tree, "member-1", first_name="Ada")
-    second = add_member(db, tree, "member-2", first_name="Grace")
-    first.linked_member_id = second.id
-    second.linked_member_id = first.id
+    add_member(db, tree, "member-2", first_name="Grace")
     db.add(Friendship(requester_id=admin.id, addressee_id=friend.id))
     db.add(
         WorkspaceInvitation(
@@ -199,8 +198,7 @@ def test_backup_restores_full_instance_and_media(db, tmp_path, monkeypatch):
         db, backup_path, replace=True, media_root=media_root
     )
 
-    assert db.get(Member, first.id).linked_member_id == second.id
-    assert db.get(Member, second.id).linked_member_id == first.id
+    assert db.get(Member, first.id) is not None
     assert db.get(WorkspaceInvitation, "invite-1") is not None
     assert db.get(QualityIssueDismissal, "dismissal-1") is not None
     assert db.get(GeocodeCache, "Vienna") is not None
@@ -1066,52 +1064,6 @@ def test_iter_media_files_is_deterministic_and_complete(tmp_path):
     assert first.index("a/1.txt") < first.index("a/2.txt")
 
 
-def test_deferred_member_links_are_flushed_and_restored_correctly(
-    db, tmp_path, monkeypatch
-):
-    """Linked-member FK patches (deferred because the target may not exist
-    yet at insert time) still land correctly once bounded per-table flushing
-    replaces holding every pair for the whole archive."""
-    media_root = tmp_path / "media"
-    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
-    monkeypatch.setattr(backup_service, "BACKUP_DIR", tmp_path / "backups")
-
-    admin = make_user(db, "admin", is_admin=True)
-    tree = make_tree(db, admin)
-    first = add_member(db, tree, "member-1")
-    second = add_member(db, tree, "member-2")
-    first.linked_member_id = second.id
-    second.linked_member_id = first.id
-    db.commit()
-
-    record = backup_service.create_backup(db, actor=admin)
-    assert record.status == "success"
-    backup_path = backup_service.BACKUP_DIR / record.filename
-
-    flushed_mappings = []
-    original_bulk_update = db.bulk_update_mappings
-
-    def _spy(model, mappings):
-        mappings = list(mappings)
-        flushed_mappings.extend(mappings)
-        return original_bulk_update(model, mappings)
-
-    monkeypatch.setattr(db, "bulk_update_mappings", _spy)
-
-    for model in reversed(backup_service.BACKUP_MODELS):
-        db.execute(delete(model))
-    db.commit()
-    shutil.rmtree(media_root, ignore_errors=True)
-
-    backup_service.restore_backup_file(
-        db, backup_path, replace=False, media_root=media_root
-    )
-
-    assert len(flushed_mappings) == 2
-    assert db.get(Member, "member-1").linked_member_id == "member-2"
-    assert db.get(Member, "member-2").linked_member_id == "member-1"
-
-
 # --- pre-migration backup retention (#994) ----------------------------------
 
 
@@ -1254,3 +1206,60 @@ def test_prune_backups_removes_a_failed_pre_migration_backup(db, tmp_path, monke
     backup_service.delete_backup(db, failed)  # must not raise ConflictError
 
     assert db.get(BackupRecord, failed.id) is None
+
+
+# --- Backups after legacy-structure cleanup (#1021 review) ------------------
+
+
+def test_create_backup_succeeds_after_legacy_structures_are_dropped(
+    db, tmp_path, monkeypatch
+):
+    """Once drop_legacy_structures has removed the virtual-view tables, an
+    ordinary backup must not fail trying to query them — they still appear
+    in BACKUP_MODELS (an older archive may still carry rows for them), but a
+    dropped table contributes a 0 count exactly like an empty one."""
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    monkeypatch.setattr(backup_service, "BACKUP_DIR", tmp_path / "backups")
+    admin = make_user(db, "admin", is_admin=True)
+    make_tree(db, admin)
+    db.commit()
+
+    drop_legacy_structures(db)
+    db.commit()
+    assert "virtual_views" not in inspect(db.get_bind()).get_table_names()
+
+    record = backup_service.create_backup(db, actor=admin)
+    assert record.status == "success"
+
+    manifest = backup_service.verify_archive(backup_service.BACKUP_DIR / record.filename)
+    assert manifest["table_row_counts"]["virtual_views"] == 0
+
+
+def test_restoring_a_pre_cleanup_backup_into_a_cleaned_up_target_drops_legacy_rows(
+    db, tmp_path, monkeypatch
+):
+    """An archive taken before #1021's cleanup can still carry virtual-view
+    rows; restoring it into an instance where those tables are already gone
+    must silently drop that data instead of erroring."""
+    media_root = tmp_path / "media"
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    monkeypatch.setattr(backup_service, "BACKUP_DIR", tmp_path / "backups")
+
+    admin = make_user(db, "admin", is_admin=True)
+    make_tree(db, admin)
+    view = VirtualView(id="vv-1", name="Compare", owner_id=admin.id, created_at="now")
+    db.add(view)
+    db.commit()
+
+    record = backup_service.create_backup(db, actor=admin)
+    assert record.status == "success"
+    backup_path = backup_service.BACKUP_DIR / record.filename
+
+    drop_legacy_structures(db)
+    db.commit()
+
+    backup_service.restore_backup_file(
+        db, backup_path, replace=True, media_root=media_root
+    )
+
+    assert "virtual_views" not in inspect(db.get_bind()).get_table_names()

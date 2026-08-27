@@ -1,8 +1,8 @@
 """Identity links: verified cross-workspace equivalence between two members.
 
-Replaces the tree-in-tree bridge (``Member.linked_workspace_id`` /
-``linked_member_id``, see ``app.services.members.bridge``) with a normalized,
-consent-driven model. A link is **not transitive**: it states that exactly the
+Replaces the legacy tree-in-tree bridge (``Member.linked_workspace_id`` /
+``linked_member_id``, removed by #1021) with a normalized, consent-driven
+model. A link is **not transitive**: it states that exactly the
 two named members are the same person, and says nothing about any other link
 either of them may separately hold. This keeps the "at most one member from a
 given workspace represented twice" invariant trivial to enforce — it already
@@ -15,8 +15,8 @@ proposed the link. ``app.services.identity_links`` is the only writer and owns
 maintaining that order across every mutation (including a member merge that
 repoints an endpoint).
 
-Fields are never mirrored across a link (contrast the bridge's
-``BRIDGE_SYNC_FIELDS``) — a link only asserts identity, it never copies data.
+Fields are never mirrored across a link (contrast the legacy bridge's
+field-mirroring) — a link only asserts identity, it never copies data.
 """
 
 from enum import StrEnum

@@ -11,7 +11,7 @@ import { mapDiseaseFromDB, DiseaseDB, DiseaseInput } from "@/types/disease";
 import { mapMembersFromRows } from "@/utils/memberMapping";
 import { treeProcessorClient } from "@/workers/treeProcessorClient";
 import { WorkspaceService } from "@/services/WorkspaceService";
-import { activeTreeId, isActiveTree, isVirtualId } from "@/hooks/useWorkspaceStore";
+import { activeTreeId, isActiveTree } from "@/hooks/useWorkspaceStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useStorageStore } from "@/hooks/useStorageStore";
 import { invalidateDerivedViews } from "@/hooks/invalidateDerivedViews";
@@ -209,8 +209,8 @@ interface MemberState {
   neighborhoodTruncated: boolean;
   totalMemberCount: number;
   // One-shot request to center/highlight a member once it is present in
-  // `members` — set when navigating into a linked tree so the view lands on
-  // the counterpart (bridge person). Consumed and cleared by the canvas.
+  // `members` — set when following a member→tree link so the view lands on
+  // the target member. Consumed and cleared by the canvas.
   pendingLocateMemberId: string | null;
   setPendingLocateMemberId: (id: string | null) => void;
   undoStack: HistoryEntry[];
@@ -243,9 +243,7 @@ interface MemberState {
     id: string,
     changes: MemberUpdate,
     workspaceId?: string,
-  ) => Promise<
-    { bridgeSync?: "synced" | "skipped_no_access" | null } | undefined
-  >;
+  ) => Promise<void>;
   batchSetCollapsed: (
     updates: { id: string; isCollapsed: boolean }[],
   ) => Promise<void>;
@@ -395,35 +393,32 @@ export const useMemberStore = create<MemberState>((set, get) => ({
 
     // Ask the bounded endpoint first — its total_member_count comes from an
     // indexed count query, not a full scan — so a large workspace is never
-    // fetched in full just to discover it is large. Virtual views don't
-    // expose this endpoint (it would 404), so skip straight to the full load.
-    if (!isVirtualId(workspaceId)) {
-      try {
-        const nb = await WorkspaceService.getNeighborhood(
-          workspaceId,
-          undefined,
-          neighborhoodUp,
-          neighborhoodDown,
-        );
-        if (stale()) return;
-        if (nb.total_member_count > WINDOWED_MODE_THRESHOLD) {
-          set({
-            windowed: true,
-            windowedForTreeId: workspaceId,
-            members: buildAppMembers(nb.members, nb.relations, workspaceId),
-            detailLoadedIds: new Set<string>(),
-            focusRootId: nb.root_id || null,
-            neighborhoodTruncated: nb.truncated,
-            totalMemberCount: nb.total_member_count,
-          });
-          return;
-        }
-      } catch {
-        // Probe failed — fall through to the full load below, unless a newer
-        // call has already superseded this one (no point starting an
-        // O(workspace) fetch whose result would just be discarded).
-        if (stale()) return;
+    // fetched in full just to discover it is large.
+    try {
+      const nb = await WorkspaceService.getNeighborhood(
+        workspaceId,
+        undefined,
+        neighborhoodUp,
+        neighborhoodDown,
+      );
+      if (stale()) return;
+      if (nb.total_member_count > WINDOWED_MODE_THRESHOLD) {
+        set({
+          windowed: true,
+          windowedForTreeId: workspaceId,
+          members: buildAppMembers(nb.members, nb.relations, workspaceId),
+          detailLoadedIds: new Set<string>(),
+          focusRootId: nb.root_id || null,
+          neighborhoodTruncated: nb.truncated,
+          totalMemberCount: nb.total_member_count,
+        });
+        return;
       }
+    } catch {
+      // Probe failed — fall through to the full load below, unless a newer
+      // call has already superseded this one (no point starting an
+      // O(workspace) fetch whose result would just be discarded).
+      if (stale()) return;
     }
 
     // Small/medium workspace (or the probe above didn't resolve): full load,
@@ -478,11 +473,6 @@ export const useMemberStore = create<MemberState>((set, get) => ({
   fetchMemberDetail: async (id: string, force = false) => {
     const workspaceId = activeTreeId();
     if (!workspaceId) return undefined;
-
-    // Virtual view members: treat as already loaded — return surface data from store
-    if (isVirtualId(workspaceId)) {
-      return get().members.find((m) => m.id === id);
-    }
 
     // Cache hit: skip network round-trip when detail is already loaded and not forced
     if (!force && get().detailLoadedIds.has(id)) {
@@ -711,17 +701,14 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     if (!workspaceId) return;
 
     const currentMember = get().members.find((m) => m.id === id);
-    const updated = await WorkspaceService.updateMember(workspaceId, id, changes);
-    // Transient outcome of the bridge-person mirror — surfaced to callers so
-    // the member form can tell the editor when the counterpart didn't follow.
-    const result = { bridgeSync: updated?.bridgeSync ?? null };
+    await WorkspaceService.updateMember(workspaceId, id, changes);
 
     await get().refreshMembers(workspaceId);
     if (isActiveTree(workspaceId)) invalidateDerivedViews();
     if ("imageData" in changes && isActiveTree(workspaceId))
       useStorageStore.getState().refreshStorageUsage();
 
-    if (!currentMember) return result;
+    if (!currentMember) return;
 
     const previous: MemberUpdate = {
       gender: currentMember.gender,
@@ -749,7 +736,6 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       isCollapsed: currentMember.isCollapsed,
       positionX: currentMember.position.x,
       positionY: currentMember.position.y,
-      linkedWorkspaceId: currentMember.linkedWorkspaceId ?? null,
     };
     const reverseChanges: MemberUpdate = {};
     for (const key of Object.keys(changes) as (keyof MemberUpdate)[]) {
@@ -770,7 +756,6 @@ export const useMemberStore = create<MemberState>((set, get) => ({
         await restore(changes);
       },
     });
-    return result;
   },
 
   // Persist collapse/expand state for many members in one request and reflect
@@ -816,10 +801,6 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       }
       throw error;
     }
-
-    // Virtual view positions are stored in VirtualViewPosition, not source
-    // workspaces — they're independent. But position moves have no undo history.
-    if (isVirtualId(workspaceId)) return;
 
     get()._pushHistory({
       undo: async () => {

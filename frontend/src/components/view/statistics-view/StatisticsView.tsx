@@ -2,8 +2,6 @@ import { useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { RefreshCw, Users, Clock, CalendarDays, Skull } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { useStatisticsStore } from "@/hooks/useStatisticsStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
@@ -16,7 +14,6 @@ import {
   useStatisticsSettings,
   normalizeOrder,
 } from "@/hooks/useStatisticsSettings";
-import { CombinedStatisticsReport } from "@/types/statistics";
 import { WIDGET_MAP } from "./widgets";
 import { CustomizePopover } from "./CustomizePopover";
 import { CustomWidgetRenderer } from "./CustomWidgetRenderer";
@@ -68,17 +65,7 @@ function EmptyState({ t }: { t: (k: string) => string }) {
 
 export const StatisticsView = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "statistics-view" });
-  const {
-    report,
-    isLoading,
-    scope,
-    setScope,
-    refreshStatistics,
-    customWidgetAggregations,
-    isCustomWidgetAggregationsLoading,
-    refreshCustomWidgetAggregations,
-    clearCustomWidgetAggregations,
-  } = useStatisticsStore();
+  const { report, isLoading, refreshStatistics } = useStatisticsStore();
   const { order, hidden, customWidgets } = useStatisticsSettings();
   const members = useMemberStore((s) => s.members);
   const events = useEventStore((s) => s.events);
@@ -89,10 +76,6 @@ export const StatisticsView = () => {
   const refreshStories = useStoryStore((s) => s.refreshStories);
   const selectedTreeId = useWorkspaceStore((s) => s.selectedTree?.id);
   const setOpenSheet = useMemberSheetStore((s) => s.setOpenSheet);
-  const hasLinkedMembers = members.some((m) => m.linkedWorkspaceId);
-  const showScopeToggle = hasLinkedMembers;
-  const combinedReport =
-    scope === "linked" ? (report as CombinedStatisticsReport | null) : null;
 
   useDeferredStoreLoad(eventsInitialized, refreshEvents);
   useDeferredStoreLoad(storiesInitialized, refreshStories);
@@ -103,7 +86,7 @@ export const StatisticsView = () => {
     }
   }, [report, refreshStatistics]);
 
-  const { customById, visibleCustomWidgets, visibleIds } = useMemo(() => {
+  const { customById, visibleIds } = useMemo(() => {
     const byId = Object.fromEntries(
       customWidgets.map((widget) => [widget.id, widget]),
     );
@@ -113,30 +96,9 @@ export const StatisticsView = () => {
     );
     return {
       customById: byId,
-      visibleCustomWidgets: ids
-        .map((id) => byId[id])
-        .filter((widget): widget is (typeof customWidgets)[number] => !!widget),
       visibleIds: ids,
     };
   }, [customWidgets, hidden, order]);
-
-  useEffect(() => {
-    if (
-      scope !== "linked" ||
-      !selectedTreeId ||
-      visibleCustomWidgets.length === 0
-    ) {
-      clearCustomWidgetAggregations();
-      return;
-    }
-    void refreshCustomWidgetAggregations(visibleCustomWidgets, selectedTreeId);
-  }, [
-    clearCustomWidgetAggregations,
-    refreshCustomWidgetAggregations,
-    scope,
-    selectedTreeId,
-    visibleCustomWidgets,
-  ]);
 
   const handleOpenMember = useCallback(
     (memberId: string) => {
@@ -152,29 +114,6 @@ export const StatisticsView = () => {
 
   const actions = (
     <div className="flex items-center gap-2">
-      {showScopeToggle && (
-        <>
-          <ToggleGroup
-            type="single"
-            variant="outline"
-            size="sm"
-            value={scope}
-            onValueChange={(value) => {
-              if (value) setScope(value as "tree" | "linked");
-            }}
-          >
-            <ToggleGroupItem value="tree">{t("scope-tree")}</ToggleGroupItem>
-            <ToggleGroupItem value="linked">
-              {t("scope-linked")}
-            </ToggleGroupItem>
-          </ToggleGroup>
-          {combinedReport && (
-            <Badge variant="secondary">
-              {t("scope-tree-count", { count: combinedReport.tree_count })}
-            </Badge>
-          )}
-        </>
-      )}
       <CustomizePopover />
     </div>
   );
@@ -217,9 +156,6 @@ export const StatisticsView = () => {
             />
           </div>
 
-          {/* Custom widgets use the backend pivot for the linked scope, which
-              shares the report's access-scoped traversal and bridge dedup.
-              The On this day widget remains active-tree only. */}
           {visibleIds.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">
               {t("all-hidden")}
@@ -234,9 +170,6 @@ export const StatisticsView = () => {
                       key={id}
                       widget={customWidget}
                       members={members}
-                      combinedScope={scope === "linked"}
-                      aggregation={customWidgetAggregations[id]}
-                      isLoading={isCustomWidgetAggregationsLoading}
                       t={t}
                     />
                   );

@@ -48,6 +48,7 @@ from app.models.migration import (
 )
 from app.services.migration import preflight
 from app.services.migration.converter import run_conversion
+from app.services.migration.legacy_cleanup import drop_legacy_structures
 from app.services.migration.media import run_media_relocation
 from app.services.migration.state_machine import (
     advance_phase,
@@ -86,6 +87,10 @@ def _record_fresh_install(db: Session) -> None:
     user creates a workspace soon after — and every startup with no run row
     re-evaluates ``_needs_conversion`` from scratch, so it would then read
     True and incorrectly route native v2 data through the legacy converter.
+
+    Also drops the legacy bridge columns/virtual-view tables (#1021): a fresh
+    install never has legacy data to convert, so there is nothing gating that
+    cleanup here the way a real upgrade's ``finalize`` gates it.
     """
     run = MigrationRun(
         source_version="none",
@@ -97,6 +102,9 @@ def _record_fresh_install(db: Session) -> None:
     )
     with UnitOfWork(db):
         db.add(run)
+    drop_legacy_structures(db)
+    with UnitOfWork(db):
+        pass
 
 
 def _latest_run(db: Session) -> MigrationRun | None:

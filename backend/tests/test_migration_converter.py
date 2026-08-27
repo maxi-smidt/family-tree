@@ -1,5 +1,6 @@
 """Tests for the v2 database-conversion engine (#987)."""
 
+import pytest
 from sqlalchemy import func, select
 
 from app.models import (
@@ -20,7 +21,23 @@ from app.models import (
 )
 from app.models.identity_link import IdentityLink, IdentityLinkStatus
 from app.services.migration.converter import run_conversion
-from tests.conftest import add_member, make_tree, make_user, share
+from tests.conftest import (
+    add_legacy_bridge_columns,
+    add_member,
+    make_tree,
+    make_user,
+    set_legacy_bridge,
+    share,
+)
+
+
+@pytest.fixture(autouse=True)
+def _legacy_bridge_schema(db):
+    """``run_conversion`` always reads the legacy bridge columns (#1021
+    removed them from the ORM model, so ``Base.metadata.create_all`` no
+    longer creates them) — every test in this module needs them present,
+    matching a real not-yet-converted instance's schema."""
+    add_legacy_bridge_columns(db)
 
 
 def _make_run(db) -> MigrationRun:
@@ -34,11 +51,8 @@ def _make_run(db) -> MigrationRun:
 
 
 def _wire_bridge(db, member_a: Member, member_b: Member) -> None:
-    member_a.linked_workspace_id = member_b.workspace_id
-    member_a.linked_member_id = member_b.id
-    member_b.linked_workspace_id = member_a.workspace_id
-    member_b.linked_member_id = member_a.id
-    db.commit()
+    set_legacy_bridge(db, member_a.id, member_b.workspace_id, member_b.id)
+    set_legacy_bridge(db, member_b.id, member_a.workspace_id, member_a.id)
 
 
 def _identity_link(db, member_a: Member, member_b: Member) -> IdentityLink:
@@ -214,8 +228,7 @@ def test_bridge_pair_photo_drift_is_captured_for_1018(db, owner):
 def test_self_linked_member_is_reported_without_forming_an_edge(db, owner):
     tree = make_tree(db, owner)
     member = add_member(db, tree, "m1")
-    member.linked_workspace_id = tree.id
-    member.linked_member_id = member.id
+    set_legacy_bridge(db, member.id, tree.id, member.id)
     db.commit()
 
     run = _make_run(db)
@@ -272,8 +285,7 @@ def test_asymmetric_legacy_pointer_does_not_merge_unrelated_workspaces(db, owner
     member_b = add_member(db, tree_b, "m-b")
 
     # One-way pointer: a points at b, b never points back.
-    member_a.linked_workspace_id = tree_b.id
-    member_a.linked_member_id = member_b.id
+    set_legacy_bridge(db, member_a.id, tree_b.id, member_b.id)
     db.commit()
     # Simulates the alembic backfill, which turns even a one-way pointer
     # into an identity link (it only requires one side to resolve).

@@ -30,7 +30,6 @@ describe("RemoveDatabaseDialog", () => {
     vi.clearAllMocks();
     useWorkspaceStore.setState({
       workspaces: [TREE_A],
-      virtualViews: [],
       selectedTree: TREE_A,
       metadata: {},
       relationTypes: [],

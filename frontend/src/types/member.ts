@@ -65,13 +65,6 @@ export interface Member {
   cemetery: string | null;
   placesLived: PlaceLived[];
   isCollapsed: boolean;
-  // Workspace-in-tree: optional pointer to another tree detailing this person's
-  // own family. null when unlinked. Optional so existing object literals (e.g.
-  // in tests) need not specify it; the DB mapping always populates it.
-  linkedWorkspaceId?: string | null;
-  // The counterpart row in the linked tree representing the same person (the
-  // "bridge person"). Navigation into the linked tree centers on it.
-  linkedMemberId?: string | null;
   position: {
     x: number;
     y: number;
@@ -91,7 +84,6 @@ export interface Member {
   onAddParent?: () => void;
   onAddLeft?: () => void;
   onAddRight?: () => void;
-  onOpenLinkedTree?: () => void;
   [key: string]: unknown;
 }
 
@@ -144,14 +136,6 @@ export interface MemberDB {
   isCollapsed: number;
   positionX: number;
   positionY: number;
-  linkedWorkspaceId?: string | null;
-  // Counterpart member inside the linked tree (the same person's row there).
-  // Written only by the backend; the client treats it as read-only.
-  linkedMemberId?: string | null;
-  // Transient, only on update responses: outcome of the bridge-person mirror.
-  // "skipped_no_access" = identity fields changed but the counterpart tree is
-  // not writable by the actor, so the two rows drifted.
-  bridgeSync?: "synced" | "skipped_no_access" | null;
   // Only present for members returned by virtual view endpoints.
   sourceWorkspaceId?: string;
   sourceWorkspaceName?: string;
@@ -196,7 +180,6 @@ export interface MemberUpdate {
   isCollapsed?: boolean;
   positionX?: number;
   positionY?: number;
-  linkedWorkspaceId?: string | null;
 }
 
 function parsePlacesLived(raw: string | null | undefined): PlaceLived[] {
@@ -242,8 +225,6 @@ export function mapMemberFromDB(
     cemetery: row.cemetery ?? null,
     placesLived: parsePlacesLived(row.placesLived),
     isCollapsed: !!row.isCollapsed,
-    linkedWorkspaceId: row.linkedWorkspaceId ?? null,
-    linkedMemberId: row.linkedMemberId ?? null,
     position: {
       x: row.positionX,
       y: row.positionY,
@@ -287,7 +268,6 @@ export function mapMemberToDB(member: Member): MemberDB {
     placesLived:
       member.placesLived.length > 0 ? JSON.stringify(member.placesLived) : null,
     isCollapsed: member.isCollapsed ? 1 : 0,
-    linkedWorkspaceId: member.linkedWorkspaceId ?? null,
   };
 }
 
@@ -312,8 +292,6 @@ export function createMember(position: { x: number; y: number }): Member {
     cemetery: null,
     placesLived: [],
     isCollapsed: false,
-    linkedWorkspaceId: null,
-    linkedMemberId: null,
     position: position,
   };
 }

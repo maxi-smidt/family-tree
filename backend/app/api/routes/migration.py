@@ -21,6 +21,7 @@ from app.schemas.migration import (
 )
 from app.services.migration import conflicts as conflict_service
 from app.services.migration import reports as report_service
+from app.services.migration.legacy_cleanup import drop_legacy_structures
 from app.services.migration.state_machine import finalize_run
 from app.services.system.admin_audit import record_admin_audit
 from app.services.system.admin_audit_details import MigrationFinalizeDetails
@@ -184,6 +185,9 @@ def finalize(
         subject_id=run.id,
         details=MigrationFinalizeDetails(target_version=run.target_version),
     )
+    # Safe only now: finalize means conversion is done and reviewed, so the
+    # bridge/virtual-view data it read is no longer needed (#1021).
+    drop_legacy_structures(db)
     with UnitOfWork(db):
         pass
     db.refresh(run)
