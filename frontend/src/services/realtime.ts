@@ -21,6 +21,7 @@ import { useDocumentStore } from "@/hooks/useDocumentStore";
 import { useNotificationStore } from "@/hooks/useNotificationStore";
 import { useStorageStore } from "@/hooks/useStorageStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
+import { useSectionStore } from "@/hooks/useSectionStore";
 import { refreshTaskStore } from "@/hooks/taskStoreRegistry";
 import { usePresenceStore } from "@/hooks/usePresenceStore";
 import { isActiveTree, useWorkspaceStore } from "@/hooks/useWorkspaceStore";
@@ -121,6 +122,7 @@ async function connect(): Promise<void> {
     task: refreshTaskStore,
     document: (id) => void useDocumentStore.getState().refreshDocuments(id),
     gallery: (id) => void useGalleryStore.getState().refreshGalleryImages(id),
+    section: (id) => void useSectionStore.getState().refreshSections(id),
   };
   eventSource.addEventListener("workspace.content_changed", (e) => {
     const data = JSON.parse((e as MessageEvent).data) as {

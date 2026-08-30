@@ -50,6 +50,14 @@ import {
 } from "@/types/statistics";
 import { WorkspaceStorageUsageDB } from "@/types/storage";
 import { PresenceRosterDB } from "@/types/presence";
+import {
+  SectionCreateInput,
+  SectionDB,
+  SectionDependentsDB,
+  SectionPreviewDB,
+  SectionUpdateInput,
+} from "@/types/section";
+import { SavedViewDB } from "@/types/savedView";
 
 const base = (workspaceId: string) => `/workspaces/${workspaceId}`;
 
@@ -813,5 +821,57 @@ export class WorkspaceService {
 
   static leavePresence(workspaceId: string) {
     return api.del<void>(`/workspaces/${workspaceId}/presence`);
+  }
+
+  // --- Sections (#982/#988) -------------------------------------------------
+  static getSections(workspaceId: string) {
+    return api.get<SectionDB[]>(`${base(workspaceId)}/sections`);
+  }
+
+  static previewSection(
+    workspaceId: string,
+    rootMemberId: string,
+    direction: "direct_family" | "partnership",
+  ) {
+    return api.get<SectionPreviewDB>(`${base(workspaceId)}/sections/preview`, {
+      root_member_id: rootMemberId,
+      direction,
+    });
+  }
+
+  static createSection(workspaceId: string, payload: SectionCreateInput) {
+    return api.post<SectionDB>(`${base(workspaceId)}/sections`, payload);
+  }
+
+  static updateSection(
+    workspaceId: string,
+    sectionId: string,
+    payload: SectionUpdateInput,
+  ) {
+    return api.patch<SectionDB>(
+      `${base(workspaceId)}/sections/${sectionId}`,
+      payload,
+    );
+  }
+
+  static getSectionDependents(workspaceId: string, sectionId: string) {
+    return api.get<SectionDependentsDB>(
+      `${base(workspaceId)}/sections/${sectionId}/dependents`,
+    );
+  }
+
+  static deleteSection(
+    workspaceId: string,
+    sectionId: string,
+    reassignScopeTo?: string,
+  ) {
+    return api.del<void>(`${base(workspaceId)}/sections/${sectionId}`, {
+      reassign_scope_to: reassignScopeTo,
+    });
+  }
+
+  // --- Saved views (#986) — listing only; full CRUD/config UX is #1013 -----
+  static getSavedViews(workspaceId: string) {
+    return api.get<SavedViewDB[]>(`${base(workspaceId)}/saved-views`);
   }
 }

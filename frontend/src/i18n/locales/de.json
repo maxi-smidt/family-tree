@@ -2038,5 +2038,71 @@
       "tree_unshared": "Der Zugriff auf \"{{tree_name}}\" wurde entzogen",
       "invitation_received": "Du wurdest zu \"{{tree_name}}\" eingeladen"
     }
+  },
+  "workspace-nav": {
+    "aria-label": "Arbeitsbereich-Navigation",
+    "expand": "Navigation einblenden",
+    "collapse": "Navigation ausblenden",
+    "explore": "Entdecken",
+    "sections": "Bereiche",
+    "no-sections": "Noch keine Bereiche",
+    "section-actions": "Aktionen für {{name}}",
+    "rename": "Umbenennen",
+    "delete": "Löschen",
+    "saved-views": "Gespeicherte Ansichten",
+    "no-saved-views": "Noch keine gespeicherten Ansichten",
+    "search": {
+      "placeholder": "Diesen Arbeitsbereich durchsuchen…",
+      "clear": "Suche löschen",
+      "searching": "Suche läuft…",
+      "error": "Suche fehlgeschlagen — bitte erneut versuchen.",
+      "no-results": "Keine Mitglieder gefunden",
+      "unnamed": "Unbenanntes Mitglied",
+      "nee": "geb. {{name}}",
+      "unassigned": "Ohne Bereich",
+      "show-more": "Mehr anzeigen",
+      "loading-more": "Wird geladen…"
+    },
+    "create-section": {
+      "title": "Bereich erstellen",
+      "description": "Bereiche organisieren nur den Arbeitsbereich — beim Erstellen werden nie Personen, Beziehungen, Medien oder Dokumente kopiert, verschoben oder gelöscht.",
+      "name-label": "Name",
+      "seed-label": "Mit einer Person starten (optional)",
+      "seed-placeholder": "Person auswählen…",
+      "seed-no-results": "Keine passenden Mitglieder",
+      "direction-label": "Einschließen",
+      "direction-direct-family": "Direkte Familie",
+      "direction-partnership": "Direkte Familie und Partner",
+      "preview-loading": "Vorschau wird geladen…",
+      "preview-summary": "{{primary}} Hauptmitglieder, {{boundary}} Randpersonen",
+      "preview-overlap": "Verbindet sich mit \"{{name}}\" ({{count}} gemeinsame Mitglieder)",
+      "name-conflict": "Ein Bereich mit diesem Namen existiert bereits.",
+      "create-error": "Der Bereich konnte nicht erstellt werden.",
+      "cancel": "Abbrechen",
+      "create": "Erstellen"
+    },
+    "rename-section": {
+      "title": "Bereich umbenennen",
+      "name-conflict": "Ein Bereich mit diesem Namen existiert bereits.",
+      "rename-error": "Der Bereich konnte nicht umbenannt werden.",
+      "cancel": "Abbrechen",
+      "save": "Speichern"
+    },
+    "delete-section": {
+      "title": "\"{{name}}\" löschen?",
+      "loading": "Wird geprüft, was dieser Bereich noch enthält…",
+      "description": "Damit werden nur der Bereich und sein Layout entfernt ({{count}} Mitglieder behalten ihre Datensätze). Dies kann nicht rückgängig gemacht werden.",
+      "blocked-description": "Dieser Bereich enthält noch Dinge, die zuerst geklärt werden müssen:",
+      "blocked-grants": "{{count}} eingeschränkte Zugriffsberechtigung(en) — zuerst widerrufen",
+      "blocked-invitations": "{{count}} ausstehende Einladung(en) — zuerst klären",
+      "blocked-public-links": "{{count}} öffentliche(r) Link(s) mit diesem Bereich — zuerst entfernen",
+      "blocked-content": "{{count}} {{domain}}-Datensatz/-sätze, die nur diesem Bereich zugeordnet sind",
+      "load-error": "Der Inhalt dieses Bereichs konnte nicht geprüft werden.",
+      "delete-error": "Der Bereich konnte nicht gelöscht werden.",
+      "cancel": "Abbrechen",
+      "close": "Schließen",
+      "confirm": "Löschen",
+      "deleting": "Wird gelöscht…"
+    }
   }
 }

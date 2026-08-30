@@ -20,6 +20,7 @@ import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { FlowPanelControls } from "@/components/view/tree-view/FlowPanelControls";
 import GenerationLines from "@/components/view/tree-view/GenerationLines";
 import { CanvasSearch } from "@/components/view/tree-view/CanvasSearch";
+import { WorkspaceNavigationPanel } from "@/components/view/tree-view/nav/WorkspaceNavigationPanel";
 import { EmptyTreeState } from "@/components/view/tree-view/EmptyTreeState";
 import { MemberControls } from "@/components/view/tree-view/MemberControls";
 import { ConnectionRelationCard } from "@/components/view/tree-view/ConnectionRelationCard";
@@ -568,7 +569,18 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   if (!isReady) return null;
 
   return (
-    <div className="w-full h-full" aria-label={t("tree-view.canvas-label")}>
+    <div className="flex h-full w-full">
+      {!publicView && (
+        <WorkspaceNavigationPanel
+          workspaceId={activeTree.id}
+          workspaceName={activeTree.name}
+          canWrite={canWrite}
+        />
+      )}
+      <div
+        className="h-full min-w-0 flex-1"
+        aria-label={t("tree-view.canvas-label")}
+      >
       <ReactFlow
         className={`ft-tree-canvas${inSelectionMode ? " cursor-crosshair" : ""}`}
         nodes={[...viewNodes, ...unionNodes]}
@@ -787,6 +799,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
           />
         </>
       )}
+      </div>
     </div>
   );
 
