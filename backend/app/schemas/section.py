@@ -23,6 +23,12 @@ class SectionOut(BaseModel):
     position: int
     created_at: str
     member_count: int = 0
+    # Per-section write capability (#1029): a section-scoped editor grant may
+    # cover only some of a workspace's sections, so the coarse workspace role
+    # alone can't tell the UI whether *this* section's rename/delete actions
+    # are theirs to use. Defaults True for routes that already gate the
+    # response behind a write check on this exact section.
+    can_write: bool = True
 
 
 class SectionCreate(BaseModel):

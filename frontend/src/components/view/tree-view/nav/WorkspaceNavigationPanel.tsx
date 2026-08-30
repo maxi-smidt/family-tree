@@ -19,7 +19,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/useMobile";
 import { useSectionStore } from "@/hooks/useSectionStore";
 import { useSavedViewStore } from "@/hooks/useSavedViewStore";
 import { useWorkspaceNavStore } from "@/hooks/useWorkspaceNavStore";
@@ -55,6 +57,7 @@ export const WorkspaceNavigationPanel = ({
   canWrite,
 }: WorkspaceNavigationPanelProps) => {
   const { t } = useTranslation(undefined, { keyPrefix: "workspace-nav" });
+  const isMobile = useIsMobile();
 
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem(COLLAPSE_STORAGE_KEY) === "1",
@@ -66,6 +69,10 @@ export const WorkspaceNavigationPanel = ({
       return next;
     });
   };
+  // On a narrow viewport there's no room to reserve for an inline panel at
+  // all (#988 follow-up) — it opens as a full overlay instead, closed by
+  // default, rather than eating most of the canvas the moment it mounts.
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const [sectionsOpen, setSectionsOpen] = useState(true);
   const [viewsOpen, setViewsOpen] = useState(true);
@@ -104,40 +111,8 @@ export const WorkspaceNavigationPanel = ({
     if (view?.focus_member_id) focusMember(view.focus_member_id);
   };
 
-  if (collapsed) {
-    return (
-      <div className="flex h-full w-10 flex-none flex-col items-center border-r bg-background py-2">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={toggleCollapsed}
-          aria-label={t("expand")}
-        >
-          <PanelLeft className="h-4 w-4" />
-        </Button>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className="flex h-full w-72 flex-none flex-col border-r bg-background"
-      aria-label={t("aria-label")}
-    >
-      <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
-        <span className="truncate text-sm font-semibold" title={workspaceName}>
-          {workspaceName}
-        </span>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={toggleCollapsed}
-          aria-label={t("collapse")}
-        >
-          <PanelLeftClose className="h-4 w-4" />
-        </Button>
-      </div>
-
+  const listContent = (
+    <>
       <div className="border-b p-2">
         <WorkspaceSearchBox
           workspaceId={workspaceId}
@@ -209,7 +184,7 @@ export const WorkspaceNavigationPanel = ({
                     </span>
                     <Badge variant="secondary">{section.member_count}</Badge>
                   </button>
-                  {canWrite && (
+                  {canWrite && section.can_write && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
@@ -285,7 +260,11 @@ export const WorkspaceNavigationPanel = ({
           )}
         </div>
       </div>
+    </>
+  );
 
+  const dialogs = (
+    <>
       <CreateSectionDialog open={createOpen} onOpenChange={setCreateOpen} />
       <RenameSectionDialog
         section={renameTarget}
@@ -295,6 +274,74 @@ export const WorkspaceNavigationPanel = ({
         section={deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
       />
+    </>
+  );
+
+  if (isMobile) {
+    return (
+      <>
+        <div className="flex h-full w-10 flex-none flex-col items-center border-r bg-background py-2">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => setMobileOpen(true)}
+            aria-label={t("expand")}
+          >
+            <PanelLeft className="h-4 w-4" />
+          </Button>
+        </div>
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+          <SheetContent
+            side="left"
+            className="w-72 gap-0 p-0"
+            aria-label={t("aria-label")}
+          >
+            <SheetTitle className="truncate border-b px-3 py-2 text-sm font-semibold">
+              {workspaceName}
+            </SheetTitle>
+            {listContent}
+          </SheetContent>
+        </Sheet>
+        {dialogs}
+      </>
+    );
+  }
+
+  if (collapsed) {
+    return (
+      <div className="flex h-full w-10 flex-none flex-col items-center border-r bg-background py-2">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={toggleCollapsed}
+          aria-label={t("expand")}
+        >
+          <PanelLeft className="h-4 w-4" />
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="flex h-full w-72 flex-none flex-col border-r bg-background"
+      aria-label={t("aria-label")}
+    >
+      <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
+        <span className="truncate text-sm font-semibold" title={workspaceName}>
+          {workspaceName}
+        </span>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={toggleCollapsed}
+          aria-label={t("collapse")}
+        >
+          <PanelLeftClose className="h-4 w-4" />
+        </Button>
+      </div>
+      {listContent}
+      {dialogs}
     </div>
   );
 };

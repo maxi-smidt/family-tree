@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -10,6 +9,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import { useSectionStore } from "@/hooks/useSectionStore";
 import { SectionDB, SectionDependentsDB } from "@/types/section";
 
@@ -37,22 +37,25 @@ export const DeleteSectionDialog = ({
   );
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!section) {
       setDependents(null);
+      setLoadError(null);
       return;
     }
     let cancelled = false;
     setLoading(true);
+    setLoadError(null);
     setError(null);
     getSectionDependents(section.id)
       .then((result) => {
         if (!cancelled) setDependents(result);
       })
       .catch(() => {
-        if (!cancelled) setError(t("load-error"));
+        if (!cancelled) setLoadError(t("load-error"));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -73,9 +76,13 @@ export const DeleteSectionDialog = ({
       dependents.public_link_count > 0 ||
       blockedContent.length > 0
     : false;
+  // Only a dependents check that actually came back clear may enable the
+  // delete action — a still-loading or failed check (`dependents === null`)
+  // must never be read as "nothing blocks this."
+  const canDelete = !loading && !loadError && dependents !== null && !blocked;
 
   const handleDelete = async () => {
-    if (!section) return;
+    if (!section || !canDelete) return;
     setDeleting(true);
     setError(null);
     try {
@@ -98,9 +105,11 @@ export const DeleteSectionDialog = ({
           <AlertDialogDescription>
             {loading && t("loading")}
             {!loading &&
+              !loadError &&
               !blocked &&
               t("description", { count: dependents?.member_count ?? 0 })}
-            {!loading && blocked && t("blocked-description")}
+            {!loading && !loadError && blocked && t("blocked-description")}
+            {!loading && loadError && loadError}
           </AlertDialogDescription>
         </AlertDialogHeader>
         {!loading && blocked && dependents && (
@@ -130,15 +139,22 @@ export const DeleteSectionDialog = ({
         {error && <p className="text-sm text-destructive">{error}</p>}
         <AlertDialogFooter>
           <AlertDialogCancel onClick={() => onOpenChange(false)}>
-            {blocked ? t("close") : t("cancel")}
+            {canDelete ? t("cancel") : t("close")}
           </AlertDialogCancel>
-          {!blocked && (
-            <AlertDialogAction
+          {canDelete && (
+            // A plain button, not AlertDialogAction: Radix's Action closes
+            // the controlled dialog unconditionally on click, which would
+            // dismiss this dialog before we know whether the delete
+            // succeeded and strand the error message in an already-closed
+            // dialog. Closing only happens explicitly, inside handleDelete,
+            // once the request succeeds.
+            <Button
               onClick={() => void handleDelete()}
               variant="destructive"
+              disabled={deleting}
             >
               {deleting ? t("deleting") : t("confirm")}
-            </AlertDialogAction>
+            </Button>
           )}
         </AlertDialogFooter>
       </AlertDialogContent>

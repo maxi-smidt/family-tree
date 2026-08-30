@@ -4,7 +4,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_readable_workspace, get_writable_workspace
+from app.api.deps import (
+    get_current_user,
+    get_readable_workspace,
+    get_workspace_access,
+    get_workspace_access_write,
+    get_writable_workspace,
+)
+from app.core.exceptions import NotFoundError
 from app.db.session import get_db
 from app.models import Workspace
 from app.models.user import User
@@ -36,6 +43,7 @@ from app.services.sections import (
     upsert_section_positions,
 )
 from app.services.unit_of_work import UnitOfWork
+from app.services.workspaces.visibility import WorkspaceAccessContext
 
 router = APIRouter(prefix="/workspaces/{workspace_id}/sections", tags=["sections"])
 
@@ -53,12 +61,39 @@ def _activity_added(db: Session, tree: Workspace) -> None:
     publish_workspace_event(db, tree, "activity.entry_added", {"workspace_id": tree.id})
 
 
+def _get_readable_section(
+    db: Session, tree: Workspace, section_id: str, context: WorkspaceAccessContext
+):
+    """Load a section for a read, 404ing if this context's grants don't
+    reach it (#1029) — a scoped grant must not reveal sections outside it."""
+    section = get_section(db, tree, section_id)
+    if not context.can_read_scope(section.id):
+        raise NotFoundError("Section not found")
+    return section
+
+
+def _get_writable_section(
+    db: Session, tree: Workspace, section_id: str, context: WorkspaceAccessContext
+):
+    """Load a section for a write: 404 if unreadable, 403 if readable but
+    this context's grant on it isn't an editor grant."""
+    section = _get_readable_section(db, tree, section_id, context)
+    context.require_write_scope(section.id)
+    return section
+
+
 @router.get("", response_model=list[SectionOut])
 def get_sections(
     tree: Workspace = Depends(get_readable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access),
     db: Session = Depends(get_db),
 ):
-    return list_sections(db, tree)
+    sections = list_sections(db, tree)
+    return [
+        s.model_copy(update={"can_write": context.can_write_scope(s.id)})
+        for s in sections
+        if context.can_read_scope(s.id)
+    ]
 
 
 @router.get("/preview", response_model=SectionPreview)
@@ -127,10 +162,12 @@ def post_section(
 def get_section_by_id(
     section_id: str,
     tree: Workspace = Depends(get_readable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access),
     db: Session = Depends(get_db),
 ):
-    section = get_section(db, tree, section_id)
-    return section_out(section, len(section.members))
+    section = _get_readable_section(db, tree, section_id, context)
+    out = section_out(section, len(section.members))
+    return out.model_copy(update={"can_write": context.can_write_scope(section.id)})
 
 
 @router.patch("/{section_id}", response_model=SectionOut)
@@ -138,10 +175,11 @@ def patch_section(
     section_id: str,
     payload: SectionUpdate,
     tree: Workspace = Depends(get_writable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    section = get_section(db, tree, section_id)
+    section = _get_writable_section(db, tree, section_id, context)
     try:
         with UnitOfWork(db) as uow:
             update_section(
@@ -170,10 +208,11 @@ def patch_section(
 def get_section_dependents(
     section_id: str,
     tree: Workspace = Depends(get_readable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access),
     db: Session = Depends(get_db),
 ):
     """What deleting this section would have to account for first."""
-    return section_dependents(db, get_section(db, tree, section_id))
+    return section_dependents(db, _get_readable_section(db, tree, section_id, context))
 
 
 @router.delete("/{section_id}", status_code=204)
@@ -181,10 +220,17 @@ def remove_section(
     section_id: str,
     reassign_scope_to: str | None = None,
     tree: Workspace = Depends(get_writable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    section = get_section(db, tree, section_id)
+    section = _get_writable_section(db, tree, section_id, context)
+    if reassign_scope_to is not None:
+        # The reassignment target absorbs this section's content, so writing
+        # to it needs the same authorization as writing to the section being
+        # deleted — otherwise a scoped editor could dump content into a
+        # section they have no editor grant on.
+        _get_writable_section(db, tree, reassign_scope_to, context)
     with UnitOfWork(db) as uow:
         record_activity(
             db,
@@ -205,10 +251,11 @@ def put_section_members(
     section_id: str,
     payload: SectionMembersSet,
     tree: Workspace = Depends(get_writable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    section = get_section(db, tree, section_id)
+    section = _get_writable_section(db, tree, section_id, context)
     with UnitOfWork(db) as uow:
         replace_section_members(db, tree, section, payload.member_ids)
         record_activity(
@@ -229,9 +276,10 @@ def patch_section_positions(
     section_id: str,
     payload: list[SectionPositionItem],
     tree: Workspace = Depends(get_writable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
-    section = get_section(db, tree, section_id)
+    section = _get_writable_section(db, tree, section_id, context)
     if not payload:
         return
     items = [(p.member_id, p.position_x, p.position_y) for p in payload]

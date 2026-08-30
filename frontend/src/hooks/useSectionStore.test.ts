@@ -21,6 +21,7 @@ function makeSection(overrides: Partial<SectionDB> = {}): SectionDB {
     position: 0,
     created_at: "2024-01-01T00:00:00Z",
     member_count: 3,
+    can_write: true,
     ...overrides,
   };
 }

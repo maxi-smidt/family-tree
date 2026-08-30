@@ -8,6 +8,10 @@ export interface SectionDB {
   position: number;
   created_at: string;
   member_count: number;
+  /** Whether this principal's grant covers writing to this specific section
+   *  (#1029) — a section-scoped editor grant may not cover every section the
+   *  workspace-level role would otherwise suggest. */
+  can_write: boolean;
 }
 
 export interface SectionCreateInput {

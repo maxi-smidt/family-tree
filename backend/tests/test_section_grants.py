@@ -813,6 +813,135 @@ def test_authenticated_non_member_can_read_an_unprotected_public_workspace(clien
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# A section-scoped editor's mutations stay confined to their granted
+# section(s) — the coarse workspace role ("editor") is not enough (#1029)
+# ---------------------------------------------------------------------------
+
+
+def test_section_scoped_editor_only_lists_their_own_sections(client, db):
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    in_scope = _section(db, tree, "In scope")
+    out_of_scope = _section(db, tree, "Out of scope")
+    _grant(db, tree, in_scope, bob, role="editor")
+
+    res = client.get(f"{API}/workspaces/{tree.id}/sections", headers=auth(bob))
+    assert res.status_code == 200
+    ids = {s["id"] for s in res.json()}
+    assert ids == {in_scope.id}
+
+    owner_res = client.get(f"{API}/workspaces/{tree.id}/sections", headers=auth(alice))
+    assert {s["id"] for s in owner_res.json()} == {in_scope.id, out_of_scope.id}
+
+
+def test_section_scoped_editor_cannot_read_a_section_outside_their_grant(client, db):
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    in_scope = _section(db, tree, "In scope")
+    out_of_scope = _section(db, tree, "Out of scope")
+    _grant(db, tree, in_scope, bob, role="editor")
+
+    ok = client.get(
+        f"{API}/workspaces/{tree.id}/sections/{in_scope.id}", headers=auth(bob)
+    )
+    assert ok.status_code == 200
+    assert ok.json()["can_write"] is True
+
+    denied = client.get(
+        f"{API}/workspaces/{tree.id}/sections/{out_of_scope.id}", headers=auth(bob)
+    )
+    assert denied.status_code == 404
+
+    denied_deps = client.get(
+        f"{API}/workspaces/{tree.id}/sections/{out_of_scope.id}/dependents",
+        headers=auth(bob),
+    )
+    assert denied_deps.status_code == 404
+
+
+def test_section_scoped_editor_cannot_rename_or_delete_an_out_of_scope_section(
+    client, db
+):
+    """The coarse workspace role a purely section-scoped grant produces is
+    'editor' (see ``role_for``), which used to be enough to pass
+    ``get_writable_workspace`` for *any* section in the workspace — this
+    guards that PATCH/DELETE now also authorize the specific target
+    section."""
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    in_scope = _section(db, tree, "In scope")
+    out_of_scope = _section(db, tree, "Out of scope")
+    _grant(db, tree, in_scope, bob, role="editor")
+
+    renamed = client.patch(
+        f"{API}/workspaces/{tree.id}/sections/{out_of_scope.id}",
+        headers=auth(bob),
+        json={"name": "Hijacked"},
+    )
+    assert renamed.status_code == 404
+
+    deleted = client.delete(
+        f"{API}/workspaces/{tree.id}/sections/{out_of_scope.id}", headers=auth(bob)
+    )
+    assert deleted.status_code == 404
+
+    members_set = client.put(
+        f"{API}/workspaces/{tree.id}/sections/{out_of_scope.id}/members",
+        headers=auth(bob),
+        json={"member_ids": []},
+    )
+    assert members_set.status_code == 404
+
+    positions = client.patch(
+        f"{API}/workspaces/{tree.id}/sections/{out_of_scope.id}/members/positions",
+        headers=auth(bob),
+        json=[],
+    )
+    assert positions.status_code == 404
+
+    db.expire_all()
+    surviving = db.get(Section, out_of_scope.id)
+    assert surviving is not None
+    assert surviving.name == "Out of scope"
+
+
+def test_section_scoped_editor_can_rename_their_own_section(client, db):
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    in_scope = _section(db, tree, "In scope")
+    _grant(db, tree, in_scope, bob, role="editor")
+
+    res = client.patch(
+        f"{API}/workspaces/{tree.id}/sections/{in_scope.id}",
+        headers=auth(bob),
+        json={"name": "Renamed by bob"},
+    )
+    assert res.status_code == 200
+    assert res.json()["name"] == "Renamed by bob"
+
+
+def test_section_scoped_viewer_cannot_write_their_own_section(client, db):
+    """A viewer-only grant on a section is read access, not write — even
+    though it's the section they're scoped to."""
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    section = _section(db, tree)
+    _grant(db, tree, section, bob, role="viewer")
+
+    res = client.patch(
+        f"{API}/workspaces/{tree.id}/sections/{section.id}",
+        headers=auth(bob),
+        json={"name": "Nope"},
+    )
+    assert res.status_code == 403
+
+
 def test_passwordless_section_public_link_can_be_unlocked(client, db):
     from tests.conftest import add_member
 
