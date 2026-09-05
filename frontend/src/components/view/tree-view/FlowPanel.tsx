@@ -14,12 +14,14 @@ import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Member } from "@/types/member";
 import { NODE_WIDTH, NODE_HEIGHT } from "@/constants";
-import { useMemberStore } from "@/hooks/useMemberStore";
+import { EXPANSION_NODE_BUDGET, useMemberStore } from "@/hooks/useMemberStore";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { FlowPanelControls } from "@/components/view/tree-view/FlowPanelControls";
 import GenerationLines from "@/components/view/tree-view/GenerationLines";
 import { CanvasSearch } from "@/components/view/tree-view/CanvasSearch";
+import { ContinuationControls } from "@/components/view/tree-view/ContinuationControls";
+import { useCanvasHistory } from "@/hooks/useCanvasHistory";
 import { WorkspaceNavigationPanel } from "@/components/view/tree-view/nav/WorkspaceNavigationPanel";
 import { EmptyTreeState } from "@/components/view/tree-view/EmptyTreeState";
 import { MemberControls } from "@/components/view/tree-view/MemberControls";
@@ -111,6 +113,13 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     setFocusRoot,
     pendingLocateMemberId,
     setPendingLocateMemberId,
+    continuations,
+    neighborhoodCursor,
+    neighborhoodUp,
+    neighborhoodDown,
+    expandGeneration,
+    loadMoreNeighborhood,
+    resetNeighborhood,
   } = useMemberStore();
   const canWrite = activeTree?.role !== "viewer";
   const isCanvasReadOnly = isMobile || !canWrite;
@@ -141,6 +150,13 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   const [edges, setEdges] = useState<Edge[]>([]);
   const [membersToDelete, setMembersToDelete] = useState<Member[]>([]);
   const [selectedNodes, setSelectedNodes] = useState<Node[]>([]);
+
+  // Browser back/forward for canvas focus (#989) — skipped on the public,
+  // chromeless view, which has no navigation panel to drive focus changes.
+  const { restoringRef, updateHistoryViewport } = useCanvasHistory(
+    publicView ? undefined : activeTree?.id,
+    rfInstance,
+  );
 
   // --- Extracted hooks ---
   const locator = useMemberLocator(members, rfInstance);
@@ -512,12 +528,15 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     initializeFlow();
   }, [members, isReady]);
 
-  // Re-center when the focus root changes in windowed mode.
+  // Re-center when the focus root changes in windowed mode — unless a
+  // popstate restore is in flight, which applies the exact saved camera
+  // instead (#989).
   const prevFocusRootRef = useRef<string | null>(null);
   useEffect(() => {
     if (!windowed || !rfInstance) return;
     if (focusRootId === prevFocusRootRef.current) return;
     prevFocusRootRef.current = focusRootId;
+    if (restoringRef.current) return;
     requestAnimationFrame(() => fitViewToAllNodes(rfInstance, 0.2));
   }, [windowed, focusRootId, rfInstance]);
 
@@ -652,7 +671,11 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
         selectNodesOnDrag={inSelectionMode ? false : undefined}
         onInit={setRfInstance}
         defaultViewport={viewport}
-        onMoveEnd={(_, vp) => activeTree && setViewport(activeTree.id, vp)}
+        onMoveEnd={(_, vp) => {
+          if (!activeTree) return;
+          setViewport(activeTree.id, vp);
+          updateHistoryViewport(vp);
+        }}
         ariaLabelConfig={{
           "controls.zoomIn.ariaLabel": t("tree-view.controls.zoom-in"),
           "controls.zoomOut.ariaLabel": t("tree-view.controls.zoom-out"),
@@ -759,6 +782,16 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
             selectionDisabled={members.length < 1 || isLockedScreen}
           />
         </Panel>
+        {!publicView && windowed && (
+          <ContinuationControls
+            continuations={neighborhoodCursor ? continuations : []}
+            atBudget={members.length >= EXPANSION_NODE_BUDGET}
+            canExpandGeneration={neighborhoodUp < 20 || neighborhoodDown < 20}
+            onExpandGeneration={() => void expandGeneration()}
+            onLoadMore={() => void loadMoreNeighborhood()}
+            onReset={() => void resetNeighborhood()}
+          />
+        )}
         {!isCanvasReadOnly && (
           <Panel position="bottom-right" className="pb-2">
             <MemberControls

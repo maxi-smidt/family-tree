@@ -44,12 +44,11 @@ interface WorkspaceNavigationPanelProps {
 
 /**
  * Workspace navigation tree (#988): Explore / Sections / Saved views, plus
- * workspace-wide search. Selecting a section or saved view here only updates
- * selection state (`useWorkspaceNavStore`) and, where a focus person is
- * known, re-centers the canvas on them — filtering the graph itself by
- * section is #989/#1013's job, not this issue's. Full saved-view
- * creation/configuration/editing also stays in #1013; this panel only lists
- * and opens them.
+ * workspace-wide search. Selecting a section opens it as a focused,
+ * section-scoped neighborhood on the canvas (#989); "Explore" returns to the
+ * unscoped workspace view. Selecting a saved view re-centers on its focus
+ * person — the full saved-view creation/configuration/editing UI stays in
+ * #1013; this panel only lists and opens them.
  */
 export const WorkspaceNavigationPanel = ({
   workspaceId,
@@ -100,7 +99,19 @@ export const WorkspaceNavigationPanel = ({
   const selectSavedView = useWorkspaceNavStore((s) => s.selectSavedView);
 
   const setFocusRoot = useMemberStore((s) => s.setFocusRoot);
+  const focusSection = useMemberStore((s) => s.focusSection);
+  const exitFocus = useMemberStore((s) => s.exitFocus);
   const focusMember = (memberId: string) => void setFocusRoot(memberId);
+
+  const handleSelectExplore = () => {
+    selectExplore();
+    void exitFocus();
+  };
+
+  const handleSelectSection = (sectionId: string) => {
+    selectSection(sectionId);
+    void focusSection(sectionId);
+  };
 
   const handleSelectSearchHit = (hit: WorkspaceSearchHitDB) =>
     focusMember(hit.id);
@@ -123,7 +134,7 @@ export const WorkspaceNavigationPanel = ({
       <div className="flex-1 overflow-y-auto p-2">
         <button
           type="button"
-          onClick={selectExplore}
+          onClick={handleSelectExplore}
           className={cn(
             "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground",
             mode === "explore" &&
@@ -170,7 +181,7 @@ export const WorkspaceNavigationPanel = ({
                 <li key={section.id} className="group flex items-center">
                   <button
                     type="button"
-                    onClick={() => selectSection(section.id)}
+                    onClick={() => handleSelectSection(section.id)}
                     className={cn(
                       "flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground",
                       mode === "section" &&

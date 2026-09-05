@@ -3,6 +3,8 @@ import { useMemberStore } from "./useMemberStore";
 import { useWorkspaceStore } from "./useWorkspaceStore";
 import { useEventStore } from "./useEventStore";
 import { WorkspaceService } from "@/services/WorkspaceService";
+import { ApiError } from "@/services/api";
+import { treeProcessorClient } from "@/workers/treeProcessorClient";
 import { MemberDB } from "@/types/member";
 import { Workspace } from "@/types/workspace";
 import { toast } from "sonner";
@@ -68,6 +70,13 @@ beforeEach(() => {
     windowed: false,
     windowedForTreeId: null,
     focusRootId: null,
+    focusSectionIds: null,
+    neighborhoodUp: 3,
+    neighborhoodDown: 3,
+    neighborhoodMemberRows: [],
+    neighborhoodRelations: [],
+    neighborhoodCursor: null,
+    continuations: [],
     totalMemberCount: 0,
   });
   useEventStore.setState({ events: [], initialized: false });
@@ -235,6 +244,198 @@ describe("useMemberStore — refreshMembers", () => {
     expect(WorkspaceService.getMembers).not.toHaveBeenCalled();
     expect(WorkspaceService.getRelations).not.toHaveBeenCalled();
     expect(useMemberStore.getState().totalMemberCount).toBe(5_000);
+  });
+});
+
+describe("useMemberStore — inline expansion (#989)", () => {
+  const MEMBER_2: MemberDB = { ...MEMBER_DB_ROW, id: "m2", firstName: "Jane" };
+
+  beforeEach(() => {
+    selectTree();
+    vi.mocked(WorkspaceService.updateMemberPositions).mockResolvedValue(undefined);
+    useMemberStore.setState({
+      windowed: true,
+      windowedForTreeId: TREE_ID,
+      focusRootId: "m1",
+      focusSectionIds: null,
+      neighborhoodUp: 3,
+      neighborhoodDown: 3,
+      neighborhoodMemberRows: [MEMBER_DB_ROW],
+      neighborhoodRelations: [],
+      neighborhoodCursor: "cursor-1",
+      continuations: [{ section_id: null, section_name: null, remaining_count: 1 }],
+    });
+  });
+
+  it("focusSection scopes the neighborhood fetch to the given section and replaces the buffers", async () => {
+    vi.mocked(WorkspaceService.getNeighborhood).mockResolvedValueOnce({
+      members: [MEMBER_2],
+      relations: [],
+      root_id: "m2",
+      truncated: false,
+      total_member_count: 1,
+    });
+
+    await useMemberStore.getState().focusSection("sec-1");
+
+    expect(WorkspaceService.getNeighborhood).toHaveBeenCalledWith(
+      TREE_ID,
+      undefined,
+      3,
+      3,
+      true,
+      ["sec-1"],
+    );
+    const state = useMemberStore.getState();
+    expect(state.focusSectionIds).toEqual(["sec-1"]);
+    // A fresh focus/scope change replaces the accumulated buffer rather than
+    // merging into whatever was there before.
+    expect(state.neighborhoodMemberRows).toEqual([MEMBER_2]);
+    expect(state.members).toHaveLength(1);
+    expect(state.members[0].id).toBe("m2");
+  });
+
+  it("expandGeneration merges the deeper page into the existing members instead of replacing them", async () => {
+    vi.mocked(WorkspaceService.getNeighborhood).mockResolvedValueOnce({
+      members: [MEMBER_2],
+      relations: [],
+      root_id: "m1",
+      truncated: false,
+      total_member_count: 2,
+      next_cursor: null,
+      continuations: [],
+    });
+
+    await useMemberStore.getState().expandGeneration();
+
+    expect(WorkspaceService.getNeighborhood).toHaveBeenCalledWith(
+      TREE_ID,
+      "m1",
+      4,
+      4,
+      true,
+      undefined,
+    );
+    const state = useMemberStore.getState();
+    expect(state.neighborhoodUp).toBe(4);
+    expect(state.neighborhoodDown).toBe(4);
+    const ids = state.members.map((m) => m.id).sort();
+    expect(ids).toEqual(["m1", "m2"]);
+  });
+
+  it("loadMoreNeighborhood replays the stored cursor and merges the next page", async () => {
+    vi.mocked(WorkspaceService.getNeighborhood).mockResolvedValueOnce({
+      members: [MEMBER_2],
+      relations: [],
+      root_id: "m1",
+      truncated: false,
+      total_member_count: 2,
+      next_cursor: "cursor-2",
+      continuations: [],
+    });
+
+    await useMemberStore.getState().loadMoreNeighborhood();
+
+    expect(WorkspaceService.getNeighborhood).toHaveBeenCalledWith(
+      TREE_ID,
+      "m1",
+      3,
+      3,
+      true,
+      undefined,
+      undefined,
+      "cursor-1",
+    );
+    const state = useMemberStore.getState();
+    expect(state.neighborhoodCursor).toBe("cursor-2");
+    expect(state.members.map((m) => m.id).sort()).toEqual(["m1", "m2"]);
+  });
+
+  it("drops the cursor and continuations on a stale-cursor (409) response instead of retrying", async () => {
+    vi.mocked(WorkspaceService.getNeighborhood).mockRejectedValueOnce(
+      new ApiError(409, "stale_cursor"),
+    );
+
+    await useMemberStore.getState().loadMoreNeighborhood();
+
+    const state = useMemberStore.getState();
+    expect(state.neighborhoodCursor).toBeNull();
+    expect(state.continuations).toEqual([]);
+  });
+
+  it("does not fetch more once the node budget is reached", async () => {
+    useMemberStore.setState({
+      neighborhoodMemberRows: Array.from({ length: 1_500 }, (_, i) => ({
+        ...MEMBER_DB_ROW,
+        id: `m${i}`,
+      })),
+    });
+
+    await useMemberStore.getState().loadMoreNeighborhood();
+    await useMemberStore.getState().expandGeneration();
+
+    expect(WorkspaceService.getNeighborhood).not.toHaveBeenCalled();
+  });
+
+  it("caps the merged buffer at the node budget instead of letting one page overshoot it", async () => {
+    const existingRows = Array.from({ length: 1_000 }, (_, i) => ({
+      ...MEMBER_DB_ROW,
+      id: `existing-${i}`,
+    }));
+    useMemberStore.setState({ neighborhoodMemberRows: existingRows });
+    // A single page can return up to the backend's own per-page ceiling
+    // (1,500) regardless of how much is already accumulated — merging it
+    // in naively would land at 2,500, well past the advertised cap.
+    const newRows = Array.from({ length: 1_500 }, (_, i) => ({
+      ...MEMBER_DB_ROW,
+      id: `new-${i}`,
+    }));
+    vi.mocked(WorkspaceService.getNeighborhood).mockResolvedValueOnce({
+      members: newRows,
+      relations: [],
+      root_id: "m1",
+      truncated: true,
+      total_member_count: 10_000,
+      next_cursor: "cursor-2",
+      continuations: [],
+    });
+    // Above SYNC_LAYOUT_THRESHOLD, computeLayout offloads to a real Web
+    // Worker, which jsdom doesn't provide — stub it so this test exercises
+    // the capping logic, not worker availability.
+    const layoutSpy = vi
+      .spyOn(treeProcessorClient, "computeLayout")
+      .mockResolvedValue({});
+
+    try {
+      await useMemberStore.getState().loadMoreNeighborhood();
+    } finally {
+      layoutSpy.mockRestore();
+    }
+
+    const state = useMemberStore.getState();
+    expect(state.neighborhoodMemberRows).toHaveLength(1_500);
+    expect(state.members).toHaveLength(1_500);
+    // Every already-accumulated row survives the cap; only the tail of the
+    // newly-fetched page is dropped.
+    expect(existingRows.every((r) => state.neighborhoodMemberRows.includes(r))).toBe(
+      true,
+    );
+  });
+
+  it("resetNeighborhood clears the accumulated buffers and refetches a fresh baseline page", async () => {
+    vi.mocked(WorkspaceService.getNeighborhood).mockResolvedValueOnce({
+      members: [MEMBER_DB_ROW],
+      relations: [],
+      root_id: "m1",
+      truncated: false,
+      total_member_count: 1,
+    });
+
+    await useMemberStore.getState().resetNeighborhood();
+
+    const state = useMemberStore.getState();
+    expect(state.neighborhoodMemberRows).toEqual([MEMBER_DB_ROW]);
+    expect(state.continuations).toEqual([]);
   });
 });
 

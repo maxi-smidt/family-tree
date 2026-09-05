@@ -945,6 +945,14 @@
     "windowed": {
       "banner": "Showing {{count}} of {{total}} members in neighborhood"
     },
+    "continuation": {
+      "expand-generation": "Expand next generation",
+      "continue-into": "Continue into \"{{name}}\" · {{count}} people",
+      "continue-generic": "Continue · {{count}} more people",
+      "budget-reached": "Node limit reached — reset the view to keep exploring.",
+      "reset": "Reset view",
+      "stale-error": "This view has changed. Reset it to keep exploring."
+    },
     "selection": {
       "selected-count": "{{count}} selected",
       "clear": "Clear",
