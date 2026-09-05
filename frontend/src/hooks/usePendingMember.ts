@@ -5,6 +5,10 @@ import {
   nextMemberPosition,
 } from "@/utils/pendingMemberUtils";
 import { useMemberStore } from "@/hooks/useMemberStore";
+import { useSectionStore } from "@/hooks/useSectionStore";
+import { SectionSuggestionDB } from "@/types/section";
+import i18n from "@/i18n/i18n";
+import { toast } from "sonner";
 
 interface UsePendingMemberOptions {
   onHorizontalRelationReady: (sourceId: string, targetId: string) => void;
@@ -14,8 +18,15 @@ export const usePendingMember = ({
   onHorizontalRelationReady,
 }: UsePendingMemberOptions) => {
   const { members, addMember, addRelation } = useMemberStore();
+  const getSectionSuggestions = useSectionStore((s) => s.getSectionSuggestions);
+  const addMemberToSections = useSectionStore((s) => s.addMemberToSections);
 
   const [pendingNewMember, setPendingNewMember] = useState<Member | null>(null);
+  const [sectionSuggestions, setSectionSuggestions] = useState<{
+    memberId: string;
+    memberName: string;
+    suggestions: SectionSuggestionDB[];
+  } | null>(null);
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isNewMemberSession, setIsNewMemberSession] = useState(false);
@@ -132,6 +143,29 @@ export const usePendingMember = ({
     setPendingHorizontalSourceId(null);
   };
 
+  /** Suggested sections for a member who just gained a parent/partner
+   *  relation — surfaced for confirmation, never joined silently (#990).
+   *  `memberName` is a caller-supplied override for a member not yet
+   *  reflected in the `members` store snapshot (e.g. mid-save). */
+  const checkSectionSuggestions = async (
+    memberId: string,
+    memberName?: string,
+  ) => {
+    try {
+      const suggestions = await getSectionSuggestions(memberId);
+      if (suggestions.length === 0) return;
+      const name =
+        memberName ??
+        (() => {
+          const member = members.find((m) => m.id === memberId);
+          return member ? `${member.firstName} ${member.lastName}`.trim() : "";
+        })();
+      setSectionSuggestions({ memberId, memberName: name, suggestions });
+    } catch {
+      // Suggestions are a convenience, not required for the save itself.
+    }
+  };
+
   /** Save the pending new member (replicates onSaveNewMember in FlowPanel). */
   const saveNewMember = async (data: Partial<Member>) => {
     if (pendingNewMember) {
@@ -155,6 +189,10 @@ export const usePendingMember = ({
           await addRelation(id, pendingRelation.parent2Id, "parent");
         }
         setPendingRelation(null);
+        await checkSectionSuggestions(
+          id,
+          `${newMemberToSave.firstName} ${newMemberToSave.lastName}`.trim(),
+        );
       }
 
       if (pendingHorizontalSourceId) {
@@ -172,6 +210,23 @@ export const usePendingMember = ({
     }
   };
 
+  /** Add the new member to the chosen suggested sections (any subset, or
+   *  none — "leave unassigned" is just an empty selection). */
+  const confirmSectionSuggestions = async (sectionIds: string[]) => {
+    if (!sectionSuggestions) return;
+    const { memberId } = sectionSuggestions;
+    setSectionSuggestions(null);
+    if (sectionIds.length > 0) {
+      try {
+        await addMemberToSections(memberId, sectionIds);
+      } catch {
+        toast.error(i18n.t("workspace-nav.new-member-suggestions.error"));
+      }
+    }
+  };
+
+  const dismissSectionSuggestions = () => setSectionSuggestions(null);
+
   return {
     // State
     pendingNewMember,
@@ -181,6 +236,7 @@ export const usePendingMember = ({
     pendingRelation,
     pendingHorizontalSourceId,
     editingMember,
+    sectionSuggestions,
     // Setters (for useFlowNodes compatibility)
     setEditingMemberId,
     setIsEditMode,
@@ -195,5 +251,8 @@ export const usePendingMember = ({
     closeSheet,
     discardNewMember,
     saveNewMember,
+    checkSectionSuggestions,
+    confirmSectionSuggestions,
+    dismissSectionSuggestions,
   };
 };

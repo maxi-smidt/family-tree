@@ -47,3 +47,11 @@ export interface SectionDependentsDB {
   invitation_count: number;
   public_link_count: number;
 }
+
+/** A section suggested for a newly-created member, based on their
+ *  parents'/partners' existing membership — surfaced for confirmation before
+ *  the member is ever silently added (#990). */
+export interface SectionSuggestionDB {
+  section: SectionDB;
+  matched_via_member_ids: string[];
+}

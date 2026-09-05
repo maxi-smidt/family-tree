@@ -931,7 +931,8 @@
       "depth-decrease": "Nachbarschaftstiefe verringern",
       "enable-task-indicators": "Offene Recherche-Aufgaben anzeigen",
       "disable-task-indicators": "Offene Recherche-Aufgaben ausblenden",
-      "more-actions": "Weitere Aktionen"
+      "more-actions": "Weitere Aktionen",
+      "create-section-here": "Bereich hiervon erstellen"
     },
     "persistence": {
       "collapse-error": "Einklappstatus konnte nicht gespeichert werden. Der Stammbaum wurde wiederhergestellt.",
@@ -2087,7 +2088,9 @@
       "name-conflict": "Ein Bereich mit diesem Namen existiert bereits.",
       "create-error": "Der Bereich konnte nicht erstellt werden.",
       "cancel": "Abbrechen",
-      "create": "Erstellen"
+      "create": "Erstellen",
+      "preview-people-count": "{{count}} Personen insgesamt",
+      "preview-overlap-read-only": "für dich nur lesbar"
     },
     "rename-section": {
       "title": "Bereich umbenennen",
@@ -2111,6 +2114,31 @@
       "close": "Schließen",
       "confirm": "Löschen",
       "deleting": "Wird gelöscht…"
+    },
+    "edit-members": "Mitglieder bearbeiten",
+    "section-members": {
+      "title": "Mitglieder von \"{{name}}\"",
+      "description": "Mitglieder hinzufügen oder entfernen. Eine Person kann zu mehreren Bereichen gehören — das Hinzufügen hier entfernt sie nie aus einem anderen.",
+      "add-placeholder": "Diesen Arbeitsbereich durchsuchen, um jemanden hinzuzufügen…",
+      "already-in": "Bereits hinzugefügt",
+      "loading": "Mitglieder werden geladen…",
+      "load-error": "Die Mitglieder dieses Bereichs konnten nicht geladen werden.",
+      "no-members": "Noch keine Mitglieder",
+      "remove": "{{name}} entfernen",
+      "save-error": "Die Mitgliedschaftsänderungen konnten nicht gespeichert werden.",
+      "cancel": "Abbrechen",
+      "save": "Speichern",
+      "saving": "Wird gespeichert…"
+    },
+    "new-member-suggestions": {
+      "title": "{{name}} zu einem Bereich hinzufügen?",
+      "description": "Die Eltern oder der Partner von {{name}} gehören bereits zu diesen Bereichen. Wähle aus, welche sie ebenfalls einschließen sollen — oder überspringe und weise sie später zu.",
+      "matched-via": "über {{names}}",
+      "skip": "Nicht zuweisen",
+      "confirm": "Zu ausgewählten hinzufügen",
+      "confirming": "Wird hinzugefügt…",
+      "error": "Die Bereichsmitgliedschaft konnte nicht aktualisiert werden.",
+      "read-only": "Für dich nur lesbar"
     }
   }
 }

@@ -33,6 +33,7 @@ import {
   UNION_NODE_SIZE,
 } from "@/components/view/tree-view/node/UnionNode";
 import { AddRelationDialog } from "@/components/view/tree-view/dialog/AddRelationDialog";
+import { NewMemberSectionSuggestionsDialog } from "@/components/view/tree-view/nav/NewMemberSectionSuggestionsDialog";
 import { RelationEdge } from "@/components/view/tree-view/edge/RelationEdge";
 import { useFlowNodes } from "@/hooks/useFlowNodes";
 import { useFlowEdges } from "@/hooks/useFlowEdges";
@@ -82,7 +83,9 @@ const EMPTY_EDGE_KEYS: ReadonlySet<string> = new Set<string>();
 
 export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   const { t } = useTranslation();
-  const taskRestrictions = useWorkspaceStore((s) => s.selectedTree?.restrictions);
+  const taskRestrictions = useWorkspaceStore(
+    (s) => s.selectedTree?.restrictions,
+  );
   const tasksEnabled = !taskRestrictions?.includes("tasks");
   const { refreshTasks, initialized: tasksInitialized } = useTaskStore();
   // Open-task node indicators need the task list; skip on public workspaces where
@@ -268,7 +271,12 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
       : memberSheetDeepLink;
     const requestedState = deepLinkState ?? savedMemberSheetState;
     const workspaceId = activeTree?.id;
-    if (publicView || !requestedState || !workspaceId || pending.editingMemberId) {
+    if (
+      publicView ||
+      !requestedState ||
+      !workspaceId ||
+      pending.editingMemberId
+    ) {
       return;
     }
 
@@ -600,238 +608,263 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
         className="h-full min-w-0 flex-1"
         aria-label={t("tree-view.canvas-label")}
       >
-      <ReactFlow
-        className={`ft-tree-canvas${inSelectionMode ? " cursor-crosshair" : ""}`}
-        nodes={[...viewNodes, ...unionNodes]}
-        edges={edges}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
-        onlyRenderVisibleElements
-        onNodesChange={
-          (!canDragLayout && isCanvasReadOnly) || connection.isConnectionMode
-            ? undefined
-            : onNodesChange
-        }
-        onEdgesChange={
-          isCanvasReadOnly || connection.isConnectionMode || inSelectionMode
-            ? undefined
-            : onEdgesChange
-        }
-        onConnect={
-          isCanvasReadOnly || connection.isConnectionMode || inSelectionMode
-            ? undefined
-            : onConnect
-        }
-        defaultEdgeOptions={{ type: edgeType }}
-        onSelectionChange={
-          isCanvasReadOnly || connection.isConnectionMode
-            ? undefined
-            : onSelectionChange
-        }
-        onNodeClick={connection.handleNodeClick}
-        minZoom={0.1}
-        snapToGrid={true}
-        snapGrid={[50, 50]}
-        nodesDraggable={
-          !connection.isConnectionMode && !isLockedScreen && canDragLayout
-        }
-        nodesConnectable={
-          !connection.isConnectionMode &&
-          !isLockedScreen &&
-          !isCanvasReadOnly &&
-          !inSelectionMode
-        }
-        elementsSelectable={
-          connection.isConnectionMode || (!isLockedScreen && !isCanvasReadOnly)
-        }
-        nodesFocusable={true}
-        autoPanOnNodeFocus={true}
-        disableKeyboardA11y={false}
-        edgesFocusable={!connection.isConnectionMode && !isCanvasReadOnly}
-        deleteKeyCode={
-          isCanvasReadOnly || connection.isConnectionMode
-            ? null
-            : ["Backspace", "Delete"]
-        }
-        connectOnClick={
-          !connection.isConnectionMode && !isCanvasReadOnly && !inSelectionMode
-        }
-        connectionMode={ConnectionMode.Loose}
-        connectionRadius={40}
-        selectionOnDrag={inSelectionMode}
-        panOnDrag={inSelectionMode ? [1, 2] : undefined}
-        selectionMode={inSelectionMode ? SelectionMode.Partial : undefined}
-        // In selection mode every click toggles a member (see
-        // SelectionModeController); disabling the modifier key stops the
-        // built-in handler from turning multi-selection back off.
-        multiSelectionKeyCode={inSelectionMode ? null : undefined}
-        // With multi-selection forced on, selecting on drag-start would toggle
-        // (deselect) the node you grab to move; select on click instead so
-        // dragging a selected member keeps the selection intact.
-        selectNodesOnDrag={inSelectionMode ? false : undefined}
-        onInit={setRfInstance}
-        defaultViewport={viewport}
-        onMoveEnd={(_, vp) => {
-          if (!activeTree) return;
-          setViewport(activeTree.id, vp);
-          updateHistoryViewport(vp);
-        }}
-        ariaLabelConfig={{
-          "controls.zoomIn.ariaLabel": t("tree-view.controls.zoom-in"),
-          "controls.zoomOut.ariaLabel": t("tree-view.controls.zoom-out"),
-          "controls.fitView.ariaLabel": t("tree-view.controls.fit-view"),
-        }}
-      >
-        <SelectionModeController active={inSelectionMode} />
-        <Background />
-        {/* pr-16 clears the notification bell fixed at top-4 right-4 in Layout. */}
-        <Panel position="top-right" className="pt-2 pr-16">
-          <PresenceChips />
-        </Panel>
-        <GenerationLines
-          visible={generationLineGap !== null}
-          gap={generationLineGap ?? undefined}
-        />
-        {members.length === 0 && !isCanvasReadOnly && (
-          <Panel
-            position="top-center"
-            className="!left-1/2 !-translate-x-1/2 !top-1/2 !-translate-y-1/2"
-          >
-            <EmptyTreeState onAddFirstMember={handleAddFirstMember} />
-          </Panel>
-        )}
-        <Panel
-          position={isMobile ? "top-center" : "top-left"}
-          className={isMobile ? "w-[calc(100vw-1rem)] pt-2" : "pt-2"}
+        <ReactFlow
+          className={`ft-tree-canvas${inSelectionMode ? " cursor-crosshair" : ""}`}
+          nodes={[...viewNodes, ...unionNodes]}
+          edges={edges}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          onlyRenderVisibleElements
+          onNodesChange={
+            (!canDragLayout && isCanvasReadOnly) || connection.isConnectionMode
+              ? undefined
+              : onNodesChange
+          }
+          onEdgesChange={
+            isCanvasReadOnly || connection.isConnectionMode || inSelectionMode
+              ? undefined
+              : onEdgesChange
+          }
+          onConnect={
+            isCanvasReadOnly || connection.isConnectionMode || inSelectionMode
+              ? undefined
+              : onConnect
+          }
+          defaultEdgeOptions={{ type: edgeType }}
+          onSelectionChange={
+            isCanvasReadOnly || connection.isConnectionMode
+              ? undefined
+              : onSelectionChange
+          }
+          onNodeClick={connection.handleNodeClick}
+          minZoom={0.1}
+          snapToGrid={true}
+          snapGrid={[50, 50]}
+          nodesDraggable={
+            !connection.isConnectionMode && !isLockedScreen && canDragLayout
+          }
+          nodesConnectable={
+            !connection.isConnectionMode &&
+            !isLockedScreen &&
+            !isCanvasReadOnly &&
+            !inSelectionMode
+          }
+          elementsSelectable={
+            connection.isConnectionMode ||
+            (!isLockedScreen && !isCanvasReadOnly)
+          }
+          nodesFocusable={true}
+          autoPanOnNodeFocus={true}
+          disableKeyboardA11y={false}
+          edgesFocusable={!connection.isConnectionMode && !isCanvasReadOnly}
+          deleteKeyCode={
+            isCanvasReadOnly || connection.isConnectionMode
+              ? null
+              : ["Backspace", "Delete"]
+          }
+          connectOnClick={
+            !connection.isConnectionMode &&
+            !isCanvasReadOnly &&
+            !inSelectionMode
+          }
+          connectionMode={ConnectionMode.Loose}
+          connectionRadius={40}
+          selectionOnDrag={inSelectionMode}
+          panOnDrag={inSelectionMode ? [1, 2] : undefined}
+          selectionMode={inSelectionMode ? SelectionMode.Partial : undefined}
+          // In selection mode every click toggles a member (see
+          // SelectionModeController); disabling the modifier key stops the
+          // built-in handler from turning multi-selection back off.
+          multiSelectionKeyCode={inSelectionMode ? null : undefined}
+          // With multi-selection forced on, selecting on drag-start would toggle
+          // (deselect) the node you grab to move; select on click instead so
+          // dragging a selected member keeps the selection intact.
+          selectNodesOnDrag={inSelectionMode ? false : undefined}
+          onInit={setRfInstance}
+          defaultViewport={viewport}
+          onMoveEnd={(_, vp) => {
+            if (!activeTree) return;
+            setViewport(activeTree.id, vp);
+            updateHistoryViewport(vp);
+          }}
+          ariaLabelConfig={{
+            "controls.zoomIn.ariaLabel": t("tree-view.controls.zoom-in"),
+            "controls.zoomOut.ariaLabel": t("tree-view.controls.zoom-out"),
+            "controls.fitView.ariaLabel": t("tree-view.controls.fit-view"),
+          }}
         >
-          <div className="flex flex-col gap-1">
-            <CanvasSearch
-              members={members}
-              onLocate={locator.locateMember}
-              className={isMobile ? "w-full" : undefined}
-              windowed={windowed}
-              workspaceId={activeTree?.id}
-              onFocusRoot={setFocusRoot}
-              onOpenOtherTree={openTreeAndLocateMember}
-            />
-            {windowed && neighborhoodTruncated && (
-              <div className="rounded-md border bg-background/90 px-3 py-1.5 text-xs text-muted-foreground shadow-md">
-                {t("tree-view.windowed.banner", {
-                  count: members.length,
-                  total: totalMemberCount,
-                })}
-              </div>
-            )}
-          </div>
-        </Panel>
-        {connection.isConnectionMode &&
-          connection.connectionRelations.length > 0 && (
-            <Panel position="top-center" className="!top-2 pointer-events-none">
-              {/* Cap the stack at ~3 cards; scroll the rest so many selected
+          <SelectionModeController active={inSelectionMode} />
+          <Background />
+          {/* pr-16 clears the notification bell fixed at top-4 right-4 in Layout. */}
+          <Panel position="top-right" className="pt-2 pr-16">
+            <PresenceChips />
+          </Panel>
+          <GenerationLines
+            visible={generationLineGap !== null}
+            gap={generationLineGap ?? undefined}
+          />
+          {members.length === 0 && !isCanvasReadOnly && (
+            <Panel
+              position="top-center"
+              className="!left-1/2 !-translate-x-1/2 !top-1/2 !-translate-y-1/2"
+            >
+              <EmptyTreeState onAddFirstMember={handleAddFirstMember} />
+            </Panel>
+          )}
+          <Panel
+            position={isMobile ? "top-center" : "top-left"}
+            className={isMobile ? "w-[calc(100vw-1rem)] pt-2" : "pt-2"}
+          >
+            <div className="flex flex-col gap-1">
+              <CanvasSearch
+                members={members}
+                onLocate={locator.locateMember}
+                className={isMobile ? "w-full" : undefined}
+                windowed={windowed}
+                workspaceId={activeTree?.id}
+                onFocusRoot={setFocusRoot}
+                onOpenOtherTree={openTreeAndLocateMember}
+              />
+              {windowed && neighborhoodTruncated && (
+                <div className="rounded-md border bg-background/90 px-3 py-1.5 text-xs text-muted-foreground shadow-md">
+                  {t("tree-view.windowed.banner", {
+                    count: members.length,
+                    total: totalMemberCount,
+                  })}
+                </div>
+              )}
+            </div>
+          </Panel>
+          {connection.isConnectionMode &&
+            connection.connectionRelations.length > 0 && (
+              <Panel
+                position="top-center"
+                className="!top-2 pointer-events-none"
+              >
+                {/* Cap the stack at ~3 cards; scroll the rest so many selected
                   members don't overflow the canvas. */}
-              <div className="pointer-events-auto flex max-h-[15rem] flex-col gap-2 overflow-y-auto px-1 py-1">
-                {connection.connectionRelations.map((rel) => (
-                  <ConnectionRelationCard
-                    key={`${rel.aId}|${rel.bId}`}
-                    relation={rel}
-                    onLocate={(id) => {
-                      const target = members.find((m) => m.id === id);
-                      if (target) locator.locateMember(target);
-                    }}
-                  />
-                ))}
+                <div className="pointer-events-auto flex max-h-[15rem] flex-col gap-2 overflow-y-auto px-1 py-1">
+                  {connection.connectionRelations.map((rel) => (
+                    <ConnectionRelationCard
+                      key={`${rel.aId}|${rel.bId}`}
+                      relation={rel}
+                      onLocate={(id) => {
+                        const target = members.find((m) => m.id === id);
+                        if (target) locator.locateMember(target);
+                      }}
+                    />
+                  ))}
+                </div>
+              </Panel>
+            )}
+          {inSelectionMode && (
+            <Panel position="top-center" className="!top-2">
+              <div className="flex items-center gap-2 rounded-md border bg-background/90 px-3 py-1.5 text-xs shadow-md">
+                <span>
+                  {t("tree-view.selection.selected-count", {
+                    count: selectedNodes.length,
+                  })}
+                </span>
+                <span className="text-muted-foreground">
+                  {t("tree-view.selection.hint")}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto px-2 py-0.5 text-xs"
+                  onClick={() => {
+                    setSelectedNodes([]);
+                    setNodes((ns) =>
+                      ns.map((n) =>
+                        n.selected ? { ...n, selected: false } : n,
+                      ),
+                    );
+                  }}
+                >
+                  {t("tree-view.selection.clear")}
+                </Button>
               </div>
             </Panel>
           )}
-        {inSelectionMode && (
-          <Panel position="top-center" className="!top-2">
-            <div className="flex items-center gap-2 rounded-md border bg-background/90 px-3 py-1.5 text-xs shadow-md">
-              <span>
-                {t("tree-view.selection.selected-count", {
-                  count: selectedNodes.length,
-                })}
-              </span>
-              <span className="text-muted-foreground">
-                {t("tree-view.selection.hint")}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-auto px-2 py-0.5 text-xs"
-                onClick={() => {
-                  setSelectedNodes([]);
-                  setNodes((ns) =>
-                    ns.map((n) => (n.selected ? { ...n, selected: false } : n)),
-                  );
-                }}
-              >
-                {t("tree-view.selection.clear")}
-              </Button>
-            </div>
-          </Panel>
-        )}
-        <Panel position="bottom-left" className="pb-2 flex flex-col gap-2">
-          <FlowPanelControls
-            navigationOnly={isCanvasReadOnly}
-            isConnectionMode={connection.isConnectionMode}
-            connectionDisabled={members.length < 2}
-            onToggleConnectionMode={connection.toggleConnectionMode}
-            isSelectionMode={selection.isSelectionMode}
-            onToggleSelectionMode={selection.toggleSelectionMode}
-            selectionAvailable={!isCanvasReadOnly}
-            selectionDisabled={members.length < 1 || isLockedScreen}
-          />
-        </Panel>
-        {!publicView && windowed && (
-          <ContinuationControls
-            continuations={neighborhoodCursor ? continuations : []}
-            atBudget={members.length >= EXPANSION_NODE_BUDGET}
-            canExpandGeneration={neighborhoodUp < 20 || neighborhoodDown < 20}
-            onExpandGeneration={() => void expandGeneration()}
-            onLoadMore={() => void loadMoreNeighborhood()}
-            onReset={() => void resetNeighborhood()}
-          />
-        )}
-        {!isCanvasReadOnly && (
-          <Panel position="bottom-right" className="pb-2">
-            <MemberControls
-              nodes={nodes}
-              selectedNodes={selectedNodes}
-              setMembersToDelete={setMembersToDelete}
-              onEditMember={(member) => pending.editExisting(member)}
-              onCreateNewMember={(member) => pending.createNew(member)}
-              onRearrange={rearrangeNodes}
+          <Panel position="bottom-left" className="pb-2 flex flex-col gap-2">
+            <FlowPanelControls
+              navigationOnly={isCanvasReadOnly}
+              isConnectionMode={connection.isConnectionMode}
+              connectionDisabled={members.length < 2}
+              onToggleConnectionMode={connection.toggleConnectionMode}
+              isSelectionMode={selection.isSelectionMode}
+              onToggleSelectionMode={selection.toggleSelectionMode}
+              selectionAvailable={!isCanvasReadOnly}
+              selectionDisabled={members.length < 1 || isLockedScreen}
             />
           </Panel>
-        )}
-      </ReactFlow>
-      {/* The public read-only view is purely visual: no detail sheet or edit
+          {!publicView && windowed && (
+            <ContinuationControls
+              continuations={neighborhoodCursor ? continuations : []}
+              atBudget={members.length >= EXPANSION_NODE_BUDGET}
+              canExpandGeneration={neighborhoodUp < 20 || neighborhoodDown < 20}
+              onExpandGeneration={() => void expandGeneration()}
+              onLoadMore={() => void loadMoreNeighborhood()}
+              onReset={() => void resetNeighborhood()}
+            />
+          )}
+          {!isCanvasReadOnly && (
+            <Panel position="bottom-right" className="pb-2">
+              <MemberControls
+                nodes={nodes}
+                selectedNodes={selectedNodes}
+                setMembersToDelete={setMembersToDelete}
+                onEditMember={(member) => pending.editExisting(member)}
+                onCreateNewMember={(member) => pending.createNew(member)}
+                onRearrange={rearrangeNodes}
+              />
+            </Panel>
+          )}
+        </ReactFlow>
+        {/* The public read-only view is purely visual: no detail sheet or edit
           dialogs are mounted. */}
-      {!publicView && (
-        <>
-          <RemoveMemberDialog
-            isOpen={!!membersToDelete.length}
-            members={membersToDelete}
-            onConfirm={confirmDelete}
-            onCancel={() => setMembersToDelete([])}
-          />
-          <MemberSheet
-            isOpen={!!pending.editingMember}
-            onClose={pending.closeSheet}
-            member={pending.editingMember}
-            initialEditMode={pending.isEditMode}
-            canEdit={!isEditReadOnly}
-            isNewMember={pending.isNewMemberSession}
-            onDiscardNewMember={pending.discardNewMember}
-            onSaveNewMember={pending.saveNewMember}
-          />
-          <AddRelationDialog
-            isOpen={relation.isDialogOpen}
-            onClose={relation.closeDialog}
-            onConfirm={relation.confirmRelation}
-          />
-        </>
-      )}
+        {!publicView && (
+          <>
+            <RemoveMemberDialog
+              isOpen={!!membersToDelete.length}
+              members={membersToDelete}
+              onConfirm={confirmDelete}
+              onCancel={() => setMembersToDelete([])}
+            />
+            <MemberSheet
+              isOpen={!!pending.editingMember}
+              onClose={pending.closeSheet}
+              member={pending.editingMember}
+              initialEditMode={pending.isEditMode}
+              canEdit={!isEditReadOnly}
+              isNewMember={pending.isNewMemberSession}
+              onDiscardNewMember={pending.discardNewMember}
+              onSaveNewMember={pending.saveNewMember}
+            />
+            <AddRelationDialog
+              isOpen={relation.isDialogOpen}
+              onClose={relation.closeDialog}
+              onConfirm={(type) => {
+                // A horizontal add's relation is confirmed here, one step
+                // after the new member itself was saved — check suggestions
+                // for that member now rather than in saveNewMember, which
+                // hasn't created this relation yet (#990).
+                const newMemberId =
+                  relation.pendingHorizontalRelation?.targetId;
+                relation.confirmRelation(type);
+                if (newMemberId) {
+                  void pending.checkSectionSuggestions(newMemberId);
+                }
+              }}
+            />
+            <NewMemberSectionSuggestionsDialog
+              memberName={pending.sectionSuggestions?.memberName ?? ""}
+              suggestions={pending.sectionSuggestions?.suggestions ?? null}
+              onConfirm={pending.confirmSectionSuggestions}
+              onSkip={pending.dismissSectionSuggestions}
+            />
+          </>
+        )}
       </div>
     </div>
   );

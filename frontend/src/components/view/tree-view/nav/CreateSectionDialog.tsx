@@ -30,11 +30,15 @@ type Direction = "direct_family" | "partnership";
 interface CreateSectionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Preselects the seed person — e.g. when opened from a canvas selection
+   *  rather than the workspace nav panel's generic "+" (#990). */
+  initialRootMemberId?: string | null;
 }
 
 export const CreateSectionDialog = ({
   open,
   onOpenChange,
+  initialRootMemberId = null,
 }: CreateSectionDialogProps) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "workspace-nav.create-section",
@@ -45,9 +49,12 @@ export const CreateSectionDialog = ({
   const members = useMemberStore((s) => s.members);
   const createSection = useSectionStore((s) => s.createSection);
   const previewSection = useSectionStore((s) => s.previewSection);
+  const sections = useSectionStore((s) => s.sections);
 
   const [name, setName] = useState("");
-  const [rootMemberId, setRootMemberId] = useState<string | null>(null);
+  const [rootMemberId, setRootMemberId] = useState<string | null>(
+    initialRootMemberId,
+  );
   const [direction, setDirection] = useState<Direction>("direct_family");
   const [preview, setPreview] = useState<SectionPreviewDB | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
@@ -55,12 +62,17 @@ export const CreateSectionDialog = ({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (open) return;
+    if (open) {
+      setRootMemberId(initialRootMemberId);
+      return;
+    }
     setName("");
     setRootMemberId(null);
     setDirection("direct_family");
     setPreview(null);
     setError(null);
+    // Only re-seed from the trigger on open; the picker owns it afterwards.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   useEffect(() => {
@@ -166,16 +178,34 @@ export const CreateSectionDialog = ({
                     primary: preview.primary_member_ids.length,
                     boundary: preview.boundary_member_ids.length,
                   })}
+                  <br />
+                  {t("preview-people-count", {
+                    count:
+                      preview.primary_member_ids.length +
+                      preview.boundary_member_ids.length,
+                  })}
                   {preview.overlaps.length > 0 && (
                     <ul className="mt-1 ml-4 list-disc">
-                      {preview.overlaps.map((overlap) => (
-                        <li key={overlap.section_id}>
-                          {t("preview-overlap", {
-                            name: overlap.section_name,
-                            count: overlap.member_count,
-                          })}
-                        </li>
-                      ))}
+                      {preview.overlaps.map((overlap) => {
+                        // Effective permissions: an overlap with a section
+                        // already loaded in the nav panel tells us whether
+                        // this caller could also edit it — a section-scoped
+                        // editor may only be able to read some overlaps.
+                        const known = sections.find(
+                          (s) => s.id === overlap.section_id,
+                        );
+                        return (
+                          <li key={overlap.section_id}>
+                            {t("preview-overlap", {
+                              name: overlap.section_name,
+                              count: overlap.member_count,
+                            })}
+                            {known && !known.can_write && (
+                              <> ({t("preview-overlap-read-only")})</>
+                            )}
+                          </li>
+                        );
+                      })}
                     </ul>
                   )}
                 </>

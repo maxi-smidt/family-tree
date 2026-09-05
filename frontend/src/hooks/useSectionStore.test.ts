@@ -114,6 +114,45 @@ describe("useSectionStore — deleteSection", () => {
   });
 });
 
+describe("useSectionStore — addMemberToSections", () => {
+  it("unions the new member into each section's current membership", async () => {
+    useWorkspaceStore.setState({ selectedTree: makeTree() });
+    vi.mocked(WorkspaceService.getSectionMembers).mockImplementation(
+      (_workspaceId, sectionId) =>
+        Promise.resolve(
+          sectionId === "s1" ? [{ id: "existing" } as never] : [],
+        ),
+    );
+    vi.mocked(WorkspaceService.setSectionMembers).mockResolvedValue(undefined);
+    vi.mocked(WorkspaceService.getSections).mockResolvedValue([]);
+
+    await useSectionStore
+      .getState()
+      .addMemberToSections("new-member", ["s1", "s2"]);
+
+    expect(WorkspaceService.setSectionMembers).toHaveBeenCalledWith(
+      TREE_ID,
+      "s1",
+      expect.arrayContaining(["existing", "new-member"]),
+    );
+    expect(WorkspaceService.setSectionMembers).toHaveBeenCalledWith(
+      TREE_ID,
+      "s2",
+      ["new-member"],
+    );
+    expect(WorkspaceService.getSections).toHaveBeenCalled();
+  });
+
+  it("does nothing for an empty section list", async () => {
+    useWorkspaceStore.setState({ selectedTree: makeTree() });
+
+    await useSectionStore.getState().addMemberToSections("new-member", []);
+
+    expect(WorkspaceService.getSectionMembers).not.toHaveBeenCalled();
+    expect(WorkspaceService.setSectionMembers).not.toHaveBeenCalled();
+  });
+});
+
 describe("useSectionStore — clear", () => {
   it("empties the sections slice", () => {
     useSectionStore.setState({ sections: [makeSection()], initialized: true });
