@@ -2071,6 +2071,7 @@
       "grant-scoped": "{{role}} access, limited to one section",
       "public-link-scoped": "A public link was narrowed to one section",
       "widen-action": "Widen to full access",
+      "widened": "Widened",
       "converted-views-title": "Saved views converted",
       "dropped-views-title": "Views that could not be converted",
       "acknowledge": "Acknowledge",

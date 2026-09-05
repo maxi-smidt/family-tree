@@ -2071,6 +2071,7 @@
       "grant-scoped": "{{role}}-Zugriff, beschränkt auf einen Abschnitt",
       "public-link-scoped": "Ein öffentlicher Link wurde auf einen Abschnitt beschränkt",
       "widen-action": "Auf vollen Zugriff erweitern",
+      "widened": "Erweitert",
       "converted-views-title": "Umgewandelte gespeicherte Ansichten",
       "dropped-views-title": "Ansichten, die nicht umgewandelt werden konnten",
       "acknowledge": "Bestätigen",

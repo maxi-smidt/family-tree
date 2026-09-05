@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.exceptions import AccessDeniedError, NotFoundError
 from app.db.base import utcnow_iso
-from app.models import Section, User
+from app.models import Section, User, Workspace
 from app.models.migration import MigrationMapping, MigrationReport, MigrationReportStatus
 from app.schemas.notification import MigrationReportReadyPayload
 from app.services.activity.activity import record_activity
@@ -127,6 +127,12 @@ def widen_grant_change(
 
     Only ever acts on a ``(section_id, user_id)`` pair the report itself
     recorded, so an owner can't use this route to touch an unrelated grant.
+    Re-checks *current* workspace ownership rather than trusting the report's
+    historical ``owner_user_id`` — a report stays readable by whoever owned
+    the workspace at migration time, but ownership can be transferred since
+    (see ``app.services.workspaces.workspace_transfer``), and a former owner
+    must not be able to keep widening access into a workspace they no longer
+    control.
     """
     match = next(
         (
@@ -142,6 +148,12 @@ def widen_grant_change(
     section = db.get(Section, section_id)
     if section is None:
         raise NotFoundError("Section not found")
+
+    workspace = db.get(Workspace, section.workspace_id)
+    if workspace is None:
+        raise NotFoundError("Workspace not found")
+    if workspace.owner_id != user.id and not user.is_admin:
+        raise AccessDeniedError("Cannot widen access in a workspace you no longer own")
 
     result = widen_grant_to_workspace(
         db, workspace_id=section.workspace_id, section_id=section_id, user_id=user_id

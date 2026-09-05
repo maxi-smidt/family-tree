@@ -26,6 +26,13 @@ function AccessSummaryCard({ summary }: { summary: GrantAccessSummary }) {
   const { t } = useTranslation(undefined, {
     keyPrefix: "migration-review-view.widen-dialog",
   });
+  const { t: tShare } = useTranslation(undefined, {
+    keyPrefix: "dialog.share-tree",
+  });
+  const roleLabel =
+    summary.role === "editor" || summary.role === "viewer"
+      ? tShare(`role-${summary.role}`)
+      : summary.role;
   return (
     <div className="rounded-md border p-3 space-y-1">
       <p className="text-sm font-medium">
@@ -33,14 +40,14 @@ function AccessSummaryCard({ summary }: { summary: GrantAccessSummary }) {
           ? t("scope-workspace")
           : t("scope-section")}
       </p>
-      <p className="text-xs text-muted-foreground capitalize">{summary.role}</p>
+      <p className="text-xs text-muted-foreground">{roleLabel}</p>
       <div className="flex flex-wrap gap-1">
         {summary.restrictions.length === 0 ? (
           <Badge variant="secondary">{t("no-restrictions")}</Badge>
         ) : (
           summary.restrictions.map((r) => (
             <Badge key={r} variant="secondary">
-              {r}
+              {tShare(`domains.${r}`, { defaultValue: r })}
             </Badge>
           ))
         )}

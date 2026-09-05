@@ -7,11 +7,21 @@ import {
   MigrationReportDB,
 } from "@/types/migration";
 
+/** Identifies one report's grant-change entry for the widened-tracking set. */
+function grantKey(reportId: string, sectionId: string, userId: string): string {
+  return `${reportId}:${sectionId}:${userId}`;
+}
+
 interface MigrationReviewState {
   reports: MigrationReportDB[];
   conflicts: MigrationConflictDB[];
   loading: boolean;
   loaded: boolean;
+  // A grant_changes entry never disappears from a report — it's immutable
+  // history — so a completed widen is tracked here instead, letting the UI
+  // retire that entry's action without another round-trip telling it apart
+  // from one that's still actionable.
+  widenedGrants: Set<string>;
   load: () => Promise<void>;
   acknowledgeReport: (reportId: string) => Promise<void>;
   widenGrant: (
@@ -31,6 +41,7 @@ export const useMigrationReviewStore = create<MigrationReviewState>(
     conflicts: [],
     loading: false,
     loaded: false,
+    widenedGrants: new Set(),
 
     load: async () => {
       set({ loading: true });
@@ -58,10 +69,11 @@ export const useMigrationReviewStore = create<MigrationReviewState>(
         sectionId,
         userId,
       );
-      // The report's own grant_changes rows are immutable history — reload
-      // it so a second widen attempt on the same pair 404s instead of
-      // re-offering an action that no longer applies.
-      await get().load();
+      set({
+        widenedGrants: new Set(get().widenedGrants).add(
+          grantKey(reportId, sectionId, userId),
+        ),
+      });
       return result;
     },
 
@@ -86,4 +98,15 @@ export const usePendingMigrationReviewCount = (): number =>
     (s) =>
       s.reports.filter((r) => r.status !== "acknowledged").length +
       s.conflicts.filter((c) => c.status === "pending").length,
+  );
+
+/** Whether this report's grant-change entry was already widened this
+ *  session, so its action can be retired without a reload. */
+export const useIsGrantWidened = (
+  reportId: string,
+  sectionId: string,
+  userId: string,
+): boolean =>
+  useMigrationReviewStore((s) =>
+    s.widenedGrants.has(grantKey(reportId, sectionId, userId)),
   );

@@ -729,6 +729,33 @@ def test_widen_grant_change_rejects_a_pair_not_on_the_report(db, owner, tree):
         )
 
 
+def test_widen_grant_change_rejects_a_former_owner_after_workspace_transfer(
+    db, owner, tree
+):
+    section = _section(db, tree)
+    collaborator = make_user(db, "collab")
+    db.add(
+        WorkspaceSectionGrant(
+            workspace_id=tree.id,
+            section_id=section.id,
+            user_id=collaborator.id,
+            role="editor",
+        )
+    )
+    db.commit()
+    report = _report_with_grant_change(db, owner, section.id, collaborator.id)
+
+    # Ownership moved on after migration — the report is still owner's to
+    # read, but they can no longer act on the live workspace.
+    tree.owner_id = make_user(db, "new-owner").id
+    db.commit()
+
+    with pytest.raises(AccessDeniedError):
+        report_service.widen_grant_change(
+            db, report, owner, section_id=section.id, user_id=collaborator.id
+        )
+
+
 def test_widen_grant_route(client, db, owner, tree):
     section = _section(db, tree)
     collaborator = make_user(db, "collab")

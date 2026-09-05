@@ -79,12 +79,23 @@ export const MigrationConflictCard = ({ conflict }: Props) => {
   const setFieldChoice = (field: string, choice: MergeFieldChoice) =>
     setFields((prev) => ({ ...prev, [field]: choice }));
 
+  // Selects fall back to displaying "a" when nothing's been chosen yet, but
+  // that's a render-time default, not state — an untouched select must
+  // still submit "a" explicitly, or an all-defaults merge would send empty
+  // fields and silently resolve the conflict without applying any value.
+  const effectiveFields = (): Partial<Record<string, MergeFieldChoice>> => {
+    const result: Partial<Record<string, MergeFieldChoice>> = {};
+    for (const field of fieldRows) result[field] = fields[field] ?? "a";
+    if (hasPhotoConflict) result.image_data = fields.image_data ?? "a";
+    return result;
+  };
+
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
       await resolveConflict(conflict.id, {
         action,
-        fields: action === "merge" ? fields : {},
+        fields: action === "merge" ? effectiveFields() : {},
       });
     } catch {
       toast.error(t("resolve-error"));

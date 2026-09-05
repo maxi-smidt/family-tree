@@ -16,8 +16,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDate } from "@/utils/dateUtils";
 import {
+  useIsGrantWidened,
   useMigrationReviewStore,
-  usePendingMigrationReviewCount,
 } from "@/hooks/useMigrationReviewStore";
 import { MigrationReportDB } from "@/types/migration";
 import { GrantWidenDialog } from "@/components/view/migration-review-view/GrantWidenDialog";
@@ -59,10 +59,14 @@ function GrantChangeRow({
   const { t } = useTranslation(undefined, {
     keyPrefix: "migration-review-view",
   });
+  const { t: tShare } = useTranslation(undefined, {
+    keyPrefix: "dialog.share-tree",
+  });
   const [dialogOpen, setDialogOpen] = useState(false);
   const userId = change.user_id as string | undefined;
   const sectionId = change.section_id as string | undefined;
   const role = change.role as string | undefined;
+  const widened = useIsGrantWidened(reportId, sectionId ?? "", userId ?? "");
 
   if (!userId || !sectionId) {
     // A public-link change: informational only, nothing to widen.
@@ -73,14 +77,23 @@ function GrantChangeRow({
     );
   }
 
+  const roleLabel =
+    role === "editor" || role === "viewer"
+      ? tShare(`role-${role}`)
+      : (role ?? "");
+
   return (
     <li className="flex items-center justify-between gap-2 py-1">
       <span className="text-sm truncate">
-        {t("report.grant-scoped", { role, sectionId })}
+        {t("report.grant-scoped", { role: roleLabel, sectionId })}
       </span>
-      <Button variant="outline" size="sm" onClick={() => setDialogOpen(true)}>
-        {t("report.widen-action")}
-      </Button>
+      {widened ? (
+        <Badge variant="secondary">{t("report.widened")}</Badge>
+      ) : (
+        <Button variant="outline" size="sm" onClick={() => setDialogOpen(true)}>
+          {t("report.widen-action")}
+        </Button>
+      )}
       <GrantWidenDialog
         reportId={reportId}
         sectionId={sectionId}
@@ -200,7 +213,6 @@ export const MigrationReviewView = () => {
   const loading = useMigrationReviewStore((s) => s.loading);
   const loaded = useMigrationReviewStore((s) => s.loaded);
   const load = useMigrationReviewStore((s) => s.load);
-  const pendingCount = usePendingMigrationReviewCount();
 
   useEffect(() => {
     void load();
@@ -235,7 +247,7 @@ export const MigrationReviewView = () => {
             <TabsTrigger value="checklist">
               <ClipboardCheck className="size-4" />
               {t("tab-checklist")}
-              {pendingCount > 0 && (
+              {pendingConflicts.length > 0 && (
                 <Badge variant="destructive" className="ml-1">
                   {pendingConflicts.length}
                 </Badge>

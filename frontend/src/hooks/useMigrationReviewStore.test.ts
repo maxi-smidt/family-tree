@@ -1,6 +1,7 @@
 import { renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  useIsGrantWidened,
   useMigrationReviewStore,
   usePendingMigrationReviewCount,
 } from "./useMigrationReviewStore";
@@ -61,6 +62,7 @@ beforeEach(() => {
     conflicts: [],
     loading: false,
     loaded: false,
+    widenedGrants: new Set(),
   });
 });
 
@@ -109,7 +111,7 @@ describe("useMigrationReviewStore", () => {
     );
   });
 
-  it("widenGrant reloads after applying the change", async () => {
+  it("widenGrant marks the pair widened so its action can be retired", async () => {
     vi.mocked(MigrationService.widenGrant).mockResolvedValue({
       before: {
         scope: "section",
@@ -124,15 +126,20 @@ describe("useMigrationReviewStore", () => {
         restrictions: [],
       },
     });
-    vi.mocked(MigrationService.listReports).mockResolvedValue([]);
-    vi.mocked(MigrationService.listConflicts).mockResolvedValue([]);
 
     const result = await useMigrationReviewStore
       .getState()
       .widenGrant("report-1", "s1", "user-1");
 
     expect(result.after.scope).toBe("workspace");
-    expect(MigrationService.listReports).toHaveBeenCalledTimes(1);
+    const { result: widened } = renderHook(() =>
+      useIsGrantWidened("report-1", "s1", "user-1"),
+    );
+    expect(widened.current).toBe(true);
+    const { result: untouched } = renderHook(() =>
+      useIsGrantWidened("report-1", "s2", "user-1"),
+    );
+    expect(untouched.current).toBe(false);
   });
 
   it("usePendingMigrationReviewCount counts unacknowledged reports and pending conflicts", () => {
