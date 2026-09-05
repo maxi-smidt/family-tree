@@ -4,7 +4,13 @@ invitation scope (#993)."""
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from app.models import Section, SectionMember, WorkspaceInvitation, WorkspaceSectionGrant
+from app.models import (
+    Relation,
+    Section,
+    SectionMember,
+    WorkspaceInvitation,
+    WorkspaceSectionGrant,
+)
 from app.services.workspaces.grants import (
     best_role,
     effective_grant,
@@ -17,7 +23,7 @@ from app.services.workspaces.public_links import (
     revoke_section_public_link,
     set_section_public_link_password,
 )
-from tests.conftest import API, auth, make_tree, make_user
+from tests.conftest import API, add_member, auth, make_tree, make_user
 
 
 def _section(db, tree, name="Section") -> Section:
@@ -883,6 +889,41 @@ def test_section_scoped_editor_cannot_list_members_of_an_out_of_scope_section(
         headers=auth(bob),
     )
     assert denied.status_code == 404
+
+
+def test_suggestions_never_reveal_a_section_outside_the_caller_s_grant(client, db):
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    in_scope = _section(db, tree, "In scope")
+    out_of_scope = _section(db, tree, "Out of scope")
+    _grant(db, tree, in_scope, bob, role="editor")
+
+    add_member(db, tree, "p1")
+    add_member(db, tree, "newkid")
+    db.add(
+        Relation(
+            workspace_id=tree.id,
+            from_member_id="newkid",
+            to_member_id="p1",
+            relation_type="parent",
+        )
+    )
+    db.commit()
+    db.add(SectionMember(section_id=in_scope.id, member_id="p1"))
+    db.add(SectionMember(section_id=out_of_scope.id, member_id="p1"))
+    db.commit()
+
+    res = client.get(
+        f"{API}/workspaces/{tree.id}/sections/suggestions",
+        headers=auth(bob),
+        params={"member_id": "newkid"},
+    )
+    assert res.status_code == 200
+    body = res.json()
+    ids = {s["section"]["id"] for s in body}
+    assert ids == {in_scope.id}
+    assert body[0]["section"]["can_write"] is True
 
 
 def test_section_scoped_editor_cannot_rename_or_delete_an_out_of_scope_section(

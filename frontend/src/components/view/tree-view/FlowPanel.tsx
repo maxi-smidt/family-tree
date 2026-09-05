@@ -844,7 +844,18 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
             <AddRelationDialog
               isOpen={relation.isDialogOpen}
               onClose={relation.closeDialog}
-              onConfirm={relation.confirmRelation}
+              onConfirm={(type) => {
+                // A horizontal add's relation is confirmed here, one step
+                // after the new member itself was saved — check suggestions
+                // for that member now rather than in saveNewMember, which
+                // hasn't created this relation yet (#990).
+                const newMemberId =
+                  relation.pendingHorizontalRelation?.targetId;
+                relation.confirmRelation(type);
+                if (newMemberId) {
+                  void pending.checkSectionSuggestions(newMemberId);
+                }
+              }}
             />
             <NewMemberSectionSuggestionsDialog
               memberName={pending.sectionSuggestions?.memberName ?? ""}

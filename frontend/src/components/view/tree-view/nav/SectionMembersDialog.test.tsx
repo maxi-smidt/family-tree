@@ -171,6 +171,79 @@ describe("SectionMembersDialog", () => {
     );
   });
 
+  it("keeps the add-search disabled until the current roster has loaded", async () => {
+    let resolveMembers!: (value: MemberDB[]) => void;
+    setStores({
+      getSectionMembers: () =>
+        new Promise((resolve) => {
+          resolveMembers = resolve;
+        }),
+    });
+
+    render(
+      <SectionMembersDialog
+        section={SECTION}
+        workspaceId="tree-1"
+        onOpenChange={vi.fn()}
+      />,
+    );
+
+    const input = screen.getByPlaceholderText(
+      "Search this workspace to add someone…",
+    );
+    expect(input).toBeDisabled();
+
+    resolveMembers([makeMember()]);
+    await waitFor(() => expect(input).not.toBeDisabled());
+  });
+
+  it("sorts an added member with a missing name without crashing", async () => {
+    const searchWorkspace = vi.fn().mockResolvedValue({
+      items: [
+        {
+          ...makeHit({
+            firstName: null,
+            lastName: null,
+          } as unknown as Partial<WorkspaceSearchHitDB>),
+        },
+      ],
+      total: 1,
+      has_more: false,
+      next_cursor: null,
+    });
+    setStores({
+      getSectionMembers: () => Promise.resolve([makeMember()]),
+      searchWorkspace,
+    });
+
+    render(
+      <SectionMembersDialog
+        section={SECTION}
+        workspaceId="tree-1"
+        onOpenChange={vi.fn()}
+      />,
+    );
+
+    await screen.findByText("Anna Adams");
+    fireEvent.change(
+      screen.getByPlaceholderText("Search this workspace to add someone…"),
+      { target: { value: "Bea" } },
+    );
+
+    // getMemberFullName template-literals null fields to the string "null";
+    // the point of this test is only that adding it doesn't throw.
+    const hit = await screen.findByRole("button", { name: "null null" });
+    fireEvent.click(hit);
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(useSectionStore.getState().setSectionMembers).toHaveBeenCalledWith(
+        "s1",
+        expect.arrayContaining(["m1", "m2"]),
+      ),
+    );
+  });
+
   it("shows a load error when the current membership can't be fetched", async () => {
     setStores({
       getSectionMembers: () => Promise.reject(new Error("network error")),

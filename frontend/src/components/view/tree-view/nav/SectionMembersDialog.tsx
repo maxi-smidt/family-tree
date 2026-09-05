@@ -114,12 +114,15 @@ export const SectionMembersDialog = ({
   };
 
   const handleAdd = (hit: WorkspaceSearchHitDB) => {
-    if (memberIds.has(hit.id)) return;
+    // `members` is null until the current roster has loaded — adding
+    // against that would replace an unseen roster with a one-person list,
+    // and Save (a full PUT replace) would then delete everyone else.
+    if (members === null || memberIds.has(hit.id)) return;
     setMembers((prev) =>
       [...(prev ?? []), hit].sort(
         (a, b) =>
-          a.lastName.localeCompare(b.lastName) ||
-          a.firstName.localeCompare(b.firstName),
+          (a.lastName ?? "").localeCompare(b.lastName ?? "") ||
+          (a.firstName ?? "").localeCompare(b.firstName ?? ""),
       ),
     );
   };
@@ -156,6 +159,7 @@ export const SectionMembersDialog = ({
               value={query}
               placeholder={t("add-placeholder")}
               onChange={(e) => setQuery(e.target.value)}
+              disabled={members === null}
               className="h-9 pl-8 pr-8 text-sm"
             />
             {query && (

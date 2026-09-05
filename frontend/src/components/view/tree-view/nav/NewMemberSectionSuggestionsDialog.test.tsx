@@ -90,6 +90,34 @@ describe("NewMemberSectionSuggestionsDialog", () => {
     await waitFor(() => expect(onConfirm).toHaveBeenCalledWith(["s1"]));
   });
 
+  it("disables the toggle for a section this caller can't write to", () => {
+    render(
+      <NewMemberSectionSuggestionsDialog
+        memberName="Lea Adams"
+        suggestions={[
+          makeSuggestion({
+            section: {
+              id: "s1",
+              workspace_id: "tree-1",
+              name: "Vienna branch",
+              position: 0,
+              created_at: "2024-01-01T00:00:00Z",
+              member_count: 4,
+              can_write: false,
+            },
+          }),
+        ]}
+        onConfirm={vi.fn()}
+        onSkip={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("switch", { name: "Vienna branch" }),
+    ).toBeDisabled();
+    expect(screen.getByText("Read-only for you")).toBeInTheDocument();
+  });
+
   it("skip calls onSkip without confirming anything", () => {
     const onSkip = vi.fn();
     const onConfirm = vi.fn();

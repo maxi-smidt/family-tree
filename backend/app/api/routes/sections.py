@@ -112,13 +112,23 @@ def preview_section(
 def get_section_suggestions(
     member_id: str,
     tree: Workspace = Depends(get_readable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access),
     db: Session = Depends(get_db),
 ):
-    suggestions = suggest_sections_for_member(db, tree, member_id)
+    # A scoped grant must never learn the name/count of a section it can't
+    # read, and any section offered here has to be one it could actually
+    # write to (#990) — same boundary as GET "" above.
+    suggestions = [
+        (section, via)
+        for section, via in suggest_sections_for_member(db, tree, member_id)
+        if context.can_read_scope(section.id)
+    ]
     counts = member_counts(db, [section.id for section, _ in suggestions])
     return [
         SectionSuggestion(
-            section=section_out(section, counts.get(section.id, 0)),
+            section=section_out(section, counts.get(section.id, 0)).model_copy(
+                update={"can_write": context.can_write_scope(section.id)}
+            ),
             matched_via_member_ids=via,
         )
         for section, via in suggestions

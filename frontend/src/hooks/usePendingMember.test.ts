@@ -111,6 +111,39 @@ describe("usePendingMember — new-member section suggestions", () => {
     expect(result.current.sectionSuggestions).toBeNull();
   });
 
+  it("checkSectionSuggestions surfaces suggestions for an already-saved member (horizontal/partner flow)", async () => {
+    useMemberStore.setState({
+      members: [
+        PARENT,
+        {
+          ...createMember({ x: 0, y: 0 }),
+          id: "new-partner",
+          firstName: "Lea",
+          lastName: "Adams",
+        },
+      ],
+    });
+    vi.mocked(
+      useSectionStore.getState().getSectionSuggestions,
+    ).mockResolvedValue([SUGGESTION]);
+    const { result } = renderHook(() =>
+      usePendingMember({ onHorizontalRelationReady: vi.fn() }),
+    );
+
+    await act(async () => {
+      await result.current.checkSectionSuggestions("new-partner");
+    });
+
+    expect(
+      useSectionStore.getState().getSectionSuggestions,
+    ).toHaveBeenCalledWith("new-partner");
+    expect(result.current.sectionSuggestions).toEqual({
+      memberId: "new-partner",
+      memberName: "Lea Adams",
+      suggestions: [SUGGESTION],
+    });
+  });
+
   it("skipping clears the suggestion without adding anything", async () => {
     vi.mocked(
       useSectionStore.getState().getSectionSuggestions,

@@ -97,10 +97,16 @@ export const NewMemberSectionSuggestionsDialog = ({
                       {t("matched-via", { names })}
                     </p>
                   )}
+                  {!section.can_write && (
+                    <p className="truncate text-xs text-muted-foreground">
+                      {t("read-only")}
+                    </p>
+                  )}
                 </div>
                 <Switch
                   checked={selected.has(section.id)}
                   onCheckedChange={(checked) => toggle(section.id, checked)}
+                  disabled={!section.can_write}
                   aria-label={section.name}
                 />
               </li>

@@ -2137,7 +2137,8 @@
       "skip": "Nicht zuweisen",
       "confirm": "Zu ausgewählten hinzufügen",
       "confirming": "Wird hinzugefügt…",
-      "error": "Die Bereichsmitgliedschaft konnte nicht aktualisiert werden."
+      "error": "Die Bereichsmitgliedschaft konnte nicht aktualisiert werden.",
+      "read-only": "Für dich nur lesbar"
     }
   }
 }

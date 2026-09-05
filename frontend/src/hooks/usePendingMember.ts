@@ -143,6 +143,29 @@ export const usePendingMember = ({
     setPendingHorizontalSourceId(null);
   };
 
+  /** Suggested sections for a member who just gained a parent/partner
+   *  relation — surfaced for confirmation, never joined silently (#990).
+   *  `memberName` is a caller-supplied override for a member not yet
+   *  reflected in the `members` store snapshot (e.g. mid-save). */
+  const checkSectionSuggestions = async (
+    memberId: string,
+    memberName?: string,
+  ) => {
+    try {
+      const suggestions = await getSectionSuggestions(memberId);
+      if (suggestions.length === 0) return;
+      const name =
+        memberName ??
+        (() => {
+          const member = members.find((m) => m.id === memberId);
+          return member ? `${member.firstName} ${member.lastName}`.trim() : "";
+        })();
+      setSectionSuggestions({ memberId, memberName: name, suggestions });
+    } catch {
+      // Suggestions are a convenience, not required for the save itself.
+    }
+  };
+
   /** Save the pending new member (replicates onSaveNewMember in FlowPanel). */
   const saveNewMember = async (data: Partial<Member>) => {
     if (pendingNewMember) {
@@ -166,22 +189,10 @@ export const usePendingMember = ({
           await addRelation(id, pendingRelation.parent2Id, "parent");
         }
         setPendingRelation(null);
-
-        // The new member's parents/partner may already belong to sections —
-        // surface those as a confirmation, never join them silently (#990).
-        try {
-          const suggestions = await getSectionSuggestions(id);
-          if (suggestions.length > 0) {
-            setSectionSuggestions({
-              memberId: id,
-              memberName:
-                `${newMemberToSave.firstName} ${newMemberToSave.lastName}`.trim(),
-              suggestions,
-            });
-          }
-        } catch {
-          // Suggestions are a convenience, not required for the save itself.
-        }
+        await checkSectionSuggestions(
+          id,
+          `${newMemberToSave.firstName} ${newMemberToSave.lastName}`.trim(),
+        );
       }
 
       if (pendingHorizontalSourceId) {
@@ -240,6 +251,7 @@ export const usePendingMember = ({
     closeSheet,
     discardNewMember,
     saveNewMember,
+    checkSectionSuggestions,
     confirmSectionSuggestions,
     dismissSectionSuggestions,
   };

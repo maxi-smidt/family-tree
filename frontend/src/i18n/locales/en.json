@@ -2137,7 +2137,8 @@
       "skip": "Leave unassigned",
       "confirm": "Add to selected",
       "confirming": "Adding…",
-      "error": "Could not update section membership."
+      "error": "Could not update section membership.",
+      "read-only": "Read-only for you"
     }
   }
 }
