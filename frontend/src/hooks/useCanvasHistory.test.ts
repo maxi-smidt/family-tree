@@ -78,6 +78,48 @@ describe("useCanvasHistory", () => {
     });
   });
 
+  it("seeds the current history entry on mount instead of leaving it unmarked", () => {
+    const replaceSpy = vi.spyOn(window.history, "replaceState");
+
+    renderHook(() => useCanvasHistory(TREE_ID, null));
+
+    expect(replaceSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        __ftCanvas: true,
+        workspaceId: TREE_ID,
+        focusRootId: "m1",
+        focusSectionIds: null,
+      }),
+      "",
+    );
+  });
+
+  it("pushes exactly one entry for a focus change whose root resolves asynchronously", async () => {
+    vi.mocked(WorkspaceService.getNeighborhood).mockResolvedValueOnce({
+      members: [],
+      relations: [],
+      root_id: "resolved-root",
+      truncated: false,
+      total_member_count: 3,
+    });
+    const pushSpy = vi.spyOn(window.history, "pushState");
+    renderHook(() => useCanvasHistory(TREE_ID, null));
+
+    // focusSection briefly sets focusRootId to null while the section's
+    // default root resolves — that transitional value must not itself
+    // produce a history entry.
+    await act(async () => {
+      await useMemberStore.getState().focusSection("sec-1");
+    });
+
+    expect(pushSpy).toHaveBeenCalledTimes(1);
+    const [state] = pushSpy.mock.calls[0];
+    expect(state).toMatchObject({
+      focusRootId: "resolved-root",
+      focusSectionIds: ["sec-1"],
+    });
+  });
+
   it("does not push again right after restoring a popped entry", async () => {
     const pushSpy = vi.spyOn(window.history, "pushState");
     renderHook(() => useCanvasHistory(TREE_ID, { setViewport: vi.fn() }));

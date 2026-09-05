@@ -37,6 +37,7 @@ export function useCanvasHistory(
 ) {
   const focusRootId = useMemberStore((s) => s.focusRootId);
   const focusSectionIds = useMemberStore((s) => s.focusSectionIds);
+  const focusPending = useMemberStore((s) => s.focusPending);
   const setFocusRoot = useMemberStore((s) => s.setFocusRoot);
   const focusSection = useMemberStore((s) => s.focusSection);
   const exitFocus = useMemberStore((s) => s.exitFocus);
@@ -50,15 +51,11 @@ export function useCanvasHistory(
 
   useEffect(() => {
     if (!workspaceId) return;
-    // Nothing to go "back" to on the very first render of a workspace.
-    if (!mountedRef.current) {
-      mountedRef.current = true;
-      return;
-    }
-    if (suppressNextPushRef.current) {
-      suppressNextPushRef.current = false;
-      return;
-    }
+    // A focus/scope change is still resolving (e.g. a section's default root
+    // hasn't come back yet) — focusRootId/focusSectionIds are transitional,
+    // not a settled state worth recording. Wait for it to commit; the effect
+    // re-runs once `focusPending` flips back to false.
+    if (focusPending) return;
     const state: CanvasHistoryState = {
       __ftCanvas: true,
       workspaceId,
@@ -66,9 +63,22 @@ export function useCanvasHistory(
       focusSectionIds,
       viewport: { x: 0, y: 0, zoom: 1 },
     };
+    // Nothing to go "back" to on the very first render of a workspace — seed
+    // the *current* entry instead of leaving it unmarked, so a subsequent
+    // push (from the first real focus change) has a valid entry underneath
+    // it for Back to land on and popstate to recognize.
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      window.history.replaceState(state, "");
+      return;
+    }
+    if (suppressNextPushRef.current) {
+      suppressNextPushRef.current = false;
+      return;
+    }
     window.history.pushState(state, "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workspaceId, focusRootId, focusSectionIds]);
+  }, [workspaceId, focusRootId, focusSectionIds, focusPending]);
 
   useEffect(() => {
     function onPopState(event: PopStateEvent) {

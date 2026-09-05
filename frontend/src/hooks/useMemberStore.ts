@@ -56,6 +56,28 @@ function mergeRelations(existing: RelationDB[], incoming: RelationDB[]): Relatio
   return [...byKey.values()];
 }
 
+// Enforce EXPANSION_NODE_BUDGET on the merged buffer itself, not just on the
+// *next* call's guard — a single page can add up to the backend's own
+// per-page ceiling regardless of how much is already accumulated, so without
+// this a merge can overshoot the advertised cap before it is ever checked
+// again. `mergeMemberRows` preserves already-accumulated rows' relative
+// order (a Map.set on an existing key never moves it), so slicing keeps
+// every already-validated member and only drops the tail of newly-added
+// ones that would exceed the budget.
+function capNeighborhoodBuffer(
+  rows: MemberDB[],
+  relations: RelationDB[],
+  limit: number,
+): { rows: MemberDB[]; relations: RelationDB[] } {
+  if (rows.length <= limit) return { rows, relations };
+  const cappedRows = rows.slice(0, limit);
+  const keptIds = new Set(cappedRows.map((m) => m.id));
+  const cappedRelations = relations.filter(
+    (r) => keptIds.has(r.from_member_id) && keptIds.has(r.to_member_id),
+  );
+  return { rows: cappedRows, relations: cappedRelations };
+}
+
 // Bumped on every refreshMembers() call so a slower earlier fetch (e.g. a
 // focus change superseded by another before it returns) cannot overwrite the
 // members a later call already committed.
@@ -236,6 +258,13 @@ interface MemberState {
   // Section scope (#982/#988) the windowed neighborhood is currently
   // restricted to, or null for the whole workspace. Set by `focusSection`.
   focusSectionIds: string[] | null;
+  // True between a focus/scope change starting (setFocusRoot/focusSection/
+  // exitFocus) and its refetch settling. `focusRootId` briefly holds a
+  // transitional value (e.g. null while a section's default root resolves)
+  // during that window — consumers that push browser history entries key off
+  // this flag so they record the settled transition once, not each
+  // intermediate value.
+  focusPending: boolean;
   windowedForTreeId: string | null;
   neighborhoodUp: number;
   neighborhoodDown: number;
@@ -350,6 +379,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
   windowed: false,
   focusRootId: null,
   focusSectionIds: null,
+  focusPending: false,
   windowedForTreeId: null,
   neighborhoodUp: 3,
   neighborhoodDown: 3,
@@ -561,27 +591,35 @@ export const useMemberStore = create<MemberState>((set, get) => ({
   setFocusRoot: async (rootId: string) => {
     const workspaceId = activeTreeId();
     set({
+      focusPending: true,
       windowed: true,
       focusRootId: rootId,
       focusSectionIds: null,
       windowedForTreeId: workspaceId ?? null,
     });
     await get().refreshMembers();
+    set({ focusPending: false });
   },
 
   focusSection: async (sectionId: string | null) => {
     const workspaceId = activeTreeId();
     set({
+      focusPending: true,
       windowed: true,
+      // The default root within the section is resolved by the fetch below
+      // (null here is transitional, not a settled focus) — `focusPending`
+      // keeps consumers like browser-history push from treating it as one.
       focusRootId: null,
       focusSectionIds: sectionId ? [sectionId] : null,
       windowedForTreeId: workspaceId ?? null,
     });
     await get().refreshMembers();
+    set({ focusPending: false });
   },
 
   exitFocus: async () => {
     set({
+      focusPending: true,
       windowed: false,
       focusRootId: null,
       focusSectionIds: null,
@@ -592,6 +630,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       continuations: [],
     });
     await get().refreshMembers();
+    set({ focusPending: false });
   },
 
   setNeighborhoodDepth: async (up: number, down: number) => {
@@ -627,8 +666,11 @@ export const useMemberStore = create<MemberState>((set, get) => ({
         focusSectionIds ?? undefined,
       );
       if (stale()) return;
-      const mergedRows = mergeMemberRows(neighborhoodMemberRows, nb.members);
-      const mergedRelations = mergeRelations(neighborhoodRelations, nb.relations);
+      const { rows: mergedRows, relations: mergedRelations } = capNeighborhoodBuffer(
+        mergeMemberRows(neighborhoodMemberRows, nb.members),
+        mergeRelations(neighborhoodRelations, nb.relations),
+        EXPANSION_NODE_BUDGET,
+      );
       set({
         neighborhoodUp: nextUp,
         neighborhoodDown: nextDown,
@@ -675,8 +717,11 @@ export const useMemberStore = create<MemberState>((set, get) => ({
         neighborhoodCursor,
       );
       if (stale()) return;
-      const mergedRows = mergeMemberRows(neighborhoodMemberRows, nb.members);
-      const mergedRelations = mergeRelations(neighborhoodRelations, nb.relations);
+      const { rows: mergedRows, relations: mergedRelations } = capNeighborhoodBuffer(
+        mergeMemberRows(neighborhoodMemberRows, nb.members),
+        mergeRelations(neighborhoodRelations, nb.relations),
+        EXPANSION_NODE_BUDGET,
+      );
       set({
         neighborhoodMemberRows: mergedRows,
         neighborhoodRelations: mergedRelations,
@@ -781,6 +826,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       windowed: false,
       focusRootId: null,
       focusSectionIds: null,
+      focusPending: false,
       windowedForTreeId: null,
       neighborhoodMemberRows: [],
       neighborhoodRelations: [],

@@ -4,6 +4,7 @@ import { useWorkspaceStore } from "./useWorkspaceStore";
 import { useEventStore } from "./useEventStore";
 import { WorkspaceService } from "@/services/WorkspaceService";
 import { ApiError } from "@/services/api";
+import { treeProcessorClient } from "@/workers/treeProcessorClient";
 import { MemberDB } from "@/types/member";
 import { Workspace } from "@/types/workspace";
 import { toast } from "sonner";
@@ -374,6 +375,51 @@ describe("useMemberStore — inline expansion (#989)", () => {
     await useMemberStore.getState().expandGeneration();
 
     expect(WorkspaceService.getNeighborhood).not.toHaveBeenCalled();
+  });
+
+  it("caps the merged buffer at the node budget instead of letting one page overshoot it", async () => {
+    const existingRows = Array.from({ length: 1_000 }, (_, i) => ({
+      ...MEMBER_DB_ROW,
+      id: `existing-${i}`,
+    }));
+    useMemberStore.setState({ neighborhoodMemberRows: existingRows });
+    // A single page can return up to the backend's own per-page ceiling
+    // (1,500) regardless of how much is already accumulated — merging it
+    // in naively would land at 2,500, well past the advertised cap.
+    const newRows = Array.from({ length: 1_500 }, (_, i) => ({
+      ...MEMBER_DB_ROW,
+      id: `new-${i}`,
+    }));
+    vi.mocked(WorkspaceService.getNeighborhood).mockResolvedValueOnce({
+      members: newRows,
+      relations: [],
+      root_id: "m1",
+      truncated: true,
+      total_member_count: 10_000,
+      next_cursor: "cursor-2",
+      continuations: [],
+    });
+    // Above SYNC_LAYOUT_THRESHOLD, computeLayout offloads to a real Web
+    // Worker, which jsdom doesn't provide — stub it so this test exercises
+    // the capping logic, not worker availability.
+    const layoutSpy = vi
+      .spyOn(treeProcessorClient, "computeLayout")
+      .mockResolvedValue({});
+
+    try {
+      await useMemberStore.getState().loadMoreNeighborhood();
+    } finally {
+      layoutSpy.mockRestore();
+    }
+
+    const state = useMemberStore.getState();
+    expect(state.neighborhoodMemberRows).toHaveLength(1_500);
+    expect(state.members).toHaveLength(1_500);
+    // Every already-accumulated row survives the cap; only the tail of the
+    // newly-fetched page is dropped.
+    expect(existingRows.every((r) => state.neighborhoodMemberRows.includes(r))).toBe(
+      true,
+    );
   });
 
   it("resetNeighborhood clears the accumulated buffers and refetches a fresh baseline page", async () => {
