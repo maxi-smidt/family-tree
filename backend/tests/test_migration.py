@@ -1,10 +1,18 @@
 """Tests for durable v2 migration state (#997) — models, state machine, and
 the owner/admin APIs in app.api.routes.migration."""
 
+import json
+
 import pytest
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import AccessDeniedError, ConflictError, InvalidInputError
+from app.core.exceptions import (
+    AccessDeniedError,
+    ConflictError,
+    InvalidInputError,
+    NotFoundError,
+)
+from app.models import Notification, Section, WorkspaceMembership, WorkspaceSectionGrant
 from app.models.migration import (
     MigrationConflict,
     MigrationConflictStatus,
@@ -23,6 +31,14 @@ from app.services.migration.state_machine import (
     transition_status,
 )
 from tests.conftest import API, add_member, auth, make_tree, make_user
+
+
+def _section(db: Session, tree, name="Section") -> Section:
+    section = Section(workspace_id=tree.id, name=name)
+    db.add(section)
+    db.commit()
+    db.refresh(section)
+    return section
 
 
 def _make_run(db: Session, **kw) -> MigrationRun:
@@ -154,6 +170,41 @@ def test_create_report_is_idempotent_per_run_and_owner(db, owner):
     assert db.query(MigrationReport).count() == 1
 
 
+def test_create_report_notifies_the_owner(db, owner):
+    run = _make_run(db)
+    report_service.create_report(
+        db,
+        run_id=run.id,
+        owner_user_id=owner.id,
+        workspace_mappings=[],
+        grant_changes=[],
+        converted_virtual_views=[],
+        dropped_virtual_views=[],
+        media_verification={},
+        validation_summary={},
+    )
+    notifications = db.query(Notification).filter_by(user_id=owner.id).all()
+    assert len(notifications) == 1
+    assert notifications[0].type == "migration_report_ready"
+
+
+def test_create_report_replay_does_not_duplicate_the_notification(db, owner):
+    run = _make_run(db)
+    kw = dict(
+        run_id=run.id,
+        owner_user_id=owner.id,
+        workspace_mappings=[],
+        grant_changes=[],
+        converted_virtual_views=[],
+        dropped_virtual_views=[],
+        media_verification={},
+        validation_summary={},
+    )
+    report_service.create_report(db, **kw)
+    report_service.create_report(db, **kw)
+    assert db.query(Notification).filter_by(user_id=owner.id).count() == 1
+
+
 def test_get_report_denies_another_owner(db, owner):
     run = _make_run(db)
     other = make_user(db, "mallory")
@@ -256,6 +307,16 @@ def test_create_conflict_is_idempotent_per_pair(db, owner):
     second = _make_conflict(db, run, owner)
     assert first.id == second.id
     assert db.query(MigrationConflict).count() == 1
+
+
+def test_create_conflict_notifies_the_owner(db, owner):
+    run = _make_run(db)
+    conflict = _make_conflict(db, run, owner)
+    notifications = db.query(Notification).filter_by(user_id=owner.id).all()
+    assert len(notifications) == 1
+    assert notifications[0].type == "migration_conflict_pending"
+    payload = json.loads(notifications[0].payload)
+    assert payload["conflict_id"] == conflict.id
 
 
 def test_resolve_conflict_records_field_choices(db, owner):
@@ -541,6 +602,158 @@ def test_resolve_conflict_keep_both_does_not_touch_the_canonical_member(db, owne
     )
     db.refresh(keep)
     assert keep.first_name == "Anna"
+
+
+# --- grant widening ----------------------------------------------------------
+
+
+def _report_with_grant_change(
+    db: Session, owner: User, section_id: str, user_id: str, role: str = "editor"
+) -> MigrationReport:
+    run = _make_run(db)
+    return report_service.create_report(
+        db,
+        run_id=run.id,
+        owner_user_id=owner.id,
+        workspace_mappings=[],
+        grant_changes=[
+            {
+                "user_id": user_id,
+                "role": role,
+                "section_id": section_id,
+                "source_workspace_id": "old-ws",
+            }
+        ],
+        converted_virtual_views=[],
+        dropped_virtual_views=[],
+        media_verification={},
+        validation_summary={},
+    )
+
+
+def test_widen_grant_change_promotes_a_section_grant_to_workspace_wide(
+    db, owner, tree
+):
+    section = _section(db, tree)
+    collaborator = make_user(db, "collab")
+    db.add(
+        WorkspaceSectionGrant(
+            workspace_id=tree.id,
+            section_id=section.id,
+            user_id=collaborator.id,
+            role="editor",
+            restrictions=["gallery"],
+        )
+    )
+    db.commit()
+    report = _report_with_grant_change(db, owner, section.id, collaborator.id)
+
+    result = report_service.widen_grant_change(
+        db, report, owner, section_id=section.id, user_id=collaborator.id
+    )
+
+    assert result["before"] == {
+        "scope": "section",
+        "section_id": section.id,
+        "role": "editor",
+        "restrictions": ["gallery"],
+    }
+    assert result["after"] == {
+        "scope": "workspace",
+        "role": "editor",
+        "restrictions": ["gallery"],
+    }
+    assert (
+        db.query(WorkspaceSectionGrant)
+        .filter_by(
+            workspace_id=tree.id, section_id=section.id, user_id=collaborator.id
+        )
+        .first()
+        is None
+    )
+    membership = db.get(WorkspaceMembership, (tree.id, collaborator.id))
+    assert membership is not None
+    assert membership.role == "editor"
+
+
+def test_widen_grant_change_merges_with_an_existing_membership(db, owner, tree):
+    """Higher role wins; restrictions narrow to the intersection — the result
+    is never narrower than either side held, never wider than both."""
+    section = _section(db, tree)
+    collaborator = make_user(db, "collab")
+    db.add(
+        WorkspaceMembership(
+            workspace_id=tree.id,
+            user_id=collaborator.id,
+            role="viewer",
+            restrictions=["gallery", "sources"],
+        )
+    )
+    db.add(
+        WorkspaceSectionGrant(
+            workspace_id=tree.id,
+            section_id=section.id,
+            user_id=collaborator.id,
+            role="editor",
+            restrictions=["gallery"],
+        )
+    )
+    db.commit()
+    report = _report_with_grant_change(db, owner, section.id, collaborator.id)
+
+    result = report_service.widen_grant_change(
+        db, report, owner, section_id=section.id, user_id=collaborator.id
+    )
+
+    assert result["after"]["role"] == "editor"
+    assert result["after"]["restrictions"] == ["gallery"]
+
+
+def test_widen_grant_change_rejects_a_pair_not_on_the_report(db, owner, tree):
+    section = _section(db, tree)
+    collaborator = make_user(db, "collab")
+    db.add(
+        WorkspaceSectionGrant(
+            workspace_id=tree.id,
+            section_id=section.id,
+            user_id=collaborator.id,
+            role="editor",
+        )
+    )
+    db.commit()
+    report = _report_with_grant_change(db, owner, section.id, "someone-else")
+
+    with pytest.raises(NotFoundError):
+        report_service.widen_grant_change(
+            db, report, owner, section_id=section.id, user_id=collaborator.id
+        )
+
+
+def test_widen_grant_route(client, db, owner, tree):
+    section = _section(db, tree)
+    collaborator = make_user(db, "collab")
+    db.add(
+        WorkspaceSectionGrant(
+            workspace_id=tree.id,
+            section_id=section.id,
+            user_id=collaborator.id,
+            role="viewer",
+        )
+    )
+    db.commit()
+    report = _report_with_grant_change(
+        db, owner, section.id, collaborator.id, role="viewer"
+    )
+
+    resp = client.post(
+        f"{API}/migration/reports/{report.id}/widen-grant",
+        json={"section_id": section.id, "user_id": collaborator.id},
+        headers=auth(owner),
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["before"]["scope"] == "section"
+    assert body["after"]["scope"] == "workspace"
 
 
 # --- routes ------------------------------------------------------------------

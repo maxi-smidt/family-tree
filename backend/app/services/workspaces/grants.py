@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import InvalidInputError
+from app.core.exceptions import InvalidInputError, NotFoundError
 from app.models import WorkspaceMembership, WorkspaceSectionGrant
 
 _ROLE_RANK = {"viewer": 0, "editor": 1}
@@ -193,8 +193,9 @@ def restricts_domain(db: Session, workspace_id: str, user_id: str, domain: str) 
 
 
 # ---------------------------------------------------------------------------
-# Section-grant management (used directly by migration/tests; no owner-facing
-# route exists yet — richer section-sharing UX is a follow-up per #993/#980).
+# Section-grant management (used directly by migration/tests; the only
+# owner-facing route today is the narrow migration-report widen action below
+# (#991) — richer, general section-sharing UX is a follow-up per #993/#980).
 # ---------------------------------------------------------------------------
 
 
@@ -244,3 +245,64 @@ def update_section_grant(
 
 def revoke_section_grant(db: Session, grant: WorkspaceSectionGrant) -> None:
     db.delete(grant)
+
+
+def widen_grant_to_workspace(
+    db: Session, *, workspace_id: str, section_id: str, user_id: str
+) -> dict:
+    """Replace a section-scoped grant with workspace-wide access — the
+    inverse of the narrowing #997's migration performs when a same-owner
+    tree is consolidated into a section (see ``_scope_legacy_access`` in
+    ``app.services.migration.converter``).
+
+    An explicit, one-click owner action (#991), never automatic: merged into
+    any existing workspace-wide membership by taking the higher role and the
+    intersection of restrictions, so the result is never narrower than
+    either side held before. Does not commit — the caller wraps this with
+    its own audit-log write in one transaction.
+    """
+    grant = db.scalar(
+        select(WorkspaceSectionGrant).where(
+            WorkspaceSectionGrant.workspace_id == workspace_id,
+            WorkspaceSectionGrant.section_id == section_id,
+            WorkspaceSectionGrant.user_id == user_id,
+        )
+    )
+    if grant is None:
+        raise NotFoundError("Section grant not found")
+
+    before = {
+        "scope": "section",
+        "section_id": section_id,
+        "role": grant.role,
+        "restrictions": list(grant.restrictions or []),
+    }
+
+    membership = db.get(WorkspaceMembership, (workspace_id, user_id))
+    if membership is None:
+        membership = WorkspaceMembership(
+            workspace_id=workspace_id,
+            user_id=user_id,
+            role=grant.role,
+            restrictions=grant.restrictions,
+        )
+        db.add(membership)
+    else:
+        if _ROLE_RANK.get(grant.role, 0) > _ROLE_RANK.get(membership.role, 0):
+            membership.role = grant.role
+        if membership.restrictions:
+            merged = sorted(
+                set(membership.restrictions) & set(grant.restrictions or ())
+            )
+            membership.restrictions = merged or None
+
+    db.delete(grant)
+
+    return {
+        "before": before,
+        "after": {
+            "scope": "workspace",
+            "role": membership.role,
+            "restrictions": list(membership.restrictions or []),
+        },
+    }

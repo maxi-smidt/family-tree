@@ -3,6 +3,7 @@ import {
   ALL_VIEWS,
   DATABASE_MANAGEMENT_VIEW,
   FRIENDS_VIEW,
+  MIGRATION_REVIEW_VIEW,
   TREE_VIEW,
   resolveTabs,
 } from "./tabs";
@@ -53,8 +54,12 @@ describe("resolveTabs", () => {
     expect(visible).toEqual([TREE_VIEW]);
   });
 
-  it("keeps the management and friends tabs last by default", () => {
+  it("keeps the management, friends, and migration-review tabs last by default", () => {
     const { ordered } = resolveTabs([], []);
-    expect(ordered.slice(-2)).toEqual([DATABASE_MANAGEMENT_VIEW, FRIENDS_VIEW]);
+    expect(ordered.slice(-3)).toEqual([
+      DATABASE_MANAGEMENT_VIEW,
+      FRIENDS_VIEW,
+      MIGRATION_REVIEW_VIEW,
+    ]);
   });
 });

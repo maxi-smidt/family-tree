@@ -12,6 +12,8 @@ from app.db.session import get_db
 from app.models.migration import MigrationConflict, MigrationReport, MigrationRun
 from app.models.user import User
 from app.schemas.migration import (
+    GrantWidenRequest,
+    GrantWidenResult,
     MigrationConflictListOut,
     MigrationConflictOut,
     MigrationConflictResolveRequest,
@@ -88,6 +90,7 @@ def _conflict_out(conflict: MigrationConflict) -> MigrationConflictOut:
         conflicting_fields=conflict.conflicting_fields,
         field_values=conflict.field_values,
         conflicting_media=conflict.conflicting_media,
+        blocks_finalization=conflict.blocks_finalization,
         status=conflict.status,
         resolution=conflict.resolution,
         resolved_by=conflict.resolved_by,
@@ -122,6 +125,20 @@ def acknowledge_report(
 ):
     report = report_service.get_report_for_owner(db, report_id, user)
     return _report_out(report_service.acknowledge_report(db, report, user))
+
+
+@router.post("/reports/{report_id}/widen-grant", response_model=GrantWidenResult)
+def widen_report_grant(
+    report_id: str,
+    payload: GrantWidenRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    report = report_service.get_report_for_owner(db, report_id, user)
+    result = report_service.widen_grant_change(
+        db, report, user, section_id=payload.section_id, user_id=payload.user_id
+    )
+    return GrantWidenResult(**result)
 
 
 @router.get("/conflicts", response_model=MigrationConflictListOut)

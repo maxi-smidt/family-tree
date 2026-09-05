@@ -7,9 +7,13 @@ from sqlalchemy.orm import Session
 
 from app.core.exceptions import AccessDeniedError, NotFoundError
 from app.db.base import utcnow_iso
+from app.models import Section, User
 from app.models.migration import MigrationMapping, MigrationReport, MigrationReportStatus
-from app.models.user import User
+from app.schemas.notification import MigrationReportReadyPayload
+from app.services.activity.activity import record_activity
+from app.services.collaboration.notification_service import create_notification
 from app.services.unit_of_work import UnitOfWork
+from app.services.workspaces.grants import widen_grant_to_workspace
 
 
 def get_report_for_owner(db: Session, report_id: str, user: User) -> MigrationReport:
@@ -105,4 +109,51 @@ def create_report(
             raise
         return report
     db.refresh(report)
+    create_notification(
+        db,
+        owner_user_id,
+        "migration_report_ready",
+        MigrationReportReadyPayload(run_id=run_id, report_id=report.id),
+    )
     return report
+
+
+def widen_grant_change(
+    db: Session, report: MigrationReport, user: User, *, section_id: str, user_id: str
+) -> dict:
+    """Widen one of this report's ``grant_changes`` entries back to
+    workspace-wide access — the only owner-facing way to do so (#991); see
+    ``app.services.workspaces.grants.widen_grant_to_workspace``.
+
+    Only ever acts on a ``(section_id, user_id)`` pair the report itself
+    recorded, so an owner can't use this route to touch an unrelated grant.
+    """
+    match = next(
+        (
+            c
+            for c in report.grant_changes
+            if c.get("section_id") == section_id and c.get("user_id") == user_id
+        ),
+        None,
+    )
+    if match is None:
+        raise NotFoundError("No such grant change on this report")
+
+    section = db.get(Section, section_id)
+    if section is None:
+        raise NotFoundError("Section not found")
+
+    result = widen_grant_to_workspace(
+        db, workspace_id=section.workspace_id, section_id=section_id, user_id=user_id
+    )
+    with UnitOfWork(db):
+        record_activity(
+            db,
+            workspace_id=section.workspace_id,
+            actor=user,
+            action="update",
+            target_type="share",
+            target_id=user_id,
+            details={"widened_from_section_id": section_id, **result},
+        )
+    return result
