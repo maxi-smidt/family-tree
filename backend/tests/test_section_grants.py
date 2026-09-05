@@ -862,6 +862,29 @@ def test_section_scoped_editor_cannot_read_a_section_outside_their_grant(client,
     assert denied_deps.status_code == 404
 
 
+def test_section_scoped_editor_cannot_list_members_of_an_out_of_scope_section(
+    client, db
+):
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    in_scope = _section(db, tree, "In scope")
+    out_of_scope = _section(db, tree, "Out of scope")
+    _grant(db, tree, in_scope, bob, role="editor")
+
+    ok = client.get(
+        f"{API}/workspaces/{tree.id}/sections/{in_scope.id}/members",
+        headers=auth(bob),
+    )
+    assert ok.status_code == 200
+
+    denied = client.get(
+        f"{API}/workspaces/{tree.id}/sections/{out_of_scope.id}/members",
+        headers=auth(bob),
+    )
+    assert denied.status_code == 404
+
+
 def test_section_scoped_editor_cannot_rename_or_delete_an_out_of_scope_section(
     client, db
 ):

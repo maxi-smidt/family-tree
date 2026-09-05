@@ -203,6 +203,27 @@ def test_set_members_replaces_and_ignores_foreign_members(client, db):
     assert body["member_count"] == 1
 
 
+def test_get_members_lists_current_members_by_name(client, db):
+    user = make_user(db)
+    tree = make_tree(db, user)
+    add_member(db, tree, "m1", first_name="Bea", last_name="Adams")
+    add_member(db, tree, "m2", first_name="Amy", last_name="Zed")
+    add_member(db, tree, "outsider", first_name="Not", last_name="Included")
+    section = _create(client, user, tree, name="Section").json()
+    client.put(
+        f"{API}/workspaces/{tree.id}/sections/{section['id']}/members",
+        headers=auth(user),
+        json={"member_ids": ["m1", "m2"]},
+    )
+
+    res = client.get(
+        f"{API}/workspaces/{tree.id}/sections/{section['id']}/members",
+        headers=auth(user),
+    )
+    assert res.status_code == 200
+    assert [m["id"] for m in res.json()] == ["m1", "m2"]
+
+
 def test_positions_upsert(client, db):
     user = make_user(db)
     tree = make_tree(db, user)

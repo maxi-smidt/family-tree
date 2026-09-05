@@ -16,6 +16,7 @@ from app.db.session import get_db
 from app.models import Workspace
 from app.models.user import User
 from app.schemas.extract import Direction
+from app.schemas.family import MemberSurfaceOut
 from app.schemas.provenance import SectionDependents
 from app.schemas.section import (
     SectionCreate,
@@ -37,6 +38,7 @@ from app.services.sections import (
     member_counts,
     replace_section_members,
     section_dependents,
+    section_member_rows,
     section_out,
     suggest_sections_for_member,
     update_section,
@@ -202,6 +204,23 @@ def patch_section(
         ) from exc
     db.refresh(section)
     return section_out(section, len(section.members))
+
+
+@router.get("/{section_id}/members", response_model=list[MemberSurfaceOut])
+def get_section_members(
+    section_id: str,
+    tree: Workspace = Depends(get_readable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access),
+    db: Session = Depends(get_db),
+):
+    """Members currently in this section — the read side of membership
+    editing (#990); ``PUT .../members`` is a full replace, so the editor UI
+    needs this to know what it's replacing."""
+    section = _get_readable_section(db, tree, section_id, context)
+    return [
+        MemberSurfaceOut(**row._mapping)
+        for row in section_member_rows(db, tree, section)
+    ]
 
 
 @router.get("/{section_id}/dependents", response_model=SectionDependents)

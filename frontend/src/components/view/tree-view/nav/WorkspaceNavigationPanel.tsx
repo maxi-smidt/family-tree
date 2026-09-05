@@ -31,6 +31,7 @@ import { WorkspaceSearchBox } from "@/components/view/tree-view/nav/WorkspaceSea
 import { CreateSectionDialog } from "@/components/view/tree-view/nav/CreateSectionDialog";
 import { RenameSectionDialog } from "@/components/view/tree-view/nav/RenameSectionDialog";
 import { DeleteSectionDialog } from "@/components/view/tree-view/nav/DeleteSectionDialog";
+import { SectionMembersDialog } from "@/components/view/tree-view/nav/SectionMembersDialog";
 import { SectionDB } from "@/types/section";
 import { WorkspaceSearchHitDB } from "@/types/member";
 
@@ -78,6 +79,7 @@ export const WorkspaceNavigationPanel = ({
   const [createOpen, setCreateOpen] = useState(false);
   const [renameTarget, setRenameTarget] = useState<SectionDB | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<SectionDB | null>(null);
+  const [membersTarget, setMembersTarget] = useState<SectionDB | null>(null);
 
   const sections = useSectionStore((s) => s.sections);
   const sectionsInitialized = useSectionStore((s) => s.initialized);
@@ -211,6 +213,11 @@ export const WorkspaceNavigationPanel = ({
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
+                          onSelect={() => setMembersTarget(section)}
+                        >
+                          {t("edit-members")}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
                           onSelect={() => setRenameTarget(section)}
                         >
                           {t("rename")}
@@ -284,6 +291,11 @@ export const WorkspaceNavigationPanel = ({
       <DeleteSectionDialog
         section={deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
+      />
+      <SectionMembersDialog
+        section={membersTarget}
+        workspaceId={workspaceId}
+        onOpenChange={(open) => !open && setMembersTarget(null)}
       />
     </>
   );

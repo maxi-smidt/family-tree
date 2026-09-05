@@ -931,7 +931,8 @@
       "depth-decrease": "Reduce neighborhood depth",
       "enable-task-indicators": "Show open research tasks",
       "disable-task-indicators": "Hide open research tasks",
-      "more-actions": "More actions"
+      "more-actions": "More actions",
+      "create-section-here": "Create section from here"
     },
     "persistence": {
       "collapse-error": "Could not save collapsed members. The tree was restored.",
@@ -2087,7 +2088,9 @@
       "name-conflict": "A section with this name already exists.",
       "create-error": "The section could not be created.",
       "cancel": "Cancel",
-      "create": "Create"
+      "create": "Create",
+      "preview-people-count": "{{count}} people total",
+      "preview-overlap-read-only": "read-only for you"
     },
     "rename-section": {
       "title": "Rename section",
@@ -2111,6 +2114,30 @@
       "close": "Close",
       "confirm": "Delete",
       "deleting": "Deleting…"
+    },
+    "edit-members": "Edit members",
+    "section-members": {
+      "title": "Members of \"{{name}}\"",
+      "description": "Add or remove members. Someone can belong to more than one section — adding them here never removes them from another.",
+      "add-placeholder": "Search this workspace to add someone…",
+      "already-in": "Already added",
+      "loading": "Loading members…",
+      "load-error": "Could not load this section's members.",
+      "no-members": "No members yet",
+      "remove": "Remove {{name}}",
+      "save-error": "The membership changes could not be saved.",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving…"
+    },
+    "new-member-suggestions": {
+      "title": "Add {{name}} to a section?",
+      "description": "{{name}}'s parents or partner already belong to these sections. Choose which ones should include them too — or skip and assign them later.",
+      "matched-via": "via {{names}}",
+      "skip": "Leave unassigned",
+      "confirm": "Add to selected",
+      "confirming": "Adding…",
+      "error": "Could not update section membership."
     }
   }
 }

@@ -31,6 +31,7 @@ from app.schemas.extract import Direction
 from app.schemas.provenance import SectionDependents
 from app.schemas.section import SectionOut, SectionOverlap, SectionPreview
 from app.services.members.member_access import get_member
+from app.services.members.member_search import MEMBER_SURFACE_COLUMNS
 from app.services.provenance import reassign_section_scopes, section_scope_counts
 from app.services.saved_views.saved_views import drop_saved_view_section
 from app.services.workspaces.subtree_selection import collect_member_ids
@@ -69,6 +70,20 @@ def list_sections(db: Session, tree: Workspace) -> list[SectionOut]:
     )
     counts = member_counts(db, [s.id for s in sections])
     return [section_out(s, counts.get(s.id, 0)) for s in sections]
+
+
+def section_member_rows(db: Session, tree: Workspace, section: Section):
+    """Member-surface rows for everyone currently in ``section``, ordered by
+    name — the read side of membership editing (#990); the caller must
+    already hold a readable grant on ``section`` (see ``_get_readable_section``
+    in the router), which by definition covers exactly these members."""
+    stmt = (
+        select(*MEMBER_SURFACE_COLUMNS)
+        .join(SectionMember, SectionMember.member_id == Member.id)
+        .where(SectionMember.section_id == section.id, Member.workspace_id == tree.id)
+        .order_by(Member.last_name, Member.first_name)
+    )
+    return db.execute(stmt).all()
 
 
 def get_section(db: Session, tree: Workspace, section_id: str) -> Section:

@@ -55,6 +55,7 @@ import {
   SectionDB,
   SectionDependentsDB,
   SectionPreviewDB,
+  SectionSuggestionDB,
   SectionUpdateInput,
 } from "@/types/section";
 import { SavedViewDB } from "@/types/savedView";
@@ -134,7 +135,8 @@ export class WorkspaceService {
     if (root) params.set("root", root);
     if (budget !== undefined) params.set("budget", String(budget));
     if (cursor) params.set("cursor", cursor);
-    for (const sectionId of sections ?? []) params.append("sections", sectionId);
+    for (const sectionId of sections ?? [])
+      params.append("sections", sectionId);
     return api.get<NeighborhoodDB>(
       `${base(workspaceId)}/members/neighborhood?${params}`,
     );
@@ -334,7 +336,9 @@ export class WorkspaceService {
 
   // --- Gallery: unknown-face tags (issue #736) ------------------------------
   static getGalleryUnknownFaces(workspaceId: string) {
-    return api.get<UnknownFaceDB[]>(`${base(workspaceId)}/gallery/unknown-faces`);
+    return api.get<UnknownFaceDB[]>(
+      `${base(workspaceId)}/gallery/unknown-faces`,
+    );
   }
 
   /** Tag a face region as an unknown person; the backend creates exactly one
@@ -384,9 +388,12 @@ export class WorkspaceService {
     faceId: string,
     memberId: string,
   ) {
-    return api.post(`${base(workspaceId)}/gallery/unknown-faces/${faceId}/resolve`, {
-      member_id: memberId,
-    });
+    return api.post(
+      `${base(workspaceId)}/gallery/unknown-faces/${faceId}/resolve`,
+      {
+        member_id: memberId,
+      },
+    );
   }
 
   static removeGalleryUnknownFace(workspaceId: string, faceId: string) {
@@ -422,7 +429,11 @@ export class WorkspaceService {
     });
   }
 
-  static setEventLinks(workspaceId: string, eventId: string, memberIds: string[]) {
+  static setEventLinks(
+    workspaceId: string,
+    eventId: string,
+    memberIds: string[],
+  ) {
     return api.put(`${base(workspaceId)}/events/${eventId}/links`, {
       member_ids: memberIds,
     });
@@ -504,7 +515,11 @@ export class WorkspaceService {
     });
   }
 
-  static setStoryLinks(workspaceId: string, storyId: string, memberIds: string[]) {
+  static setStoryLinks(
+    workspaceId: string,
+    storyId: string,
+    memberIds: string[],
+  ) {
     return api.put(`${base(workspaceId)}/stories/${storyId}/links`, {
       member_ids: memberIds,
     });
@@ -560,7 +575,11 @@ export class WorkspaceService {
     });
   }
 
-  static setTaskLinks(workspaceId: string, taskId: string, memberIds: string[]) {
+  static setTaskLinks(
+    workspaceId: string,
+    taskId: string,
+    memberIds: string[],
+  ) {
     return api.put(`${base(workspaceId)}/tasks/${taskId}/links`, {
       member_ids: memberIds,
     });
@@ -614,7 +633,11 @@ export class WorkspaceService {
 
   /** Stream a picked file into the staging area. Returns the staged upload,
    *  whose id is later attached by `saveDocument`. */
-  static stageDocumentUpload(workspaceId: string, file: File, filename: string) {
+  static stageDocumentUpload(
+    workspaceId: string,
+    file: File,
+    filename: string,
+  ) {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("filename", filename);
@@ -697,7 +720,9 @@ export class WorkspaceService {
     documentId: string,
     fileId: string,
   ) {
-    return api.del(`${base(workspaceId)}/documents/${documentId}/files/${fileId}`);
+    return api.del(
+      `${base(workspaceId)}/documents/${documentId}/files/${fileId}`,
+    );
   }
 
   // --- Diseases ------------------------------------------------------------
@@ -878,6 +903,29 @@ export class WorkspaceService {
   static getSectionDependents(workspaceId: string, sectionId: string) {
     return api.get<SectionDependentsDB>(
       `${base(workspaceId)}/sections/${sectionId}/dependents`,
+    );
+  }
+
+  static getSectionMembers(workspaceId: string, sectionId: string) {
+    return api.get<MemberDB[]>(
+      `${base(workspaceId)}/sections/${sectionId}/members`,
+    );
+  }
+
+  static setSectionMembers(
+    workspaceId: string,
+    sectionId: string,
+    memberIds: string[],
+  ) {
+    return api.put<void>(`${base(workspaceId)}/sections/${sectionId}/members`, {
+      member_ids: memberIds,
+    });
+  }
+
+  static getSectionSuggestions(workspaceId: string, memberId: string) {
+    return api.get<SectionSuggestionDB[]>(
+      `${base(workspaceId)}/sections/suggestions`,
+      { member_id: memberId },
     );
   }
 
