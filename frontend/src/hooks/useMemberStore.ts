@@ -11,7 +11,11 @@ import {
 import { mapDiseaseFromDB, DiseaseDB, DiseaseInput } from "@/types/disease";
 import { mapMembersFromRows } from "@/utils/memberMapping";
 import { treeProcessorClient } from "@/workers/treeProcessorClient";
-import { WorkspaceService } from "@/services/WorkspaceService";
+import {
+  NeighborhoodContinuationDB,
+  WorkspaceService,
+} from "@/services/WorkspaceService";
+import { ApiError } from "@/services/api";
 import { activeTreeId, isActiveTree } from "@/hooks/useWorkspaceStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useStorageStore } from "@/hooks/useStorageStore";
@@ -26,6 +30,31 @@ import {
 } from "@/hooks/memberStoreLayout";
 
 const WINDOWED_MODE_THRESHOLD = 2_000;
+
+// Ceiling on how many members inline expansion (#989) may accumulate on the
+// canvas across repeated "expand"/"load more" actions, mirroring the
+// backend's own per-page ceiling (MAX_NEIGHBORHOOD_NODES). Beyond this the
+// user must reset the view rather than grow it further — the canvas cannot
+// accumulate an unbounded number of nodes by accident.
+export const EXPANSION_NODE_BUDGET = 1_500;
+
+// Merge a fetched page of raw rows/relations into the accumulated windowed
+// dataset, keyed by identity so repeated/overlapping pages (a retried
+// request, an overlapping cursor page) never duplicate a member or relation.
+// The freshest copy of a row wins.
+function mergeMemberRows(existing: MemberDB[], incoming: MemberDB[]): MemberDB[] {
+  const byId = new Map(existing.map((m) => [m.id, m]));
+  for (const m of incoming) byId.set(m.id, m);
+  return [...byId.values()];
+}
+
+function mergeRelations(existing: RelationDB[], incoming: RelationDB[]): RelationDB[] {
+  const key = (r: RelationDB) =>
+    `${r.from_member_id}␟${r.to_member_id}␟${r.relation_type}`;
+  const byKey = new Map(existing.map((r) => [key(r), r]));
+  for (const r of incoming) byKey.set(key(r), r);
+  return [...byKey.values()];
+}
 
 // Bumped on every refreshMembers() call so a slower earlier fetch (e.g. a
 // focus change superseded by another before it returns) cannot overwrite the
@@ -204,11 +233,24 @@ interface MemberState {
   detailLoadedIds: Set<string>;
   windowed: boolean;
   focusRootId: string | null;
+  // Section scope (#982/#988) the windowed neighborhood is currently
+  // restricted to, or null for the whole workspace. Set by `focusSection`.
+  focusSectionIds: string[] | null;
   windowedForTreeId: string | null;
   neighborhoodUp: number;
   neighborhoodDown: number;
   neighborhoodTruncated: boolean;
   totalMemberCount: number;
+  // Raw rows/relations accumulated across inline expansion pages (#989) for
+  // the current windowed session — the source `refreshMembers`/`expand*`
+  // rebuild `members` from, so a later page can be merged in without losing
+  // parent-gender context for members fetched on an earlier page.
+  neighborhoodMemberRows: MemberDB[];
+  neighborhoodRelations: RelationDB[];
+  // Cursor continuing the current windowed query where the last page left
+  // off, or null once there is nothing more to load.
+  neighborhoodCursor: string | null;
+  continuations: NeighborhoodContinuationDB[];
   // One-shot request to center/highlight a member once it is present in
   // `members` — set when following a member→tree link so the view lands on
   // the target member. Consumed and cleared by the canvas.
@@ -239,6 +281,25 @@ interface MemberState {
   refreshMembers: (workspaceId?: string) => Promise<void>;
   setFocusRoot: (rootId: string) => Promise<void>;
   setNeighborhoodDepth: (up: number, down: number) => Promise<void>;
+  // Restrict the windowed neighborhood to one section (#989); pass null to
+  // return to the whole-workspace default (same as `exitFocus`, kept
+  // separate for the "back to explore" call sites' intent).
+  focusSection: (sectionId: string | null) => Promise<void>;
+  // Drop any focus root/section scope and return to the workspace's default
+  // view (full load or an unscoped windowed neighborhood, whichever the
+  // workspace size calls for).
+  exitFocus: () => Promise<void>;
+  // Inline expansion (#989): grow the current focus by one more generation in
+  // both directions, merging the result into the canvas instead of reloading
+  // it. No-op once EXPANSION_NODE_BUDGET is reached.
+  expandGeneration: () => Promise<void>;
+  // Fetch the next page of the current windowed query via its continuation
+  // cursor and merge it in. No-op with nothing left to load, or once
+  // EXPANSION_NODE_BUDGET is reached.
+  loadMoreNeighborhood: () => Promise<void>;
+  // Explicit reset path (#989 hardening): drop every merged expansion page
+  // and refetch a fresh, budget-sized window around the current focus.
+  resetNeighborhood: () => Promise<void>;
   fetchMemberDetail: (
     id: string,
     force?: boolean,
@@ -288,9 +349,14 @@ export const useMemberStore = create<MemberState>((set, get) => ({
   detailLoadedIds: new Set<string>(),
   windowed: false,
   focusRootId: null,
+  focusSectionIds: null,
   windowedForTreeId: null,
   neighborhoodUp: 3,
   neighborhoodDown: 3,
+  neighborhoodMemberRows: [],
+  neighborhoodRelations: [],
+  neighborhoodCursor: null,
+  continuations: [],
   neighborhoodTruncated: false,
   totalMemberCount: 0,
   pendingLocateMemberId: null,
@@ -364,6 +430,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     const {
       windowed,
       focusRootId,
+      focusSectionIds,
       windowedForTreeId,
       neighborhoodUp,
       neighborhoodDown,
@@ -381,10 +448,19 @@ export const useMemberStore = create<MemberState>((set, get) => ({
           focusRootId ?? undefined,
           neighborhoodUp,
           neighborhoodDown,
+          true,
+          focusSectionIds ?? undefined,
         );
         if (stale()) return;
+        // A fresh baseline page — start the accumulated expansion buffers
+        // over rather than merging, so nodes revoked or moved out of scope
+        // since the last fetch don't linger from an earlier merge.
         set({
           members: buildAppMembers(nb.members, nb.relations, workspaceId),
+          neighborhoodMemberRows: nb.members,
+          neighborhoodRelations: nb.relations,
+          neighborhoodCursor: nb.next_cursor ?? null,
+          continuations: nb.continuations ?? [],
           detailLoadedIds: new Set<string>(),
           focusRootId: nb.root_id || null,
           neighborhoodTruncated: nb.truncated,
@@ -398,7 +474,16 @@ export const useMemberStore = create<MemberState>((set, get) => ({
 
     // Clear any stale windowed state from a different tree before the full load.
     if (windowed && windowedForTreeId !== workspaceId) {
-      set({ windowed: false, focusRootId: null, windowedForTreeId: null });
+      set({
+        windowed: false,
+        focusRootId: null,
+        focusSectionIds: null,
+        windowedForTreeId: null,
+        neighborhoodMemberRows: [],
+        neighborhoodRelations: [],
+        neighborhoodCursor: null,
+        continuations: [],
+      });
     }
 
     // Ask the bounded endpoint first — its total_member_count comes from an
@@ -417,6 +502,10 @@ export const useMemberStore = create<MemberState>((set, get) => ({
           windowed: true,
           windowedForTreeId: workspaceId,
           members: buildAppMembers(nb.members, nb.relations, workspaceId),
+          neighborhoodMemberRows: nb.members,
+          neighborhoodRelations: nb.relations,
+          neighborhoodCursor: nb.next_cursor ?? null,
+          continuations: nb.continuations ?? [],
           detailLoadedIds: new Set<string>(),
           focusRootId: nb.root_id || null,
           neighborhoodTruncated: nb.truncated,
@@ -460,6 +549,10 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       windowed: false,
       windowedForTreeId: null,
       members: appMembers,
+      neighborhoodMemberRows: [],
+      neighborhoodRelations: [],
+      neighborhoodCursor: null,
+      continuations: [],
       detailLoadedIds: new Set<string>(),
       totalMemberCount: memberRows.length,
     });
@@ -470,13 +563,149 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     set({
       windowed: true,
       focusRootId: rootId,
+      focusSectionIds: null,
       windowedForTreeId: workspaceId ?? null,
+    });
+    await get().refreshMembers();
+  },
+
+  focusSection: async (sectionId: string | null) => {
+    const workspaceId = activeTreeId();
+    set({
+      windowed: true,
+      focusRootId: null,
+      focusSectionIds: sectionId ? [sectionId] : null,
+      windowedForTreeId: workspaceId ?? null,
+    });
+    await get().refreshMembers();
+  },
+
+  exitFocus: async () => {
+    set({
+      windowed: false,
+      focusRootId: null,
+      focusSectionIds: null,
+      windowedForTreeId: null,
+      neighborhoodMemberRows: [],
+      neighborhoodRelations: [],
+      neighborhoodCursor: null,
+      continuations: [],
     });
     await get().refreshMembers();
   },
 
   setNeighborhoodDepth: async (up: number, down: number) => {
     set({ neighborhoodUp: up, neighborhoodDown: down });
+    await get().refreshMembers();
+  },
+
+  expandGeneration: async () => {
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return;
+    const {
+      neighborhoodUp,
+      neighborhoodDown,
+      focusRootId,
+      focusSectionIds,
+      neighborhoodMemberRows,
+      neighborhoodRelations,
+    } = get();
+    if (neighborhoodMemberRows.length >= EXPANSION_NODE_BUDGET) return;
+
+    const nextUp = Math.min(neighborhoodUp + 1, 20);
+    const nextDown = Math.min(neighborhoodDown + 1, 20);
+    const version = ++memberRefreshVersion;
+    const stale = () => !isActiveTree(workspaceId) || version !== memberRefreshVersion;
+
+    try {
+      const nb = await WorkspaceService.getNeighborhood(
+        workspaceId,
+        focusRootId ?? undefined,
+        nextUp,
+        nextDown,
+        true,
+        focusSectionIds ?? undefined,
+      );
+      if (stale()) return;
+      const mergedRows = mergeMemberRows(neighborhoodMemberRows, nb.members);
+      const mergedRelations = mergeRelations(neighborhoodRelations, nb.relations);
+      set({
+        neighborhoodUp: nextUp,
+        neighborhoodDown: nextDown,
+        neighborhoodMemberRows: mergedRows,
+        neighborhoodRelations: mergedRelations,
+        members: buildAppMembers(mergedRows, mergedRelations, workspaceId),
+        neighborhoodTruncated: nb.truncated,
+        totalMemberCount: nb.total_member_count,
+        neighborhoodCursor: nb.next_cursor ?? null,
+        continuations: nb.continuations ?? [],
+      });
+      await get().updateLayout();
+    } catch {
+      // Transient error: leave the existing depth/members unchanged.
+    }
+  },
+
+  loadMoreNeighborhood: async () => {
+    const workspaceId = activeTreeId();
+    const {
+      neighborhoodCursor,
+      neighborhoodMemberRows,
+      neighborhoodRelations,
+      focusRootId,
+      focusSectionIds,
+      neighborhoodUp,
+      neighborhoodDown,
+    } = get();
+    if (!workspaceId || !neighborhoodCursor) return;
+    if (neighborhoodMemberRows.length >= EXPANSION_NODE_BUDGET) return;
+
+    const version = ++memberRefreshVersion;
+    const stale = () => !isActiveTree(workspaceId) || version !== memberRefreshVersion;
+
+    try {
+      const nb = await WorkspaceService.getNeighborhood(
+        workspaceId,
+        focusRootId ?? undefined,
+        neighborhoodUp,
+        neighborhoodDown,
+        true,
+        focusSectionIds ?? undefined,
+        undefined,
+        neighborhoodCursor,
+      );
+      if (stale()) return;
+      const mergedRows = mergeMemberRows(neighborhoodMemberRows, nb.members);
+      const mergedRelations = mergeRelations(neighborhoodRelations, nb.relations);
+      set({
+        neighborhoodMemberRows: mergedRows,
+        neighborhoodRelations: mergedRelations,
+        members: buildAppMembers(mergedRows, mergedRelations, workspaceId),
+        totalMemberCount: nb.total_member_count,
+        neighborhoodCursor: nb.next_cursor ?? null,
+        continuations: nb.continuations ?? [],
+      });
+      await get().updateLayout();
+    } catch (error) {
+      if (!isActiveTree(workspaceId)) return;
+      if (error instanceof ApiError && error.status === 409) {
+        // The graph (or the caller's access to it) moved on since this
+        // cursor was minted — drop it instead of retrying with an offset
+        // that may no longer mean the same thing. An explicit reset or a
+        // fresh focus change restarts the traversal from scratch.
+        set({ neighborhoodCursor: null, continuations: [] });
+        toast.error(i18n.t("tree-view.continuation.stale-error"));
+      }
+    }
+  },
+
+  resetNeighborhood: async () => {
+    set({
+      neighborhoodMemberRows: [],
+      neighborhoodRelations: [],
+      neighborhoodCursor: null,
+      continuations: [],
+    });
     await get().refreshMembers();
   },
 
@@ -551,7 +780,12 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       detailLoadedIds: new Set<string>(),
       windowed: false,
       focusRootId: null,
+      focusSectionIds: null,
       windowedForTreeId: null,
+      neighborhoodMemberRows: [],
+      neighborhoodRelations: [],
+      neighborhoodCursor: null,
+      continuations: [],
       neighborhoodTruncated: false,
       totalMemberCount: 0,
       pendingLocateMemberId: null,

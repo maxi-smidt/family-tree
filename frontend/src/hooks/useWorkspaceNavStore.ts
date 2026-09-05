@@ -2,10 +2,11 @@ import { create } from "zustand";
 
 /**
  * Selection state for the workspace navigation tree (#988): Explore /
- * Sections / Saved views. This is UI selection only — it does not (yet)
- * filter the graph; a section or saved view becoming the caller's focus is
- * left to #989/#1013. Reset whenever the active workspace changes so a
- * selection never survives a tree switch and points at the wrong workspace.
+ * Sections / Saved views. This is UI selection only — the corresponding
+ * graph focus/scope change on `useMemberStore` (#989) is driven separately by
+ * the caller (see `WorkspaceNavigationPanel`). Reset whenever the active
+ * workspace changes so a selection never survives a tree switch and points
+ * at the wrong workspace.
  */
 export type WorkspaceNavMode = "explore" | "section" | "saved-view";
 

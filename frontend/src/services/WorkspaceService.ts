@@ -61,12 +61,23 @@ import { SavedViewDB } from "@/types/savedView";
 
 const base = (workspaceId: string) => `/workspaces/${workspaceId}`;
 
+/** One scope (a section, or `null` for the whole workspace) still holding
+ *  members the current page didn't reach — drives the "Continue into ..."
+ *  controls (#989). */
+export interface NeighborhoodContinuationDB {
+  section_id: string | null;
+  section_name: string | null;
+  remaining_count: number;
+}
+
 export interface NeighborhoodDB {
   members: MemberDB[];
   relations: RelationDB[];
   root_id: string;
   truncated: boolean;
   total_member_count: number;
+  next_cursor?: string | null;
+  continuations?: NeighborhoodContinuationDB[];
 }
 
 export class WorkspaceService {
@@ -101,12 +112,19 @@ export class WorkspaceService {
     return api.get<MemberDB>(`${base(workspaceId)}/members/${id}`);
   }
 
+  /** `sections` scopes the traversal to those sections; `cursor` (from a
+   *  previous response's `next_cursor`) continues that same request where it
+   *  left off — replay it with identical `root`/`up`/`down`/`partners`/
+   *  `sections`/`budget`, or the backend rejects it (#983, #989). */
   static getNeighborhood(
     workspaceId: string,
     root?: string,
     up = 3,
     down = 3,
     partners = true,
+    sections?: string[],
+    budget?: number,
+    cursor?: string,
   ) {
     const params = new URLSearchParams({
       up: String(up),
@@ -114,6 +132,9 @@ export class WorkspaceService {
       partners: String(partners),
     });
     if (root) params.set("root", root);
+    if (budget !== undefined) params.set("budget", String(budget));
+    if (cursor) params.set("cursor", cursor);
+    for (const sectionId of sections ?? []) params.append("sections", sectionId);
     return api.get<NeighborhoodDB>(
       `${base(workspaceId)}/members/neighborhood?${params}`,
     );
