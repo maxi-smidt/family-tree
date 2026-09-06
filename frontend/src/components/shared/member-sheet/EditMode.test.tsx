@@ -32,6 +32,7 @@ vi.mock("./MemberStories", () => ({ MemberStories: () => null }));
 vi.mock("./MemberDocuments", () => ({ MemberDocuments: () => null }));
 vi.mock("./MemberDiseases", () => ({ MemberDiseases: () => null }));
 vi.mock("./MemberTasks", () => ({ MemberTasks: () => null }));
+vi.mock("./IdentityLinksPanel", () => ({ IdentityLinksPanel: () => null }));
 
 const TREE: Workspace = {
   id: "tree-1",

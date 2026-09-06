@@ -54,6 +54,18 @@ class IdentityLinkDecidedPayload(BaseModel):
     status: str
 
 
+class IdentityLinkClaimReceivedPayload(BaseModel):
+    identity_link_claim_id: str
+    proposer_username: str
+    source_display_name: str | None
+
+
+class IdentityLinkClaimDecidedPayload(BaseModel):
+    identity_link_claim_id: str
+    # "completed" | "declined" | "cancelled"
+    status: str
+
+
 class IdentityLinkLegacyMigratedPayload(BaseModel):
     """Sent once, by the v2_0_0_identity_links migration, to each owner of a
     tree-in-tree bridge that was converted into an identity link."""
@@ -92,6 +104,8 @@ NotificationPayload = (
     | WorkspaceSharedPayload
     | IdentityLinkProposedPayload
     | IdentityLinkDecidedPayload
+    | IdentityLinkClaimReceivedPayload
+    | IdentityLinkClaimDecidedPayload
     | IdentityLinkLegacyMigratedPayload
     | MigrationReportReadyPayload
     | MigrationConflictPendingPayload

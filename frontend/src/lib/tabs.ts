@@ -9,6 +9,7 @@ export const STATISTICS_VIEW = "statistics-view";
 export const DATABASE_MANAGEMENT_VIEW = "database-management-view";
 export const FRIENDS_VIEW = "friends-view";
 export const MIGRATION_REVIEW_VIEW = "migration-review-view";
+export const IDENTITY_LINKS_VIEW = "identity-links-view";
 
 export const ALL_VIEWS = [
   TREE_VIEW,
@@ -22,6 +23,7 @@ export const ALL_VIEWS = [
   DATABASE_MANAGEMENT_VIEW,
   FRIENDS_VIEW,
   MIGRATION_REVIEW_VIEW,
+  IDENTITY_LINKS_VIEW,
 ] as const;
 
 export type ViewId = (typeof ALL_VIEWS)[number];

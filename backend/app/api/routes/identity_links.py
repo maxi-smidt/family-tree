@@ -36,6 +36,7 @@ from app.schemas.identity_link import (
 from app.services.identity_links import (
     approve_link,
     list_links_for_member,
+    list_links_for_workspace,
     propose_link,
     reject_link,
     revoke_link,
@@ -84,6 +85,23 @@ def list_member_identity_links(
     if not context.can_read_member(db, member.id):
         raise HTTPException(status_code=404, detail="Member not found")
     return IdentityLinkListOut(links=list_links_for_member(db, user, member))
+
+
+@router.get(
+    "/workspaces/{workspace_id}/identity-links",
+    response_model=IdentityLinkListOut,
+)
+def list_workspace_identity_links(
+    tree: Workspace = Depends(get_readable_workspace),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Every link touching this workspace, for its owner to review (#1014)."""
+    if tree.owner_id != user.id and not user.is_admin:
+        raise HTTPException(
+            status_code=403, detail="Only the owner can review identity links"
+        )
+    return IdentityLinkListOut(links=list_links_for_workspace(db, user, tree))
 
 
 @router.post(

@@ -39,6 +39,7 @@ from app.schemas.merge import (
     MemberMergeTransferCounts,
 )
 from app.services.activity.activity import SNAPSHOT_VERSION, member_delete_snapshot
+from app.services.identity_link_claims import repoint_identity_link_claims_for_merge
 from app.services.identity_links import repoint_identity_links_for_merge
 from app.services.members.member_clone import (
     CONFLICT_FIELDS,
@@ -391,6 +392,7 @@ def merge_members_in_place(
     )
     _transfer_diseases(db, keep.id, remove.id)
     repoint_identity_links_for_merge(db, keep, remove)
+    repoint_identity_link_claims_for_merge(db, keep, remove)
 
     details = {
         "merge": {

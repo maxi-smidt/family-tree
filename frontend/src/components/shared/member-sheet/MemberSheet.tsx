@@ -320,6 +320,7 @@ export const MemberSheet = ({
                 }}
                 activeTab={activeTab}
                 onTabChange={handleTabChange}
+                isNew={isNewMember}
               />
             )}
           </div>

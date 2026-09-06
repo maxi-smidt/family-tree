@@ -8,6 +8,7 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { useFriendStore } from "@/hooks/useFriendStore";
+import { useIdentityLinkStore } from "@/hooks/useIdentityLinkStore";
 import { useMigrationReviewStore } from "@/hooks/useMigrationReviewStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useTabPreferences } from "@/hooks/useTabPreferences";
@@ -112,6 +113,11 @@ describe("MainPanel", () => {
       loading: false,
       loaded: false,
       load: vi.fn().mockResolvedValue(undefined),
+    });
+    useIdentityLinkStore.setState({
+      incomingClaims: [],
+      outgoingClaims: [],
+      loadClaimInbox: vi.fn().mockResolvedValue(undefined),
     });
     useTutorialStore.setState({
       completed: false,

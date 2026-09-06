@@ -33,6 +33,7 @@ from app.models.identity_link import (
     IdentityLinkEvent,
     IdentityLinkIdempotencyKey,
 )
+from app.models.identity_link_claim import IdentityLinkClaim
 from app.models.job import BackgroundJob
 from app.models.legal import LegalAcceptance, LegalDocumentVersion
 from app.models.migration import (
@@ -127,6 +128,7 @@ __all__ = [
     "IdentityLinkBlock",
     "IdentityLinkEvent",
     "IdentityLinkIdempotencyKey",
+    "IdentityLinkClaim",
     "MigrationRun",
     "MigrationMapping",
     "MigrationReport",

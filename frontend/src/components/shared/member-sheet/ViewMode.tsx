@@ -17,6 +17,7 @@ import { compareTasks } from "@/types/task";
 import { useDocumentStore } from "@/hooks/useDocumentStore";
 import { useState } from "react";
 import { ImageLightbox } from "./ImageLightbox";
+import { IdentityLinksPanel } from "./IdentityLinksPanel";
 import { LinkedDocumentList } from "./LinkedDocumentList";
 import { DocumentFileList } from "./DocumentFiles";
 import { useTranslation } from "react-i18next";
@@ -41,6 +42,7 @@ type Props = {
   onShowLocationOnMap?: (location: string, memberId: string) => void;
   activeTab: MemberSheetTab;
   onTabChange: (tab: MemberSheetTab) => void;
+  isNew?: boolean;
 };
 
 export const ViewMode = ({
@@ -48,6 +50,7 @@ export const ViewMode = ({
   onShowLocationOnMap,
   activeTab,
   onTabChange,
+  isNew = false,
 }: Props) => {
   const { t, i18n } = useTranslation(undefined, {
     keyPrefix: "sheet.view-mode",
@@ -56,7 +59,9 @@ export const ViewMode = ({
   const { getEventsByMember } = useEventStore();
   const { getStoriesByMember } = useStoryStore();
   const { getTasksByMember } = useTaskStore();
-  const restrictions = useWorkspaceStore((s) => s.selectedTree?.restrictions ?? []);
+  const restrictions = useWorkspaceStore(
+    (s) => s.selectedTree?.restrictions ?? [],
+  );
   const galleryEnabled = !restrictions.includes("gallery");
   const eventsEnabled = !restrictions.includes("events");
   const storiesEnabled = !restrictions.includes("stories");
@@ -214,6 +219,12 @@ export const ViewMode = ({
               </ItemContent>
             </Item>
           </div>
+
+          {!isNew && (
+            <div className="mt-4 pt-4 border-t">
+              <IdentityLinksPanel member={member} />
+            </div>
+          )}
         </TabsContent>
 
         {/* Life tab — only shown when there's content */}

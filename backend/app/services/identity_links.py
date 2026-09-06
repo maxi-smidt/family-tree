@@ -611,6 +611,36 @@ def list_links_for_member(
     return [to_identity_link_out(db, link, viewer, member) for link in rows]
 
 
+def list_links_for_workspace(
+    db: Session, viewer: User, workspace: Workspace
+) -> list[IdentityLinkOut]:
+    """Every link touching ``workspace``, for its owner to review (#1014).
+
+    Unlike ``list_links_for_member``, this isn't scoped to read access on any
+    particular member — the caller is expected to already be that workspace's
+    owner (enforced by the route), so every link naming one of their own
+    members is fair game to review regardless of section-scoped visibility.
+    """
+    rows = db.scalars(
+        select(IdentityLink)
+        .where(
+            or_(
+                IdentityLink.workspace_a_id == workspace.id,
+                IdentityLink.workspace_b_id == workspace.id,
+            )
+        )
+        .order_by(IdentityLink.proposed_at.desc())
+    ).all()
+    out = []
+    for link in rows:
+        is_a = link.workspace_a_id == workspace.id
+        member = db.get(Member, link.member_a_id if is_a else link.member_b_id)
+        if member is None:
+            continue
+        out.append(to_identity_link_out(db, link, viewer, member))
+    return out
+
+
 def to_identity_link_out(
     db: Session, link: IdentityLink, viewer: User, member: Member
 ) -> IdentityLinkOut:

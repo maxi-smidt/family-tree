@@ -53,6 +53,8 @@ const DYNAMIC_KEY_PREFIXES = [
   "migration-review-view.checklist.status-",
   // t(FIELD_LABEL_KEY[field] ?? "field-unknown") — MigrationConflictCard
   "migration-review-view.checklist.field-",
+  // t(`claim-status-${claim.status}`) — IdentityLinksView
+  "identity-links-view.claim-status-",
 ];
 
 function isDynamicKey(key) {
