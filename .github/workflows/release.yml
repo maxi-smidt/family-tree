@@ -353,8 +353,8 @@ jobs:
       - name: "Restore into a blank target"
         run: |
           mkdir -p appdata/backend/backups data
-          sudo chown -R 1000:1000 appdata data
           cp /tmp/pre_migration.ftbackup appdata/backend/backups/pre_migration.ftbackup
+          sudo chown -R 1000:1000 appdata data
           docker compose -f docker-compose.prod.yml -f docker-compose.rehearsal.yml up -d db
           docker compose -f docker-compose.prod.yml -f docker-compose.rehearsal.yml run --rm backend \
             alembic upgrade head
