@@ -52,6 +52,7 @@ export const SavedViewFormDialog = ({
   const sections = useSectionStore((s) => s.sections);
   const createSavedView = useSavedViewStore((s) => s.createSavedView);
   const updateSavedView = useSavedViewStore((s) => s.updateSavedView);
+  const refreshSavedViews = useSavedViewStore((s) => s.refreshSavedViews);
 
   const [name, setName] = useState("");
   const [focusMemberId, setFocusMemberId] = useState<string | null>(null);
@@ -123,6 +124,9 @@ export const SavedViewFormDialog = ({
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         setError(t("stale-conflict"));
+        // The message promises the reopened dialog will show the latest
+        // version — refresh the list now so a later "Edit" picks it up.
+        void refreshSavedViews();
       } else {
         setError(view ? t("edit-error") : t("create-error"));
       }

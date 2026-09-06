@@ -121,12 +121,13 @@ describe("SavedViewFormDialog — edit", () => {
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
   });
 
-  it("shows a stale-conflict message on a 409 and keeps the dialog open", async () => {
+  it("shows a stale-conflict message on a 409, refreshes the list, and keeps the dialog open", async () => {
     const updateSavedView = vi
       .fn()
       .mockRejectedValue(new ApiError(409, "saved_view_changed_concurrently"));
+    const refreshSavedViews = vi.fn().mockResolvedValue(undefined);
     const onOpenChange = vi.fn();
-    useSavedViewStore.setState({ updateSavedView });
+    useSavedViewStore.setState({ updateSavedView, refreshSavedViews });
 
     render(
       <SavedViewFormDialog open view={VIEW} onOpenChange={onOpenChange} />,
@@ -142,5 +143,7 @@ describe("SavedViewFormDialog — edit", () => {
       ).toBeInTheDocument(),
     );
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
+    // So the version reflected in a later "Edit" click is current, not stale.
+    expect(refreshSavedViews).toHaveBeenCalled();
   });
 });

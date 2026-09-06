@@ -51,11 +51,17 @@ export const useSavedViewStore = create<SavedViewState>((set, get) => {
       }
     },
 
+    // The three mutations below patch `views` from the mutation's own
+    // response rather than re-fetching the whole list: a re-fetch that
+    // failed after a successful mutation would otherwise leave the list
+    // silently out of sync with the server (and the caller none the wiser).
     createSavedView: async (payload) => {
       const workspaceId = activeTreeId();
       if (!workspaceId) throw new Error("No active tree");
       const view = await WorkspaceService.createSavedView(workspaceId, payload);
-      await get().refreshSavedViews(workspaceId);
+      if (isActiveTree(workspaceId)) {
+        set((state) => ({ views: [...state.views, view], initialized: true }));
+      }
       return view;
     },
 
@@ -67,7 +73,11 @@ export const useSavedViewStore = create<SavedViewState>((set, get) => {
         viewId,
         payload,
       );
-      await get().refreshSavedViews(workspaceId);
+      if (isActiveTree(workspaceId)) {
+        set((state) => ({
+          views: state.views.map((v) => (v.id === view.id ? view : v)),
+        }));
+      }
       return view;
     },
 
@@ -75,7 +85,11 @@ export const useSavedViewStore = create<SavedViewState>((set, get) => {
       const workspaceId = activeTreeId();
       if (!workspaceId) return;
       await WorkspaceService.deleteSavedView(workspaceId, viewId);
-      await get().refreshSavedViews(workspaceId);
+      if (isActiveTree(workspaceId)) {
+        set((state) => ({
+          views: state.views.filter((v) => v.id !== viewId),
+        }));
+      }
     },
 
     duplicateSavedView: (view, name) =>
@@ -86,6 +100,7 @@ export const useSavedViewStore = create<SavedViewState>((set, get) => {
         ancestor_depth: view.ancestor_depth,
         descendant_depth: view.descendant_depth,
         include_partners: view.include_partners,
+        filters: view.filters,
       }),
 
     clear: () => {

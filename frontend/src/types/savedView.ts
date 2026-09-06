@@ -27,7 +27,8 @@ export interface SavedViewDB {
   positions: SavedViewPositionDB[];
 }
 
-/** Mirrors `SavedViewCreate` — `filters` is left to its backend default. */
+/** Mirrors `SavedViewCreate` — `filters` defaults to `{}` on the backend when
+ *  omitted. */
 export interface SavedViewCreateInput {
   name: string;
   focus_member_id?: string | null;
@@ -35,6 +36,7 @@ export interface SavedViewCreateInput {
   ancestor_depth?: number;
   descendant_depth?: number;
   include_partners?: boolean;
+  filters?: Record<string, unknown>;
 }
 
 /** Mirrors `SavedViewUpdate`: every field but `expected_version` is optional

@@ -142,12 +142,15 @@ export const WorkspaceNavigationPanel = ({
 
   const handleSavedViewSaved = (saved: SavedViewDB, wasCreate: boolean) => {
     // A brand-new view is opened immediately; an edit to the view already
-    // open re-centers the canvas on whatever it now points to.
+    // open re-centers the canvas on whatever it now points to. Focuses from
+    // `saved` directly rather than looking it up in `views` — the store's
+    // update hasn't necessarily been reflected in this render's closure yet.
     if (
       wasCreate ||
       (mode === "saved-view" && selectedSavedViewId === saved.id)
     ) {
-      handleSelectSavedView(saved.id);
+      selectSavedView(saved.id);
+      if (saved.focus_member_id) focusMember(saved.focus_member_id);
     }
   };
 

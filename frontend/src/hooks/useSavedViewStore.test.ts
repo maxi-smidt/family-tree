@@ -64,17 +64,21 @@ describe("useSavedViewStore — refreshSavedViews", () => {
 });
 
 describe("useSavedViewStore — createSavedView", () => {
-  it("creates a view then refreshes the list", async () => {
+  it("creates a view and appends it to the list without a re-fetch", async () => {
     useWorkspaceStore.setState({ selectedTree: makeTree() });
-    vi.mocked(WorkspaceService.createSavedView).mockResolvedValue(makeView());
-    vi.mocked(WorkspaceService.getSavedViews).mockResolvedValue([makeView()]);
+    const created = makeView();
+    vi.mocked(WorkspaceService.createSavedView).mockResolvedValue(created);
 
-    await useSavedViewStore.getState().createSavedView({ name: "My view" });
+    const result = await useSavedViewStore
+      .getState()
+      .createSavedView({ name: "My view" });
 
     expect(WorkspaceService.createSavedView).toHaveBeenCalledWith(TREE_ID, {
       name: "My view",
     });
-    expect(WorkspaceService.getSavedViews).toHaveBeenCalled();
+    expect(result).toBe(created);
+    expect(useSavedViewStore.getState().views).toEqual([created]);
+    expect(WorkspaceService.getSavedViews).not.toHaveBeenCalled();
   });
 
   it("throws when no tree is selected", async () => {
@@ -86,11 +90,11 @@ describe("useSavedViewStore — createSavedView", () => {
 });
 
 describe("useSavedViewStore — updateSavedView", () => {
-  it("updates a view then refreshes the list", async () => {
+  it("updates the matching view in place without a re-fetch", async () => {
     useWorkspaceStore.setState({ selectedTree: makeTree() });
+    useSavedViewStore.setState({ views: [makeView(), makeView({ id: "v2" })] });
     const updated = makeView({ name: "Renamed", version: 2 });
     vi.mocked(WorkspaceService.updateSavedView).mockResolvedValue(updated);
-    vi.mocked(WorkspaceService.getSavedViews).mockResolvedValue([updated]);
 
     const result = await useSavedViewStore
       .getState()
@@ -102,11 +106,16 @@ describe("useSavedViewStore — updateSavedView", () => {
       { name: "Renamed", expected_version: 1 },
     );
     expect(result.name).toBe("Renamed");
-    expect(WorkspaceService.getSavedViews).toHaveBeenCalled();
+    expect(useSavedViewStore.getState().views).toEqual([
+      updated,
+      makeView({ id: "v2" }),
+    ]);
+    expect(WorkspaceService.getSavedViews).not.toHaveBeenCalled();
   });
 
-  it("propagates a stale-conflict rejection without refreshing", async () => {
+  it("propagates a stale-conflict rejection and leaves the list untouched", async () => {
     useWorkspaceStore.setState({ selectedTree: makeTree() });
+    useSavedViewStore.setState({ views: [makeView()] });
     const conflict = Object.assign(new Error("stale"), { status: 409 });
     vi.mocked(WorkspaceService.updateSavedView).mockRejectedValue(conflict);
 
@@ -115,15 +124,15 @@ describe("useSavedViewStore — updateSavedView", () => {
         .getState()
         .updateSavedView("v1", { name: "Renamed", expected_version: 1 }),
     ).rejects.toBe(conflict);
-    expect(WorkspaceService.getSavedViews).not.toHaveBeenCalled();
+    expect(useSavedViewStore.getState().views).toEqual([makeView()]);
   });
 });
 
 describe("useSavedViewStore — deleteSavedView", () => {
-  it("deletes a view then refreshes the list", async () => {
+  it("removes the view from the list without a re-fetch", async () => {
     useWorkspaceStore.setState({ selectedTree: makeTree() });
+    useSavedViewStore.setState({ views: [makeView(), makeView({ id: "v2" })] });
     vi.mocked(WorkspaceService.deleteSavedView).mockResolvedValue(undefined);
-    vi.mocked(WorkspaceService.getSavedViews).mockResolvedValue([]);
 
     await useSavedViewStore.getState().deleteSavedView("v1");
 
@@ -131,18 +140,20 @@ describe("useSavedViewStore — deleteSavedView", () => {
       TREE_ID,
       "v1",
     );
-    expect(WorkspaceService.getSavedViews).toHaveBeenCalled();
+    expect(useSavedViewStore.getState().views).toEqual([
+      makeView({ id: "v2" }),
+    ]);
+    expect(WorkspaceService.getSavedViews).not.toHaveBeenCalled();
   });
 });
 
 describe("useSavedViewStore — duplicateSavedView", () => {
-  it("creates a new view carrying over the source's configuration", async () => {
+  it("creates a new view carrying over the source's configuration, filters included", async () => {
     useWorkspaceStore.setState({ selectedTree: makeTree() });
-    const source = makeView();
+    const source = makeView({ filters: { alive: true } });
     vi.mocked(WorkspaceService.createSavedView).mockResolvedValue(
       makeView({ id: "v2", name: "My view (copy)" }),
     );
-    vi.mocked(WorkspaceService.getSavedViews).mockResolvedValue([]);
 
     await useSavedViewStore
       .getState()
@@ -155,6 +166,7 @@ describe("useSavedViewStore — duplicateSavedView", () => {
       ancestor_depth: source.ancestor_depth,
       descendant_depth: source.descendant_depth,
       include_partners: source.include_partners,
+      filters: source.filters,
     });
   });
 });
