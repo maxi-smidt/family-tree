@@ -12,4 +12,11 @@ export default defineConfig({
   ...baseConfig,
   testDir: "./tests/migrated",
   testIgnore: undefined,
+  // These tests permanently mutate the one seeded fixture (acknowledging a
+  // report, resolving conflicts, widening a grant) — a retry after such a
+  // mutation runs against already-changed state (e.g. the Acknowledge
+  // button it's looking for is gone) and can never pass. Unlike the rest of
+  // the suite, this fixture isn't reseeded between attempts, so retrying is
+  // never safe here, in CI or otherwise.
+  retries: 0,
 });
