@@ -1,0 +1,5 @@
+make a quick pr that allows the title lint to start with feature
+
+---
+
+make a quick pr that allows the title lint to start with release
