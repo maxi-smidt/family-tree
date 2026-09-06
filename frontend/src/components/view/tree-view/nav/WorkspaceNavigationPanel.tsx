@@ -1,14 +1,17 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import {
   Bookmark,
   ChevronDown,
   ChevronRight,
   Compass,
+  Copy,
   FolderTree,
   MoreHorizontal,
   PanelLeft,
   PanelLeftClose,
+  Pencil,
   Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -32,7 +35,10 @@ import { CreateSectionDialog } from "@/components/view/tree-view/nav/CreateSecti
 import { RenameSectionDialog } from "@/components/view/tree-view/nav/RenameSectionDialog";
 import { DeleteSectionDialog } from "@/components/view/tree-view/nav/DeleteSectionDialog";
 import { SectionMembersDialog } from "@/components/view/tree-view/nav/SectionMembersDialog";
+import { SavedViewFormDialog } from "@/components/view/tree-view/nav/SavedViewFormDialog";
+import { DeleteSavedViewDialog } from "@/components/view/tree-view/nav/DeleteSavedViewDialog";
 import { SectionDB } from "@/types/section";
+import { SavedViewDB } from "@/types/savedView";
 import { WorkspaceSearchHitDB } from "@/types/member";
 
 const COLLAPSE_STORAGE_KEY = "ft_workspace_nav_collapsed";
@@ -48,8 +54,8 @@ interface WorkspaceNavigationPanelProps {
  * workspace-wide search. Selecting a section opens it as a focused,
  * section-scoped neighborhood on the canvas (#989); "Explore" returns to the
  * unscoped workspace view. Selecting a saved view re-centers on its focus
- * person — the full saved-view creation/configuration/editing UI stays in
- * #1013; this panel only lists and opens them.
+ * person. Creating/editing/duplicating/deleting saved views (#1013) mirrors
+ * the section actions below.
  */
 export const WorkspaceNavigationPanel = ({
   workspaceId,
@@ -80,6 +86,13 @@ export const WorkspaceNavigationPanel = ({
   const [renameTarget, setRenameTarget] = useState<SectionDB | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<SectionDB | null>(null);
   const [membersTarget, setMembersTarget] = useState<SectionDB | null>(null);
+  // null = closed; { view: null } = create; { view } = edit.
+  const [savedViewForm, setSavedViewForm] = useState<{
+    view: SavedViewDB | null;
+  } | null>(null);
+  const [deleteViewTarget, setDeleteViewTarget] = useState<SavedViewDB | null>(
+    null,
+  );
 
   const sections = useSectionStore((s) => s.sections);
   const sectionsInitialized = useSectionStore((s) => s.initialized);
@@ -89,6 +102,7 @@ export const WorkspaceNavigationPanel = ({
   const views = useSavedViewStore((s) => s.views);
   const viewsInitialized = useSavedViewStore((s) => s.initialized);
   const refreshSavedViews = useSavedViewStore((s) => s.refreshSavedViews);
+  const duplicateSavedView = useSavedViewStore((s) => s.duplicateSavedView);
   useDeferredStoreLoad(viewsInitialized, refreshSavedViews);
 
   const mode = useWorkspaceNavStore((s) => s.mode);
@@ -103,6 +117,8 @@ export const WorkspaceNavigationPanel = ({
   const setFocusRoot = useMemberStore((s) => s.setFocusRoot);
   const focusSection = useMemberStore((s) => s.focusSection);
   const exitFocus = useMemberStore((s) => s.exitFocus);
+  const focusRootId = useMemberStore((s) => s.focusRootId);
+  const focusSectionIds = useMemberStore((s) => s.focusSectionIds);
   const focusMember = (memberId: string) => void setFocusRoot(memberId);
 
   const handleSelectExplore = () => {
@@ -122,6 +138,31 @@ export const WorkspaceNavigationPanel = ({
     selectSavedView(viewId);
     const view = views.find((v) => v.id === viewId);
     if (view?.focus_member_id) focusMember(view.focus_member_id);
+  };
+
+  const handleSavedViewSaved = (saved: SavedViewDB, wasCreate: boolean) => {
+    // A brand-new view is opened immediately; an edit to the view already
+    // open re-centers the canvas on whatever it now points to.
+    if (
+      wasCreate ||
+      (mode === "saved-view" && selectedSavedViewId === saved.id)
+    ) {
+      handleSelectSavedView(saved.id);
+    }
+  };
+
+  const handleSavedViewDeleted = (viewId: string) => {
+    if (mode === "saved-view" && selectedSavedViewId === viewId) {
+      handleSelectExplore();
+    }
+  };
+
+  const handleDuplicateSavedView = async (view: SavedViewDB) => {
+    try {
+      await duplicateSavedView(view, t("duplicate-name", { name: view.name }));
+    } catch {
+      toast.error(t("duplicate-error"));
+    }
   };
 
   const listContent = (
@@ -238,18 +279,30 @@ export const WorkspaceNavigationPanel = ({
         </div>
 
         <div className="mt-2">
-          <button
-            type="button"
-            className="flex items-center gap-1 px-2 py-1 text-xs font-medium uppercase text-muted-foreground hover:text-foreground"
-            onClick={() => setViewsOpen((o) => !o)}
-          >
-            {viewsOpen ? (
-              <ChevronDown className="h-3 w-3" />
-            ) : (
-              <ChevronRight className="h-3 w-3" />
+          <div className="flex items-center justify-between px-2 py-1">
+            <button
+              type="button"
+              className="flex items-center gap-1 text-xs font-medium uppercase text-muted-foreground hover:text-foreground"
+              onClick={() => setViewsOpen((o) => !o)}
+            >
+              {viewsOpen ? (
+                <ChevronDown className="h-3 w-3" />
+              ) : (
+                <ChevronRight className="h-3 w-3" />
+              )}
+              {t("saved-views")}
+            </button>
+            {canWrite && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => setSavedViewForm({ view: null })}
+                aria-label={t("saved-view-form.title-create")}
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
             )}
-            {t("saved-views")}
-          </button>
+          </div>
           {viewsOpen && (
             <ul>
               {views.length === 0 && (
@@ -258,12 +311,12 @@ export const WorkspaceNavigationPanel = ({
                 </li>
               )}
               {views.map((view) => (
-                <li key={view.id}>
+                <li key={view.id} className="group flex items-center">
                   <button
                     type="button"
                     onClick={() => handleSelectSavedView(view.id)}
                     className={cn(
-                      "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground",
+                      "flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground",
                       mode === "saved-view" &&
                         selectedSavedViewId === view.id &&
                         "bg-accent font-medium text-accent-foreground",
@@ -272,6 +325,42 @@ export const WorkspaceNavigationPanel = ({
                     <Bookmark className="h-4 w-4 shrink-0" />
                     <span className="min-w-0 flex-1 truncate">{view.name}</span>
                   </button>
+                  {canWrite && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+                          aria-label={t("saved-view-actions", {
+                            name: view.name,
+                          })}
+                        >
+                          <MoreHorizontal className="h-3.5 w-3.5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onSelect={() => setSavedViewForm({ view })}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                          {t("edit")}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={() => void handleDuplicateSavedView(view)}
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                          {t("duplicate")}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={() => setDeleteViewTarget(view)}
+                          variant="destructive"
+                        >
+                          {t("delete")}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                 </li>
               ))}
             </ul>
@@ -296,6 +385,19 @@ export const WorkspaceNavigationPanel = ({
         section={membersTarget}
         workspaceId={workspaceId}
         onOpenChange={(open) => !open && setMembersTarget(null)}
+      />
+      <SavedViewFormDialog
+        open={savedViewForm !== null}
+        view={savedViewForm?.view ?? null}
+        initialFocusMemberId={focusRootId}
+        initialSectionIds={focusSectionIds ?? []}
+        onOpenChange={(open) => !open && setSavedViewForm(null)}
+        onSaved={handleSavedViewSaved}
+      />
+      <DeleteSavedViewDialog
+        view={deleteViewTarget}
+        onOpenChange={(open) => !open && setDeleteViewTarget(null)}
+        onDeleted={handleSavedViewDeleted}
       />
     </>
   );

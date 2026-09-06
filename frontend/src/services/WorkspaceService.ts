@@ -58,7 +58,11 @@ import {
   SectionSuggestionDB,
   SectionUpdateInput,
 } from "@/types/section";
-import { SavedViewDB } from "@/types/savedView";
+import {
+  SavedViewCreateInput,
+  SavedViewDB,
+  SavedViewUpdateInput,
+} from "@/types/savedView";
 
 const base = (workspaceId: string) => `/workspaces/${workspaceId}`;
 
@@ -939,8 +943,27 @@ export class WorkspaceService {
     });
   }
 
-  // --- Saved views (#986) — listing only; full CRUD/config UX is #1013 -----
+  // --- Saved views (#986, #1013) ---------------------------------------
   static getSavedViews(workspaceId: string) {
     return api.get<SavedViewDB[]>(`${base(workspaceId)}/saved-views`);
+  }
+
+  static createSavedView(workspaceId: string, payload: SavedViewCreateInput) {
+    return api.post<SavedViewDB>(`${base(workspaceId)}/saved-views`, payload);
+  }
+
+  static updateSavedView(
+    workspaceId: string,
+    viewId: string,
+    payload: SavedViewUpdateInput,
+  ) {
+    return api.patch<SavedViewDB>(
+      `${base(workspaceId)}/saved-views/${viewId}`,
+      payload,
+    );
+  }
+
+  static deleteSavedView(workspaceId: string, viewId: string) {
+    return api.del<void>(`${base(workspaceId)}/saved-views/${viewId}`);
   }
 }
