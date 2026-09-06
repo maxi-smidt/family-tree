@@ -63,6 +63,7 @@ class MigrationConflictOut(BaseModel):
     conflicting_fields: list[str]
     field_values: dict
     conflicting_media: list[dict]
+    blocks_finalization: bool
     status: str
     resolution: dict | None
     resolved_by: str | None
@@ -77,3 +78,20 @@ class MigrationConflictListOut(BaseModel):
 class MigrationConflictResolveRequest(BaseModel):
     action: Literal["merge", "keep_both", "dismiss"]
     fields: dict[str, FieldChoice] = Field(default_factory=dict)
+
+
+class GrantWidenRequest(BaseModel):
+    section_id: str
+    user_id: str
+
+
+class GrantAccessSummary(BaseModel):
+    scope: Literal["section", "workspace"]
+    section_id: str | None = None
+    role: str
+    restrictions: list[str]
+
+
+class GrantWidenResult(BaseModel):
+    before: GrantAccessSummary
+    after: GrantAccessSummary

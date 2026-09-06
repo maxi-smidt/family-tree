@@ -20,6 +20,8 @@ from app.schemas.notification import (
     IdentityLinkLegacyMigratedPayload,
     IdentityLinkProposedPayload,
     InvitationReceivedPayload,
+    MigrationConflictPendingPayload,
+    MigrationReportReadyPayload,
     NotificationPayload,
     WorkspaceSharedPayload,
     WorkspaceUnsharedPayload,
@@ -99,6 +101,20 @@ def create_notification(
     user_id: str,
     type: Literal["identity_link_legacy_migrated"],
     payload: IdentityLinkLegacyMigratedPayload,
+) -> None: ...
+@overload
+def create_notification(
+    db: Session,
+    user_id: str,
+    type: Literal["migration_report_ready"],
+    payload: MigrationReportReadyPayload,
+) -> None: ...
+@overload
+def create_notification(
+    db: Session,
+    user_id: str,
+    type: Literal["migration_conflict_pending"],
+    payload: MigrationConflictPendingPayload,
 ) -> None: ...
 def create_notification(
     db: Session,

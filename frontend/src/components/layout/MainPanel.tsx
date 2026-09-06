@@ -65,6 +65,11 @@ const FriendsView = lazy(() =>
     default: m.FriendsView,
   })),
 );
+const MigrationReviewView = lazy(() =>
+  import("@/components/view/migration-review-view/MigrationReviewView").then(
+    (m) => ({ default: m.MigrationReviewView }),
+  ),
+);
 import {
   Select,
   SelectContent,
@@ -76,6 +81,10 @@ import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useUnsavedChangesStore } from "@/hooks/useUnsavedChangesStore";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { useFriendStore, useIncomingFriendCount } from "@/hooks/useFriendStore";
+import {
+  useMigrationReviewStore,
+  usePendingMigrationReviewCount,
+} from "@/hooks/useMigrationReviewStore";
 import { useTabPreferences } from "@/hooks/useTabPreferences";
 import { useTutorialStore } from "@/hooks/useTutorialStore";
 import { useLegalStore } from "@/hooks/useLegalStore";
@@ -84,6 +93,7 @@ import {
   DATABASE_MANAGEMENT_VIEW,
   FRIENDS_VIEW,
   MEDIA_VIEW,
+  MIGRATION_REVIEW_VIEW,
   TREE_VIEW,
   ViewId,
   isViewId,
@@ -103,6 +113,7 @@ const NO_TREE_VIEWS: ViewId[] = [
   TREE_VIEW,
   DATABASE_MANAGEMENT_VIEW,
   FRIENDS_VIEW,
+  MIGRATION_REVIEW_VIEW,
 ];
 
 const VIEW_COMPONENTS: Omit<Record<ViewId, React.ReactNode>, "media-view"> = {
@@ -115,6 +126,7 @@ const VIEW_COMPONENTS: Omit<Record<ViewId, React.ReactNode>, "media-view"> = {
   "statistics-view": <StatisticsView />,
   "database-management-view": <DatabaseManagementView />,
   "friends-view": <FriendsView />,
+  "migration-review-view": <MigrationReviewView />,
 };
 
 const MANAGEMENT_VIEWS = new Set<ViewId>(["database-management-view"]);
@@ -187,6 +199,8 @@ export const MainPanel = () => {
   const [manageOpen, setManageOpen] = useState(false);
   const loadIncomingFriends = useFriendStore((s) => s.loadIncoming);
   const incomingFriendCount = useIncomingFriendCount();
+  const loadMigrationReview = useMigrationReviewStore((s) => s.load);
+  const pendingMigrationCount = usePendingMigrationReviewCount();
 
   useEffect(() => {
     if (user) load();
@@ -230,6 +244,11 @@ export const MainPanel = () => {
     if (user) void loadIncomingFriends();
   }, [user, loadIncomingFriends]);
 
+  // Keep the Migration Review tab badge accurate without opening the tab.
+  useEffect(() => {
+    if (user) void loadMigrationReview();
+  }, [user, loadMigrationReview]);
+
   const selectedTree = useWorkspaceStore((s) => s.selectedTree);
   const restrictions = selectedTree?.restrictions ?? [];
   const galleryAvailable = !restrictions.includes("gallery");
@@ -264,6 +283,7 @@ export const MainPanel = () => {
     "statistics-view": t("statistics"),
     "database-management-view": t("database-management"),
     "friends-view": t("friends"),
+    "migration-review-view": t("migration-review"),
   };
   const selectMediaSection = (section: MediaSection) => {
     guardNavigate(() => {
@@ -374,6 +394,12 @@ export const MainPanel = () => {
                     {incomingFriendCount}
                   </Badge>
                 )}
+                {view === MIGRATION_REVIEW_VIEW &&
+                  pendingMigrationCount > 0 && (
+                    <Badge variant="default" className="ml-1.5 px-1.5 shrink-0">
+                      {pendingMigrationCount}
+                    </Badge>
+                  )}
               </TabsTrigger>
             )}
           </span>

@@ -31,8 +31,10 @@ from app.models.migration import (
     MigrationConflictStatus,
 )
 from app.models.user import User
+from app.schemas.notification import MigrationConflictPendingPayload
 from app.services.activity.activity import record_activity
 from app.services.cache import invalidate_stats
+from app.services.collaboration.notification_service import create_notification
 from app.services.event_bus import publish_workspace_event
 from app.services.unit_of_work import UnitOfWork
 
@@ -280,4 +282,12 @@ def create_conflict(
             raise
         return conflict
     db.refresh(conflict)
+    create_notification(
+        db,
+        owner_user_id,
+        "migration_conflict_pending",
+        MigrationConflictPendingPayload(
+            run_id=run_id, conflict_id=conflict.id, workspace_id=workspace_id
+        ),
+    )
     return conflict

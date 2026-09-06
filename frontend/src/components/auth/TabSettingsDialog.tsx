@@ -122,6 +122,7 @@ export const TabSettingsDialog = ({ isOpen, onClose }: Props) => {
     "statistics-view": tTabs("statistics"),
     "database-management-view": tTabs("database-management"),
     "friends-view": tTabs("friends"),
+    "migration-review-view": tTabs("migration-review"),
   };
 
   function handleDragEnd(event: DragEndEvent) {
