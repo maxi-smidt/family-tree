@@ -1,0 +1,27 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "31057ba3c2fa",
+  "strategy": "manual-commit",
+  "branch": "ci/allow-release-pr-title-type",
+  "checkpoints_count": 1,
+  "files_touched": [
+    ".github/workflows/pr-title-lint.yml",
+    "cliff.toml"
+  ],
+  "sessions": [
+    {
+      "metadata": "/31/057ba3c2fa/0/metadata.json",
+      "transcript": "/31/057ba3c2fa/0/full.jsonl",
+      "compact_transcript": "/31/057ba3c2fa/0/transcript.jsonl",
+      "content_hash": "/31/057ba3c2fa/0/content_hash.txt",
+      "prompt": "/31/057ba3c2fa/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 117615,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 2391808,
+    "output_tokens": 11263,
+    "api_call_count": 67
+  }
+}
