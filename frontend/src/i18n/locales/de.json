@@ -428,7 +428,7 @@
       "activity": "Aktivität",
       "quality-report": "Qualität",
       "statistics": "Statistiken",
-      "database-management": "Stammbaumverwaltung",
+      "database-management": "Arbeitsbereichsverwaltung",
       "friends": "Freunde",
       "map": "Karte",
       "migration-review": "Migrationsüberprüfung",
@@ -437,7 +437,7 @@
     "no-database-placeholder": {
       "title": "Noch keine Stammbäume",
       "description": "Du hast noch keine Stammbäume erstellt. Starte mit der Erstellung eines neuen.",
-      "create": "Stammbaum erstellen",
+      "create": "Arbeitsbereich erstellen",
       "import": "Stammbaum importieren",
       "toast-success": "Stammbaum erfolgreich importiert!",
       "toast-error": "Stammbaum konnte nicht importiert werden."
@@ -1422,7 +1422,7 @@
     "field-stacked-hint": "Datenreihen übereinander statt nebeneinander darstellen."
   },
   "database-management-view": {
-    "title": "Stammbaumverwaltung",
+    "title": "Arbeitsbereichsverwaltung",
     "create-button": "Stammbaum erstellen",
     "import-button": "Stammbaum importieren",
     "merge-button": "Vereinen",

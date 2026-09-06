@@ -428,7 +428,7 @@
       "activity": "Activity",
       "quality-report": "Quality",
       "statistics": "Statistics",
-      "database-management": "Tree Management",
+      "database-management": "Workspace Management",
       "friends": "Friends",
       "map": "Map",
       "migration-review": "Migration Review",
@@ -437,7 +437,7 @@
     "no-database-placeholder": {
       "title": "No Trees Yet",
       "description": "You haven't created any trees yet. Get started by creating your first tree.",
-      "create": "Create Tree",
+      "create": "Create Workspace",
       "import": "Import Tree",
       "toast-success": "Tree imported successfully!",
       "toast-error": "Failed to import tree."
@@ -1422,7 +1422,7 @@
     "field-stacked-hint": "Stack series on top of each other instead of side by side."
   },
   "database-management-view": {
-    "title": "Tree Management",
+    "title": "Workspace Management",
     "create-button": "Create Tree",
     "import-button": "Import Tree",
     "merge-button": "Merge",
