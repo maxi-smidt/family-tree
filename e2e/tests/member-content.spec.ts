@@ -5,6 +5,7 @@
 
 import { test, expect } from "../fixtures";
 import { createMember } from "../fixtures/seed";
+import { CURRENT_SCHEMA_EPOCH, SCHEMA_EPOCH_HEADER } from "../fixtures/api";
 import { randomUUID } from "crypto";
 import { API_URL } from "../playwright.config";
 
@@ -16,6 +17,7 @@ function authHeaders(token: string) {
   return {
     "Content-Type": "application/json",
     Authorization: `Bearer ${token}`,
+    [SCHEMA_EPOCH_HEADER]: CURRENT_SCHEMA_EPOCH,
   };
 }
 
@@ -38,7 +40,7 @@ test("add event — appears in tree's event list", async ({
   });
 
   const event = await adminApi.post<{ id: string }>(
-    `/trees/${tree.id}/events`,
+    `/workspaces/${tree.id}/events`,
     {
       id: randomUUID(),
       event_type: "birthday_party",
@@ -52,13 +54,13 @@ test("add event — appears in tree's event list", async ({
   expect(event.id).toBeTruthy();
 
   const events = await adminApi.get<Array<{ id: string; event_type?: string }>>(
-    `/trees/${tree.id}/events`,
+    `/workspaces/${tree.id}/events`,
   );
   expect(events.find((e) => e.id === event.id)).toBeTruthy();
 
   const links = await adminApi.get<
     Array<{ event_id: string; member_id: string }>
-  >(`/trees/${tree.id}/events/links`);
+  >(`/workspaces/${tree.id}/events/links`);
   expect(links).toContainEqual({
     event_id: event.id,
     member_id: member.id,
@@ -71,7 +73,7 @@ test("edit event — updated title reflects in API", async ({
 }) => {
   const tree = await seedTree("E2E-EditEvent");
   const event = await adminApi.post<{ id: string }>(
-    `/trees/${tree.id}/events`,
+    `/workspaces/${tree.id}/events`,
     {
       id: randomUUID(),
       event_type: "before_edit",
@@ -83,7 +85,7 @@ test("edit event — updated title reflects in API", async ({
     },
   );
 
-  await adminApi.patch(`/trees/${tree.id}/events/${event.id}`, {
+  await adminApi.patch(`/workspaces/${tree.id}/events/${event.id}`, {
     event_type: "after_edit",
     date: "1990-05-10",
     location: "Salzburg",
@@ -92,7 +94,7 @@ test("edit event — updated title reflects in API", async ({
 
   const events = await adminApi.get<
     Array<{ id: string; event_type?: string; description?: string }>
-  >(`/trees/${tree.id}/events`);
+  >(`/workspaces/${tree.id}/events`);
   const found = events.find((e) => e.id === event.id);
   expect(found).toMatchObject({
     event_type: "after_edit",
@@ -106,7 +108,7 @@ test("delete event — removed from event list", async ({
 }) => {
   const tree = await seedTree("E2E-DeleteEvent");
   const event = await adminApi.post<{ id: string }>(
-    `/trees/${tree.id}/events`,
+    `/workspaces/${tree.id}/events`,
     {
       id: randomUUID(),
       event_type: "to_delete_event",
@@ -118,14 +120,17 @@ test("delete event — removed from event list", async ({
     },
   );
 
-  const res = await fetch(`${API_URL}/trees/${tree.id}/events/${event.id}`, {
-    method: "DELETE",
-    headers: authHeaders(adminApi.token),
-  });
+  const res = await fetch(
+    `${API_URL}/workspaces/${tree.id}/events/${event.id}`,
+    {
+      method: "DELETE",
+      headers: authHeaders(adminApi.token),
+    },
+  );
   expect(res.status).toBe(204);
 
   const events = await adminApi.get<Array<{ id: string }>>(
-    `/trees/${tree.id}/events`,
+    `/workspaces/${tree.id}/events`,
   );
   expect(events.find((e) => e.id === event.id)).toBeFalsy();
 });
@@ -145,7 +150,7 @@ test("create story — appears in story list and linked member", async ({
   });
 
   const story = await adminApi.post<{ id: string }>(
-    `/trees/${tree.id}/stories`,
+    `/workspaces/${tree.id}/stories`,
     {
       id: randomUUID(),
       title: "My Story",
@@ -159,21 +164,21 @@ test("create story — appears in story list and linked member", async ({
 
   // Story visible in list
   const stories = await adminApi.get<Array<{ id: string }>>(
-    `/trees/${tree.id}/stories`,
+    `/workspaces/${tree.id}/stories`,
   );
   expect(stories.find((s) => s.id === story.id)).toBeTruthy();
 
   // Story links
   const links = await adminApi.get<
     Array<{ member_id?: string; story_id?: string }>
-  >(`/trees/${tree.id}/stories/links`);
+  >(`/workspaces/${tree.id}/stories/links`);
   expect(links.some((l) => l.story_id === story.id)).toBe(true);
 });
 
 test("edit story — content updated", async ({ adminApi, seedTree }) => {
   const tree = await seedTree("E2E-EditStory");
   const story = await adminApi.post<{ id: string }>(
-    `/trees/${tree.id}/stories`,
+    `/workspaces/${tree.id}/stories`,
     {
       id: randomUUID(),
       title: "Original Title",
@@ -184,7 +189,7 @@ test("edit story — content updated", async ({ adminApi, seedTree }) => {
     },
   );
 
-  await adminApi.patch(`/trees/${tree.id}/stories/${story.id}`, {
+  await adminApi.patch(`/workspaces/${tree.id}/stories/${story.id}`, {
     title: "Updated Title",
     content: "Updated content",
     updated_at: nowIso(),
@@ -192,7 +197,7 @@ test("edit story — content updated", async ({ adminApi, seedTree }) => {
 
   const stories = await adminApi.get<
     Array<{ id: string; title?: string; content?: string }>
-  >(`/trees/${tree.id}/stories`);
+  >(`/workspaces/${tree.id}/stories`);
   expect(stories.find((s) => s.id === story.id)).toMatchObject({
     title: "Updated Title",
     content: "Updated content",
@@ -202,7 +207,7 @@ test("edit story — content updated", async ({ adminApi, seedTree }) => {
 test("delete story — removed from list", async ({ adminApi, seedTree }) => {
   const tree = await seedTree("E2E-DeleteStory");
   const story = await adminApi.post<{ id: string }>(
-    `/trees/${tree.id}/stories`,
+    `/workspaces/${tree.id}/stories`,
     {
       id: randomUUID(),
       title: "ToDelete",
@@ -213,14 +218,17 @@ test("delete story — removed from list", async ({ adminApi, seedTree }) => {
     },
   );
 
-  const res = await fetch(`${API_URL}/trees/${tree.id}/stories/${story.id}`, {
-    method: "DELETE",
-    headers: authHeaders(adminApi.token),
-  });
+  const res = await fetch(
+    `${API_URL}/workspaces/${tree.id}/stories/${story.id}`,
+    {
+      method: "DELETE",
+      headers: authHeaders(adminApi.token),
+    },
+  );
   expect(res.status).toBe(204);
 
   const stories = await adminApi.get<Array<{ id: string }>>(
-    `/trees/${tree.id}/stories`,
+    `/workspaces/${tree.id}/stories`,
   );
   expect(stories.find((s) => s.id === story.id)).toBeFalsy();
 });
@@ -254,7 +262,7 @@ test("add document — appears in document list", async ({
   });
 
   const document = await adminApi.post<Document>(
-    `/trees/${tree.id}/documents`,
+    `/workspaces/${tree.id}/documents`,
     {
       title: "Birth Certificate",
       document_date: "1900-01-01",
@@ -265,7 +273,7 @@ test("add document — appears in document list", async ({
   expect(document.member_ids).toContain(member.id);
 
   const documents = await adminApi.get<Document[]>(
-    `/trees/${tree.id}/documents`,
+    `/workspaces/${tree.id}/documents`,
   );
   expect(documents.find((d) => d.id === document.id)).toBeTruthy();
 });
@@ -280,7 +288,7 @@ test("add link to document — appears in document files", async ({
     lastName: "L",
   });
   const document = await adminApi.post<Document>(
-    `/trees/${tree.id}/documents`,
+    `/workspaces/${tree.id}/documents`,
     {
       title: "Census 1900",
       member_ids: [member.id],
@@ -288,7 +296,7 @@ test("add link to document — appears in document files", async ({
   );
 
   const file = await adminApi.post<DocumentFile>(
-    `/trees/${tree.id}/documents/${document.id}/links`,
+    `/workspaces/${tree.id}/documents/${document.id}/links`,
     {
       url: "https://example.com/birth-announcement-1920",
       filename: "newspaper-link",
@@ -298,7 +306,7 @@ test("add link to document — appears in document files", async ({
   expect(file.kind).toBe("link");
 
   const documents = await adminApi.get<Document[]>(
-    `/trees/${tree.id}/documents`,
+    `/workspaces/${tree.id}/documents`,
   );
   const stored = documents.find((d) => d.id === document.id);
   expect(stored?.files.find((f) => f.id === file.id)).toBeTruthy();
@@ -318,7 +326,7 @@ test("set people mentioned — updates document member links", async ({
     lastName: "M",
   });
   const document = await adminApi.post<Document>(
-    `/trees/${tree.id}/documents`,
+    `/workspaces/${tree.id}/documents`,
     {
       title: "Family Record",
       member_ids: [first.id],
@@ -326,7 +334,7 @@ test("set people mentioned — updates document member links", async ({
   );
 
   const res = await fetch(
-    `${API_URL}/trees/${tree.id}/documents/${document.id}/members`,
+    `${API_URL}/workspaces/${tree.id}/documents/${document.id}/members`,
     {
       method: "PUT",
       headers: authHeaders(adminApi.token),
@@ -336,7 +344,7 @@ test("set people mentioned — updates document member links", async ({
   expect(res.status).toBe(204);
 
   const documents = await adminApi.get<Document[]>(
-    `/trees/${tree.id}/documents`,
+    `/workspaces/${tree.id}/documents`,
   );
   const stored = documents.find((d) => d.id === document.id);
   expect(stored?.member_ids).toContain(first.id);
@@ -353,7 +361,7 @@ test("delete document — removed from document list", async ({
     lastName: "X",
   });
   const document = await adminApi.post<Document>(
-    `/trees/${tree.id}/documents`,
+    `/workspaces/${tree.id}/documents`,
     {
       title: "ToDeleteDocument",
       member_ids: [member.id],
@@ -361,7 +369,7 @@ test("delete document — removed from document list", async ({
   );
 
   const res = await fetch(
-    `${API_URL}/trees/${tree.id}/documents/${document.id}`,
+    `${API_URL}/workspaces/${tree.id}/documents/${document.id}`,
     {
       method: "DELETE",
       headers: authHeaders(adminApi.token),
@@ -370,7 +378,7 @@ test("delete document — removed from document list", async ({
   expect(res.status).toBe(204);
 
   const documents = await adminApi.get<Document[]>(
-    `/trees/${tree.id}/documents`,
+    `/workspaces/${tree.id}/documents`,
   );
   expect(documents.find((d) => d.id === document.id)).toBeFalsy();
 });
@@ -385,14 +393,14 @@ test("delete document file — removed from document files", async ({
     lastName: "X",
   });
   const document = await adminApi.post<Document>(
-    `/trees/${tree.id}/documents`,
+    `/workspaces/${tree.id}/documents`,
     {
       title: "Doc with file",
       member_ids: [member.id],
     },
   );
   const file = await adminApi.post<DocumentFile>(
-    `/trees/${tree.id}/documents/${document.id}/links`,
+    `/workspaces/${tree.id}/documents/${document.id}/links`,
     {
       url: "https://example.com/record",
       filename: "record-link",
@@ -400,7 +408,7 @@ test("delete document file — removed from document files", async ({
   );
 
   const res = await fetch(
-    `${API_URL}/trees/${tree.id}/documents/${document.id}/files/${file.id}`,
+    `${API_URL}/workspaces/${tree.id}/documents/${document.id}/files/${file.id}`,
     {
       method: "DELETE",
       headers: authHeaders(adminApi.token),
@@ -409,7 +417,7 @@ test("delete document file — removed from document files", async ({
   expect(res.status).toBe(204);
 
   const documents = await adminApi.get<Document[]>(
-    `/trees/${tree.id}/documents`,
+    `/workspaces/${tree.id}/documents`,
   );
   const stored = documents.find((d) => d.id === document.id);
   expect(stored?.files.find((f) => f.id === file.id)).toBeFalsy();

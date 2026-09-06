@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { Activity, ActivityUndoDB, mapActivityFromDB } from "@/types/activity";
-import { TreeService } from "@/services/TreeService";
-import { activeTreeId, isActiveTree } from "@/hooks/useTreeStore";
+import { WorkspaceService } from "@/services/WorkspaceService";
+import { activeTreeId, isActiveTree } from "@/hooks/useWorkspaceStore";
 
 export const ACTIVITY_PAGE_SIZES = [10, 25, 50, 100] as const;
 const DEFAULT_PAGE_SIZE = 25;
@@ -20,14 +20,14 @@ interface ActivityState {
   initialized: boolean;
   loading: boolean;
   error: string | null;
-  load: (treeId: string, page: number) => Promise<void>;
-  refreshActivity: (treeId?: string) => Promise<void>;
-  setPage: (page: number, treeId?: string) => Promise<void>;
-  setPageSize: (size: number, treeId?: string) => Promise<void>;
-  setFilter: (key: FilterKey, val: string, treeId?: string) => Promise<void>;
-  clearFilters: (treeId?: string) => Promise<void>;
-  retry: (treeId?: string) => Promise<void>;
-  undo: (entryId: string, treeId?: string) => Promise<ActivityUndoDB>;
+  load: (workspaceId: string, page: number) => Promise<void>;
+  refreshActivity: (workspaceId?: string) => Promise<void>;
+  setPage: (page: number, workspaceId?: string) => Promise<void>;
+  setPageSize: (size: number, workspaceId?: string) => Promise<void>;
+  setFilter: (key: FilterKey, val: string, workspaceId?: string) => Promise<void>;
+  clearFilters: (workspaceId?: string) => Promise<void>;
+  retry: (workspaceId?: string) => Promise<void>;
+  undo: (entryId: string, workspaceId?: string) => Promise<ActivityUndoDB>;
   clear: () => void;
 }
 
@@ -56,12 +56,12 @@ export const useActivityStore = create<ActivityState>((set, get) => {
   return {
     ...initialState,
 
-    load: async (treeId: string, page: number) => {
+    load: async (workspaceId: string, page: number) => {
       const { pageSize, filterActor, filterAction, filterTargetType } = get();
       const reqId = ++requestId;
       set({ loading: true, error: null });
       try {
-        const result = await TreeService.getActivity(treeId, {
+        const result = await WorkspaceService.getActivity(workspaceId, {
           offset: page * pageSize,
           limit: pageSize,
           actor: filterActor || undefined,
@@ -70,7 +70,7 @@ export const useActivityStore = create<ActivityState>((set, get) => {
         });
         // Drop the response if a newer request superseded it, or the tree
         // switched mid-flight — stale data must never overwrite newer state.
-        if (reqId !== requestId || !isActiveTree(treeId)) return;
+        if (reqId !== requestId || !isActiveTree(workspaceId)) return;
         set({
           activities: result.entries.map(mapActivityFromDB),
           actors: result.actors,
@@ -80,54 +80,54 @@ export const useActivityStore = create<ActivityState>((set, get) => {
           loading: false,
         });
       } catch (error) {
-        if (reqId !== requestId || !isActiveTree(treeId)) return;
+        if (reqId !== requestId || !isActiveTree(workspaceId)) return;
         set({ loading: false, error: String(error) });
       }
     },
 
-    refreshActivity: async (treeId = activeTreeId()) => {
-      if (!treeId) {
+    refreshActivity: async (workspaceId = activeTreeId()) => {
+      if (!workspaceId) {
         set({ activities: [], actors: [], total: 0, initialized: false });
         return;
       }
-      await get().load(treeId, get().page);
+      await get().load(workspaceId, get().page);
     },
 
-    setPage: async (page, treeId = activeTreeId()) => {
-      if (!treeId) return;
-      await get().load(treeId, page);
+    setPage: async (page, workspaceId = activeTreeId()) => {
+      if (!workspaceId) return;
+      await get().load(workspaceId, page);
     },
 
-    setPageSize: async (size, treeId = activeTreeId()) => {
+    setPageSize: async (size, workspaceId = activeTreeId()) => {
       set({ pageSize: size });
-      if (!treeId) return;
-      await get().load(treeId, 0);
+      if (!workspaceId) return;
+      await get().load(workspaceId, 0);
     },
 
-    setFilter: async (key, val, treeId = activeTreeId()) => {
+    setFilter: async (key, val, workspaceId = activeTreeId()) => {
       set({ [key]: val });
-      if (!treeId) return;
-      await get().load(treeId, 0);
+      if (!workspaceId) return;
+      await get().load(workspaceId, 0);
     },
 
-    clearFilters: async (treeId = activeTreeId()) => {
+    clearFilters: async (workspaceId = activeTreeId()) => {
       set({ filterActor: "", filterAction: "", filterTargetType: "" });
-      if (!treeId) return;
-      await get().load(treeId, 0);
+      if (!workspaceId) return;
+      await get().load(workspaceId, 0);
     },
 
-    retry: async (treeId = activeTreeId()) => {
-      if (!treeId) return;
-      await get().load(treeId, get().page);
+    retry: async (workspaceId = activeTreeId()) => {
+      if (!workspaceId) return;
+      await get().load(workspaceId, get().page);
     },
 
-    undo: async (entryId, treeId = activeTreeId()) => {
-      if (!treeId) throw new Error("No active tree");
-      const report = await TreeService.undoActivity(treeId, entryId);
-      // Content stores refresh themselves via the tree.content_changed SSE
+    undo: async (entryId, workspaceId = activeTreeId()) => {
+      if (!workspaceId) throw new Error("No active tree");
+      const report = await WorkspaceService.undoActivity(workspaceId, entryId);
+      // Content stores refresh themselves via the workspace.content_changed SSE
       // event the backend publishes; only the activity list itself needs an
       // explicit reload here.
-      await get().refreshActivity(treeId);
+      await get().refreshActivity(workspaceId);
       return report;
     },
 

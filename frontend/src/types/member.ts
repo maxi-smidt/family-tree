@@ -65,13 +65,6 @@ export interface Member {
   cemetery: string | null;
   placesLived: PlaceLived[];
   isCollapsed: boolean;
-  // Tree-in-tree: optional pointer to another tree detailing this person's
-  // own family. null when unlinked. Optional so existing object literals (e.g.
-  // in tests) need not specify it; the DB mapping always populates it.
-  linkedTreeId?: string | null;
-  // The counterpart row in the linked tree representing the same person (the
-  // "bridge person"). Navigation into the linked tree centers on it.
-  linkedMemberId?: string | null;
   position: {
     x: number;
     y: number;
@@ -79,10 +72,10 @@ export interface Member {
   relations?: Relation[];
   diseases?: Disease[];
   // Only set for members loaded from a virtual view.
-  sourceTreeId?: string;
-  sourceTreeName?: string;
-  sourceTreeIds?: string[];
-  sourceTreeNames?: string[];
+  sourceWorkspaceId?: string;
+  sourceWorkspaceName?: string;
+  sourceWorkspaceIds?: string[];
+  sourceWorkspaceNames?: string[];
   mergedFromIds?: string[];
   isMerged?: boolean;
   onEdit?: () => void;
@@ -91,7 +84,6 @@ export interface Member {
   onAddParent?: () => void;
   onAddLeft?: () => void;
   onAddRight?: () => void;
-  onOpenLinkedTree?: () => void;
   [key: string]: unknown;
 }
 
@@ -144,27 +136,42 @@ export interface MemberDB {
   isCollapsed: number;
   positionX: number;
   positionY: number;
-  linkedTreeId?: string | null;
-  // Counterpart member inside the linked tree (the same person's row there).
-  // Written only by the backend; the client treats it as read-only.
-  linkedMemberId?: string | null;
-  // Transient, only on update responses: outcome of the bridge-person mirror.
-  // "skipped_no_access" = identity fields changed but the counterpart tree is
-  // not writable by the actor, so the two rows drifted.
-  bridgeSync?: "synced" | "skipped_no_access" | null;
   // Only present for members returned by virtual view endpoints.
-  sourceTreeId?: string;
-  sourceTreeName?: string;
-  sourceTreeIds?: string[];
-  sourceTreeNames?: string[];
+  sourceWorkspaceId?: string;
+  sourceWorkspaceName?: string;
+  sourceWorkspaceIds?: string[];
+  sourceWorkspaceNames?: string[];
   mergedFromIds?: string[];
   isMerged?: boolean;
 }
 
 /** A lightweight member hit returned by the authenticated cross-tree search. */
 export interface MemberSearchHitDB extends MemberDB {
-  treeId: string;
-  treeName: string;
+  workspaceId: string;
+  workspaceName: string;
+}
+
+/** A section label on a `WorkspaceSearchHitDB`, readable by the caller. */
+export interface WorkspaceSearchSectionLabelDB {
+  id: string;
+  name: string;
+}
+
+/** A workspace-search hit (#1024): the member surface plus every section
+ *  label the caller may read. `unassigned` is only ever true for a
+ *  whole-workspace caller — a scoped caller cannot distinguish "no section"
+ *  from "a section they cannot see". */
+export interface WorkspaceSearchHitDB extends MemberDB {
+  sections: WorkspaceSearchSectionLabelDB[];
+  unassigned: boolean;
+}
+
+/** One page of `WorkspaceService.searchWorkspace()` results. */
+export interface WorkspaceSearchResultDB {
+  items: WorkspaceSearchHitDB[];
+  total: number;
+  has_more: boolean;
+  next_cursor: string | null;
 }
 
 export interface RelationDB {
@@ -196,7 +203,6 @@ export interface MemberUpdate {
   isCollapsed?: boolean;
   positionX?: number;
   positionY?: number;
-  linkedTreeId?: string | null;
 }
 
 function parsePlacesLived(raw: string | null | undefined): PlaceLived[] {
@@ -242,8 +248,6 @@ export function mapMemberFromDB(
     cemetery: row.cemetery ?? null,
     placesLived: parsePlacesLived(row.placesLived),
     isCollapsed: !!row.isCollapsed,
-    linkedTreeId: row.linkedTreeId ?? null,
-    linkedMemberId: row.linkedMemberId ?? null,
     position: {
       x: row.positionX,
       y: row.positionY,
@@ -254,10 +258,10 @@ export function mapMemberFromDB(
       relationType: r.relation_type as RelationType,
     })),
     diseases: diseases,
-    sourceTreeId: row.sourceTreeId,
-    sourceTreeName: row.sourceTreeName,
-    sourceTreeIds: row.sourceTreeIds,
-    sourceTreeNames: row.sourceTreeNames,
+    sourceWorkspaceId: row.sourceWorkspaceId,
+    sourceWorkspaceName: row.sourceWorkspaceName,
+    sourceWorkspaceIds: row.sourceWorkspaceIds,
+    sourceWorkspaceNames: row.sourceWorkspaceNames,
     mergedFromIds: row.mergedFromIds,
     isMerged: row.isMerged,
   };
@@ -287,7 +291,6 @@ export function mapMemberToDB(member: Member): MemberDB {
     placesLived:
       member.placesLived.length > 0 ? JSON.stringify(member.placesLived) : null,
     isCollapsed: member.isCollapsed ? 1 : 0,
-    linkedTreeId: member.linkedTreeId ?? null,
   };
 }
 
@@ -312,8 +315,6 @@ export function createMember(position: { x: number; y: number }): Member {
     cemetery: null,
     placesLived: [],
     isCollapsed: false,
-    linkedTreeId: null,
-    linkedMemberId: null,
     position: position,
   };
 }

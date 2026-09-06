@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { TreeService } from "@/services/TreeService";
-import { activeTreeId } from "@/hooks/useTreeStore";
+import { WorkspaceService } from "@/services/WorkspaceService";
+import { activeTreeId } from "@/hooks/useWorkspaceStore";
 
 export type GeocodeStatus = "idle" | "checking" | "found" | "not-found";
 
@@ -28,10 +28,10 @@ export function useGeocodePreview(
     }
     setStatus("checking");
     const timer = setTimeout(async () => {
-      const treeId = activeTreeId();
-      if (!treeId) return;
+      const workspaceId = activeTreeId();
+      if (!workspaceId) return;
       try {
-        const result = await TreeService.geocodePreview(treeId, loc);
+        const result = await WorkspaceService.geocodePreview(workspaceId, loc);
         if (result.resolved) {
           setStatus("found");
           setDisplayName(result.display_name);

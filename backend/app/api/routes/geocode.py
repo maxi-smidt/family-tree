@@ -4,12 +4,12 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.api.deps import (
-    get_readable_tree,
-    get_writable_tree,
+    get_readable_workspace,
+    get_writable_workspace,
     require_domain,
 )
 from app.db.session import get_db
-from app.models import Tree
+from app.models import Workspace
 from app.schemas.content import (
     GeocodeCandidate,
     GeocodeOut,
@@ -24,7 +24,7 @@ from app.services.media.geocoding import (
 )
 
 router = APIRouter(
-    prefix="/trees/{tree_id}/geocode",
+    prefix="/workspaces/{workspace_id}/geocode",
     tags=["geocode"],
     dependencies=[Depends(require_domain("map"))],
 )
@@ -33,7 +33,7 @@ router = APIRouter(
 @router.post("", response_model=list[GeocodeOut])
 def geocode_batch(
     payload: GeocodeRequest,
-    _tree: Tree = Depends(get_readable_tree),
+    _tree: Workspace = Depends(get_readable_workspace),
     db: Session = Depends(get_db),
 ):
     """Resolve a batch of location strings to coordinates."""
@@ -43,7 +43,7 @@ def geocode_batch(
 @router.get("/preview", response_model=GeocodeOut)
 def geocode_preview(
     q: str = Query(..., min_length=1),
-    _tree: Tree = Depends(get_readable_tree),
+    _tree: Workspace = Depends(get_readable_workspace),
     db: Session = Depends(get_db),
 ):
     """Preview geocoding for a single location (used by EventDialog validation)."""
@@ -53,7 +53,7 @@ def geocode_preview(
 @router.post("/override", response_model=GeocodeOut)
 def geocode_override(
     payload: GeocodeOverrideRequest,
-    _tree: Tree = Depends(get_writable_tree),
+    _tree: Workspace = Depends(get_writable_workspace),
     db: Session = Depends(get_db),
 ):
     """Store a manual correction for an unresolved (or misresolved) location.
@@ -68,7 +68,7 @@ def geocode_override(
 def geocode_search(
     q: str = Query(..., min_length=1),
     limit: int = Query(5, ge=1, le=10),
-    _tree: Tree = Depends(get_readable_tree),
+    _tree: Workspace = Depends(get_readable_workspace),
     db: Session = Depends(get_db),
 ):
     """Live Nominatim search for candidates matching an edited query string."""

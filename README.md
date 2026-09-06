@@ -145,6 +145,7 @@ Browser (React SPA)
 - **[GitHub Releases](https://github.com/maxi-smidt/family-tree/releases)** — Release notes and version history
 - **[SETUP.md](./docs/SETUP.md)** — Development environment setup
 - **[OPERATIONS.md](./docs/OPERATIONS.md)** — Self-hosting operations: backup/restore, upgrades, HTTPS, Authentik
+- **[UPGRADE_V2.md](./docs/UPGRADE_V2.md)** — Planning runbook for the v1.x → v2.0.0 cutover
 - **[AGENTS.md](./docs/AGENTS.md)** — Architecture and development guidelines
 - **[SECURITY.md](./docs/SECURITY.md)** — Export encryption and auth model
 - **[I18N_GUIDE.md](./docs/I18N_GUIDE.md)** — Internationalization conventions

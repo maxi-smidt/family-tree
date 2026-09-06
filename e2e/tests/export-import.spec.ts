@@ -6,7 +6,11 @@
 
 import { test, expect } from "../fixtures";
 import { seedMinimalFamily, deleteTree } from "../fixtures/seed";
-import { waitForJob } from "../fixtures/api";
+import {
+  CURRENT_SCHEMA_EPOCH,
+  SCHEMA_EPOCH_HEADER,
+  waitForJob,
+} from "../fixtures/api";
 import { API_URL } from "../playwright.config";
 
 // ---------------------------------------------------------------------------
@@ -15,14 +19,15 @@ import { API_URL } from "../playwright.config";
 
 async function exportTree(
   token: string,
-  treeId: string,
+  workspaceId: string,
   password?: string,
 ): Promise<ArrayBuffer> {
-  const exportRes = await fetch(`${API_URL}/trees/${treeId}/export`, {
+  const exportRes = await fetch(`${API_URL}/workspaces/${workspaceId}/export`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
+      [SCHEMA_EPOCH_HEADER]: CURRENT_SCHEMA_EPOCH,
     },
     body: JSON.stringify({ password: password || null }),
   });
@@ -47,15 +52,18 @@ async function importBundle(
   form.append("name", name);
   if (password) form.append("password", password);
 
-  const importRes = await fetch(`${API_URL}/trees/import`, {
+  const importRes = await fetch(`${API_URL}/workspaces/import`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
+    headers: {
+      Authorization: `Bearer ${token}`,
+      [SCHEMA_EPOCH_HEADER]: CURRENT_SCHEMA_EPOCH,
+    },
     body: form,
   });
   expect(importRes.status).toBe(202);
   const { job_id } = (await importRes.json()) as { job_id: string };
-  const treeId = await waitForJob(token, job_id);
-  const treeRes = await fetch(`${API_URL}/trees/${treeId}`, {
+  const workspaceId = await waitForJob(token, job_id);
+  const treeRes = await fetch(`${API_URL}/workspaces/${workspaceId}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   expect(treeRes.ok).toBe(true);
@@ -64,10 +72,10 @@ async function importBundle(
 
 async function expectFamilyMembers(
   api: { get<T = unknown>(path: string): Promise<T> },
-  treeId: string,
+  workspaceId: string,
 ) {
   const members = await api.get<Array<{ firstName?: string }>>(
-    `/trees/${treeId}/members`,
+    `/workspaces/${workspaceId}/members`,
   );
   const names = members.map((m) => m.firstName);
   expect(names).toEqual(expect.arrayContaining(["Alice", "Bob", "Charlie"]));
@@ -119,9 +127,12 @@ test("import inspect — returns bundle metadata without committing", async ({
     "export.treedb",
   );
 
-  const inspectRes = await fetch(`${API_URL}/trees/import/inspect`, {
+  const inspectRes = await fetch(`${API_URL}/workspaces/import/inspect`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${adminApi.token}` },
+    headers: {
+      Authorization: `Bearer ${adminApi.token}`,
+      [SCHEMA_EPOCH_HEADER]: CURRENT_SCHEMA_EPOCH,
+    },
     body: formData,
   });
   expect(inspectRes.ok).toBe(true);
@@ -133,11 +144,11 @@ test("import inspect — returns bundle metadata without committing", async ({
   expect(preview).toMatchObject({
     password_required: false,
     name: "E2E-Inspect-Src",
-    // v1.8.0 ships bundle version 4 — one clean increment over v1.7's 3,
-    // collapsing the gallery face regions / research tasks / gallery unknown
-    // faces bumps from v1.8 pre-release PRs (see BUNDLE_VERSION in
-    // backend/app/api/routes/export_import.py).
-    bundle_version: 4,
+    // v2.0 ships bundle version 5 — sections / section_members /
+    // section_positions and saved_view* tables join the export (#1016), one
+    // clean increment over v1.8's 4 (see BUNDLE_VERSION in
+    // backend/app/services/interchange/bundles/bundle_migration.py).
+    bundle_version: 5,
   });
 });
 
@@ -187,9 +198,12 @@ test("encrypted export — wrong passphrase is rejected", async ({
   form.append("password", "wrong-passphrase");
   form.append("name", "ShouldNotImport");
 
-  const importRes = await fetch(`${API_URL}/trees/import`, {
+  const importRes = await fetch(`${API_URL}/workspaces/import`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${adminApi.token}` },
+    headers: {
+      Authorization: `Bearer ${adminApi.token}`,
+      [SCHEMA_EPOCH_HEADER]: CURRENT_SCHEMA_EPOCH,
+    },
     body: form,
   });
   // Should fail — wrong key
@@ -229,16 +243,19 @@ test("GEDCOM import — members are created from .ged file", async ({
     );
     form.append("name", "E2E-GEDCOM-Imported");
 
-    const importRes = await fetch(`${API_URL}/trees/import-gedcom`, {
+    const importRes = await fetch(`${API_URL}/workspaces/import-gedcom`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${adminApi.token}` },
+      headers: {
+        Authorization: `Bearer ${adminApi.token}`,
+        [SCHEMA_EPOCH_HEADER]: CURRENT_SCHEMA_EPOCH,
+      },
       body: form,
     });
     expect(importRes.status).toBe(202);
     const { job_id } = (await importRes.json()) as { job_id: string };
     importedId = await waitForJob(adminApi.token, job_id);
 
-    const treeRes = await fetch(`${API_URL}/trees/${importedId}`, {
+    const treeRes = await fetch(`${API_URL}/workspaces/${importedId}`, {
       headers: { Authorization: `Bearer ${adminApi.token}` },
     });
     expect(treeRes.ok).toBe(true);
@@ -247,7 +264,7 @@ test("GEDCOM import — members are created from .ged file", async ({
 
     const members = await adminApi.get<
       Array<{ firstName?: string; lastName?: string }>
-    >(`/trees/${importedId}/members`);
+    >(`/workspaces/${importedId}/members`);
     expect(members).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ firstName: "Gedcom", lastName: "Doe" }),

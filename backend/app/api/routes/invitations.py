@@ -1,4 +1,4 @@
-"""Tree invitation routes and global invite-accept endpoints."""
+"""Workspace invitation routes and global invite-accept endpoints."""
 
 import secrets
 from datetime import UTC, datetime, timedelta
@@ -10,12 +10,12 @@ from sqlalchemy.orm import Session
 from app.api.deps import (
     get_current_user,
     get_current_user_optional,
-    get_readable_tree,
+    get_readable_workspace,
 )
 from app.db.session import get_db
-from app.models import Tree, TreeInvitation, User
+from app.models import Section, User, Workspace, WorkspaceInvitation
 from app.schemas.notification import InvitationReceivedPayload
-from app.schemas.tree import (
+from app.schemas.workspace import (
     InvitationAcceptResult,
     InvitationCreate,
     InvitationOut,
@@ -33,7 +33,7 @@ from app.services.unit_of_work import UnitOfWork
 router = APIRouter(tags=["invitations"])
 
 
-def _inv_out(inv: TreeInvitation, *, include_token: bool = False) -> InvitationOut:
+def _inv_out(inv: WorkspaceInvitation, *, include_token: bool = False) -> InvitationOut:
     out = InvitationOut.model_validate(inv)
     out.status = invitation_status(inv)
     if not include_token:
@@ -45,12 +45,13 @@ def _inv_out(inv: TreeInvitation, *, include_token: bool = False) -> InvitationO
 # Per-tree invitation management (owner only)
 # ---------------------------------------------------------------------------
 
+
 @router.get(
-    "/trees/{tree_id}/invitations",
+    "/workspaces/{workspace_id}/invitations",
     response_model=list[InvitationOut],
 )
 def list_invitations(
-    tree: Tree = Depends(get_readable_tree),
+    tree: Workspace = Depends(get_readable_workspace),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -59,21 +60,21 @@ def list_invitations(
             status_code=403, detail="Only the owner can manage invitations"
         )
     invitations = db.scalars(
-        select(TreeInvitation)
-        .where(TreeInvitation.tree_id == tree.id)
-        .order_by(TreeInvitation.created_at.desc())
+        select(WorkspaceInvitation)
+        .where(WorkspaceInvitation.workspace_id == tree.id)
+        .order_by(WorkspaceInvitation.created_at.desc())
     ).all()
     return [_inv_out(inv, include_token=True) for inv in invitations]
 
 
 @router.post(
-    "/trees/{tree_id}/invitations",
+    "/workspaces/{workspace_id}/invitations",
     response_model=InvitationOut,
     status_code=201,
 )
 def create_invitation(
     payload: InvitationCreate,
-    tree: Tree = Depends(get_readable_tree),
+    tree: Workspace = Depends(get_readable_workspace),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -83,6 +84,10 @@ def create_invitation(
         )
     if payload.role not in ("viewer", "editor"):
         raise HTTPException(status_code=400, detail="Invalid role")
+    if payload.section_id is not None:
+        section = db.get(Section, payload.section_id)
+        if section is None or section.workspace_id != tree.id:
+            raise HTTPException(status_code=404, detail="Section not found")
 
     expires_at = None
     if payload.expires_in_days is not None:
@@ -90,14 +95,16 @@ def create_invitation(
             datetime.now(UTC) + timedelta(days=payload.expires_in_days)
         ).isoformat()
 
-    inv = TreeInvitation(
-        tree_id=tree.id,
+    inv = WorkspaceInvitation(
+        workspace_id=tree.id,
         token=secrets.token_urlsafe(32),
         email=payload.email,
         role=payload.role,
+        section_id=payload.section_id,
         created_by=user.id,
         expires_at=expires_at,
     )
+
     def _notify_invited_user() -> None:
         if not payload.email:
             return
@@ -112,13 +119,13 @@ def create_invitation(
             event_bus.publish(
                 [invited_user.id],
                 "invitation.received",
-                {"tree_id": tree.id, "tree_name": tree.name},
+                {"workspace_id": tree.id, "workspace_name": tree.name},
             )
             notification_service.create_notification(
                 db,
                 invited_user.id,
                 "invitation_received",
-                InvitationReceivedPayload(tree_id=tree.id, tree_name=tree.name),
+                InvitationReceivedPayload(workspace_id=tree.id, workspace_name=tree.name),
             )
 
     with UnitOfWork(db) as uow:
@@ -129,12 +136,12 @@ def create_invitation(
 
 
 @router.delete(
-    "/trees/{tree_id}/invitations/{invitation_id}",
+    "/workspaces/{workspace_id}/invitations/{invitation_id}",
     status_code=204,
 )
 def revoke_invitation(
     invitation_id: str,
-    tree: Tree = Depends(get_readable_tree),
+    tree: Workspace = Depends(get_readable_workspace),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -142,8 +149,8 @@ def revoke_invitation(
         raise HTTPException(
             status_code=403, detail="Only the owner can revoke invitations"
         )
-    inv = db.get(TreeInvitation, invitation_id)
-    if inv is None or inv.tree_id != tree.id:
+    inv = db.get(WorkspaceInvitation, invitation_id)
+    if inv is None or inv.workspace_id != tree.id:
         raise HTTPException(status_code=404, detail="Invitation not found")
     from app.db.base import utcnow_iso
 
@@ -165,12 +172,12 @@ def preview_invite(
     db: Session = Depends(get_db),
 ):
     """Return basic info about an invitation without revealing tree content."""
-    inv = db.scalar(select(TreeInvitation).where(TreeInvitation.token == token))
+    inv = db.scalar(select(WorkspaceInvitation).where(WorkspaceInvitation.token == token))
     if inv is None:
         raise HTTPException(status_code=404, detail="Invitation not found")
-    tree = db.get(Tree, inv.tree_id)
+    tree = db.get(Workspace, inv.workspace_id)
     return InvitationPreview(
-        tree_name=tree.name if tree else "",
+        workspace_name=tree.name if tree else "",
         role=inv.role,
         valid=is_invitation_valid(inv),
         requires_account=user is None,
@@ -183,7 +190,7 @@ def accept_invite(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    inv = db.scalar(select(TreeInvitation).where(TreeInvitation.token == token))
+    inv = db.scalar(select(WorkspaceInvitation).where(WorkspaceInvitation.token == token))
     if inv is None:
         raise HTTPException(status_code=404, detail="Invitation not found")
     if not is_invitation_valid(inv):
@@ -192,13 +199,13 @@ def accept_invite(
             status_code=409,
             detail=f"Invitation is {status_val}",
         )
-    tree = db.get(Tree, inv.tree_id)
+    tree = db.get(Workspace, inv.workspace_id)
     if tree is None:
-        raise HTTPException(status_code=404, detail="Tree not found")
+        raise HTTPException(status_code=404, detail="Workspace not found")
 
     accept_invitation(db, inv, user)
     return InvitationAcceptResult(
-        tree_id=tree.id,
-        tree_name=tree.name,
+        workspace_id=tree.id,
+        workspace_name=tree.name,
         role=inv.role,
     )

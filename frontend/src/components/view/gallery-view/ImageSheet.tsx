@@ -18,7 +18,7 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { PartialDatePicker } from "@/components/ui/partial-date-picker";
 import { useTranslation } from "react-i18next";
 import { MemberPicker } from "@/components/shared/member-sheet/MemberPicker";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import {
   Tooltip,
   TooltipContent,
@@ -107,7 +107,7 @@ export const ImageSheet = ({
   const unknownFaces =
     galleryImages.find((candidate) => candidate.id === image.id)
       ?.unknownFaces ?? image.unknownFaces;
-  const selectedTree = useTreeStore((state) => state.selectedTree);
+  const selectedTree = useWorkspaceStore((state) => state.selectedTree);
   const treeRole = selectedTree?.role;
   const canWrite = treeRole !== "viewer";
   const researchTasksEnabled = !selectedTree?.restrictions?.includes("tasks");

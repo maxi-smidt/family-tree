@@ -46,18 +46,14 @@ def list_backups(db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=BackupOut, status_code=201)
-def trigger_backup(
-    user: User = Depends(require_admin), db: Session = Depends(get_db)
-):
+def trigger_backup(user: User = Depends(require_admin), db: Session = Depends(get_db)):
     record = backup_service.create_backup(db, trigger="manual", actor=user)
     return _to_out(record)
 
 
 @router.get("/{backup_id}/download")
 def download_backup(backup_id: str, db: Session = Depends(get_db)):
-    record = db.scalars(
-        select(BackupRecord).where(BackupRecord.id == backup_id)
-    ).first()
+    record = db.scalars(select(BackupRecord).where(BackupRecord.id == backup_id)).first()
     if record is None or record.filename is None:
         raise HTTPException(status_code=404, detail="Backup not found")
 
@@ -68,9 +64,7 @@ def download_backup(backup_id: str, db: Session = Depends(get_db)):
     return Response(
         content=filepath.read_bytes(),
         media_type="application/octet-stream",
-        headers={
-            "Content-Disposition": f'attachment; filename="{record.filename}"'
-        },
+        headers={"Content-Disposition": f'attachment; filename="{record.filename}"'},
     )
 
 
@@ -80,14 +74,16 @@ def delete_backup(
     user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    record = db.scalars(
-        select(BackupRecord).where(BackupRecord.id == backup_id)
-    ).first()
+    record = db.scalars(select(BackupRecord).where(BackupRecord.id == backup_id)).first()
     if record is None:
         raise HTTPException(status_code=404, detail="Backup not found")
     record_admin_audit(
-        db, actor=user, action="delete", subject_type="backup",
-        subject_id=record.id, subject_label=record.filename,
+        db,
+        actor=user,
+        action="delete",
+        subject_type="backup",
+        subject_id=record.id,
+        subject_label=record.filename,
         details={"created_at": record.created_at, "status": record.status},
     )
     backup_service.delete_backup(db, record)

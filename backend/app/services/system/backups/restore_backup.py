@@ -20,7 +20,9 @@ from app.services.system.backups.backup_service import (
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Restore a Family Tree instance backup")
+    parser = argparse.ArgumentParser(
+        description="Restore a Family Workspace instance backup"
+    )
     parser.add_argument("backup", type=Path, help="Path to the .ftbackup file")
     parser.add_argument(
         "--replace",

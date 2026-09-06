@@ -11,7 +11,7 @@ from app.core.exceptions import QuotaExceeded
 from app.services.media.storage import (
     MEDIA_URL_PREFIX,
     _tree_media_dir,
-    delete_tree_media,
+    delete_workspace_media,
     trash_media,
 )
 from app.services.media.storage_usage import (
@@ -19,7 +19,7 @@ from app.services.media.storage_usage import (
     _tree_model_bytes,
     check_full_usage_quota,
     check_media_quota,
-    check_tree_quota,
+    check_workspace_quota,
     compute_owner_usage,
     compute_usage,
     media_warning,
@@ -31,9 +31,10 @@ from tests.conftest import API, add_member, auth, make_tree, make_user
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _write_fake_media(tree_id: str, filename: str, content: bytes) -> str:
+
+def _write_fake_media(workspace_id: str, filename: str, content: bytes) -> str:
     """Write a fake media file and return its path string."""
-    path = _tree_media_dir(tree_id) / filename
+    path = _tree_media_dir(workspace_id) / filename
     path.write_bytes(content)
     return str(path)
 
@@ -55,6 +56,7 @@ def _make_tiny_png_data_url() -> str:
 # _media_bytes
 # ---------------------------------------------------------------------------
 
+
 def test_media_bytes_missing_dir():
     """media_bytes returns 0 when the tree directory doesn't exist."""
     assert _media_bytes("nonexistent-tree-id-xyz") == 0
@@ -64,37 +66,38 @@ def test_media_bytes_sums_files(tmp_path, monkeypatch):
     """media_bytes sums file sizes under the tree directory."""
     # media_root is a computed property (DATA_PATH/media) — patch DATA_PATH.
     monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
-    tree_id = "test-tree-001"
-    _write_fake_media(tree_id, "a.webp", b"hello")
-    _write_fake_media(tree_id, "b.webp", b"world!")
-    assert _media_bytes(tree_id) == 11  # 5 + 6
+    workspace_id = "test-tree-001"
+    _write_fake_media(workspace_id, "a.webp", b"hello")
+    _write_fake_media(workspace_id, "b.webp", b"world!")
+    assert _media_bytes(workspace_id) == 11  # 5 + 6
 
 
 def test_media_bytes_zero_after_delete(tmp_path, monkeypatch):
-    """media_bytes returns 0 after delete_tree_media removes the directory."""
+    """media_bytes returns 0 after delete_workspace_media removes the directory."""
     monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
-    tree_id = "test-tree-002"
-    _write_fake_media(tree_id, "photo.webp", b"data")
-    assert _media_bytes(tree_id) > 0
-    delete_tree_media(tree_id)
-    assert _media_bytes(tree_id) == 0
+    workspace_id = "test-tree-002"
+    _write_fake_media(workspace_id, "photo.webp", b"data")
+    assert _media_bytes(workspace_id) > 0
+    delete_workspace_media(workspace_id)
+    assert _media_bytes(workspace_id) == 0
 
 
 def test_media_bytes_excludes_trashed_files(tmp_path, monkeypatch):
     """Trashed media (moved into .trash/ by trash_media) frees quota instantly."""
     monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
-    tree_id = "test-tree-003"
-    _write_fake_media(tree_id, "photo.webp", b"hello world")
-    assert _media_bytes(tree_id) == len(b"hello world")
+    workspace_id = "test-tree-003"
+    _write_fake_media(workspace_id, "photo.webp", b"hello world")
+    assert _media_bytes(workspace_id) == len(b"hello world")
 
-    trash_media(f"{MEDIA_URL_PREFIX}/{tree_id}/photo.webp")
+    trash_media(f"{MEDIA_URL_PREFIX}/{workspace_id}/photo.webp")
 
-    assert _media_bytes(tree_id) == 0
+    assert _media_bytes(workspace_id) == 0
 
 
 # ---------------------------------------------------------------------------
 # _tree_model_bytes / compute_usage
 # ---------------------------------------------------------------------------
+
 
 def test_tree_bytes_grows_with_member(db: Session):
     owner = make_user(db, "storage-owner")
@@ -152,13 +155,14 @@ def test_compute_owner_usage_combines_all_owned_trees(db: Session):
 
 
 # ---------------------------------------------------------------------------
-# GET /trees/{tree_id}/storage endpoint
+# GET /workspaces/{workspace_id}/storage endpoint
 # ---------------------------------------------------------------------------
+
 
 def test_storage_endpoint_shape(client: TestClient, db: Session):
     owner = make_user(db, "ep-owner")
     tree = make_tree(db, owner, "EndpointTree")
-    resp = client.get(f"{API}/trees/{tree.id}/storage", headers=auth(owner))
+    resp = client.get(f"{API}/workspaces/{tree.id}/storage", headers=auth(owner))
     assert resp.status_code == 200
     data = resp.json()
     assert "tree_bytes" in data
@@ -174,7 +178,7 @@ def test_storage_endpoint_unlimited_when_no_quota(client: TestClient, db: Sessio
     """All quota fields are None (unlimited) when no per-user or instance quota set."""
     owner = make_user(db, "ep-owner2")
     tree = make_tree(db, owner, "EndpointTree2")
-    resp = client.get(f"{API}/trees/{tree.id}/storage", headers=auth(owner))
+    resp = client.get(f"{API}/workspaces/{tree.id}/storage", headers=auth(owner))
     assert resp.status_code == 200
     data = resp.json()
     assert data["tree_quota_bytes"] is None
@@ -184,7 +188,7 @@ def test_storage_endpoint_unlimited_when_no_quota(client: TestClient, db: Sessio
 def test_storage_endpoint_requires_auth(client: TestClient, db: Session):
     owner = make_user(db, "ep-owner3")
     tree = make_tree(db, owner, "EndpointTree3")
-    resp = client.get(f"{API}/trees/{tree.id}/storage")
+    resp = client.get(f"{API}/workspaces/{tree.id}/storage")
     assert resp.status_code in (401, 403)
 
 
@@ -193,7 +197,7 @@ def test_storage_endpoint_shows_quota_when_set(client: TestClient, db: Session):
     owner.media_quota_bytes = 1024 * 1024  # 1 MB
     db.commit()
     tree = make_tree(db, owner, "EndpointTree4")
-    resp = client.get(f"{API}/trees/{tree.id}/storage", headers=auth(owner))
+    resp = client.get(f"{API}/workspaces/{tree.id}/storage", headers=auth(owner))
     assert resp.status_code == 200
     data = resp.json()
     assert data["media_quota_bytes"] == 1024 * 1024
@@ -208,7 +212,7 @@ def test_storage_endpoint_reports_owner_aggregate(client: TestClient, db: Sessio
     db.flush()
 
     expected_usage = compute_owner_usage(db, owner.id)
-    resp = client.get(f"{API}/trees/{second_tree.id}/storage", headers=auth(owner))
+    resp = client.get(f"{API}/workspaces/{second_tree.id}/storage", headers=auth(owner))
 
     assert resp.status_code == 200
     assert resp.json()["tree_bytes"] == expected_usage["tree_bytes"]
@@ -219,6 +223,7 @@ def test_storage_endpoint_reports_owner_aggregate(client: TestClient, db: Sessio
 # ---------------------------------------------------------------------------
 # Quota enforcement
 # ---------------------------------------------------------------------------
+
 
 def test_check_media_quota_passes_when_unlimited(db: Session):
     """No exception when quotas are all unlimited (None)."""
@@ -239,17 +244,17 @@ def test_check_media_quota_raises_when_exceeded(db: Session):
     assert str(exc_info.value) == "quota_exceeded_media"
 
 
-def test_check_tree_quota_raises_when_exceeded(db: Session):
+def test_check_workspace_quota_raises_when_exceeded(db: Session):
     owner = make_user(db, "quota-owner3")
     owner.tree_quota_bytes = 50
     db.commit()
     tree = make_tree(db, owner, "QuotaTree3")
     with pytest.raises(QuotaExceeded) as exc_info:
-        check_tree_quota(db, tree, 200)
+        check_workspace_quota(db, tree, 200)
     assert exc_info.value.bucket == "tree"
 
 
-def test_check_tree_quota_counts_usage_in_other_owned_trees(db: Session):
+def test_check_workspace_quota_counts_usage_in_other_owned_trees(db: Session):
     owner = make_user(db, "aggregate-tree-quota-owner")
     first_tree = make_tree(db, owner, "First tree")
     second_tree = make_tree(db, owner, "Second tree")
@@ -259,7 +264,7 @@ def test_check_tree_quota_counts_usage_in_other_owned_trees(db: Session):
     db.commit()
 
     with pytest.raises(QuotaExceeded) as exc_info:
-        check_tree_quota(db, second_tree, 1)
+        check_workspace_quota(db, second_tree, 1)
 
     assert exc_info.value.bucket == "tree"
 
@@ -345,7 +350,7 @@ def test_media_warning_counts_usage_in_other_owned_trees(
     warning = media_warning(db, second_tree)
 
     assert warning == {
-        "tree_id": second_tree.id,
+        "workspace_id": second_tree.id,
         "used_bytes": 90,
         "quota_bytes": 100,
     }
@@ -354,6 +359,7 @@ def test_media_warning_counts_usage_in_other_owned_trees(
 # ---------------------------------------------------------------------------
 # HTTP 413 enforcement via routes
 # ---------------------------------------------------------------------------
+
 
 def test_create_member_tree_quota_exceeded(client: TestClient, db: Session):
     """Creating a member when tree quota is too small returns 413 with machine code."""
@@ -364,7 +370,7 @@ def test_create_member_tree_quota_exceeded(client: TestClient, db: Session):
     db.commit()
     tree = make_tree(db, owner, "SmallTree")
     resp = client.post(
-        f"{API}/trees/{tree.id}/members",
+        f"{API}/workspaces/{tree.id}/members",
         json={"id": str(uuid4()), "firstName": "Alice"},
         headers=auth(owner),
     )
@@ -382,7 +388,7 @@ def test_create_event_tree_quota_exceeded(client: TestClient, db: Session):
     db.commit()
     tree = make_tree(db, owner, "EventTree")
     resp = client.post(
-        f"{API}/trees/{tree.id}/events",
+        f"{API}/workspaces/{tree.id}/events",
         json={
             "id": str(uuid4()),
             "event_type": "birth",
@@ -425,21 +431,22 @@ def test_owner_quotas_editor_uses_owner_quota(db: Session):
 # Storage consistent after cascade delete
 # ---------------------------------------------------------------------------
 
+
 def test_usage_recomputes_after_tree_delete(db: Session):
     """compute_usage on a deleted tree returns zeros (no rows, no media dir)."""
     owner = make_user(db, "cascade-owner")
     tree = make_tree(db, owner, "CascadeTree")
     add_member(db, tree, "cm1", first_name="Test")
-    from app.models import Tree as TreeModel
+    from app.models import Workspace as TreeModel
 
     usage_before = compute_usage(db, tree.id)
     assert usage_before["tree_bytes"] > 0
 
-    tree_id = tree.id
-    db.delete(db.get(TreeModel, tree_id))
+    workspace_id = tree.id
+    db.delete(db.get(TreeModel, workspace_id))
     db.commit()
-    delete_tree_media(tree_id)
+    delete_workspace_media(workspace_id)
 
-    usage_after = compute_usage(db, tree_id)
+    usage_after = compute_usage(db, workspace_id)
     assert usage_after["tree_bytes"] == 0
     assert usage_after["media_bytes"] == 0

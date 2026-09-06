@@ -7,41 +7,43 @@ from app.api.routes import (
     admin_audit,
     auth,
     backups,
+    content_scopes,
     documents,
     events,
     export_import,
     friends,
     gallery,
     geocode,
+    identity_link_claims,
+    identity_links,
     invitations,
     jobs,
     legal,
     media,
     member_diseases,
-    member_links,
     member_relations,
-    member_subtrees,
     members,
+    migration,
     notifications,
     oauth,
     preferences,
     presence,
     quality,
     relation_types,
+    saved_views,
     search,
+    sections,
     settings,
     sse,
     statistics,
     stories,
     tasks,
-    tree_jobs,
-    tree_public,
-    tree_sharing,
-    tree_transfer,
-    trees,
     users,
-    virtual_view_content,
-    virtual_views,
+    workspace_jobs,
+    workspace_public,
+    workspace_sharing,
+    workspace_transfer,
+    workspaces,
 )
 
 api_router = APIRouter()
@@ -56,22 +58,25 @@ api_router.include_router(relation_types.router)
 api_router.include_router(relation_types.admin_router)
 api_router.include_router(search.router)
 api_router.include_router(backups.router)
-api_router.include_router(trees.router)
-api_router.include_router(tree_public.router)
-api_router.include_router(tree_sharing.router)
-api_router.include_router(tree_jobs.router)
-api_router.include_router(tree_transfer.router)
+api_router.include_router(workspaces.router)
+api_router.include_router(workspace_public.router)
+api_router.include_router(workspace_sharing.router)
+api_router.include_router(workspace_jobs.router)
+api_router.include_router(workspace_transfer.router)
+api_router.include_router(sections.router)
+api_router.include_router(saved_views.router)
+api_router.include_router(content_scopes.router)
 api_router.include_router(invitations.router)
 api_router.include_router(invitations.global_router)
-api_router.include_router(virtual_views.router)
-api_router.include_router(virtual_view_content.router)
 api_router.include_router(export_import.router)
 api_router.include_router(jobs.router)
 api_router.include_router(members.router)
 api_router.include_router(member_relations.router)
 api_router.include_router(member_diseases.router)
-api_router.include_router(member_subtrees.router)
-api_router.include_router(member_links.router)
+api_router.include_router(identity_links.router)
+api_router.include_router(identity_link_claims.router)
+api_router.include_router(migration.router)
+api_router.include_router(migration.admin_router)
 api_router.include_router(gallery.router)
 api_router.include_router(events.router)
 api_router.include_router(geocode.router)

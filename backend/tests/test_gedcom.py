@@ -18,6 +18,7 @@ from tests.conftest import API, auth, make_tree, make_user, wait_for_job
 # 1. Service-level round-trip
 # ---------------------------------------------------------------------------
 
+
 def _make_id() -> str:
     return str(uuid4())
 
@@ -156,8 +157,7 @@ class TestServiceRoundTrip:
         self.parsed = parse_gedcom(self.ged_text)
         # Build lookup by name for assertions.
         self.by_name = {
-            (m.get("first_name"), m.get("last_name")): m
-            for m in self.parsed["members"]
+            (m.get("first_name"), m.get("last_name")): m for m in self.parsed["members"]
         }
 
     def test_member_count(self):
@@ -253,7 +253,8 @@ class TestServiceRoundTrip:
         james_id = self._get_id("James", "Smith")
         mary_id = self._get_id("Mary", "Smith")
         couple_rels = [
-            r for r in self.parsed["relations"]
+            r
+            for r in self.parsed["relations"]
             if r["relation_type"] == "married"
             and set([r["from_member_id"], r["to_member_id"]]) == {james_id, mary_id}
         ]
@@ -262,7 +263,8 @@ class TestServiceRoundTrip:
     def test_child1_has_two_parents(self):
         tom_id = self._get_id("Tom", "Smith")
         parent_rels = [
-            r for r in self.parsed["relations"]
+            r
+            for r in self.parsed["relations"]
             if r["relation_type"] == "parent" and r["from_member_id"] == tom_id
         ]
         assert len(parent_rels) == 2
@@ -270,7 +272,8 @@ class TestServiceRoundTrip:
     def test_child2_has_two_parents(self):
         sara_id = self._get_id("Sara", "Smith")
         parent_rels = [
-            r for r in self.parsed["relations"]
+            r
+            for r in self.parsed["relations"]
             if r["relation_type"] == "parent" and r["from_member_id"] == sara_id
         ]
         assert len(parent_rels) == 2
@@ -278,7 +281,8 @@ class TestServiceRoundTrip:
     def test_single_parent_child_has_one_parent(self):
         alex_id = self._get_id("Alex", "Smith")
         parent_rels = [
-            r for r in self.parsed["relations"]
+            r
+            for r in self.parsed["relations"]
             if r["relation_type"] == "parent" and r["from_member_id"] == alex_id
         ]
         assert len(parent_rels) == 1
@@ -288,8 +292,7 @@ class TestServiceRoundTrip:
         explicit rows.  The GEDCOM exporter may emit a _REL record for them, but
         the importer must skip it so the DB stays clean."""
         sibling_rels = [
-            r for r in self.parsed["relations"]
-            if r["relation_type"] == "sibling"
+            r for r in self.parsed["relations"] if r["relation_type"] == "sibling"
         ]
         assert len(sibling_rels) == 0
 
@@ -316,25 +319,28 @@ class TestServiceRoundTrip:
 # 2. API round-trip test
 # ---------------------------------------------------------------------------
 
-def _post_member(client, tree_id: str, headers: dict, **kw) -> dict:
+
+def _post_member(client, workspace_id: str, headers: dict, **kw) -> dict:
     mid = str(uuid4())
     payload = {"id": mid, "firstName": "Test", "lastName": "Person", "gender": "f"}
     payload.update(kw)
-    resp = client.post(f"{API}/trees/{tree_id}/members", headers=headers, json=payload)
+    resp = client.post(
+        f"{API}/workspaces/{workspace_id}/members", headers=headers, json=payload
+    )
     assert resp.status_code == 201, resp.text
     return resp.json()
 
 
 def _post_relation(
     client,
-    tree_id: str,
+    workspace_id: str,
     headers: dict,
     from_id: str,
     to_id: str,
     rtype: str,
 ) -> None:
     resp = client.post(
-        f"{API}/trees/{tree_id}/relations",
+        f"{API}/workspaces/{workspace_id}/relations",
         headers=headers,
         json={"from_member_id": from_id, "to_member_id": to_id, "relation_type": rtype},
     )
@@ -348,35 +354,54 @@ def test_api_gedcom_round_trip(client, db):
 
     # Create a tree via the API.
     tree_resp = client.post(
-        f"{API}/trees", headers=headers, json={"name": "RoundTripTree"}
+        f"{API}/workspaces", headers=headers, json={"name": "RoundTripTree"}
     )
     assert tree_resp.status_code == 201
-    tree_id = tree_resp.json()["id"]
+    workspace_id = tree_resp.json()["id"]
 
     # Add members.
-    father = _post_member(client, tree_id, headers,
-                          firstName="George", middleNames="Albert",
-                          baptismalName="Georgius", lastName="Brown",
-                          gender="m", dateOfBirth="1940")
-    mother = _post_member(client, tree_id, headers,
-                          firstName="Helen", lastName="Brown", gender="f",
-                          dateOfBirth="1945-06")
-    child = _post_member(client, tree_id, headers,
-                         firstName="Paul", lastName="Brown", gender="m",
-                         dateOfBirth="1968-09-01")
+    father = _post_member(
+        client,
+        workspace_id,
+        headers,
+        firstName="George",
+        middleNames="Albert",
+        baptismalName="Georgius",
+        lastName="Brown",
+        gender="m",
+        dateOfBirth="1940",
+    )
+    mother = _post_member(
+        client,
+        workspace_id,
+        headers,
+        firstName="Helen",
+        lastName="Brown",
+        gender="f",
+        dateOfBirth="1945-06",
+    )
+    child = _post_member(
+        client,
+        workspace_id,
+        headers,
+        firstName="Paul",
+        lastName="Brown",
+        gender="m",
+        dateOfBirth="1968-09-01",
+    )
 
     father_id = father["id"]
     mother_id = mother["id"]
     child_id = child["id"]
 
     # Add relations.
-    _post_relation(client, tree_id, headers, father_id, mother_id, "married")
-    _post_relation(client, tree_id, headers, child_id, father_id, "parent")
-    _post_relation(client, tree_id, headers, child_id, mother_id, "parent")
+    _post_relation(client, workspace_id, headers, father_id, mother_id, "married")
+    _post_relation(client, workspace_id, headers, child_id, father_id, "parent")
+    _post_relation(client, workspace_id, headers, child_id, mother_id, "parent")
 
     # Export as GEDCOM.
     export_resp = client.get(
-        f"{API}/trees/{tree_id}/export-gedcom", headers=headers
+        f"{API}/workspaces/{workspace_id}/export-gedcom", headers=headers
     )
     assert export_resp.status_code == 200
     ged_bytes = export_resp.content
@@ -390,28 +415,26 @@ def test_api_gedcom_round_trip(client, db):
 
     # Import the GEDCOM as a new tree.
     import_resp = client.post(
-        f"{API}/trees/import-gedcom",
+        f"{API}/workspaces/import-gedcom",
         headers=headers,
         files={"file": ("test.ged", io.BytesIO(ged_bytes), "text/plain")},
         data={"name": "ImportedGedcomTree"},
     )
     assert import_resp.status_code == 202, import_resp.text
     new_tree_id = wait_for_job(client, headers, import_resp.json()["job_id"])
-    imported = client.get(f"{API}/trees/{new_tree_id}", headers=headers).json()
+    imported = client.get(f"{API}/workspaces/{new_tree_id}", headers=headers).json()
     assert imported["name"] == "ImportedGedcomTree"
     assert imported["role"] == "owner"
 
     # Verify members in imported tree.
-    members_resp = client.get(
-        f"{API}/trees/{new_tree_id}/members", headers=headers
-    )
+    members_resp = client.get(f"{API}/workspaces/{new_tree_id}/members", headers=headers)
     assert members_resp.status_code == 200
     imported_members = members_resp.json()
     assert len(imported_members) == 3
 
     # Verify parent relations in imported tree.
     relations_resp = client.get(
-        f"{API}/trees/{new_tree_id}/relations", headers=headers
+        f"{API}/workspaces/{new_tree_id}/relations", headers=headers
     )
     assert relations_resp.status_code == 200
     imported_relations = relations_resp.json()
@@ -423,11 +446,19 @@ def test_api_gedcom_round_trip(client, db):
     assert ("George", "Brown") in names
     assert ("Helen", "Brown") in names
     assert ("Paul", "Brown") in names
-    imported_father = next(
-        m for m in imported_members if m.get("firstName") == "George"
-    )
+    imported_father = next(m for m in imported_members if m.get("firstName") == "George")
     assert imported_father["middleNames"] == "Albert"
     assert imported_father["baptismalName"] == "Georgius"
+
+    # A GEDCOM import always seeds one deterministic section holding every
+    # member it brought in (#1016) — GEDCOM has no section concept of its own.
+    sections_resp = client.get(
+        f"{API}/workspaces/{new_tree_id}/sections", headers=headers
+    )
+    assert sections_resp.status_code == 200
+    sections = sections_resp.json()
+    assert len(sections) == 1
+    assert sections[0]["member_count"] == len(imported_members)
 
 
 def test_gedcom_import_splits_standard_given_names():
@@ -451,7 +482,7 @@ def test_api_export_requires_auth(client, db):
     owner = make_user(db, "bob")
     tree = make_tree(db, owner)
 
-    resp = client.get(f"{API}/trees/{tree.id}/export-gedcom")
+    resp = client.get(f"{API}/workspaces/{tree.id}/export-gedcom")
     assert resp.status_code == 401
 
 
@@ -459,7 +490,7 @@ def test_api_import_requires_auth(client, db):
     """Import without authentication should fail with 401."""
     ged = b"0 HEAD\n0 TRLR\n"
     resp = client.post(
-        f"{API}/trees/import-gedcom",
+        f"{API}/workspaces/import-gedcom",
         files={"file": ("test.ged", io.BytesIO(ged), "text/plain")},
     )
     assert resp.status_code == 401
@@ -474,7 +505,7 @@ def test_api_import_bad_file_returns_400(client, db):
     # but won't raise. We test that the endpoint handles completely corrupt
     # binary gracefully without 500.
     resp = client.post(
-        f"{API}/trees/import-gedcom",
+        f"{API}/workspaces/import-gedcom",
         headers=headers,
         files={"file": ("bad.ged", io.BytesIO(bad_bytes), "text/plain")},
     )
@@ -488,13 +519,13 @@ def test_api_export_gedcom_content_disposition(client, db):
     headers = auth(owner)
 
     tree_resp = client.post(
-        f"{API}/trees", headers=headers, json={"name": "MyFamily"}
+        f"{API}/workspaces", headers=headers, json={"name": "MyFamily"}
     )
     assert tree_resp.status_code == 201
-    tree_id = tree_resp.json()["id"]
+    workspace_id = tree_resp.json()["id"]
 
     export_resp = client.get(
-        f"{API}/trees/{tree_id}/export-gedcom", headers=headers
+        f"{API}/workspaces/{workspace_id}/export-gedcom", headers=headers
     )
     assert export_resp.status_code == 200
     cd = export_resp.headers.get("content-disposition", "")
@@ -508,20 +539,21 @@ def test_api_gedcom_import_uses_filename_stem(client, db):
 
     ged = b"0 HEAD\n1 FILE MyAncestors\n0 TRLR\n"
     resp = client.post(
-        f"{API}/trees/import-gedcom",
+        f"{API}/workspaces/import-gedcom",
         headers=headers,
         files={"file": ("my_family.ged", io.BytesIO(ged), "text/plain")},
         # No 'name' field provided — filename stem takes precedence over HEAD FILE.
     )
     assert resp.status_code == 202
-    tree_id = wait_for_job(client, headers, resp.json()["job_id"])
-    tree = client.get(f"{API}/trees/{tree_id}", headers=headers).json()
+    workspace_id = wait_for_job(client, headers, resp.json()["job_id"])
+    tree = client.get(f"{API}/workspaces/{workspace_id}", headers=headers).json()
     assert tree["name"] == "my_family"
 
 
 # ---------------------------------------------------------------------------
 # 3. API regression test — UTF-16 BE import
 # ---------------------------------------------------------------------------
+
 
 def _minimal_gedcom_utf16be(n_indis: int = 2) -> bytes:
     """Build a minimal GEDCOM with n_indis INDI records, UTF-16 BE with BOM."""
@@ -548,7 +580,7 @@ def test_api_import_gedcom_utf16_be(client, db):
     assert raw[:2] == b"\xfe\xff"
 
     resp = client.post(
-        f"{API}/trees/import-gedcom",
+        f"{API}/workspaces/import-gedcom",
         headers=headers,
         files={"file": ("sample.ged", io.BytesIO(raw), "application/octet-stream")},
         data={"name": "UTF16Import"},
@@ -556,9 +588,7 @@ def test_api_import_gedcom_utf16_be(client, db):
     assert resp.status_code == 202, resp.text
     new_tree_id = wait_for_job(client, headers, resp.json()["job_id"])
 
-    members_resp = client.get(
-        f"{API}/trees/{new_tree_id}/members", headers=headers
-    )
+    members_resp = client.get(f"{API}/workspaces/{new_tree_id}/members", headers=headers)
     assert members_resp.status_code == 200
     imported_members = members_resp.json()
     # Must have imported both INDI records — this was 0 before the fix.
@@ -567,18 +597,17 @@ def test_api_import_gedcom_utf16_be(client, db):
     # A FAM with HUSB + WIFE but no MARR/DIV/_RELTYPE must yield a "married"
     # couple relation so the union node renders green, not grey. (#295)
     relations_resp = client.get(
-        f"{API}/trees/{new_tree_id}/relations", headers=headers
+        f"{API}/workspaces/{new_tree_id}/relations", headers=headers
     )
     assert relations_resp.status_code == 200
-    married_rels = [
-        r for r in relations_resp.json() if r["relation_type"] == "married"
-    ]
+    married_rels = [r for r in relations_resp.json() if r["relation_type"] == "married"]
     assert len(married_rels) == 1
 
 
 # ---------------------------------------------------------------------------
 # 4. Union relation-type defaulting (#295)
 # ---------------------------------------------------------------------------
+
 
 def _fam_gedcom(
     husb: bool = True,
@@ -637,7 +666,8 @@ class TestUnionRelationTypeDefaulting:
         """FAM with only one spouse and no type tags — no couple relation."""
         parsed = parse_gedcom(_fam_gedcom(wife=False))  # only HUSB
         couple_rels = [
-            r for r in parsed["relations"]
+            r
+            for r in parsed["relations"]
             if r["relation_type"] in ("married", "divorced", "partner")
         ]
         assert len(couple_rels) == 0
@@ -645,14 +675,18 @@ class TestUnionRelationTypeDefaulting:
     def test_no_spouses_no_couple_relation(self):
         """FAM with no HUSB/WIFE (children only) must not produce a couple relation."""
         lines = [
-            "0 HEAD", "1 CHAR UTF-8",
-            "0 @I1@ INDI", "1 NAME Kid /One/",
-            "0 @F1@ FAM", "1 CHIL @I1@",
+            "0 HEAD",
+            "1 CHAR UTF-8",
+            "0 @I1@ INDI",
+            "1 NAME Kid /One/",
+            "0 @F1@ FAM",
+            "1 CHIL @I1@",
             "0 TRLR",
         ]
         parsed = parse_gedcom("\n".join(lines) + "\n")
         couple_rels = [
-            r for r in parsed["relations"]
+            r
+            for r in parsed["relations"]
             if r["relation_type"] in ("married", "divorced", "partner")
         ]
         assert len(couple_rels) == 0
@@ -661,6 +695,7 @@ class TestUnionRelationTypeDefaulting:
 # ---------------------------------------------------------------------------
 # 5. parse_gedcom sort key derivation (#433)
 # ---------------------------------------------------------------------------
+
 
 class TestParseGedcomSortKeys:
     """parse_gedcom output members must include precomputed date sort keys.
@@ -720,6 +755,13 @@ class TestParseGedcomSortKeys:
         member = self._parse_member_with_dates(birt_date="1975")
         assert member["date_of_birth_sort"] == "1975-00-00"
 
+    def test_name_normalized_is_precomputed(self):
+        """parse_gedcom output must include name_normalized (#1024) — bulk
+        insert bypasses the ORM @validates hook that would otherwise derive
+        it, leaving imported members unsearchable."""
+        member = self._parse_member_with_dates()
+        assert member["name_normalized"] == "test person"
+
 
 # ---------------------------------------------------------------------------
 # 6. Adoption import / export (#502)
@@ -749,25 +791,13 @@ class TestAdoptionImport:
 
     def test_top_level_adop_event_sets_flag(self):
         """INDI with a top-level 1 ADOP event → adopted is True."""
-        ged = (
-            "0 HEAD\n"
-            "0 @I1@ INDI\n"
-            "1 NAME Child /Two/\n"
-            "1 ADOP\n"
-            "0 TRLR\n"
-        )
+        ged = "0 HEAD\n0 @I1@ INDI\n1 NAME Child /Two/\n1 ADOP\n0 TRLR\n"
         member = self._parse_single(ged)
         assert member["adopted"] is True
 
     def test_famc_without_pedi_not_adopted(self):
         """INDI with FAMC but no PEDI → adopted is False."""
-        ged = (
-            "0 HEAD\n"
-            "0 @I1@ INDI\n"
-            "1 NAME Child /Three/\n"
-            "1 FAMC @F1@\n"
-            "0 TRLR\n"
-        )
+        ged = "0 HEAD\n0 @I1@ INDI\n1 NAME Child /Three/\n1 FAMC @F1@\n0 TRLR\n"
         member = self._parse_single(ged)
         assert member["adopted"] is False
 
@@ -786,12 +816,7 @@ class TestAdoptionImport:
 
     def test_default_member_not_adopted(self):
         """INDI with no adoption indicators → adopted defaults to False."""
-        ged = (
-            "0 HEAD\n"
-            "0 @I1@ INDI\n"
-            "1 NAME Plain /Person/\n"
-            "0 TRLR\n"
-        )
+        ged = "0 HEAD\n0 @I1@ INDI\n1 NAME Plain /Person/\n0 TRLR\n"
         member = self._parse_single(ged)
         assert member["adopted"] is False
 

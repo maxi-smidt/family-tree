@@ -40,7 +40,7 @@ import { ViewLayout } from "@/components/layout/ViewLayout";
 import { useTranslation } from "react-i18next";
 import { comparePartialDates, formatDateWithFallback } from "@/utils/dateUtils";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { useTimelineSettings } from "@/hooks/useTimelineSettings";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
@@ -106,7 +106,7 @@ export const TimelineView = () => {
     refreshStories,
     initialized: storiesInitialized,
   } = useStoryStore();
-  const isReady = useTreeStore((state) => state.isReady);
+  const isReady = useWorkspaceStore((state) => state.isReady);
   const setMapFocus = useNavigationStore((s) => s.setMapFocus);
   const navigateTo = useNavigationStore((s) => s.navigateTo);
 

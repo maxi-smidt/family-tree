@@ -11,17 +11,11 @@ import { Switch } from "@/components/ui/switch";
 import { useListSettings, normalizeOrder } from "@/hooks/useListSettings";
 import { COLUMN_MAP } from "./columns";
 
-interface Props {
-  isVirtual: boolean;
-}
-
-export function ListCustomizePopover({ isVirtual }: Props) {
+export function ListCustomizePopover() {
   const { t } = useTranslation(undefined, { keyPrefix: "list-view.view" });
   const { order, hidden, toggleColumn, moveColumn, reset } = useListSettings();
 
-  const normalizedOrder = normalizeOrder(order).filter(
-    (id) => id !== "sourceTree" || isVirtual,
-  );
+  const normalizedOrder = normalizeOrder(order);
 
   return (
     <Popover>

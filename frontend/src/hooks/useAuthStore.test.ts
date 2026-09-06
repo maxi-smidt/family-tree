@@ -15,6 +15,8 @@ const mocks = vi.hoisted(() => {
     get: vi.fn(),
     post: vi.fn(),
     unauthorizedHandler: null as (() => void) | null,
+    schemaEpochMismatchHandler: null as (() => void) | null,
+    startupInProgressHandler: null as (() => void) | null,
     ApiError: MockApiError,
   };
 });
@@ -25,6 +27,7 @@ vi.mock("@/services/api", () => ({
     post: mocks.post,
   },
   ApiError: mocks.ApiError,
+  FRONTEND_SCHEMA_EPOCH: 2,
   getAuthToken: () => mocks.token,
   setAuthToken: (token: string | null) => {
     mocks.token = token;
@@ -32,6 +35,13 @@ vi.mock("@/services/api", () => ({
   onUnauthorized: (handler: () => void) => {
     mocks.unauthorizedHandler = handler;
   },
+  onSchemaEpochMismatch: (handler: () => void) => {
+    mocks.schemaEpochMismatchHandler = handler;
+  },
+  onStartupInProgress: (handler: () => void) => {
+    mocks.startupInProgressHandler = handler;
+  },
+  STARTUP_IN_PROGRESS_DETAIL: "startup_in_progress",
 }));
 
 import { useAuthStore } from "./useAuthStore";
@@ -238,6 +248,28 @@ describe("useAuthStore init", () => {
     expect(useAuthStore.getState().status).toBe("unreachable");
   });
 
+  it("leaves a startup-in-progress state alone instead of falling back to unreachable", async () => {
+    // The real api.ts fires onStartupInProgress (mocked below) before this
+    // rejection reaches the store — simulated here since that wiring lives
+    // outside the mocked module.
+    useAuthStore.setState({ status: "starting" });
+    mocks.get.mockRejectedValue(new ApiError(503, "startup_in_progress"));
+
+    await useAuthStore.getState().init();
+
+    expect(mocks.token).toBe("current-token");
+    expect(useAuthStore.getState().status).toBe("starting");
+  });
+
+  it("still falls back to unreachable on a 503 unrelated to the startup gate", async () => {
+    mocks.get.mockRejectedValue(new ApiError(503, "some_other_outage"));
+
+    await useAuthStore.getState().init();
+
+    expect(mocks.token).toBe("current-token");
+    expect(useAuthStore.getState().status).toBe("unreachable");
+  });
+
   it("bounds the startup /auth/config and /auth/me requests with a timeout", async () => {
     mocks.get.mockResolvedValue(USER);
 
@@ -265,5 +297,55 @@ describe("useAuthStore init", () => {
       user: USER,
     });
     expect(mocks.token).toBe("current-token");
+  });
+
+  it("shows an upgrade-required state and never calls /auth/me when the backend reports a different schema epoch", async () => {
+    mocks.get.mockResolvedValueOnce({ schema_epoch: 3 }); // /auth/config
+
+    await useAuthStore.getState().init();
+
+    expect(useAuthStore.getState().status).toBe("upgrade-required");
+    expect(mocks.get).toHaveBeenCalledTimes(1);
+  });
+
+  it("proceeds normally when the backend config omits schema_epoch (predates #1012)", async () => {
+    mocks.get
+      .mockResolvedValueOnce({}) // /auth/config, no schema_epoch field
+      .mockResolvedValueOnce(USER); // /auth/me
+
+    await useAuthStore.getState().init();
+
+    expect(useAuthStore.getState().status).toBe("authenticated");
+  });
+});
+
+describe("useAuthStore schema-epoch mismatch", () => {
+  afterEach(() => {
+    useAuthStore.getState().logout();
+  });
+
+  it("moves an authenticated session to upgrade-required when the backend rejects a mutation as a mismatch", () => {
+    useAuthStore.setState({ status: "authenticated", user: USER });
+
+    mocks.schemaEpochMismatchHandler?.();
+
+    expect(useAuthStore.getState().status).toBe("upgrade-required");
+  });
+});
+
+describe("useAuthStore startup-in-progress", () => {
+  afterEach(() => {
+    useAuthStore.getState().logout();
+  });
+
+  it("moves an authenticated session to a starting state without signing out", () => {
+    useAuthStore.setState({ status: "authenticated", user: USER });
+
+    mocks.startupInProgressHandler?.();
+
+    expect(useAuthStore.getState()).toMatchObject({
+      status: "starting",
+      user: USER,
+    });
   });
 });

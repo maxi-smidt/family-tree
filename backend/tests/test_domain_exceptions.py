@@ -49,8 +49,7 @@ FASTAPI_FREE_MODULES = [
 # their own for error handling.
 DOMAIN_SERVICE_MODULES = [
     "app.services.documents.document_service",
-    "app.services.trees.extract",
-    "app.services.trees.merge",
+    "app.services.workspaces.merge",
     "app.services.members.member_merge",
     "app.services.media.storage_usage",
 ]

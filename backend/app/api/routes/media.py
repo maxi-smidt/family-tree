@@ -1,4 +1,4 @@
-"""Tree-authorized media serving.
+"""Workspace-authorized media serving.
 
 Replaces the bare StaticFiles mount so every media request is gated behind the
 same tree-read-access check used by all other routes, including public-tree
@@ -12,10 +12,10 @@ from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_readable_tree_public
+from app.api.deps import get_readable_workspace_public
 from app.core.config import settings
 from app.db.session import get_db
-from app.models import DocumentFile, Tree
+from app.models import DocumentFile, Workspace
 
 router = APIRouter(tags=["media"])
 
@@ -40,11 +40,11 @@ _MIME: dict[str, str] = {
 }
 
 
-@router.get("/media/{tree_id}/{filename}")
+@router.get("/media/{workspace_id}/{filename}")
 def serve_media(
     filename: str,
     download: bool = False,
-    tree: Tree = Depends(get_readable_tree_public),
+    tree: Workspace = Depends(get_readable_workspace_public),
     db: Session = Depends(get_db),
 ) -> FileResponse:
     # Reject any attempt to escape the tree directory via path components.
@@ -54,7 +54,8 @@ def serve_media(
     path: Path = (settings.media_root / tree.id / filename).resolve()
     media_root = settings.media_root.resolve()
 
-    # Guard path traversal: resolved path must be a direct child of media_root/<tree_id>.
+    # Guard path traversal: the resolved path must be a direct child of the
+    # media_root/<workspace_id> directory.
     if path.parent != (media_root / tree.id).resolve():
         raise HTTPException(status_code=404, detail="Not found")
 
@@ -73,7 +74,7 @@ def serve_media(
         media_url = f"{settings.API_PREFIX}/media/{tree.id}/{filename}"
         original_name = db.scalar(
             select(DocumentFile.filename).where(
-                DocumentFile.tree_id == tree.id,
+                DocumentFile.workspace_id == tree.id,
                 DocumentFile.url == media_url,
                 DocumentFile.kind == "file",
                 DocumentFile.filename.is_not(None),

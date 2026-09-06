@@ -21,8 +21,8 @@ import {
 } from "@/components/ui/select";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useQualityReportStore } from "@/hooks/useQualityReportStore";
-import { useTreeStore } from "@/hooks/useTreeStore";
-import { TreeService } from "@/services/TreeService";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
+import { WorkspaceService } from "@/services/WorkspaceService";
 import { ApiError } from "@/services/api";
 import { MemberMergePreview } from "@/types/merge";
 import {
@@ -59,7 +59,7 @@ export const MergeMembersDialog = ({
     keyPrefix: "merge-members-dialog",
   });
   const { members } = useMemberStore();
-  const treeId = useTreeStore((s) => s.selectedTree?.id);
+  const workspaceId = useWorkspaceStore((s) => s.selectedTree?.id);
   const mergeMembers = useQualityReportStore((s) => s.mergeMembers);
 
   const [keepId, setKeepId] = useState(memberIds[0]);
@@ -78,7 +78,7 @@ export const MergeMembersDialog = ({
   }, [open, memberIds]);
 
   useEffect(() => {
-    if (!open || !treeId || !keepId || !removeId || keepId === removeId) {
+    if (!open || !workspaceId || !keepId || !removeId || keepId === removeId) {
       setPreview(null);
       setPreviewError(false);
       setResolutionState(null);
@@ -87,7 +87,7 @@ export const MergeMembersDialog = ({
     let cancelled = false;
     setLoadingPreview(true);
     setPreviewError(false);
-    TreeService.getMemberMergePreview(treeId, keepId, removeId)
+    WorkspaceService.getMemberMergePreview(workspaceId, keepId, removeId)
       .then((result) => {
         if (cancelled) return;
         setPreview(result);
@@ -104,7 +104,7 @@ export const MergeMembersDialog = ({
     return () => {
       cancelled = true;
     };
-  }, [open, treeId, keepId, removeId]);
+  }, [open, workspaceId, keepId, removeId]);
 
   const nameFor = (id: string) => {
     const member = members.find((m) => m.id === id);

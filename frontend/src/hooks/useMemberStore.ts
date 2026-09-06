@@ -6,12 +6,17 @@ import {
   MemberUpdate,
   RelationDB,
   RelationType,
+  WorkspaceSearchResultDB,
 } from "@/types/member";
 import { mapDiseaseFromDB, DiseaseDB, DiseaseInput } from "@/types/disease";
 import { mapMembersFromRows } from "@/utils/memberMapping";
 import { treeProcessorClient } from "@/workers/treeProcessorClient";
-import { TreeService } from "@/services/TreeService";
-import { activeTreeId, isActiveTree, isVirtualId } from "@/hooks/useTreeStore";
+import {
+  NeighborhoodContinuationDB,
+  WorkspaceService,
+} from "@/services/WorkspaceService";
+import { ApiError } from "@/services/api";
+import { activeTreeId, isActiveTree } from "@/hooks/useWorkspaceStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useStorageStore } from "@/hooks/useStorageStore";
 import { invalidateDerivedViews } from "@/hooks/invalidateDerivedViews";
@@ -25,6 +30,58 @@ import {
 } from "@/hooks/memberStoreLayout";
 
 const WINDOWED_MODE_THRESHOLD = 2_000;
+
+// Ceiling on how many members inline expansion (#989) may accumulate on the
+// canvas across repeated "expand"/"load more" actions, mirroring the
+// backend's own per-page ceiling (MAX_NEIGHBORHOOD_NODES). Beyond this the
+// user must reset the view rather than grow it further — the canvas cannot
+// accumulate an unbounded number of nodes by accident.
+export const EXPANSION_NODE_BUDGET = 1_500;
+
+// Merge a fetched page of raw rows/relations into the accumulated windowed
+// dataset, keyed by identity so repeated/overlapping pages (a retried
+// request, an overlapping cursor page) never duplicate a member or relation.
+// The freshest copy of a row wins.
+function mergeMemberRows(existing: MemberDB[], incoming: MemberDB[]): MemberDB[] {
+  const byId = new Map(existing.map((m) => [m.id, m]));
+  for (const m of incoming) byId.set(m.id, m);
+  return [...byId.values()];
+}
+
+function mergeRelations(existing: RelationDB[], incoming: RelationDB[]): RelationDB[] {
+  const key = (r: RelationDB) =>
+    `${r.from_member_id}␟${r.to_member_id}␟${r.relation_type}`;
+  const byKey = new Map(existing.map((r) => [key(r), r]));
+  for (const r of incoming) byKey.set(key(r), r);
+  return [...byKey.values()];
+}
+
+// Enforce EXPANSION_NODE_BUDGET on the merged buffer itself, not just on the
+// *next* call's guard — a single page can add up to the backend's own
+// per-page ceiling regardless of how much is already accumulated, so without
+// this a merge can overshoot the advertised cap before it is ever checked
+// again. `mergeMemberRows` preserves already-accumulated rows' relative
+// order (a Map.set on an existing key never moves it), so slicing keeps
+// every already-validated member and only drops the tail of newly-added
+// ones that would exceed the budget.
+function capNeighborhoodBuffer(
+  rows: MemberDB[],
+  relations: RelationDB[],
+  limit: number,
+): { rows: MemberDB[]; relations: RelationDB[] } {
+  if (rows.length <= limit) return { rows, relations };
+  const cappedRows = rows.slice(0, limit);
+  const keptIds = new Set(cappedRows.map((m) => m.id));
+  const cappedRelations = relations.filter(
+    (r) => keptIds.has(r.from_member_id) && keptIds.has(r.to_member_id),
+  );
+  return { rows: cappedRows, relations: cappedRelations };
+}
+
+// Bumped on every refreshMembers() call so a slower earlier fetch (e.g. a
+// focus change superseded by another before it returns) cannot overwrite the
+// members a later call already committed.
+let memberRefreshVersion = 0;
 
 // New-member creation still has its own relationship setup flow. Existing
 // member edits use the atomic member PATCH endpoint instead.
@@ -64,7 +121,7 @@ const MAX_HISTORY = 50;
 const MEMBER_DELETE_GRACE_MS = 8000;
 
 interface PendingMemberDeletion {
-  treeId: string;
+  workspaceId: string;
   member: Member;
   originalIndex: number;
   timeoutId: ReturnType<typeof setTimeout>;
@@ -74,12 +131,12 @@ interface PendingMemberDeletion {
 
 const pendingMemberDeletions = new Map<string, PendingMemberDeletion>();
 
-function pendingDeletionKey(treeId: string, memberId: string) {
-  return `${treeId}:${memberId}`;
+function pendingDeletionKey(workspaceId: string, memberId: string) {
+  return `${workspaceId}:${memberId}`;
 }
 
 function restorePendingMember(pending: PendingMemberDeletion) {
-  if (!isActiveTree(pending.treeId)) return;
+  if (!isActiveTree(pending.workspaceId)) return;
 
   useMemberStore.setState((state) => {
     if (state.members.some((member) => member.id === pending.member.id)) {
@@ -117,7 +174,7 @@ async function commitPendingMemberDeletion(key: string) {
     toast.dismiss(pending.toastId);
   }
   try {
-    await TreeService.removeMember(pending.treeId, pending.member.id);
+    await WorkspaceService.removeMember(pending.workspaceId, pending.member.id);
   } catch {
     pendingMemberDeletions.delete(key);
     restorePendingMember(pending);
@@ -126,20 +183,20 @@ async function commitPendingMemberDeletion(key: string) {
   }
 
   pendingMemberDeletions.delete(key);
-  if (isActiveTree(pending.treeId)) {
+  if (isActiveTree(pending.workspaceId)) {
     await refreshAfterOptimisticFailure(
       useMemberStore.getState().refreshMembers,
-      pending.treeId,
+      pending.workspaceId,
     );
     invalidateDerivedViews();
   }
 }
 
 // Drop any member with a pending optimistic deletion for this tree.
-function filterPendingDeletions(members: Member[], treeId: string): Member[] {
+function filterPendingDeletions(members: Member[], workspaceId: string): Member[] {
   return members.filter(
     (member) =>
-      !pendingMemberDeletions.has(pendingDeletionKey(treeId, member.id)),
+      !pendingMemberDeletions.has(pendingDeletionKey(workspaceId, member.id)),
   );
 }
 
@@ -150,11 +207,11 @@ function filterPendingDeletions(members: Member[], treeId: string): Member[] {
 function buildAppMembers(
   memberRows: MemberDB[],
   relations: RelationDB[],
-  treeId: string,
+  workspaceId: string,
 ): Member[] {
   return filterPendingDeletions(
     mapMembersFromRows(memberRows, relations),
-    treeId,
+    workspaceId,
   );
 }
 
@@ -166,27 +223,27 @@ function buildAppMembers(
 async function buildAppMembersOffThread(
   memberRows: MemberDB[],
   relations: RelationDB[],
-  treeId: string,
+  workspaceId: string,
 ): Promise<Member[]> {
   let mapped: Member[];
   try {
     mapped = await treeProcessorClient.parseMembers(
-      treeId,
+      workspaceId,
       memberRows,
       relations,
     );
   } catch {
     mapped = mapMembersFromRows(memberRows, relations);
   }
-  return filterPendingDeletions(mapped, treeId);
+  return filterPendingDeletions(mapped, workspaceId);
 }
 
 async function refreshAfterOptimisticFailure(
-  refreshMembers: (treeId?: string) => Promise<void>,
-  treeId: string,
+  refreshMembers: (workspaceId?: string) => Promise<void>,
+  workspaceId: string,
 ) {
   try {
-    await refreshMembers(treeId);
+    await refreshMembers(workspaceId);
   } catch (error) {
     console.error("Failed to refresh members after optimistic write:", error);
     toast.error(i18n.t("hooks.member-store.refresh-error"));
@@ -198,14 +255,34 @@ interface MemberState {
   detailLoadedIds: Set<string>;
   windowed: boolean;
   focusRootId: string | null;
+  // Section scope (#982/#988) the windowed neighborhood is currently
+  // restricted to, or null for the whole workspace. Set by `focusSection`.
+  focusSectionIds: string[] | null;
+  // True between a focus/scope change starting (setFocusRoot/focusSection/
+  // exitFocus) and its refetch settling. `focusRootId` briefly holds a
+  // transitional value (e.g. null while a section's default root resolves)
+  // during that window — consumers that push browser history entries key off
+  // this flag so they record the settled transition once, not each
+  // intermediate value.
+  focusPending: boolean;
   windowedForTreeId: string | null;
   neighborhoodUp: number;
   neighborhoodDown: number;
   neighborhoodTruncated: boolean;
   totalMemberCount: number;
+  // Raw rows/relations accumulated across inline expansion pages (#989) for
+  // the current windowed session — the source `refreshMembers`/`expand*`
+  // rebuild `members` from, so a later page can be merged in without losing
+  // parent-gender context for members fetched on an earlier page.
+  neighborhoodMemberRows: MemberDB[];
+  neighborhoodRelations: RelationDB[];
+  // Cursor continuing the current windowed query where the last page left
+  // off, or null once there is nothing more to load.
+  neighborhoodCursor: string | null;
+  continuations: NeighborhoodContinuationDB[];
   // One-shot request to center/highlight a member once it is present in
-  // `members` — set when navigating into a linked tree so the view lands on
-  // the counterpart (bridge person). Consumed and cleared by the canvas.
+  // `members` — set when following a member→tree link so the view lands on
+  // the target member. Consumed and cleared by the canvas.
   pendingLocateMemberId: string | null;
   setPendingLocateMemberId: (id: string | null) => void;
   undoStack: HistoryEntry[];
@@ -214,19 +291,44 @@ interface MemberState {
   undo: () => Promise<void>;
   redo: () => Promise<void>;
   searchMembers: (
-    treeId: string,
+    workspaceId: string,
     query: string,
     limit?: number,
   ) => Promise<MemberDB[]>;
   searchOtherTrees: (
     query: string,
-    excludeTreeId?: string,
+    excludeWorkspaceId?: string,
     perTreeLimit?: number,
     limit?: number,
   ) => Promise<MemberSearchHitDB[]>;
-  refreshMembers: (treeId?: string) => Promise<void>;
+  searchWorkspace: (
+    workspaceId: string,
+    query: string,
+    limit?: number,
+    cursor?: string,
+  ) => Promise<WorkspaceSearchResultDB>;
+  refreshMembers: (workspaceId?: string) => Promise<void>;
   setFocusRoot: (rootId: string) => Promise<void>;
   setNeighborhoodDepth: (up: number, down: number) => Promise<void>;
+  // Restrict the windowed neighborhood to one section (#989); pass null to
+  // return to the whole-workspace default (same as `exitFocus`, kept
+  // separate for the "back to explore" call sites' intent).
+  focusSection: (sectionId: string | null) => Promise<void>;
+  // Drop any focus root/section scope and return to the workspace's default
+  // view (full load or an unscoped windowed neighborhood, whichever the
+  // workspace size calls for).
+  exitFocus: () => Promise<void>;
+  // Inline expansion (#989): grow the current focus by one more generation in
+  // both directions, merging the result into the canvas instead of reloading
+  // it. No-op once EXPANSION_NODE_BUDGET is reached.
+  expandGeneration: () => Promise<void>;
+  // Fetch the next page of the current windowed query via its continuation
+  // cursor and merge it in. No-op with nothing left to load, or once
+  // EXPANSION_NODE_BUDGET is reached.
+  loadMoreNeighborhood: () => Promise<void>;
+  // Explicit reset path (#989 hardening): drop every merged expansion page
+  // and refetch a fresh, budget-sized window around the current focus.
+  resetNeighborhood: () => Promise<void>;
   fetchMemberDetail: (
     id: string,
     force?: boolean,
@@ -237,10 +339,8 @@ interface MemberState {
   updateMemberPartial: (
     id: string,
     changes: MemberUpdate,
-    treeId?: string,
-  ) => Promise<
-    { bridgeSync?: "synced" | "skipped_no_access" | null } | undefined
-  >;
+    workspaceId?: string,
+  ) => Promise<void>;
   batchSetCollapsed: (
     updates: { id: string; isCollapsed: boolean }[],
   ) => Promise<void>;
@@ -278,9 +378,15 @@ export const useMemberStore = create<MemberState>((set, get) => ({
   detailLoadedIds: new Set<string>(),
   windowed: false,
   focusRootId: null,
+  focusSectionIds: null,
+  focusPending: false,
   windowedForTreeId: null,
   neighborhoodUp: 3,
   neighborhoodDown: 3,
+  neighborhoodMemberRows: [],
+  neighborhoodRelations: [],
+  neighborhoodCursor: null,
+  continuations: [],
   neighborhoodTruncated: false,
   totalMemberCount: 0,
   pendingLocateMemberId: null,
@@ -298,11 +404,14 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     });
   },
 
-  searchMembers: (treeId, query, limit) =>
-    TreeService.searchMembers(treeId, query, limit),
+  searchMembers: (workspaceId, query, limit) =>
+    WorkspaceService.searchMembers(workspaceId, query, limit),
 
-  searchOtherTrees: (query, excludeTreeId, perTreeLimit, limit) =>
-    TreeService.searchOtherTrees(query, excludeTreeId, perTreeLimit, limit),
+  searchOtherTrees: (query, excludeWorkspaceId, perTreeLimit, limit) =>
+    WorkspaceService.searchOtherTrees(query, excludeWorkspaceId, perTreeLimit, limit),
+
+  searchWorkspace: (workspaceId, query, limit, cursor) =>
+    WorkspaceService.searchWorkspace(workspaceId, query, limit, cursor),
 
   undo: async () => {
     const { undoStack } = get();
@@ -334,8 +443,11 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     }
   },
 
-  refreshMembers: async (treeId = activeTreeId()) => {
-    if (!treeId) {
+  refreshMembers: async (workspaceId = activeTreeId()) => {
+    const version = ++memberRefreshVersion;
+    const stale = () => !isActiveTree(workspaceId) || version !== memberRefreshVersion;
+
+    if (!workspaceId) {
       set({
         members: [],
         detailLoadedIds: new Set<string>(),
@@ -348,6 +460,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     const {
       windowed,
       focusRootId,
+      focusSectionIds,
       windowedForTreeId,
       neighborhoodUp,
       neighborhoodDown,
@@ -356,19 +469,28 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     // Windowed state is scoped to the tree it was created for. When switching
     // to a different tree, fall through to the full-load path so stale
     // focusRootIds from the previous tree don't poison the new load.
-    const isWindowed = windowed && windowedForTreeId === treeId;
+    const isWindowed = windowed && windowedForTreeId === workspaceId;
 
     if (isWindowed) {
       try {
-        const nb = await TreeService.getNeighborhood(
-          treeId,
+        const nb = await WorkspaceService.getNeighborhood(
+          workspaceId,
           focusRootId ?? undefined,
           neighborhoodUp,
           neighborhoodDown,
+          true,
+          focusSectionIds ?? undefined,
         );
-        if (!isActiveTree(treeId)) return;
+        if (stale()) return;
+        // A fresh baseline page — start the accumulated expansion buffers
+        // over rather than merging, so nodes revoked or moved out of scope
+        // since the last fetch don't linger from an earlier merge.
         set({
-          members: buildAppMembers(nb.members, nb.relations, treeId),
+          members: buildAppMembers(nb.members, nb.relations, workspaceId),
+          neighborhoodMemberRows: nb.members,
+          neighborhoodRelations: nb.relations,
+          neighborhoodCursor: nb.next_cursor ?? null,
+          continuations: nb.continuations ?? [],
           detailLoadedIds: new Set<string>(),
           focusRootId: nb.root_id || null,
           neighborhoodTruncated: nb.truncated,
@@ -381,14 +503,58 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     }
 
     // Clear any stale windowed state from a different tree before the full load.
-    if (windowed && windowedForTreeId !== treeId) {
-      set({ windowed: false, focusRootId: null, windowedForTreeId: null });
+    if (windowed && windowedForTreeId !== workspaceId) {
+      set({
+        windowed: false,
+        focusRootId: null,
+        focusSectionIds: null,
+        windowedForTreeId: null,
+        neighborhoodMemberRows: [],
+        neighborhoodRelations: [],
+        neighborhoodCursor: null,
+        continuations: [],
+      });
     }
 
-    // Normal mode: full load
+    // Ask the bounded endpoint first — its total_member_count comes from an
+    // indexed count query, not a full scan — so a large workspace is never
+    // fetched in full just to discover it is large.
+    try {
+      const nb = await WorkspaceService.getNeighborhood(
+        workspaceId,
+        undefined,
+        neighborhoodUp,
+        neighborhoodDown,
+      );
+      if (stale()) return;
+      if (nb.total_member_count > WINDOWED_MODE_THRESHOLD) {
+        set({
+          windowed: true,
+          windowedForTreeId: workspaceId,
+          members: buildAppMembers(nb.members, nb.relations, workspaceId),
+          neighborhoodMemberRows: nb.members,
+          neighborhoodRelations: nb.relations,
+          neighborhoodCursor: nb.next_cursor ?? null,
+          continuations: nb.continuations ?? [],
+          detailLoadedIds: new Set<string>(),
+          focusRootId: nb.root_id || null,
+          neighborhoodTruncated: nb.truncated,
+          totalMemberCount: nb.total_member_count,
+        });
+        return;
+      }
+    } catch {
+      // Probe failed — fall through to the full load below, unless a newer
+      // call has already superseded this one (no point starting an
+      // O(workspace) fetch whose result would just be discarded).
+      if (stale()) return;
+    }
+
+    // Small/medium workspace (or the probe above didn't resolve): full load,
+    // mapped off the main thread (worker) so the UI never blocks.
     const [membersResult, relationsResult] = await Promise.allSettled([
-      TreeService.getMembers(treeId, true),
-      TreeService.getRelations(treeId),
+      WorkspaceService.getMembers(workspaceId, true),
+      WorkspaceService.getRelations(workspaceId),
     ]);
 
     if (
@@ -398,79 +564,73 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       return;
     }
 
-    if (!isActiveTree(treeId)) return;
+    if (stale()) return;
 
     const memberRows = membersResult.value;
     const relations = relationsResult.value;
 
-    // Virtual views don't expose the neighborhood/search endpoints, so never
-    // auto-enter windowed mode for them — it would 404 and fall back to a full
-    // load anyway. Real trees over the threshold switch to the windowed view.
-    if (memberRows.length > WINDOWED_MODE_THRESHOLD && !isVirtualId(treeId)) {
-      // Auto-enter windowed mode: load neighborhood with default root
-      set({
-        windowed: true,
-        windowedForTreeId: treeId,
-        totalMemberCount: memberRows.length,
-      });
-      try {
-        const nb = await TreeService.getNeighborhood(
-          treeId,
-          undefined,
-          neighborhoodUp,
-          neighborhoodDown,
-        );
-        if (!isActiveTree(treeId)) return;
-        set({
-          members: buildAppMembers(nb.members, nb.relations, treeId),
-          detailLoadedIds: new Set<string>(),
-          focusRootId: nb.root_id || null,
-          neighborhoodTruncated: nb.truncated,
-          totalMemberCount: nb.total_member_count,
-        });
-      } catch {
-        // Neighborhood load failed — fall back to the full dataset without
-        // windowed UI, mapped off the main thread since it can be large.
-        const appMembers = await buildAppMembersOffThread(
-          memberRows,
-          relations,
-          treeId,
-        );
-        if (!isActiveTree(treeId)) return;
-        set({
-          windowed: false,
-          windowedForTreeId: null,
-          members: appMembers,
-          detailLoadedIds: new Set<string>(),
-          totalMemberCount: memberRows.length,
-        });
-      }
-      return;
-    }
-
-    // Normal mode: full load. Map off the main thread (worker) for large
-    // datasets so the UI never blocks; falls back to synchronous mapping.
     const appMembers = await buildAppMembersOffThread(
       memberRows,
       relations,
-      treeId,
+      workspaceId,
     );
-    if (!isActiveTree(treeId)) return;
+    if (stale()) return;
     set({
+      windowed: false,
+      windowedForTreeId: null,
       members: appMembers,
+      neighborhoodMemberRows: [],
+      neighborhoodRelations: [],
+      neighborhoodCursor: null,
+      continuations: [],
       detailLoadedIds: new Set<string>(),
       totalMemberCount: memberRows.length,
     });
   },
 
   setFocusRoot: async (rootId: string) => {
-    const treeId = activeTreeId();
+    const workspaceId = activeTreeId();
     set({
+      focusPending: true,
       windowed: true,
       focusRootId: rootId,
-      windowedForTreeId: treeId ?? null,
+      focusSectionIds: null,
+      windowedForTreeId: workspaceId ?? null,
     });
     await get().refreshMembers();
+    set({ focusPending: false });
+  },
+
+  focusSection: async (sectionId: string | null) => {
+    const workspaceId = activeTreeId();
+    set({
+      focusPending: true,
+      windowed: true,
+      // The default root within the section is resolved by the fetch below
+      // (null here is transitional, not a settled focus) — `focusPending`
+      // keeps consumers like browser-history push from treating it as one.
+      focusRootId: null,
+      focusSectionIds: sectionId ? [sectionId] : null,
+      windowedForTreeId: workspaceId ?? null,
+    });
+    await get().refreshMembers();
+    set({ focusPending: false });
+  },
+
+  exitFocus: async () => {
+    set({
+      focusPending: true,
+      windowed: false,
+      focusRootId: null,
+      focusSectionIds: null,
+      windowedForTreeId: null,
+      neighborhoodMemberRows: [],
+      neighborhoodRelations: [],
+      neighborhoodCursor: null,
+      continuations: [],
+    });
+    await get().refreshMembers();
+    set({ focusPending: false });
   },
 
   setNeighborhoodDepth: async (up: number, down: number) => {
@@ -478,14 +638,125 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     await get().refreshMembers();
   },
 
-  fetchMemberDetail: async (id: string, force = false) => {
-    const treeId = activeTreeId();
-    if (!treeId) return undefined;
+  expandGeneration: async () => {
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return;
+    const {
+      neighborhoodUp,
+      neighborhoodDown,
+      focusRootId,
+      focusSectionIds,
+      neighborhoodMemberRows,
+      neighborhoodRelations,
+    } = get();
+    if (neighborhoodMemberRows.length >= EXPANSION_NODE_BUDGET) return;
 
-    // Virtual view members: treat as already loaded — return surface data from store
-    if (isVirtualId(treeId)) {
-      return get().members.find((m) => m.id === id);
+    const nextUp = Math.min(neighborhoodUp + 1, 20);
+    const nextDown = Math.min(neighborhoodDown + 1, 20);
+    const version = ++memberRefreshVersion;
+    const stale = () => !isActiveTree(workspaceId) || version !== memberRefreshVersion;
+
+    try {
+      const nb = await WorkspaceService.getNeighborhood(
+        workspaceId,
+        focusRootId ?? undefined,
+        nextUp,
+        nextDown,
+        true,
+        focusSectionIds ?? undefined,
+      );
+      if (stale()) return;
+      const { rows: mergedRows, relations: mergedRelations } = capNeighborhoodBuffer(
+        mergeMemberRows(neighborhoodMemberRows, nb.members),
+        mergeRelations(neighborhoodRelations, nb.relations),
+        EXPANSION_NODE_BUDGET,
+      );
+      set({
+        neighborhoodUp: nextUp,
+        neighborhoodDown: nextDown,
+        neighborhoodMemberRows: mergedRows,
+        neighborhoodRelations: mergedRelations,
+        members: buildAppMembers(mergedRows, mergedRelations, workspaceId),
+        neighborhoodTruncated: nb.truncated,
+        totalMemberCount: nb.total_member_count,
+        neighborhoodCursor: nb.next_cursor ?? null,
+        continuations: nb.continuations ?? [],
+      });
+      await get().updateLayout();
+    } catch {
+      // Transient error: leave the existing depth/members unchanged.
     }
+  },
+
+  loadMoreNeighborhood: async () => {
+    const workspaceId = activeTreeId();
+    const {
+      neighborhoodCursor,
+      neighborhoodMemberRows,
+      neighborhoodRelations,
+      focusRootId,
+      focusSectionIds,
+      neighborhoodUp,
+      neighborhoodDown,
+    } = get();
+    if (!workspaceId || !neighborhoodCursor) return;
+    if (neighborhoodMemberRows.length >= EXPANSION_NODE_BUDGET) return;
+
+    const version = ++memberRefreshVersion;
+    const stale = () => !isActiveTree(workspaceId) || version !== memberRefreshVersion;
+
+    try {
+      const nb = await WorkspaceService.getNeighborhood(
+        workspaceId,
+        focusRootId ?? undefined,
+        neighborhoodUp,
+        neighborhoodDown,
+        true,
+        focusSectionIds ?? undefined,
+        undefined,
+        neighborhoodCursor,
+      );
+      if (stale()) return;
+      const { rows: mergedRows, relations: mergedRelations } = capNeighborhoodBuffer(
+        mergeMemberRows(neighborhoodMemberRows, nb.members),
+        mergeRelations(neighborhoodRelations, nb.relations),
+        EXPANSION_NODE_BUDGET,
+      );
+      set({
+        neighborhoodMemberRows: mergedRows,
+        neighborhoodRelations: mergedRelations,
+        members: buildAppMembers(mergedRows, mergedRelations, workspaceId),
+        totalMemberCount: nb.total_member_count,
+        neighborhoodCursor: nb.next_cursor ?? null,
+        continuations: nb.continuations ?? [],
+      });
+      await get().updateLayout();
+    } catch (error) {
+      if (!isActiveTree(workspaceId)) return;
+      if (error instanceof ApiError && error.status === 409) {
+        // The graph (or the caller's access to it) moved on since this
+        // cursor was minted — drop it instead of retrying with an offset
+        // that may no longer mean the same thing. An explicit reset or a
+        // fresh focus change restarts the traversal from scratch.
+        set({ neighborhoodCursor: null, continuations: [] });
+        toast.error(i18n.t("tree-view.continuation.stale-error"));
+      }
+    }
+  },
+
+  resetNeighborhood: async () => {
+    set({
+      neighborhoodMemberRows: [],
+      neighborhoodRelations: [],
+      neighborhoodCursor: null,
+      continuations: [],
+    });
+    await get().refreshMembers();
+  },
+
+  fetchMemberDetail: async (id: string, force = false) => {
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return undefined;
 
     // Cache hit: skip network round-trip when detail is already loaded and not forced
     if (!force && get().detailLoadedIds.has(id)) {
@@ -497,8 +768,8 @@ export const useMemberStore = create<MemberState>((set, get) => ({
 
     try {
       const [detailResult, diseasesResult] = await Promise.allSettled([
-        TreeService.getMember(treeId, id),
-        TreeService.getDiseases(treeId),
+        WorkspaceService.getMember(workspaceId, id),
+        WorkspaceService.getDiseases(workspaceId),
       ]);
 
       if (detailResult.status === "rejected") {
@@ -554,7 +825,13 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       detailLoadedIds: new Set<string>(),
       windowed: false,
       focusRootId: null,
+      focusSectionIds: null,
+      focusPending: false,
       windowedForTreeId: null,
+      neighborhoodMemberRows: [],
+      neighborhoodRelations: [],
+      neighborhoodCursor: null,
+      continuations: [],
       neighborhoodTruncated: false,
       totalMemberCount: 0,
       pendingLocateMemberId: null,
@@ -563,22 +840,22 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     }),
 
   addMember: async (newMember: Member) => {
-    const treeId = activeTreeId();
-    if (!treeId) return;
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return;
 
-    await TreeService.addMember(treeId, newMember);
+    await WorkspaceService.addMember(workspaceId, newMember);
 
     if (newMember.parents.paternalParent) {
-      await TreeService.addRelation(
-        treeId,
+      await WorkspaceService.addRelation(
+        workspaceId,
         newMember.id,
         newMember.parents.paternalParent,
         "parent",
       );
     }
     if (newMember.parents.maternalParent) {
-      await TreeService.addRelation(
-        treeId,
+      await WorkspaceService.addRelation(
+        workspaceId,
         newMember.id,
         newMember.parents.maternalParent,
         "parent",
@@ -594,8 +871,8 @@ export const useMemberStore = create<MemberState>((set, get) => ({
         ) {
           continue;
         }
-        await TreeService.addRelation(
-          treeId,
+        await WorkspaceService.addRelation(
+          workspaceId,
           newMember.id,
           rel.toMemberId,
           rel.relationType,
@@ -603,7 +880,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       }
     }
 
-    await get().refreshMembers(treeId);
+    await get().refreshMembers(workspaceId);
     invalidateDerivedViews();
 
     if (newMember.date.birth) {
@@ -626,22 +903,22 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     const captured = newMember;
     get()._pushHistory({
       undo: async () => {
-        await TreeService.removeMember(treeId, captured.id);
-        await get().refreshMembers(treeId);
+        await WorkspaceService.removeMember(workspaceId, captured.id);
+        await get().refreshMembers(workspaceId);
       },
       redo: async () => {
-        await TreeService.addMember(treeId, captured);
+        await WorkspaceService.addMember(workspaceId, captured);
         if (captured.parents.paternalParent) {
-          await TreeService.addRelation(
-            treeId,
+          await WorkspaceService.addRelation(
+            workspaceId,
             captured.id,
             captured.parents.paternalParent,
             "parent",
           );
         }
         if (captured.parents.maternalParent) {
-          await TreeService.addRelation(
-            treeId,
+          await WorkspaceService.addRelation(
+            workspaceId,
             captured.id,
             captured.parents.maternalParent,
             "parent",
@@ -656,28 +933,28 @@ export const useMemberStore = create<MemberState>((set, get) => ({
             ) {
               continue;
             }
-            await TreeService.addRelation(
-              treeId,
+            await WorkspaceService.addRelation(
+              workspaceId,
               captured.id,
               rel.toMemberId,
               rel.relationType,
             );
           }
         }
-        await get().refreshMembers(treeId);
+        await get().refreshMembers(workspaceId);
       },
     });
   },
 
   removeMember: async (memberId: string) => {
-    const treeId = activeTreeId();
-    if (!treeId) return;
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return;
 
     const originalIndex = get().members.findIndex((m) => m.id === memberId);
     const captured = get().members[originalIndex];
     if (!captured) return;
 
-    const key = pendingDeletionKey(treeId, memberId);
+    const key = pendingDeletionKey(workspaceId, memberId);
     if (pendingMemberDeletions.has(key)) return;
 
     set((state) => ({
@@ -686,7 +963,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     }));
 
     const pending: PendingMemberDeletion = {
-      treeId,
+      workspaceId,
       member: captured,
       originalIndex,
       timeoutId: setTimeout(() => {
@@ -710,21 +987,18 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     changes: MemberUpdate,
     requestedTreeId?: string,
   ) => {
-    const treeId = requestedTreeId ?? activeTreeId();
-    if (!treeId) return;
+    const workspaceId = requestedTreeId ?? activeTreeId();
+    if (!workspaceId) return;
 
     const currentMember = get().members.find((m) => m.id === id);
-    const updated = await TreeService.updateMember(treeId, id, changes);
-    // Transient outcome of the bridge-person mirror — surfaced to callers so
-    // the member form can tell the editor when the counterpart didn't follow.
-    const result = { bridgeSync: updated?.bridgeSync ?? null };
+    await WorkspaceService.updateMember(workspaceId, id, changes);
 
-    await get().refreshMembers(treeId);
-    if (isActiveTree(treeId)) invalidateDerivedViews();
-    if ("imageData" in changes && isActiveTree(treeId))
+    await get().refreshMembers(workspaceId);
+    if (isActiveTree(workspaceId)) invalidateDerivedViews();
+    if ("imageData" in changes && isActiveTree(workspaceId))
       useStorageStore.getState().refreshStorageUsage();
 
-    if (!currentMember) return result;
+    if (!currentMember) return;
 
     const previous: MemberUpdate = {
       gender: currentMember.gender,
@@ -752,7 +1026,6 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       isCollapsed: currentMember.isCollapsed,
       positionX: currentMember.position.x,
       positionY: currentMember.position.y,
-      linkedTreeId: currentMember.linkedTreeId ?? null,
     };
     const reverseChanges: MemberUpdate = {};
     for (const key of Object.keys(changes) as (keyof MemberUpdate)[]) {
@@ -760,9 +1033,9 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     }
 
     const restore = async (update: MemberUpdate) => {
-      await TreeService.updateMember(treeId, id, update);
-      await get().refreshMembers(treeId);
-      if (isActiveTree(treeId)) invalidateDerivedViews();
+      await WorkspaceService.updateMember(workspaceId, id, update);
+      await get().refreshMembers(workspaceId);
+      if (isActiveTree(workspaceId)) invalidateDerivedViews();
     };
 
     get()._pushHistory({
@@ -773,25 +1046,24 @@ export const useMemberStore = create<MemberState>((set, get) => ({
         await restore(changes);
       },
     });
-    return result;
   },
 
   // Persist collapse/expand state for many members in one request and reflect
   // locally — no full refetch needed since only isCollapsed changed.
   batchSetCollapsed: async (updates) => {
-    const treeId = activeTreeId();
-    if (!treeId || updates.length === 0) return;
+    const workspaceId = activeTreeId();
+    if (!workspaceId || updates.length === 0) return;
 
     const previous = captureCollapsedState(get().members, updates);
     set({ members: applyCollapsedState(get().members, updates) });
 
     try {
-      await TreeService.updateMemberCollapsedBulk(treeId, updates);
+      await WorkspaceService.updateMemberCollapsedBulk(workspaceId, updates);
     } catch (error) {
-      if (isActiveTree(treeId)) {
+      if (isActiveTree(workspaceId)) {
         set({ members: applyCollapsedState(get().members, previous) });
         toast.error(i18n.t("tree-view.persistence.collapse-error"));
-        await refreshAfterOptimisticFailure(get().refreshMembers, treeId);
+        await refreshAfterOptimisticFailure(get().refreshMembers, workspaceId);
       }
       throw error;
     }
@@ -800,36 +1072,32 @@ export const useMemberStore = create<MemberState>((set, get) => ({
   // Persist node positions (drag / re-layout) in one request and reflect them
   // locally, instead of re-fetching the whole tree — only coordinates changed.
   persistPositions: async (positions) => {
-    const treeId = activeTreeId();
-    if (!treeId || positions.length === 0) return;
+    const workspaceId = activeTreeId();
+    if (!workspaceId || positions.length === 0) return;
 
     const oldPositions = capturePositions(get().members, positions);
     set({ members: applyPositionState(get().members, positions) });
 
     try {
-      await TreeService.updateMemberPositions(
-        treeId,
+      await WorkspaceService.updateMemberPositions(
+        workspaceId,
         positions.map((p) => ({ id: p.id, positionX: p.x, positionY: p.y })),
       );
     } catch (error) {
-      if (isActiveTree(treeId)) {
+      if (isActiveTree(workspaceId)) {
         set({ members: applyPositionState(get().members, oldPositions) });
         toast.error(i18n.t("tree-view.persistence.positions-error"));
-        await refreshAfterOptimisticFailure(get().refreshMembers, treeId);
+        await refreshAfterOptimisticFailure(get().refreshMembers, workspaceId);
       }
       throw error;
     }
-
-    // Virtual view positions are stored in VirtualViewPosition, not source
-    // trees — they're independent. But position moves have no undo history.
-    if (isVirtualId(treeId)) return;
 
     get()._pushHistory({
       undo: async () => {
         set({ members: applyPositionState(get().members, oldPositions) });
         try {
-          await TreeService.updateMemberPositions(
-            treeId,
+          await WorkspaceService.updateMemberPositions(
+            workspaceId,
             oldPositions.map((p) => ({
               id: p.id,
               positionX: p.x,
@@ -837,10 +1105,10 @@ export const useMemberStore = create<MemberState>((set, get) => ({
             })),
           );
         } catch (error) {
-          if (isActiveTree(treeId)) {
+          if (isActiveTree(workspaceId)) {
             set({ members: applyPositionState(get().members, positions) });
             toast.error(i18n.t("tree-view.persistence.positions-error"));
-            await refreshAfterOptimisticFailure(get().refreshMembers, treeId);
+            await refreshAfterOptimisticFailure(get().refreshMembers, workspaceId);
           }
           throw error;
         }
@@ -848,8 +1116,8 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       redo: async () => {
         set({ members: applyPositionState(get().members, positions) });
         try {
-          await TreeService.updateMemberPositions(
-            treeId,
+          await WorkspaceService.updateMemberPositions(
+            workspaceId,
             positions.map((p) => ({
               id: p.id,
               positionX: p.x,
@@ -857,10 +1125,10 @@ export const useMemberStore = create<MemberState>((set, get) => ({
             })),
           );
         } catch (error) {
-          if (isActiveTree(treeId)) {
+          if (isActiveTree(workspaceId)) {
             set({ members: applyPositionState(get().members, oldPositions) });
             toast.error(i18n.t("tree-view.persistence.positions-error"));
-            await refreshAfterOptimisticFailure(get().refreshMembers, treeId);
+            await refreshAfterOptimisticFailure(get().refreshMembers, workspaceId);
           }
           throw error;
         }
@@ -869,14 +1137,14 @@ export const useMemberStore = create<MemberState>((set, get) => ({
   },
 
   updateLayout: async () => {
-    const treeId = activeTreeId();
+    const workspaceId = activeTreeId();
     const { members, refreshMembers, persistPositions } = get();
-    if (!treeId) return;
+    if (!workspaceId) return;
 
     set({ isLayouting: true });
     try {
       const newPositions = await treeProcessorClient.computeLayout(
-        treeId,
+        workspaceId,
         members,
       );
       await persistPositions(
@@ -889,46 +1157,46 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     } catch (error) {
       console.error("Failed to update layout:", error);
       toast.error(i18n.t("hooks.member-store.layout-error"));
-      await refreshMembers(treeId);
+      await refreshMembers(workspaceId);
     } finally {
       set({ isLayouting: false });
     }
   },
 
   addRelation: async (fromId: string, toId: string, type: RelationType) => {
-    const treeId = activeTreeId();
-    if (!treeId) return;
-    await TreeService.addRelation(treeId, fromId, toId, type);
-    await get().refreshMembers(treeId);
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return;
+    await WorkspaceService.addRelation(workspaceId, fromId, toId, type);
+    await get().refreshMembers(workspaceId);
     invalidateDerivedViews();
 
     get()._pushHistory({
       undo: async () => {
-        await TreeService.removeRelation(treeId, fromId, toId, type);
-        await get().refreshMembers(treeId);
+        await WorkspaceService.removeRelation(workspaceId, fromId, toId, type);
+        await get().refreshMembers(workspaceId);
       },
       redo: async () => {
-        await TreeService.addRelation(treeId, fromId, toId, type);
-        await get().refreshMembers(treeId);
+        await WorkspaceService.addRelation(workspaceId, fromId, toId, type);
+        await get().refreshMembers(workspaceId);
       },
     });
   },
 
   removeRelation: async (fromId: string, toId: string, type: RelationType) => {
-    const treeId = activeTreeId();
-    if (!treeId) return;
-    await TreeService.removeRelation(treeId, fromId, toId, type);
-    await get().refreshMembers(treeId);
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return;
+    await WorkspaceService.removeRelation(workspaceId, fromId, toId, type);
+    await get().refreshMembers(workspaceId);
     invalidateDerivedViews();
 
     get()._pushHistory({
       undo: async () => {
-        await TreeService.addRelation(treeId, fromId, toId, type);
-        await get().refreshMembers(treeId);
+        await WorkspaceService.addRelation(workspaceId, fromId, toId, type);
+        await get().refreshMembers(workspaceId);
       },
       redo: async () => {
-        await TreeService.removeRelation(treeId, fromId, toId, type);
-        await get().refreshMembers(treeId);
+        await WorkspaceService.removeRelation(workspaceId, fromId, toId, type);
+        await get().refreshMembers(workspaceId);
       },
     });
   },
@@ -943,8 +1211,8 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     idB: string,
     type: RelationType,
   ) => {
-    const treeId = activeTreeId();
-    if (!treeId) return;
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return;
 
     // Capture which directions actually exist so we delete (and undo) exactly
     // those — a link may be stored in one or both directions.
@@ -961,43 +1229,43 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     const removeBoth = () =>
       Promise.all([
         hasForward
-          ? TreeService.removeRelation(treeId, idA, idB, type)
+          ? WorkspaceService.removeRelation(workspaceId, idA, idB, type)
           : Promise.resolve(),
         hasBackward
-          ? TreeService.removeRelation(treeId, idB, idA, type)
+          ? WorkspaceService.removeRelation(workspaceId, idB, idA, type)
           : Promise.resolve(),
       ]);
     const addBoth = () =>
       Promise.all([
         hasForward
-          ? TreeService.addRelation(treeId, idA, idB, type)
+          ? WorkspaceService.addRelation(workspaceId, idA, idB, type)
           : Promise.resolve(),
         hasBackward
-          ? TreeService.addRelation(treeId, idB, idA, type)
+          ? WorkspaceService.addRelation(workspaceId, idB, idA, type)
           : Promise.resolve(),
       ]);
 
     await removeBoth();
-    await get().refreshMembers(treeId);
+    await get().refreshMembers(workspaceId);
     invalidateDerivedViews();
 
     get()._pushHistory({
       undo: async () => {
         await addBoth();
-        await get().refreshMembers(treeId);
+        await get().refreshMembers(workspaceId);
       },
       redo: async () => {
         await removeBoth();
-        await get().refreshMembers(treeId);
+        await get().refreshMembers(workspaceId);
       },
     });
   },
 
   addDisease: async (memberId: string, disease: DiseaseInput) => {
-    const treeId = activeTreeId();
-    if (!treeId) return;
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return;
     const id = crypto.randomUUID();
-    await TreeService.addDisease(treeId, id, memberId, disease);
+    await WorkspaceService.addDisease(workspaceId, id, memberId, disease);
     await get().fetchMemberDetail(memberId, true);
     invalidateDerivedViews();
   },
@@ -1007,17 +1275,17 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     diseaseId: string,
     disease: DiseaseInput,
   ) => {
-    const treeId = activeTreeId();
-    if (!treeId) return;
-    await TreeService.updateDisease(treeId, diseaseId, disease);
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return;
+    await WorkspaceService.updateDisease(workspaceId, diseaseId, disease);
     await get().fetchMemberDetail(memberId, true);
     invalidateDerivedViews();
   },
 
   removeDisease: async (memberId: string, diseaseId: string) => {
-    const treeId = activeTreeId();
-    if (!treeId) return;
-    await TreeService.removeDisease(treeId, diseaseId);
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return;
+    await WorkspaceService.removeDisease(workspaceId, diseaseId);
     await get().fetchMemberDetail(memberId, true);
     invalidateDerivedViews();
   },

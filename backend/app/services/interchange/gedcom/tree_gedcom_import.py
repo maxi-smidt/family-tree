@@ -5,6 +5,12 @@ than the native bundle import
 (``app.services.interchange.bundles.tree_bundle_import``) — GEDCOM carries
 only members and relations — but shares the same quota-enforcement and
 rollback contract.
+
+GEDCOM import always creates a new workspace, like the native bundle
+importer; it never merges into an existing one (#1016 scoped that out —
+matching sections/members from an arbitrary GEDCOM file into an existing
+workspace's own is a separate, product-level feature, not part of this
+migration to the workspace contract).
 """
 
 from __future__ import annotations
@@ -13,19 +19,24 @@ from uuid import uuid4
 
 from app.db.base import utcnow_iso
 from app.db.session import SessionLocal
-from app.models import Member, Relation, Tree, User
+from app.models import Member, Relation, Section, SectionMember, User, Workspace
 from app.services.activity.activity import record_activity
-from app.services.event_bus import publish_tree_event
+from app.services.event_bus import publish_workspace_event
 from app.services.interchange.bundles.bundle_types import GedcomParseResult
 from app.services.interchange.bundles.tree_bundle_import import (
     BULK_CHUNK,
     bulk_insert_chunked,
     enforce_import_quota,
 )
-from app.services.media.storage import delete_tree_media
+from app.services.media.storage import delete_workspace_media
 from app.services.system.job_service import ProgressCallback
-from app.services.trees.tree_state import mark_tree_opened
 from app.services.unit_of_work import UnitOfWork
+from app.services.workspaces.workspace_state import mark_workspace_opened
+
+# Name of the single section a GEDCOM import seeds with every member it
+# brings in — deterministic and always available, since GEDCOM itself has no
+# notion of sections to read one from.
+DEFAULT_SECTION_NAME = "All members"
 
 
 def do_import_gedcom(
@@ -34,12 +45,12 @@ def do_import_gedcom(
     tree_name: str,
     user_id: str,
 ) -> str:
-    """Run the GEDCOM import in a background thread; return new tree_id."""
+    """Run the GEDCOM import in a background thread; return new workspace_id."""
     progress_cb(5)
     db = SessionLocal()
-    tree_id: str | None = None
+    workspace_id: str | None = None
     try:
-        tree = Tree(
+        tree = Workspace(
             id=str(uuid4()),
             name=tree_name,
             owner_id=user_id,
@@ -47,8 +58,8 @@ def do_import_gedcom(
         )
         db.add(tree)
         db.flush()
-        mark_tree_opened(db, tree.id, user_id)
-        tree_id = tree.id
+        mark_workspace_opened(db, tree.id, user_id)
+        workspace_id = tree.id
         progress_cb(15)
 
         members = parsed.get("members", [])
@@ -60,7 +71,7 @@ def do_import_gedcom(
         for i, m in enumerate(members):
             data = dict(m)
             data.pop("tree_id", None)
-            data["tree_id"] = tree.id
+            data["workspace_id"] = tree.id
             member_dicts.append(data)
             inserted_member_ids.add(m["id"])
             if i % BULK_CHUNK == 0:
@@ -72,7 +83,7 @@ def do_import_gedcom(
 
         relation_dicts: list[dict] = [
             {
-                "tree_id": tree.id,
+                "workspace_id": tree.id,
                 "from_member_id": rel["from_member_id"],
                 "to_member_id": rel["to_member_id"],
                 "relation_type": rel["relation_type"],
@@ -86,17 +97,37 @@ def do_import_gedcom(
         bulk_insert_chunked(db, Relation, relation_dicts)
         progress_cb(90)
 
+        if inserted_member_ids:
+            section = Section(
+                id=str(uuid4()),
+                workspace_id=tree.id,
+                name=DEFAULT_SECTION_NAME,
+                position=0,
+                created_at=utcnow_iso(),
+            )
+            db.add(section)
+            db.flush()
+            db.add_all(
+                SectionMember(section_id=section.id, member_id=member_id)
+                for member_id in inserted_member_ids
+            )
+
         enforce_import_quota(db, tree)
         user = db.get(User, user_id)
         with UnitOfWork(db) as uow:
             if user is not None:
                 record_activity(
-                    db, tree_id=tree.id, actor=user, action="create",
-                    target_type="import", target_id=tree.id, target_label=tree.name,
+                    db,
+                    workspace_id=tree.id,
+                    actor=user,
+                    action="create",
+                    target_type="import",
+                    target_id=tree.id,
+                    target_label=tree.name,
                 )
                 uow.after_commit(
-                    lambda: publish_tree_event(
-                        db, tree, "activity.entry_added", {"tree_id": tree.id}
+                    lambda: publish_workspace_event(
+                        db, tree, "activity.entry_added", {"workspace_id": tree.id}
                     )
                 )
         return tree.id
@@ -104,8 +135,8 @@ def do_import_gedcom(
         # allowlisted-rollback: this background job's own session — covers a
         # failure anywhere above, not just the narrow UnitOfWork block's commit.
         db.rollback()
-        if tree_id:
-            delete_tree_media(tree_id)
+        if workspace_id:
+            delete_workspace_media(workspace_id)
         raise
     finally:
         db.close()

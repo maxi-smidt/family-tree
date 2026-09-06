@@ -6,7 +6,7 @@ import { getQuotaBucket, quotaToastKey } from "@/lib/quotaError";
 import { MarkdownEditor } from "@/components/shared/member-sheet/MarkdownEditor";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import {
   ChangeEvent,
   FormEvent,
@@ -30,6 +30,7 @@ import { Gender, Member } from "@/types/member";
 import { GalleryImage } from "@/types/gallery";
 import { ImageCropDialog } from "@/components/shared/member-sheet/dialog/ImageCropDialog";
 import { GalleryPickerDialog } from "@/components/shared/member-sheet/dialog/GalleryPickerDialog";
+import { IdentityLinksPanel } from "@/components/shared/member-sheet/IdentityLinksPanel";
 import { fetchMediaObjectUrl } from "@/hooks/useMediaUrl";
 import { toast } from "sonner";
 import debounce from "lodash.debounce";
@@ -57,7 +58,6 @@ import { MemberTasks } from "./MemberTasks";
 import { MemberDocuments } from "./MemberDocuments";
 import { MemberPicker } from "./MemberPicker";
 import { MemberPhotos } from "./MemberPhotos";
-import { LinkedTreeField } from "./LinkedTreeField";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
 import { MemberSheetTab } from "@/utils/memberSheetState";
@@ -109,8 +109,10 @@ export const EditMode = ({
   });
   const { updateMemberPartial, members } = useMemberStore();
   const { galleryImages } = useGalleryStore();
-  const restrictions = useTreeStore((s) => s.selectedTree?.restrictions ?? []);
-  const currentTreeId = useTreeStore((s) => s.selectedTree?.id);
+  const restrictions = useWorkspaceStore(
+    (s) => s.selectedTree?.restrictions ?? [],
+  );
+  const currentTreeId = useWorkspaceStore((s) => s.selectedTree?.id);
   const eventsEnabled = !restrictions.includes("events");
   const storiesEnabled = !restrictions.includes("stories");
   const documentsEnabled = !restrictions.includes("sources");
@@ -192,8 +194,7 @@ export const EditMode = ({
       JSON.stringify(formData.placesLived) !==
         JSON.stringify(initialData.placesLived) ||
       formData.parents.paternalParent !== initialData.parents.paternalParent ||
-      formData.parents.maternalParent !== initialData.parents.maternalParent ||
-      (formData.linkedTreeId ?? null) !== (initialData.linkedTreeId ?? null);
+      formData.parents.maternalParent !== initialData.parents.maternalParent;
 
     setIsDirty(dirty);
     onDirtyChange?.(dirty);
@@ -363,9 +364,9 @@ export const EditMode = ({
 
       setSaveStatus("saving");
       try {
-        const treeId = editorTreeIdRef.current;
-        if (!treeId) return false;
-        const result = await updateMemberPartial(
+        const workspaceId = editorTreeIdRef.current;
+        if (!workspaceId) return false;
+        await updateMemberPartial(
           editorMemberIdRef.current,
           {
             academicTitle: snapshot.academicTitle || null,
@@ -390,19 +391,11 @@ export const EditMode = ({
                 : null,
             paternalParentId: snapshot.parents.paternalParent,
             maternalParentId: snapshot.parents.maternalParent,
-            ...(snapshot.linkedTreeId !== undefined
-              ? { linkedTreeId: snapshot.linkedTreeId }
-              : {}),
           },
-          treeId,
+          workspaceId,
         );
         if (!opts?.autosave && isCurrent()) {
           toast.success(t("toast-success"));
-        }
-        // Bridge person whose counterpart tree the editor may not write: the
-        // save worked but the linked copy drifted — say so.
-        if (isCurrent() && result?.bridgeSync === "skipped_no_access") {
-          toast.info(t("toast-bridge-sync-skipped"));
         }
         // Settle the dirty baseline on the snapshot that was actually
         // persisted — if the user kept typing during the in-flight save,
@@ -775,6 +768,12 @@ export const EditMode = ({
                 />
               </Field>
             </FieldGroup>
+
+            {!isNew && (
+              <div className="mt-4 pt-4 border-t">
+                <IdentityLinksPanel member={member} />
+              </div>
+            )}
           </TabsContent>
 
           {/* Life tab */}
@@ -1036,15 +1035,6 @@ export const EditMode = ({
                     noResultsText={t("parent-no-results")}
                   />
                 </Field>
-
-                <LinkedTreeField
-                  currentTreeId={currentTreeId}
-                  value={formData.linkedTreeId ?? null}
-                  memberName={`${formData.firstName} ${formData.lastName}`}
-                  memberId={isNew ? undefined : formData.id}
-                  formDirty={isDirty}
-                  onChange={(treeId) => handleChange("linkedTreeId", treeId)}
-                />
               </FieldGroup>
             </TabsContent>
           )}

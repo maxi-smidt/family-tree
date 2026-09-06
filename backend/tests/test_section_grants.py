@@ -1,0 +1,1034 @@
+"""The normalized v2 grant model: section-scoped access, public links, and
+invitation scope (#993)."""
+
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+
+from app.models import (
+    Relation,
+    Section,
+    SectionMember,
+    WorkspaceInvitation,
+    WorkspaceSectionGrant,
+)
+from app.services.workspaces.grants import (
+    best_role,
+    effective_grant,
+    permitted_section_ids,
+    restricts_domain,
+)
+from app.services.workspaces.public_links import (
+    active_public_grants,
+    create_section_public_link,
+    revoke_section_public_link,
+    set_section_public_link_password,
+)
+from tests.conftest import API, add_member, auth, make_tree, make_user
+
+
+def _section(db, tree, name="Section") -> Section:
+    section = Section(workspace_id=tree.id, name=name)
+    db.add(section)
+    db.commit()
+    db.refresh(section)
+    return section
+
+
+def _grant(
+    db, tree, section, user, role="editor", restrictions=None
+) -> WorkspaceSectionGrant:
+    grant = WorkspaceSectionGrant(
+        workspace_id=tree.id,
+        section_id=section.id,
+        user_id=user.id,
+        role=role,
+        restrictions=restrictions,
+    )
+    db.add(grant)
+    db.commit()
+    db.refresh(grant)
+    return grant
+
+
+# ---------------------------------------------------------------------------
+# Resolver: independent role/restrictions per section, never synthesized
+# ---------------------------------------------------------------------------
+
+
+def test_consolidation_fixture_keeps_per_section_role_and_restrictions(db):
+    """A user migrated from two same-owner v1 trees ends up editor+unrestricted
+    in one section and viewer+restricted in the other — the exact scenario
+    #993 exists to preserve without widening or narrowing access."""
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    section_a = _section(db, tree, "Tree A")
+    section_b = _section(db, tree, "Tree B")
+    _grant(db, tree, section_a, bob, role="editor")
+    _grant(db, tree, section_b, bob, role="viewer", restrictions=["gallery"])
+
+    grant_a = effective_grant(db, tree.id, bob.id, section_id=section_a.id)
+    grant_b = effective_grant(db, tree.id, bob.id, section_id=section_b.id)
+
+    assert grant_a.role == "editor"
+    assert grant_a.restrictions == ()
+    assert grant_b.role == "viewer"
+    assert grant_b.restrictions == ("gallery",)
+
+
+def test_resolver_never_synthesizes_role_and_restrictions_across_grants(db):
+    """The editor role from an unrestricted workspace-wide grant must never
+    combine with a *different* scoped grant's restrictions, or vice versa."""
+    from tests.conftest import share
+
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    section = _section(db, tree)
+    share(db, tree, bob, role="viewer")  # workspace-wide, unrestricted
+    _grant(db, tree, section, bob, role="editor", restrictions=["gallery", "events"])
+
+    # Inside the section: the section grant wins (higher role), whole and
+    # unmodified — restricted exactly as recorded, not "unrestricted because
+    # the workspace-wide grant has no restrictions".
+    grant = effective_grant(db, tree.id, bob.id, section_id=section.id)
+    assert grant.role == "editor"
+    assert set(grant.restrictions) == {"gallery", "events"}
+
+    # Outside any section: only the workspace-wide grant applies.
+    workspace_wide = effective_grant(db, tree.id, bob.id, section_id=None)
+    assert workspace_wide.role == "viewer"
+    assert workspace_wide.restrictions == ()
+
+
+def test_unlinked_content_in_a_section_excludes_a_collaborator_scoped_elsewhere(
+    db,
+):
+    """A collaborator scoped only to section B must never resolve a grant for
+    section A — the resolver-level guarantee behind "unlinked content from
+    one constituent tree never leaks to another's collaborator"."""
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    section_a = _section(db, tree, "A")
+    section_b = _section(db, tree, "B")
+    _grant(db, tree, section_b, bob, role="viewer")
+
+    assert effective_grant(db, tree.id, bob.id, section_id=section_b.id) is not None
+    assert effective_grant(db, tree.id, bob.id, section_id=section_a.id) is None
+
+
+def test_permitted_section_ids_only_counts_editor_grants(db):
+    """permitted_section_ids feeds write-scoping, so a viewer-only section
+    grant (unlike an editor one) contributes nothing to it — visibility and
+    write permission are different questions."""
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    viewer_section = _section(db, tree, "Viewer")
+    editor_section = _section(db, tree, "Editor")
+    _grant(db, tree, viewer_section, bob, role="viewer")
+    _grant(db, tree, editor_section, bob, role="editor")
+
+    assert permitted_section_ids(db, tree.id, bob.id) == {editor_section.id}
+
+
+# ---------------------------------------------------------------------------
+# Coarse gates: a purely section-scoped user still has a way in
+# ---------------------------------------------------------------------------
+
+
+def test_section_scoped_only_user_can_open_the_workspace(client, db):
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    section = _section(db, tree)
+    _grant(db, tree, section, bob, role="viewer")
+
+    res = client.get(f"{API}/workspaces/{tree.id}", headers=auth(bob))
+    assert res.status_code == 200
+    assert res.json()["role"] == "viewer"
+    assert best_role(db, tree.id, bob.id) == "viewer"
+
+
+def test_section_scoped_only_user_appears_in_their_workspace_list(client, db):
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    section = _section(db, tree)
+    _grant(db, tree, section, bob, role="viewer")
+
+    res = client.get(f"{API}/workspaces", headers=auth(bob))
+    assert res.status_code == 200
+    assert any(t["id"] == tree.id for t in res.json())
+
+
+def test_section_scoped_editor_cannot_write_outside_permitted_sections(client, db):
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    in_scope = _section(db, tree, "In scope")
+    out_of_scope = _section(db, tree, "Out of scope")
+    _grant(db, tree, in_scope, bob, role="editor")
+
+    ok = client.post(
+        f"{API}/workspaces/{tree.id}/members?origin_section_id={in_scope.id}",
+        json={"id": "m-in-scope", "firstName": "In"},
+        headers=auth(bob),
+    )
+    assert ok.status_code == 201, ok.text
+
+    denied = client.post(
+        f"{API}/workspaces/{tree.id}/members?origin_section_id={out_of_scope.id}",
+        json={"id": "m-out-of-scope", "firstName": "Out"},
+        headers=auth(bob),
+    )
+    assert denied.status_code == 400, denied.text
+
+
+def test_workspace_wide_viewer_grant_does_not_unlock_writes_to_every_section(
+    client, db
+):
+    """A workspace-wide *viewer* grant must not be misread as "no section
+    restriction" just because it has no section_id — only an editor-level
+    grant (workspace-wide or scoped) may widen permitted_section_ids."""
+    from tests.conftest import share
+
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    in_scope = _section(db, tree, "In scope")
+    out_of_scope = _section(db, tree, "Out of scope")
+    share(db, tree, bob, role="viewer")  # workspace-wide, but read-only
+    _grant(db, tree, in_scope, bob, role="editor")
+
+    assert permitted_section_ids(db, tree.id, bob.id) == {in_scope.id}
+
+    ok = client.post(
+        f"{API}/workspaces/{tree.id}/members?origin_section_id={in_scope.id}",
+        json={"id": "m-in-scope-2", "firstName": "In"},
+        headers=auth(bob),
+    )
+    assert ok.status_code == 201, ok.text
+
+    denied = client.post(
+        f"{API}/workspaces/{tree.id}/members?origin_section_id={out_of_scope.id}",
+        json={"id": "m-out-of-scope-2", "firstName": "Out"},
+        headers=auth(bob),
+    )
+    assert denied.status_code == 400, denied.text
+
+
+def test_domain_restriction_only_bites_when_every_grant_restricts_it(db):
+    from tests.conftest import share
+
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    section = _section(db, tree)
+    share(db, tree, bob, role="viewer")  # unrestricted, workspace-wide
+    _grant(db, tree, section, bob, role="viewer", restrictions=["gallery"])
+
+    assert restricts_domain(db, tree.id, bob.id, "gallery") is False
+
+    # Once every one of bob's grants restricts the domain, the coarse gate bites.
+    from app.models import WorkspaceMembership
+
+    membership = db.get(WorkspaceMembership, (tree.id, bob.id))
+    membership.restrictions = ["gallery"]
+    db.commit()
+    assert restricts_domain(db, tree.id, bob.id, "gallery") is True
+
+
+# ---------------------------------------------------------------------------
+# Database constraints
+# ---------------------------------------------------------------------------
+
+
+def test_db_rejects_duplicate_grant_for_the_same_scope(db):
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    section = _section(db, tree)
+    _grant(db, tree, section, bob, role="viewer")
+
+    db.add(
+        WorkspaceSectionGrant(
+            workspace_id=tree.id, section_id=section.id, user_id=bob.id, role="editor"
+        )
+    )
+    try:
+        db.commit()
+        raise AssertionError("expected IntegrityError")
+    except IntegrityError:
+        db.rollback()
+
+
+def test_db_rejects_grant_referencing_a_section_in_another_workspace(db):
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    other_tree = make_tree(db, alice, name="Other")
+    foreign_section = _section(db, other_tree)
+
+    db.add(
+        WorkspaceSectionGrant(
+            workspace_id=tree.id,
+            section_id=foreign_section.id,
+            user_id=bob.id,
+            role="viewer",
+        )
+    )
+    try:
+        db.commit()
+        raise AssertionError("expected IntegrityError")
+    except IntegrityError:
+        db.rollback()
+
+
+def test_db_rejects_invitation_section_in_another_workspace(db):
+    alice = make_user(db, "alice")
+    tree = make_tree(db, alice)
+    other_tree = make_tree(db, alice, name="Other")
+    foreign_section = _section(db, other_tree)
+
+    db.add(
+        WorkspaceInvitation(
+            workspace_id=tree.id,
+            token="tok-cross-workspace",
+            role="editor",
+            section_id=foreign_section.id,
+            created_by=alice.id,
+        )
+    )
+    try:
+        db.commit()
+        raise AssertionError("expected IntegrityError")
+    except IntegrityError:
+        db.rollback()
+
+
+# ---------------------------------------------------------------------------
+# Section deletion is restricted until grants/invitations/public links go
+# ---------------------------------------------------------------------------
+
+
+def test_section_with_a_grant_cannot_be_deleted(client, db):
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    section = _section(db, tree)
+    _grant(db, tree, section, bob, role="viewer")
+
+    res = client.delete(
+        f"{API}/workspaces/{tree.id}/sections/{section.id}", headers=auth(alice)
+    )
+    assert res.status_code == 409
+
+    deps = client.get(
+        f"{API}/workspaces/{tree.id}/sections/{section.id}/dependents",
+        headers=auth(alice),
+    )
+    assert deps.json()["grant_count"] == 1
+
+
+def test_section_deletable_once_its_grant_is_revoked(client, db):
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    section = _section(db, tree)
+    grant = _grant(db, tree, section, bob, role="viewer")
+
+    db.delete(grant)
+    db.commit()
+
+    res = client.delete(
+        f"{API}/workspaces/{tree.id}/sections/{section.id}", headers=auth(alice)
+    )
+    assert res.status_code == 204
+
+
+def test_section_with_a_pending_invitation_cannot_be_deleted(client, db):
+    alice = make_user(db, "alice")
+    tree = make_tree(db, alice)
+    section = _section(db, tree)
+
+    res = client.post(
+        f"{API}/workspaces/{tree.id}/invitations",
+        headers=auth(alice),
+        json={"role": "editor", "section_id": section.id},
+    )
+    assert res.status_code == 201, res.text
+
+    deleted = client.delete(
+        f"{API}/workspaces/{tree.id}/sections/{section.id}", headers=auth(alice)
+    )
+    assert deleted.status_code == 409
+
+
+def test_section_deletable_once_its_pending_invitation_is_revoked(client, db):
+    """A *resolved* invitation must never permanently pin its section — only
+    a still-pending one blocks the delete."""
+    alice = make_user(db, "alice")
+    tree = make_tree(db, alice)
+    section = _section(db, tree)
+
+    inv = client.post(
+        f"{API}/workspaces/{tree.id}/invitations",
+        headers=auth(alice),
+        json={"role": "editor", "section_id": section.id},
+    ).json()
+
+    revoked = client.delete(
+        f"{API}/workspaces/{tree.id}/invitations/{inv['id']}", headers=auth(alice)
+    )
+    assert revoked.status_code == 204
+
+    deleted = client.delete(
+        f"{API}/workspaces/{tree.id}/sections/{section.id}", headers=auth(alice)
+    )
+    assert deleted.status_code == 204
+
+    # The revoked invitation's own status history survives the section going
+    # away — only its section_id, no longer meaningful, is cleared.
+    db.expire_all()
+    surviving = db.scalar(
+        select(WorkspaceInvitation).where(WorkspaceInvitation.id == inv["id"])
+    )
+    assert surviving is not None
+    assert surviving.revoked_at is not None
+    assert surviving.section_id is None
+
+
+# ---------------------------------------------------------------------------
+# Invitations carry section scope through acceptance
+# ---------------------------------------------------------------------------
+
+
+def test_accepting_a_section_scoped_invite_creates_a_section_grant(client, db):
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    section = _section(db, tree)
+
+    inv = client.post(
+        f"{API}/workspaces/{tree.id}/invitations",
+        headers=auth(alice),
+        json={"role": "editor", "section_id": section.id},
+    ).json()
+    assert inv["section_id"] == section.id
+
+    res = client.post(f"{API}/invites/{inv['token']}/accept", headers=auth(bob))
+    assert res.status_code == 200
+
+    grant = db.scalar(
+        select(WorkspaceSectionGrant).where(
+            WorkspaceSectionGrant.workspace_id == tree.id,
+            WorkspaceSectionGrant.user_id == bob.id,
+        )
+    )
+    assert grant is not None
+    assert grant.section_id == section.id
+    assert grant.role == "editor"
+
+    from app.models import WorkspaceMembership
+
+    assert db.get(WorkspaceMembership, (tree.id, bob.id)) is None
+
+
+def test_accepting_a_section_invite_never_merges_into_a_different_scoped_grant(
+    client, db
+):
+    """Bob already holds a workspace-wide viewer grant. Accepting a
+    section-scoped editor invite must create a *new*, independent
+    section grant rather than upgrading the unrelated workspace-wide one."""
+    from tests.conftest import share
+
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    section = _section(db, tree)
+    share(db, tree, bob, role="viewer")
+
+    inv = client.post(
+        f"{API}/workspaces/{tree.id}/invitations",
+        headers=auth(alice),
+        json={"role": "editor", "section_id": section.id},
+    ).json()
+    client.post(f"{API}/invites/{inv['token']}/accept", headers=auth(bob))
+
+    from app.models import WorkspaceMembership
+
+    membership = db.get(WorkspaceMembership, (tree.id, bob.id))
+    assert membership.role == "viewer"  # untouched
+
+    grant = db.scalar(
+        select(WorkspaceSectionGrant).where(
+            WorkspaceSectionGrant.workspace_id == tree.id,
+            WorkspaceSectionGrant.user_id == bob.id,
+            WorkspaceSectionGrant.section_id == section.id,
+        )
+    )
+    assert grant is not None
+    assert grant.role == "editor"
+
+
+# ---------------------------------------------------------------------------
+# list_tree_access surfaces section grants as their own rows
+# ---------------------------------------------------------------------------
+
+
+def test_access_listing_includes_section_grants_as_separate_rows(client, db):
+    from tests.conftest import share
+
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    section = _section(db, tree)
+    share(db, tree, bob, role="viewer")
+    _grant(db, tree, section, bob, role="editor", restrictions=["gallery"])
+
+    res = client.get(f"{API}/workspaces/{tree.id}/access", headers=auth(alice))
+    assert res.status_code == 200
+    bob_rows = [row for row in res.json() if row["username"] == "bob"]
+    assert len(bob_rows) == 2
+    scoped = next(r for r in bob_rows if r["section_id"] == section.id)
+    workspace_wide = next(r for r in bob_rows if r["section_id"] is None)
+    assert scoped["role"] == "editor"
+    assert scoped["restrictions"] == ["gallery"]
+    assert workspace_wide["role"] == "viewer"
+
+
+# ---------------------------------------------------------------------------
+# Independent, section-scoped public links
+# ---------------------------------------------------------------------------
+
+
+def test_two_section_public_links_are_independently_passworded(client, db):
+    alice = make_user(db, "alice")
+    tree = make_tree(db, alice)
+    section_a = _section(db, tree, "A")
+    section_b = _section(db, tree, "B")
+    link_a = create_section_public_link(db, workspace_id=tree.id, section_id=section_a.id)
+    link_b = create_section_public_link(db, workspace_id=tree.id, section_id=section_b.id)
+    set_section_public_link_password(link_a, "password-a1")
+    set_section_public_link_password(link_b, "password-b1")
+    db.commit()
+
+    # Wrong link's password doesn't unlock this one.
+    wrong = client.post(
+        f"{API}/workspaces/{tree.id}/public/unlock",
+        json={"password": "password-b1", "link_id": link_a.id},
+    )
+    assert wrong.status_code == 401
+
+    ok = client.post(
+        f"{API}/workspaces/{tree.id}/public/unlock",
+        json={"password": "password-a1", "link_id": link_a.id},
+    )
+    assert ok.status_code == 200
+    token_a = ok.json()["token"]
+
+    ok_b = client.post(
+        f"{API}/workspaces/{tree.id}/public/unlock",
+        json={"password": "password-b1", "link_id": link_b.id},
+    )
+    assert ok_b.status_code == 200
+    token_b = ok_b.json()["token"]
+    assert token_a != token_b
+
+
+def test_section_public_link_unlocks_only_its_own_section(client, db):
+    """A section-scoped public link is a real, but narrow, back door (#984):
+    unlocking it satisfies the coarse anonymous read gate, but the resolved
+    visibility boundary still only reaches that one section's members — the
+    workspace-wide link stays disabled and grants nothing extra."""
+    from tests.conftest import add_member
+
+    alice = make_user(db, "alice")
+    tree = make_tree(db, alice)
+    section = _section(db, tree)
+    add_member(db, tree, "m-in", first_name="In")
+    add_member(db, tree, "m-out", first_name="Out")
+    db.add(SectionMember(section_id=section.id, member_id="m-in"))
+    db.commit()
+    link = create_section_public_link(db, workspace_id=tree.id, section_id=section.id)
+    set_section_public_link_password(link, "section-password")
+    db.commit()
+
+    # No workspace-wide public link: anonymous reads are refused outright,
+    # not merely password-gated.
+    denied = client.get(f"{API}/workspaces/{tree.id}")
+    assert denied.status_code == 401
+    assert denied.json()["detail"] == "Not authenticated"
+
+    unlocked = client.post(
+        f"{API}/workspaces/{tree.id}/public/unlock",
+        json={"password": "section-password", "link_id": link.id},
+    )
+    assert unlocked.status_code == 200
+    token = unlocked.json()["token"]
+
+    # The section link's own token proves its password was correct and now
+    # passes the coarse gate — but only its own section's members come back.
+    headers = {"X-Public-Workspace-Token": token}
+    ok = client.get(f"{API}/workspaces/{tree.id}", headers=headers)
+    assert ok.status_code == 200
+
+    members = client.get(f"{API}/workspaces/{tree.id}/members", headers=headers)
+    assert members.status_code == 200
+    ids = {m["id"] for m in members.json()}
+    assert ids == {"m-in"}
+
+    # No token at all still gets nothing: the workspace-wide link is disabled.
+    no_token = client.get(f"{API}/workspaces/{tree.id}")
+    assert no_token.status_code == 401
+
+
+def test_revoking_one_section_public_link_does_not_affect_another(client, db):
+    alice = make_user(db, "alice")
+    tree = make_tree(db, alice)
+    section_a = _section(db, tree, "A")
+    section_b = _section(db, tree, "B")
+    link_a = create_section_public_link(db, workspace_id=tree.id, section_id=section_a.id)
+    link_b = create_section_public_link(db, workspace_id=tree.id, section_id=section_b.id)
+    db.commit()
+
+    assert {g.id for g in active_public_grants(db, tree)} == {link_a.id, link_b.id}
+
+    revoke_section_public_link(db, link_a)
+    db.commit()
+
+    remaining = {g.id for g in active_public_grants(db, tree)}
+    assert remaining == {link_b.id}
+
+
+# ---------------------------------------------------------------------------
+# scope_audience narrows by section (through the existing preview endpoint)
+# ---------------------------------------------------------------------------
+
+
+def test_scope_audience_narrows_to_section_grant_holders(db):
+    from app.services.provenance import scope_audience
+
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    carol = make_user(db, "carol")
+    tree = make_tree(db, alice)
+    section = _section(db, tree)
+    _grant(db, tree, section, bob, role="viewer")
+    # carol has no access at all.
+
+    audience = scope_audience(db, tree, section.id)
+    assert bob.id in audience
+    assert carol.id not in audience
+    assert alice.id in audience
+
+    # Workspace-wide content is readable by anyone with any access, scoped or
+    # not — bob shows up here too even though his grant is section-scoped.
+    workspace_wide_audience = scope_audience(db, tree, None)
+    assert bob.id in workspace_wide_audience
+
+
+# ---------------------------------------------------------------------------
+# The #984 visibility resolver: member/relation reads and per-member writes
+# ---------------------------------------------------------------------------
+
+
+def test_relation_crossing_scope_is_excluded_even_though_one_end_is_visible(
+    client, db
+):
+    """A relation is only listed when *both* endpoints are visible — it must
+    never surface as a placeholder edge into an out-of-scope member."""
+    from tests.conftest import add_member
+
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    section = _section(db, tree)
+    add_member(db, tree, "m-in", first_name="In")
+    add_member(db, tree, "m-out", first_name="Out")
+    db.add(SectionMember(section_id=section.id, member_id="m-in"))
+    db.commit()
+    _grant(db, tree, section, bob, role="viewer")
+
+    from app.models import Relation
+
+    db.add(Relation(workspace_id=tree.id, from_member_id="m-in", to_member_id="m-out",
+                     relation_type="partner"))
+    db.commit()
+
+    res = client.get(f"{API}/workspaces/{tree.id}/relations", headers=auth(bob))
+    assert res.status_code == 200
+    assert res.json() == []
+
+    # The owner, unrestricted, still sees it.
+    owner_res = client.get(f"{API}/workspaces/{tree.id}/relations", headers=auth(alice))
+    assert len(owner_res.json()) == 1
+
+
+def test_rescope_preview_reports_the_destination_sections_audience(client, db):
+    from uuid import uuid4
+
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    section = _section(db, tree)
+    _grant(db, tree, section, bob, role="viewer")
+
+    event_res = client.post(
+        f"{API}/workspaces/{tree.id}/events",
+        headers=auth(alice),
+        json={
+            "id": str(uuid4()),
+            "event_type": "birth",
+            "date": "1900-01-01",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "member_ids": [],
+        },
+    )
+    assert event_res.status_code == 201, event_res.text
+    event_id = event_res.json()["id"]
+
+    preview = client.post(
+        f"{API}/workspaces/{tree.id}/content-scopes/preview",
+        headers=auth(alice),
+        json={
+            "items": [{"content_type": "event", "content_id": event_id}],
+            "section_id": section.id,
+        },
+    )
+    assert preview.status_code == 200, preview.text
+    change = preview.json()["changes"][0]
+    # Moving from workspace-wide (everyone) into the section: bob (scoped
+    # there) is in the destination audience but so is alice the owner;
+    # narrowing is visible in the two audiences differing at all.
+    assert bob.id in change["audience_after"]
+    assert set(change["audience_after"]) <= set(change["audience_before"])
+
+
+# ---------------------------------------------------------------------------
+# content_filter honors each section's own governing grant, not the
+# caller's most permissive one (code review fix)
+# ---------------------------------------------------------------------------
+
+
+def _event(client, alice, tree, section_id=None):
+    from uuid import uuid4
+
+    payload = {
+        "id": str(uuid4()),
+        "event_type": "birth",
+        "date": "1900-01-01",
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "member_ids": [],
+    }
+    url = f"{API}/workspaces/{tree.id}/events"
+    if section_id:
+        url += f"?origin_section_id={section_id}"
+    res = client.post(url, headers=auth(alice), json=payload)
+    assert res.status_code == 201, res.text
+    return res.json()["id"]
+
+
+def test_content_filter_ignores_an_unrestricted_scoped_grant_for_workspace_wide_content(
+    client, db
+):
+    """A workspace-wide grant that restricts a domain must keep hiding
+    workspace-wide-origin content of that domain even though a *different*,
+    unrestricted section grant makes the caller pass the coarse
+    ``require_domain`` gate."""
+    from app.models import WorkspaceMembership
+    from tests.conftest import share
+
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    section = _section(db, tree)
+
+    workspace_wide_event = _event(client, alice, tree)
+    in_section_event = _event(client, alice, tree, section.id)
+
+    share(db, tree, bob, role="viewer")
+    membership = db.get(WorkspaceMembership, (tree.id, bob.id))
+    membership.restrictions = ["events"]
+    db.commit()
+    _grant(db, tree, section, bob, role="viewer")  # unrestricted
+
+    res = client.get(f"{API}/workspaces/{tree.id}/events", headers=auth(bob))
+    assert res.status_code == 200, res.text
+    ids = {e["id"] for e in res.json()}
+    assert ids == {in_section_event}
+    assert workspace_wide_event not in ids
+
+
+def test_content_filter_restriction_in_one_section_does_not_leak_into_another(
+    client, db
+):
+    """Two purely section-scoped grants, one restricted and one not — only
+    the unrestricted section's content of that domain is visible."""
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    section_a = _section(db, tree, "A")
+    section_b = _section(db, tree, "B")
+
+    event_a = _event(client, alice, tree, section_a.id)
+    event_b = _event(client, alice, tree, section_b.id)
+
+    _grant(db, tree, section_a, bob, role="viewer", restrictions=["events"])
+    _grant(db, tree, section_b, bob, role="viewer")
+
+    res = client.get(f"{API}/workspaces/{tree.id}/events", headers=auth(bob))
+    assert res.status_code == 200, res.text
+    ids = {e["id"] for e in res.json()}
+    assert ids == {event_b}
+    assert event_a not in ids
+
+
+# ---------------------------------------------------------------------------
+# An authenticated stranger admitted only through a public grant must still
+# resolve a real access context, not an empty, all-denying one (code review
+# fix)
+# ---------------------------------------------------------------------------
+
+
+def test_authenticated_non_member_can_read_an_unprotected_public_workspace(client, db):
+    from tests.conftest import add_member
+
+    alice = make_user(db, "alice")
+    stranger = make_user(db, "stranger")
+    tree = make_tree(db, alice)
+    add_member(db, tree, "m1", first_name="One")
+
+    res = client.patch(
+        f"{API}/workspaces/{tree.id}/public",
+        json={"public_role": "viewer"},
+        headers=auth(alice),
+    )
+    assert res.status_code == 200, res.text
+
+    members = client.get(f"{API}/workspaces/{tree.id}/members", headers=auth(stranger))
+    assert members.status_code == 200, members.text
+    assert {m["id"] for m in members.json()} == {"m1"}
+
+
+# ---------------------------------------------------------------------------
+# A passwordless section public link must still be unlockable (code review
+# fix) — a plain, tokenless read can only ever mean the workspace-wide link.
+# ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# A section-scoped editor's mutations stay confined to their granted
+# section(s) — the coarse workspace role ("editor") is not enough (#1029)
+# ---------------------------------------------------------------------------
+
+
+def test_section_scoped_editor_only_lists_their_own_sections(client, db):
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    in_scope = _section(db, tree, "In scope")
+    out_of_scope = _section(db, tree, "Out of scope")
+    _grant(db, tree, in_scope, bob, role="editor")
+
+    res = client.get(f"{API}/workspaces/{tree.id}/sections", headers=auth(bob))
+    assert res.status_code == 200
+    ids = {s["id"] for s in res.json()}
+    assert ids == {in_scope.id}
+
+    owner_res = client.get(f"{API}/workspaces/{tree.id}/sections", headers=auth(alice))
+    assert {s["id"] for s in owner_res.json()} == {in_scope.id, out_of_scope.id}
+
+
+def test_section_scoped_editor_cannot_read_a_section_outside_their_grant(client, db):
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    in_scope = _section(db, tree, "In scope")
+    out_of_scope = _section(db, tree, "Out of scope")
+    _grant(db, tree, in_scope, bob, role="editor")
+
+    ok = client.get(
+        f"{API}/workspaces/{tree.id}/sections/{in_scope.id}", headers=auth(bob)
+    )
+    assert ok.status_code == 200
+    assert ok.json()["can_write"] is True
+
+    denied = client.get(
+        f"{API}/workspaces/{tree.id}/sections/{out_of_scope.id}", headers=auth(bob)
+    )
+    assert denied.status_code == 404
+
+    denied_deps = client.get(
+        f"{API}/workspaces/{tree.id}/sections/{out_of_scope.id}/dependents",
+        headers=auth(bob),
+    )
+    assert denied_deps.status_code == 404
+
+
+def test_section_scoped_editor_cannot_list_members_of_an_out_of_scope_section(
+    client, db
+):
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    in_scope = _section(db, tree, "In scope")
+    out_of_scope = _section(db, tree, "Out of scope")
+    _grant(db, tree, in_scope, bob, role="editor")
+
+    ok = client.get(
+        f"{API}/workspaces/{tree.id}/sections/{in_scope.id}/members",
+        headers=auth(bob),
+    )
+    assert ok.status_code == 200
+
+    denied = client.get(
+        f"{API}/workspaces/{tree.id}/sections/{out_of_scope.id}/members",
+        headers=auth(bob),
+    )
+    assert denied.status_code == 404
+
+
+def test_suggestions_never_reveal_a_section_outside_the_caller_s_grant(client, db):
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    in_scope = _section(db, tree, "In scope")
+    out_of_scope = _section(db, tree, "Out of scope")
+    _grant(db, tree, in_scope, bob, role="editor")
+
+    add_member(db, tree, "p1")
+    add_member(db, tree, "newkid")
+    db.add(
+        Relation(
+            workspace_id=tree.id,
+            from_member_id="newkid",
+            to_member_id="p1",
+            relation_type="parent",
+        )
+    )
+    db.commit()
+    db.add(SectionMember(section_id=in_scope.id, member_id="p1"))
+    db.add(SectionMember(section_id=out_of_scope.id, member_id="p1"))
+    db.commit()
+
+    res = client.get(
+        f"{API}/workspaces/{tree.id}/sections/suggestions",
+        headers=auth(bob),
+        params={"member_id": "newkid"},
+    )
+    assert res.status_code == 200
+    body = res.json()
+    ids = {s["section"]["id"] for s in body}
+    assert ids == {in_scope.id}
+    assert body[0]["section"]["can_write"] is True
+
+
+def test_section_scoped_editor_cannot_rename_or_delete_an_out_of_scope_section(
+    client, db
+):
+    """The coarse workspace role a purely section-scoped grant produces is
+    'editor' (see ``role_for``), which used to be enough to pass
+    ``get_writable_workspace`` for *any* section in the workspace — this
+    guards that PATCH/DELETE now also authorize the specific target
+    section."""
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    in_scope = _section(db, tree, "In scope")
+    out_of_scope = _section(db, tree, "Out of scope")
+    _grant(db, tree, in_scope, bob, role="editor")
+
+    renamed = client.patch(
+        f"{API}/workspaces/{tree.id}/sections/{out_of_scope.id}",
+        headers=auth(bob),
+        json={"name": "Hijacked"},
+    )
+    assert renamed.status_code == 404
+
+    deleted = client.delete(
+        f"{API}/workspaces/{tree.id}/sections/{out_of_scope.id}", headers=auth(bob)
+    )
+    assert deleted.status_code == 404
+
+    members_set = client.put(
+        f"{API}/workspaces/{tree.id}/sections/{out_of_scope.id}/members",
+        headers=auth(bob),
+        json={"member_ids": []},
+    )
+    assert members_set.status_code == 404
+
+    positions = client.patch(
+        f"{API}/workspaces/{tree.id}/sections/{out_of_scope.id}/members/positions",
+        headers=auth(bob),
+        json=[],
+    )
+    assert positions.status_code == 404
+
+    db.expire_all()
+    surviving = db.get(Section, out_of_scope.id)
+    assert surviving is not None
+    assert surviving.name == "Out of scope"
+
+
+def test_section_scoped_editor_can_rename_their_own_section(client, db):
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    in_scope = _section(db, tree, "In scope")
+    _grant(db, tree, in_scope, bob, role="editor")
+
+    res = client.patch(
+        f"{API}/workspaces/{tree.id}/sections/{in_scope.id}",
+        headers=auth(bob),
+        json={"name": "Renamed by bob"},
+    )
+    assert res.status_code == 200
+    assert res.json()["name"] == "Renamed by bob"
+
+
+def test_section_scoped_viewer_cannot_write_their_own_section(client, db):
+    """A viewer-only grant on a section is read access, not write — even
+    though it's the section they're scoped to."""
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    section = _section(db, tree)
+    _grant(db, tree, section, bob, role="viewer")
+
+    res = client.patch(
+        f"{API}/workspaces/{tree.id}/sections/{section.id}",
+        headers=auth(bob),
+        json={"name": "Nope"},
+    )
+    assert res.status_code == 403
+
+
+def test_passwordless_section_public_link_can_be_unlocked(client, db):
+    from tests.conftest import add_member
+
+    alice = make_user(db, "alice")
+    tree = make_tree(db, alice)
+    section = _section(db, tree)
+    add_member(db, tree, "m-in", first_name="In")
+    db.add(SectionMember(section_id=section.id, member_id="m-in"))
+    db.commit()
+    link = create_section_public_link(db, workspace_id=tree.id, section_id=section.id)
+    db.commit()
+    assert link.password_hash is None
+
+    res = client.post(
+        f"{API}/workspaces/{tree.id}/public/unlock",
+        json={"password": "ignored-but-required-by-the-schema", "link_id": link.id},
+    )
+    assert res.status_code == 200, res.text
+    token = res.json()["token"]
+
+    members = client.get(
+        f"{API}/workspaces/{tree.id}/members",
+        headers={"X-Public-Workspace-Token": token},
+    )
+    assert members.status_code == 200, members.text
+    assert {m["id"] for m in members.json()} == {"m-in"}

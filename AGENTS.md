@@ -180,6 +180,19 @@ docker compose -f docker-compose.e2e.yml down -v
 `e2e/playwright-report/`. The `e2e.yml` workflow runs on PRs to `main` but is not
 a required check yet.
 
+`tests/migrated/**` (#992) is excluded from the run above — it needs a stack
+booted from a seeded v1.x fixture, not a fresh install, so the migration
+report/review UI, scoped grants, and scoped public links actually exist:
+
+```bash
+docker compose -f docker-compose.e2e.yml -f docker-compose.e2e.migrated.yml up -d db redis
+cd backend && uv run python -m scripts.seed_e2e_migration_fixture \
+  --database-url postgresql+psycopg2://familytree:familytree@localhost:5434/familytree
+cd .. && docker compose -f docker-compose.e2e.yml -f docker-compose.e2e.migrated.yml up --build -d
+cd e2e && npm run test:migrated
+docker compose -f docker-compose.e2e.yml -f docker-compose.e2e.migrated.yml down -v
+```
+
 ### Database migration (after editing `backend/app/models/`)
 
 ```bash

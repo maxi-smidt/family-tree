@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { ResearchTask, ResearchTaskInput, mapTaskFromDB } from "@/types/task";
-import { TreeService } from "@/services/TreeService";
-import { activeTreeId, isActiveTree, isVirtualId } from "@/hooks/useTreeStore";
+import { WorkspaceService } from "@/services/WorkspaceService";
+import { activeTreeId, isActiveTree } from "@/hooks/useWorkspaceStore";
 import { invalidateActivityView } from "@/hooks/invalidateDerivedViews";
 import { registerTaskStoreActions } from "@/hooks/taskStoreRegistry";
 
@@ -10,7 +10,7 @@ interface TaskState {
   /** Members with at least one open task — O(1) lookups for tree nodes. */
   openTaskMemberIds: Set<string>;
   initialized: boolean;
-  refreshTasks: (treeId?: string) => Promise<void>;
+  refreshTasks: (workspaceId?: string) => Promise<void>;
   getTasksByMember: (memberId: string) => ResearchTask[];
   addTask: (memberIds: string[], task: ResearchTaskInput) => Promise<void>;
   updateTask: (
@@ -31,20 +31,13 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   openTaskMemberIds: new Set<string>(),
   initialized: false,
 
-  refreshTasks: async (treeId = activeTreeId()) => {
-    if (!treeId) {
+  refreshTasks: async (workspaceId = activeTreeId()) => {
+    if (!workspaceId) {
       set({ tasks: [], openTaskMemberIds: new Set() });
       return;
     }
-    // Research tasks are working data of a real tree; virtual views have no
-    // task endpoints.
-    if (isVirtualId(treeId)) {
-      set({ tasks: [], openTaskMemberIds: new Set(), initialized: true });
-      return;
-    }
-
-    const rows = await TreeService.getTasks(treeId);
-    if (!isActiveTree(treeId)) return; // tree switched mid-flight — drop stale data
+    const rows = await WorkspaceService.getTasks(workspaceId);
+    if (!isActiveTree(workspaceId)) return; // tree switched mid-flight — drop stale data
 
     const tasks = rows.map(mapTaskFromDB);
     set({ tasks, openTaskMemberIds: openMemberIds(tasks), initialized: true });
@@ -55,11 +48,11 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   },
 
   addTask: async (memberIds: string[], task: ResearchTaskInput) => {
-    const treeId = activeTreeId();
-    if (!treeId) return;
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return;
 
-    await TreeService.addTask(
-      treeId,
+    await WorkspaceService.addTask(
+      workspaceId,
       crypto.randomUUID(),
       task.title,
       task.notes || null,
@@ -67,7 +60,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       memberIds,
     );
 
-    await get().refreshTasks(treeId);
+    await get().refreshTasks(workspaceId);
     invalidateActivityView();
   },
 
@@ -76,35 +69,35 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     task: ResearchTaskInput,
     memberIds: string[],
   ) => {
-    const treeId = activeTreeId();
-    if (!treeId) return;
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return;
 
     const current = get().tasks.find((t) => t.id === id);
     if (!current) return;
 
-    await TreeService.updateTask(
-      treeId,
+    await WorkspaceService.updateTask(
+      workspaceId,
       id,
       task.title,
       task.notes || null,
       current.done,
       current.doneAt,
     );
-    await TreeService.setTaskLinks(treeId, id, memberIds);
+    await WorkspaceService.setTaskLinks(workspaceId, id, memberIds);
 
-    await get().refreshTasks(treeId);
+    await get().refreshTasks(workspaceId);
     invalidateActivityView();
   },
 
   setTaskDone: async (id: string, done: boolean) => {
-    const treeId = activeTreeId();
-    if (!treeId) return;
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return;
 
     const current = get().tasks.find((t) => t.id === id);
     if (!current) return;
 
-    await TreeService.updateTask(
-      treeId,
+    await WorkspaceService.updateTask(
+      workspaceId,
       id,
       current.title,
       current.notes || null,
@@ -112,16 +105,16 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       done ? new Date().toISOString() : null,
     );
 
-    await get().refreshTasks(treeId);
+    await get().refreshTasks(workspaceId);
     invalidateActivityView();
   },
 
   removeTask: async (id: string) => {
-    const treeId = activeTreeId();
-    if (!treeId) return;
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return;
 
-    await TreeService.removeTask(treeId, id);
-    await get().refreshTasks(treeId);
+    await WorkspaceService.removeTask(workspaceId, id);
+    await get().refreshTasks(workspaceId);
     invalidateActivityView();
   },
 
@@ -131,5 +124,5 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 
 registerTaskStoreActions({
   clear: () => useTaskStore.getState().clear(),
-  refresh: (treeId) => void useTaskStore.getState().refreshTasks(treeId),
+  refresh: (workspaceId) => void useTaskStore.getState().refreshTasks(workspaceId),
 });

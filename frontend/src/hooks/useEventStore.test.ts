@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useEventStore } from "./useEventStore";
-import { useTreeStore } from "./useTreeStore";
-import { TreeService } from "@/services/TreeService";
+import { useWorkspaceStore } from "./useWorkspaceStore";
+import { WorkspaceService } from "@/services/WorkspaceService";
 import { EventDB } from "@/types/event";
-import { Tree } from "@/types/tree";
+import { Workspace } from "@/types/workspace";
 
-vi.mock("@/services/TreeService");
+vi.mock("@/services/WorkspaceService");
 
 const TREE_ID = "tree-evt";
 
@@ -18,14 +18,14 @@ const EVENT_DB_ROW: EventDB = {
   created_at: "2024-01-01T00:00:00Z",
 };
 
-function makeTree(): Tree {
-  return { id: TREE_ID, name: "Evt Tree", role: "owner" };
+function makeTree(): Workspace {
+  return { id: TREE_ID, name: "Evt Workspace", role: "owner" };
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
   useEventStore.setState({ events: [] });
-  useTreeStore.setState({ selectedTree: undefined });
+  useWorkspaceStore.setState({ selectedTree: undefined });
 });
 
 describe("useEventStore — refreshEvents", () => {
@@ -35,13 +35,13 @@ describe("useEventStore — refreshEvents", () => {
     await useEventStore.getState().refreshEvents();
 
     expect(useEventStore.getState().events).toHaveLength(0);
-    expect(TreeService.getEvents).not.toHaveBeenCalled();
+    expect(WorkspaceService.getEvents).not.toHaveBeenCalled();
   });
 
   it("fetches and maps events from the service", async () => {
-    useTreeStore.setState({ selectedTree: makeTree() });
-    vi.mocked(TreeService.getEvents).mockResolvedValue([EVENT_DB_ROW]);
-    vi.mocked(TreeService.getEventMemberLinks).mockResolvedValue([
+    useWorkspaceStore.setState({ selectedTree: makeTree() });
+    vi.mocked(WorkspaceService.getEvents).mockResolvedValue([EVENT_DB_ROW]);
+    vi.mocked(WorkspaceService.getEventMemberLinks).mockResolvedValue([
       { event_id: "ev1", member_id: "m1" },
     ]);
 
@@ -56,9 +56,9 @@ describe("useEventStore — refreshEvents", () => {
   });
 
   it("maps empty member links when no links exist for an event", async () => {
-    useTreeStore.setState({ selectedTree: makeTree() });
-    vi.mocked(TreeService.getEvents).mockResolvedValue([EVENT_DB_ROW]);
-    vi.mocked(TreeService.getEventMemberLinks).mockResolvedValue([]);
+    useWorkspaceStore.setState({ selectedTree: makeTree() });
+    vi.mocked(WorkspaceService.getEvents).mockResolvedValue([EVENT_DB_ROW]);
+    vi.mocked(WorkspaceService.getEventMemberLinks).mockResolvedValue([]);
 
     await useEventStore.getState().refreshEvents();
 
@@ -67,11 +67,11 @@ describe("useEventStore — refreshEvents", () => {
 });
 
 describe("useEventStore — addEvent", () => {
-  it("calls TreeService.addEvent with the correct payload then refreshes", async () => {
-    useTreeStore.setState({ selectedTree: makeTree() });
-    vi.mocked(TreeService.addEvent).mockResolvedValue(undefined);
-    vi.mocked(TreeService.getEvents).mockResolvedValue([]);
-    vi.mocked(TreeService.getEventMemberLinks).mockResolvedValue([]);
+  it("calls WorkspaceService.addEvent with the correct payload then refreshes", async () => {
+    useWorkspaceStore.setState({ selectedTree: makeTree() });
+    vi.mocked(WorkspaceService.addEvent).mockResolvedValue(undefined);
+    vi.mocked(WorkspaceService.getEvents).mockResolvedValue([]);
+    vi.mocked(WorkspaceService.getEventMemberLinks).mockResolvedValue([]);
 
     await useEventStore.getState().addEvent(["m1"], {
       eventType: "marriage",
@@ -80,14 +80,14 @@ describe("useEventStore — addEvent", () => {
       description: null,
     });
 
-    expect(TreeService.addEvent).toHaveBeenCalledWith(
+    expect(WorkspaceService.addEvent).toHaveBeenCalledWith(
       TREE_ID,
       expect.any(String), // generated uuid
       expect.objectContaining({ eventType: "marriage", date: "2020-09-01" }),
       expect.any(String), // iso timestamp
       ["m1"],
     );
-    expect(TreeService.getEvents).toHaveBeenCalled();
+    expect(WorkspaceService.getEvents).toHaveBeenCalled();
   });
 
   it("does nothing when no tree is selected", async () => {
@@ -98,18 +98,18 @@ describe("useEventStore — addEvent", () => {
       description: null,
     });
 
-    expect(TreeService.addEvent).not.toHaveBeenCalled();
+    expect(WorkspaceService.addEvent).not.toHaveBeenCalled();
   });
 });
 
 describe("useEventStore — updateEvent", () => {
-  it("calls TreeService.updateEvent, setEventLinks and setEventDocuments then refreshes", async () => {
-    useTreeStore.setState({ selectedTree: makeTree() });
-    vi.mocked(TreeService.updateEvent).mockResolvedValue(undefined);
-    vi.mocked(TreeService.setEventLinks).mockResolvedValue(undefined);
-    vi.mocked(TreeService.setEventDocuments).mockResolvedValue(undefined);
-    vi.mocked(TreeService.getEvents).mockResolvedValue([]);
-    vi.mocked(TreeService.getEventMemberLinks).mockResolvedValue([]);
+  it("calls WorkspaceService.updateEvent, setEventLinks and setEventDocuments then refreshes", async () => {
+    useWorkspaceStore.setState({ selectedTree: makeTree() });
+    vi.mocked(WorkspaceService.updateEvent).mockResolvedValue(undefined);
+    vi.mocked(WorkspaceService.setEventLinks).mockResolvedValue(undefined);
+    vi.mocked(WorkspaceService.setEventDocuments).mockResolvedValue(undefined);
+    vi.mocked(WorkspaceService.getEvents).mockResolvedValue([]);
+    vi.mocked(WorkspaceService.getEventMemberLinks).mockResolvedValue([]);
 
     await useEventStore.getState().updateEvent(
       "ev1",
@@ -123,73 +123,73 @@ describe("useEventStore — updateEvent", () => {
       ["doc-1"],
     );
 
-    expect(TreeService.updateEvent).toHaveBeenCalledWith(
+    expect(WorkspaceService.updateEvent).toHaveBeenCalledWith(
       TREE_ID,
       "ev1",
       expect.objectContaining({ eventType: "birth" }),
     );
-    expect(TreeService.setEventLinks).toHaveBeenCalledWith(TREE_ID, "ev1", [
+    expect(WorkspaceService.setEventLinks).toHaveBeenCalledWith(TREE_ID, "ev1", [
       "m2",
     ]);
-    expect(TreeService.setEventDocuments).toHaveBeenCalledWith(TREE_ID, "ev1", [
+    expect(WorkspaceService.setEventDocuments).toHaveBeenCalledWith(TREE_ID, "ev1", [
       "doc-1",
     ]);
   });
 
   it("leaves document links unchanged when document ids are omitted", async () => {
-    useTreeStore.setState({ selectedTree: makeTree() });
-    vi.mocked(TreeService.updateEvent).mockResolvedValue(undefined);
-    vi.mocked(TreeService.setEventLinks).mockResolvedValue(undefined);
-    vi.mocked(TreeService.getEvents).mockResolvedValue([]);
-    vi.mocked(TreeService.getEventMemberLinks).mockResolvedValue([]);
+    useWorkspaceStore.setState({ selectedTree: makeTree() });
+    vi.mocked(WorkspaceService.updateEvent).mockResolvedValue(undefined);
+    vi.mocked(WorkspaceService.setEventLinks).mockResolvedValue(undefined);
+    vi.mocked(WorkspaceService.getEvents).mockResolvedValue([]);
+    vi.mocked(WorkspaceService.getEventMemberLinks).mockResolvedValue([]);
 
     await useEventStore
       .getState()
       .updateEvent("ev1", { eventType: "birth", date: "2001-01-01" }, ["m2"]);
 
-    expect(TreeService.setEventDocuments).not.toHaveBeenCalled();
+    expect(WorkspaceService.setEventDocuments).not.toHaveBeenCalled();
   });
 });
 
 describe("useEventStore — setEventDocuments", () => {
-  it("calls TreeService.setEventDocuments then refreshes", async () => {
-    useTreeStore.setState({ selectedTree: makeTree() });
-    vi.mocked(TreeService.setEventDocuments).mockResolvedValue(undefined);
-    vi.mocked(TreeService.getEvents).mockResolvedValue([]);
-    vi.mocked(TreeService.getEventMemberLinks).mockResolvedValue([]);
+  it("calls WorkspaceService.setEventDocuments then refreshes", async () => {
+    useWorkspaceStore.setState({ selectedTree: makeTree() });
+    vi.mocked(WorkspaceService.setEventDocuments).mockResolvedValue(undefined);
+    vi.mocked(WorkspaceService.getEvents).mockResolvedValue([]);
+    vi.mocked(WorkspaceService.getEventMemberLinks).mockResolvedValue([]);
 
     await useEventStore.getState().setEventDocuments("ev1", ["doc-1", "doc-2"]);
 
-    expect(TreeService.setEventDocuments).toHaveBeenCalledWith(TREE_ID, "ev1", [
+    expect(WorkspaceService.setEventDocuments).toHaveBeenCalledWith(TREE_ID, "ev1", [
       "doc-1",
       "doc-2",
     ]);
-    expect(TreeService.getEvents).toHaveBeenCalled();
+    expect(WorkspaceService.getEvents).toHaveBeenCalled();
   });
 });
 
 describe("useEventStore — removeEvent", () => {
-  it("calls TreeService.removeEvent then refreshes", async () => {
-    useTreeStore.setState({ selectedTree: makeTree() });
-    vi.mocked(TreeService.removeEvent).mockResolvedValue(undefined);
-    vi.mocked(TreeService.getEvents).mockResolvedValue([]);
-    vi.mocked(TreeService.getEventMemberLinks).mockResolvedValue([]);
+  it("calls WorkspaceService.removeEvent then refreshes", async () => {
+    useWorkspaceStore.setState({ selectedTree: makeTree() });
+    vi.mocked(WorkspaceService.removeEvent).mockResolvedValue(undefined);
+    vi.mocked(WorkspaceService.getEvents).mockResolvedValue([]);
+    vi.mocked(WorkspaceService.getEventMemberLinks).mockResolvedValue([]);
 
     await useEventStore.getState().removeEvent("ev1");
 
-    expect(TreeService.removeEvent).toHaveBeenCalledWith(TREE_ID, "ev1");
-    expect(TreeService.getEvents).toHaveBeenCalled();
+    expect(WorkspaceService.removeEvent).toHaveBeenCalledWith(TREE_ID, "ev1");
+    expect(WorkspaceService.getEvents).toHaveBeenCalled();
   });
 });
 
 describe("useEventStore — getEventsByMember", () => {
   it("returns only events linked to the requested member", async () => {
-    useTreeStore.setState({ selectedTree: makeTree() });
-    vi.mocked(TreeService.getEvents).mockResolvedValue([
+    useWorkspaceStore.setState({ selectedTree: makeTree() });
+    vi.mocked(WorkspaceService.getEvents).mockResolvedValue([
       EVENT_DB_ROW,
       { ...EVENT_DB_ROW, id: "ev2", event_type: "death" },
     ]);
-    vi.mocked(TreeService.getEventMemberLinks).mockResolvedValue([
+    vi.mocked(WorkspaceService.getEventMemberLinks).mockResolvedValue([
       { event_id: "ev1", member_id: "m1" },
       { event_id: "ev2", member_id: "m2" },
     ]);
@@ -208,13 +208,13 @@ describe("useEventStore — stale-write guard", () => {
     const pending = new Promise<EventDB[]>((r) => {
       resolve = r;
     });
-    vi.mocked(TreeService.getEvents).mockReturnValue(pending);
-    vi.mocked(TreeService.getEventMemberLinks).mockResolvedValue([]);
-    useTreeStore.setState({ selectedTree: makeTree() });
+    vi.mocked(WorkspaceService.getEvents).mockReturnValue(pending);
+    vi.mocked(WorkspaceService.getEventMemberLinks).mockResolvedValue([]);
+    useWorkspaceStore.setState({ selectedTree: makeTree() });
 
     const p = useEventStore.getState().refreshEvents(TREE_ID);
     // user switches away before the fetch resolves
-    useTreeStore.setState({
+    useWorkspaceStore.setState({
       selectedTree: { id: "other", name: "Other", role: "owner" },
     });
     resolve([EVENT_DB_ROW]);
@@ -228,29 +228,29 @@ describe("useEventStore — stale-write guard", () => {
     const pending = new Promise<EventDB[]>((r) => {
       resolve = r;
     });
-    vi.mocked(TreeService.getEvents).mockReturnValue(pending);
-    vi.mocked(TreeService.getEventMemberLinks).mockResolvedValue([]);
-    useTreeStore.setState({ selectedTree: makeTree() });
+    vi.mocked(WorkspaceService.getEvents).mockReturnValue(pending);
+    vi.mocked(WorkspaceService.getEventMemberLinks).mockResolvedValue([]);
+    useWorkspaceStore.setState({ selectedTree: makeTree() });
 
     const p = useEventStore.getState().refreshEvents(TREE_ID);
     // user disconnects before the fetch resolves
-    useTreeStore.setState({ selectedTree: undefined });
+    useWorkspaceStore.setState({ selectedTree: undefined });
     resolve([EVENT_DB_ROW]);
     await p;
 
     expect(useEventStore.getState().events).toHaveLength(0); // stale data dropped
   });
 
-  it("writes data when the explicit treeId is still active", async () => {
+  it("writes data when the explicit workspaceId is still active", async () => {
     let resolve!: (v: EventDB[]) => void;
     const pending = new Promise<EventDB[]>((r) => {
       resolve = r;
     });
-    vi.mocked(TreeService.getEvents).mockReturnValue(pending);
-    vi.mocked(TreeService.getEventMemberLinks).mockResolvedValue([
+    vi.mocked(WorkspaceService.getEvents).mockReturnValue(pending);
+    vi.mocked(WorkspaceService.getEventMemberLinks).mockResolvedValue([
       { event_id: "ev1", member_id: "m1" },
     ]);
-    useTreeStore.setState({ selectedTree: makeTree() });
+    useWorkspaceStore.setState({ selectedTree: makeTree() });
 
     const p = useEventStore.getState().refreshEvents(TREE_ID);
     resolve([EVENT_DB_ROW]);

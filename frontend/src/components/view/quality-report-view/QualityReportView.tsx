@@ -1,14 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
 import {
   AlertCircle,
   AlertTriangle,
   Circle,
   ClipboardList,
   Plus,
-  ArrowDownToLine,
-  ArrowUpFromLine,
   CheckCircle2,
   GitMerge,
   RefreshCw,
@@ -16,7 +13,6 @@ import {
   ShieldCheck,
   X,
 } from "lucide-react";
-import { ApiError } from "@/services/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -28,7 +24,7 @@ import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { TaskDialog } from "@/components/shared/member-sheet/TaskDialog";
 import { MergeMembersDialog } from "@/components/view/quality-report-view/MergeMembersDialog";
 import type { QualityIssue } from "@/types/quality";
@@ -42,7 +38,6 @@ const ISSUE_TYPE_KEY: Record<string, string> = {
   relationship_cycle: "issue-relationship-cycle",
   duplicate_candidate: "issue-duplicate-candidate",
   disconnected_member: "issue-disconnected-member",
-  bridge_person_drift: "issue-bridge-person-drift",
   event_after_death: "issue-event-after-death",
 };
 
@@ -57,17 +52,17 @@ function memberLabel(
 }
 
 function useOpenMember(): (memberId: string) => void {
-  const treeId = useTreeStore((state) => state.selectedTree?.id);
+  const workspaceId = useWorkspaceStore((state) => state.selectedTree?.id);
   const setOpenSheet = useMemberSheetStore((state) => state.setOpenSheet);
   const navigateTo = useNavigationStore((state) => state.navigateTo);
 
   return useCallback(
     (memberId: string) => {
-      if (!treeId) return;
-      setOpenSheet(treeId, { memberId, tab: "records", mode: "view" });
+      if (!workspaceId) return;
+      setOpenSheet(workspaceId, { memberId, tab: "records", mode: "view" });
       navigateTo("tree-view");
     },
-    [navigateTo, setOpenSheet, treeId],
+    [navigateTo, setOpenSheet, workspaceId],
   );
 }
 
@@ -81,31 +76,10 @@ function IssueCard({
   const { t } = useTranslation(undefined, { keyPrefix: "quality-report-view" });
   const { members } = useMemberStore();
   const openMember = useOpenMember();
-  const { dismissIssue, restoreIssue, resolveBridgeDrift } =
-    useQualityReportStore();
-  const [resolving, setResolving] = useState(false);
+  const { dismissIssue, restoreIssue } = useQualityReportStore();
   const [mergeOpen, setMergeOpen] = useState(false);
 
-  // Bridge-person drift is directly fixable from the note: adopt one side.
-  // Requires write access to the linked tree too — the backend answers 403
-  // otherwise, surfaced as a dedicated toast.
-  const isBridgeDrift = issue.issue_type === "bridge_person_drift";
   const isDuplicate = issue.issue_type === "duplicate_candidate";
-  const handleResolveDrift = async (direction: "push" | "pull") => {
-    setResolving(true);
-    try {
-      await resolveBridgeDrift(issue.member_ids[0], direction);
-      toast.success(t("resolve-drift-success"));
-    } catch (err: unknown) {
-      if (err instanceof ApiError && err.status === 403) {
-        toast.error(t("resolve-drift-no-access"));
-      } else {
-        toast.error(t("resolve-drift-error"));
-      }
-    } finally {
-      setResolving(false);
-    }
-  };
 
   const isError = issue.severity === "error";
   const Icon = isError ? AlertCircle : AlertTriangle;
@@ -149,28 +123,6 @@ function IssueCard({
                 {memberLabel(id, members)}
               </button>
             ))}
-          </div>
-        )}
-        {isBridgeDrift && canWrite && !issue.dismissed && (
-          <div className="flex flex-wrap gap-2 pt-1">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={resolving}
-              onClick={() => void handleResolveDrift("push")}
-            >
-              <ArrowUpFromLine />
-              {t("resolve-drift-push")}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={resolving}
-              onClick={() => void handleResolveDrift("pull")}
-            >
-              <ArrowDownToLine />
-              {t("resolve-drift-pull")}
-            </Button>
           </div>
         )}
         {isDuplicate && canWrite && !issue.dismissed && (
@@ -323,8 +275,8 @@ export const QualityReportView = () => {
   });
   const { report, isLoading, showDismissed, refreshReport, setShowDismissed } =
     useQualityReportStore();
-  const canWrite = useTreeStore((s) => s.selectedTree?.role !== "viewer");
-  const restrictions = useTreeStore((s) => s.selectedTree?.restrictions);
+  const canWrite = useWorkspaceStore((s) => s.selectedTree?.role !== "viewer");
+  const restrictions = useWorkspaceStore((s) => s.selectedTree?.restrictions);
   const tasksEnabled = !restrictions?.includes("tasks");
 
   useEffect(() => {

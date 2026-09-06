@@ -27,12 +27,33 @@ from app.models.content import (
 )
 from app.models.family import Member, MemberDisease, Relation, RelationType
 from app.models.friendship import Friendship
+from app.models.identity_link import (
+    IdentityLink,
+    IdentityLinkBlock,
+    IdentityLinkEvent,
+    IdentityLinkIdempotencyKey,
+)
+from app.models.identity_link_claim import IdentityLinkClaim
 from app.models.job import BackgroundJob
 from app.models.legal import LegalAcceptance, LegalDocumentVersion
+from app.models.migration import (
+    MigrationConflict,
+    MigrationIdempotencyKey,
+    MigrationMapping,
+    MigrationReport,
+    MigrationRun,
+)
 from app.models.notification import Notification
+from app.models.provenance import ContentScope, ContentType
 from app.models.quality import QualityIssueDismissal
+from app.models.saved_view import (
+    SavedView,
+    SavedViewPosition,
+    SavedViewSection,
+    SavedViewUserState,
+)
+from app.models.section import Section, SectionMember, SectionPosition
 from app.models.setting import AppSetting
-from app.models.tree import Tree, TreeInvitation, TreeMembership, TreeUserState
 from app.models.user import User
 from app.models.virtual_view import (
     VirtualView,
@@ -41,16 +62,26 @@ from app.models.virtual_view import (
     VirtualViewSource,
     VirtualViewUserState,
 )
+from app.models.workspace import (
+    Workspace,
+    WorkspaceInvitation,
+    WorkspaceMembership,
+    WorkspaceSectionGrant,
+    WorkspaceSectionPublicLink,
+    WorkspaceUserState,
+)
 
 __all__ = [
     "ActivityLog",
     "AdminAuditLog",
     "BackgroundJob",
     "User",
-    "Tree",
-    "TreeMembership",
-    "TreeInvitation",
-    "TreeUserState",
+    "Workspace",
+    "WorkspaceMembership",
+    "WorkspaceInvitation",
+    "WorkspaceSectionGrant",
+    "WorkspaceSectionPublicLink",
+    "WorkspaceUserState",
     "Friendship",
     "VirtualView",
     "VirtualViewSource",
@@ -84,4 +115,23 @@ __all__ = [
     "LegalDocumentVersion",
     "QualityIssueDismissal",
     "Notification",
+    "Section",
+    "SectionMember",
+    "SectionPosition",
+    "SavedView",
+    "SavedViewSection",
+    "SavedViewPosition",
+    "SavedViewUserState",
+    "ContentScope",
+    "ContentType",
+    "IdentityLink",
+    "IdentityLinkBlock",
+    "IdentityLinkEvent",
+    "IdentityLinkIdempotencyKey",
+    "IdentityLinkClaim",
+    "MigrationRun",
+    "MigrationMapping",
+    "MigrationReport",
+    "MigrationConflict",
+    "MigrationIdempotencyKey",
 ]

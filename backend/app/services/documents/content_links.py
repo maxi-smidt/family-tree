@@ -8,7 +8,7 @@ from sqlalchemy.orm.attributes import InstrumentedAttribute
 from app.db.base import Base
 from app.models.content import Document
 from app.models.family import Member
-from app.models.tree import Tree
+from app.models.workspace import Workspace
 
 
 def replace_member_links(
@@ -17,7 +17,7 @@ def replace_member_links(
     link_model: type[Base],
     parent_fk: InstrumentedAttribute,
     parent_id: str,
-    tree: Tree,
+    tree: Workspace,
     member_ids: list[str],
 ) -> None:
     """Replace a content item's member links, keeping only members of `tree`."""
@@ -26,7 +26,7 @@ def replace_member_links(
         return
     valid_ids = db.scalars(
         select(Member.id).where(
-            Member.tree_id == tree.id,
+            Member.workspace_id == tree.id,
             Member.id.in_(set(member_ids)),
         )
     ).all()
@@ -38,7 +38,7 @@ def replace_gallery_member_links(
     db: Session,
     *,
     image_id: str,
-    tree: Tree,
+    tree: Workspace,
     links: list,
 ) -> None:
     """Replace gallery links while retaining each optional normalized region."""
@@ -53,7 +53,7 @@ def replace_gallery_member_links(
     valid_ids = set(
         db.scalars(
             select(Member.id).where(
-                Member.tree_id == tree.id,
+                Member.workspace_id == tree.id,
                 Member.id.in_({link.member_id for link in links}),
             )
         ).all()
@@ -79,7 +79,7 @@ def replace_document_links(
     link_model: type[Base],
     parent_fk: InstrumentedAttribute,
     parent_id: str,
-    tree: Tree,
+    tree: Workspace,
     document_ids: list[str],
 ) -> None:
     """Replace an event/story's document links, keeping only documents of `tree`."""
@@ -88,7 +88,7 @@ def replace_document_links(
         return
     valid_ids = db.scalars(
         select(Document.id).where(
-            Document.tree_id == tree.id,
+            Document.workspace_id == tree.id,
             Document.id.in_(set(document_ids)),
         )
     ).all()

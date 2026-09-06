@@ -1,16 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useStorageStore } from "./useStorageStore";
-import { useTreeStore } from "./useTreeStore";
-import { TreeService } from "@/services/TreeService";
-import { TreeStorageUsageDB } from "@/types/storage";
-import { Tree } from "@/types/tree";
+import { useWorkspaceStore } from "./useWorkspaceStore";
+import { WorkspaceService } from "@/services/WorkspaceService";
+import { WorkspaceStorageUsageDB } from "@/types/storage";
+import { Workspace } from "@/types/workspace";
 
-vi.mock("@/services/TreeService");
+vi.mock("@/services/WorkspaceService");
 
 const TREE_ID = "tree-storage-test";
-const TREE: Tree = { id: TREE_ID, name: "Storage Tree", role: "owner" };
+const TREE: Workspace = { id: TREE_ID, name: "Storage Workspace", role: "owner" };
 
-const USAGE: TreeStorageUsageDB = {
+const USAGE: WorkspaceStorageUsageDB = {
   tree_bytes: 1024,
   media_bytes: 2048,
   total_bytes: 3072,
@@ -21,7 +21,7 @@ const USAGE: TreeStorageUsageDB = {
 beforeEach(() => {
   vi.clearAllMocks();
   useStorageStore.setState({ usage: null, isLoading: false });
-  useTreeStore.setState({ selectedTree: undefined });
+  useWorkspaceStore.setState({ selectedTree: undefined });
 });
 
 describe("useStorageStore — refreshStorageUsage", () => {
@@ -31,16 +31,16 @@ describe("useStorageStore — refreshStorageUsage", () => {
     await useStorageStore.getState().refreshStorageUsage();
 
     expect(useStorageStore.getState().usage).toBeNull();
-    expect(TreeService.getStorageUsage).not.toHaveBeenCalled();
+    expect(WorkspaceService.getStorageUsage).not.toHaveBeenCalled();
   });
 
-  it("fetches usage for the given treeId and stores it", async () => {
-    useTreeStore.setState({ selectedTree: TREE });
-    vi.mocked(TreeService.getStorageUsage).mockResolvedValue(USAGE);
+  it("fetches usage for the given workspaceId and stores it", async () => {
+    useWorkspaceStore.setState({ selectedTree: TREE });
+    vi.mocked(WorkspaceService.getStorageUsage).mockResolvedValue(USAGE);
 
     await useStorageStore.getState().refreshStorageUsage(TREE_ID);
 
-    expect(TreeService.getStorageUsage).toHaveBeenCalledWith(TREE_ID);
+    expect(WorkspaceService.getStorageUsage).toHaveBeenCalledWith(TREE_ID);
     const stored = useStorageStore.getState().usage;
     expect(stored).not.toBeNull();
     expect(stored?.tree_bytes).toBe(1024);
@@ -49,13 +49,13 @@ describe("useStorageStore — refreshStorageUsage", () => {
   });
 
   it("handles null quota fields (unlimited)", async () => {
-    useTreeStore.setState({ selectedTree: TREE });
-    const unlimitedUsage: TreeStorageUsageDB = {
+    useWorkspaceStore.setState({ selectedTree: TREE });
+    const unlimitedUsage: WorkspaceStorageUsageDB = {
       ...USAGE,
       tree_quota_bytes: null,
       media_quota_bytes: null,
     };
-    vi.mocked(TreeService.getStorageUsage).mockResolvedValue(unlimitedUsage);
+    vi.mocked(WorkspaceService.getStorageUsage).mockResolvedValue(unlimitedUsage);
 
     await useStorageStore.getState().refreshStorageUsage(TREE_ID);
 
@@ -65,9 +65,9 @@ describe("useStorageStore — refreshStorageUsage", () => {
   });
 
   it("sets isLoading to true during fetch and false after", async () => {
-    useTreeStore.setState({ selectedTree: TREE });
+    useWorkspaceStore.setState({ selectedTree: TREE });
     let capturedLoading = false;
-    vi.mocked(TreeService.getStorageUsage).mockImplementation(async () => {
+    vi.mocked(WorkspaceService.getStorageUsage).mockImplementation(async () => {
       capturedLoading = useStorageStore.getState().isLoading;
       return USAGE;
     });
@@ -79,8 +79,8 @@ describe("useStorageStore — refreshStorageUsage", () => {
   });
 
   it("sets error and resets isLoading when the API throws (no rejection)", async () => {
-    useTreeStore.setState({ selectedTree: TREE });
-    vi.mocked(TreeService.getStorageUsage).mockRejectedValue(
+    useWorkspaceStore.setState({ selectedTree: TREE });
+    vi.mocked(WorkspaceService.getStorageUsage).mockRejectedValue(
       new Error("network error"),
     );
 

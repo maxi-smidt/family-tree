@@ -6,8 +6,8 @@ stays an opaque ``Text``/JSON-encoded column — these ``TypedDict``s type the
 Python-side shape crossing the service boundary, nothing on the wire.
 
 A ``TypedDict`` is a plain ``dict`` at runtime, so every existing
-``snapshot["member"]`` / ``snapshot.get("bridge")``-style access keeps working
-unmodified; this module only adds static shape documentation.
+``snapshot["member"]``-style access keeps working unmodified; this module
+only adds static shape documentation.
 """
 
 from typing import NotRequired, TypedDict
@@ -17,10 +17,9 @@ from typing import NotRequired, TypedDict
 # without hand-typing every model's columns — out of scope here.
 RowSnapshot = dict[str, object]
 
-
-class BridgeSnapshot(TypedDict):
-    counterpart_member_id: str
-    counterpart_tree_id: str
+# Origin scopes captured before a delete, keyed "<content_type>:<content_id>"
+# so one restore can carry the provenance of several records (#1023).
+ContentScopes = dict[str, str | None]
 
 
 # ---------------------------------------------------------------------------
@@ -40,7 +39,7 @@ class MemberSnapshot(TypedDict):
     story_links: list[RowSnapshot]
     gallery_links: list[RowSnapshot]
     document_links: list[RowSnapshot]
-    bridge: NotRequired[BridgeSnapshot]
+    content_scopes: NotRequired[ContentScopes]
 
 
 class RelationSnapshot(TypedDict):
@@ -51,6 +50,7 @@ class RelationSnapshot(TypedDict):
 class DiseaseSnapshot(TypedDict):
     version: int
     disease: RowSnapshot
+    content_scopes: NotRequired[ContentScopes]
 
 
 class EventSnapshot(TypedDict):
@@ -58,6 +58,7 @@ class EventSnapshot(TypedDict):
     event: RowSnapshot
     member_links: list[RowSnapshot]
     document_links: list[RowSnapshot]
+    content_scopes: NotRequired[ContentScopes]
 
 
 class StorySnapshot(TypedDict):
@@ -65,6 +66,7 @@ class StorySnapshot(TypedDict):
     story: RowSnapshot
     member_links: list[RowSnapshot]
     document_links: list[RowSnapshot]
+    content_scopes: NotRequired[ContentScopes]
 
 
 class GalleryImageSnapshot(TypedDict):
@@ -72,6 +74,7 @@ class GalleryImageSnapshot(TypedDict):
     gallery_image: RowSnapshot
     member_links: list[RowSnapshot]
     trashed_media: list[str]
+    content_scopes: NotRequired[ContentScopes]
 
 
 class DocumentSnapshot(TypedDict):
@@ -82,6 +85,7 @@ class DocumentSnapshot(TypedDict):
     event_links: list[RowSnapshot]
     story_links: list[RowSnapshot]
     trashed_media: list[str]
+    content_scopes: NotRequired[ContentScopes]
 
 
 class DocumentFileSnapshot(TypedDict):

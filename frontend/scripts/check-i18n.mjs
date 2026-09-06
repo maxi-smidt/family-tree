@@ -47,6 +47,14 @@ const DYNAMIC_KEY_PREFIXES = [
   "legal.lang-",
   // tRoot(`notifications.types.${n.type}`) — NotificationBell
   "notifications.types.",
+  // t(`report.status-${report.status}`) — MigrationReviewView
+  "migration-review-view.report.status-",
+  // t(`status-${conflict.status}`) — MigrationConflictCard
+  "migration-review-view.checklist.status-",
+  // t(FIELD_LABEL_KEY[field] ?? "field-unknown") — MigrationConflictCard
+  "migration-review-view.checklist.field-",
+  // t(`claim-status-${claim.status}`) — IdentityLinksView
+  "identity-links-view.claim-status-",
 ];
 
 function isDynamicKey(key) {

@@ -65,6 +65,16 @@ const FriendsView = lazy(() =>
     default: m.FriendsView,
   })),
 );
+const MigrationReviewView = lazy(() =>
+  import("@/components/view/migration-review-view/MigrationReviewView").then(
+    (m) => ({ default: m.MigrationReviewView }),
+  ),
+);
+const IdentityLinksView = lazy(() =>
+  import("@/components/view/identity-links-view/IdentityLinksView").then(
+    (m) => ({ default: m.IdentityLinksView }),
+  ),
+);
 import {
   Select,
   SelectContent,
@@ -76,6 +86,14 @@ import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useUnsavedChangesStore } from "@/hooks/useUnsavedChangesStore";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { useFriendStore, useIncomingFriendCount } from "@/hooks/useFriendStore";
+import {
+  useIdentityLinkStore,
+  useIncomingIdentityClaimCount,
+} from "@/hooks/useIdentityLinkStore";
+import {
+  useMigrationReviewStore,
+  usePendingMigrationReviewCount,
+} from "@/hooks/useMigrationReviewStore";
 import { useTabPreferences } from "@/hooks/useTabPreferences";
 import { useTutorialStore } from "@/hooks/useTutorialStore";
 import { useLegalStore } from "@/hooks/useLegalStore";
@@ -83,17 +101,19 @@ import { LEGAL_DEFAULT_LOCALE } from "@/lib/legalLocale";
 import {
   DATABASE_MANAGEMENT_VIEW,
   FRIENDS_VIEW,
+  IDENTITY_LINKS_VIEW,
   MEDIA_VIEW,
+  MIGRATION_REVIEW_VIEW,
   TREE_VIEW,
   ViewId,
   isViewId,
   resolveTabs,
 } from "@/lib/tabs";
 import { filterViewsByRestrictions } from "@/lib/contentRestrictions";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import { usePresence } from "@/hooks/usePresence";
-import { TreeBreadcrumb } from "@/components/layout/TreeBreadcrumb";
+import { WorkspaceBreadcrumb } from "@/components/layout/WorkspaceBreadcrumb";
 import { readMemberSheetDeepLink } from "@/utils/memberSheetState";
 
 const ACTIVE_TAB_STORAGE_KEY = "ft_active_tab";
@@ -103,6 +123,8 @@ const NO_TREE_VIEWS: ViewId[] = [
   TREE_VIEW,
   DATABASE_MANAGEMENT_VIEW,
   FRIENDS_VIEW,
+  MIGRATION_REVIEW_VIEW,
+  IDENTITY_LINKS_VIEW,
 ];
 
 const VIEW_COMPONENTS: Omit<Record<ViewId, React.ReactNode>, "media-view"> = {
@@ -115,6 +137,8 @@ const VIEW_COMPONENTS: Omit<Record<ViewId, React.ReactNode>, "media-view"> = {
   "statistics-view": <StatisticsView />,
   "database-management-view": <DatabaseManagementView />,
   "friends-view": <FriendsView />,
+  "migration-review-view": <MigrationReviewView />,
+  "identity-links-view": <IdentityLinksView />,
 };
 
 const MANAGEMENT_VIEWS = new Set<ViewId>(["database-management-view"]);
@@ -166,7 +190,7 @@ export const MainPanel = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingView]);
 
-  const selectedTreeId = useTreeStore((s) => s.selectedTree?.id);
+  const selectedTreeId = useWorkspaceStore((s) => s.selectedTree?.id);
   const hasOpenMemberSheet = useMemberSheetStore((s) =>
     selectedTreeId ? Boolean(s.openSheets[selectedTreeId]) : false,
   );
@@ -187,6 +211,10 @@ export const MainPanel = () => {
   const [manageOpen, setManageOpen] = useState(false);
   const loadIncomingFriends = useFriendStore((s) => s.loadIncoming);
   const incomingFriendCount = useIncomingFriendCount();
+  const loadMigrationReview = useMigrationReviewStore((s) => s.load);
+  const pendingMigrationCount = usePendingMigrationReviewCount();
+  const loadIdentityClaimInbox = useIdentityLinkStore((s) => s.loadClaimInbox);
+  const incomingIdentityClaimCount = useIncomingIdentityClaimCount();
 
   useEffect(() => {
     if (user) load();
@@ -230,7 +258,17 @@ export const MainPanel = () => {
     if (user) void loadIncomingFriends();
   }, [user, loadIncomingFriends]);
 
-  const selectedTree = useTreeStore((s) => s.selectedTree);
+  // Keep the Migration Review tab badge accurate without opening the tab.
+  useEffect(() => {
+    if (user) void loadMigrationReview();
+  }, [user, loadMigrationReview]);
+
+  // Keep the Identity Links tab badge accurate without opening the tab.
+  useEffect(() => {
+    if (user) void loadIdentityClaimInbox();
+  }, [user, loadIdentityClaimInbox]);
+
+  const selectedTree = useWorkspaceStore((s) => s.selectedTree);
   const restrictions = selectedTree?.restrictions ?? [];
   const galleryAvailable = !restrictions.includes("gallery");
   const documentsAvailable = !restrictions.includes("sources");
@@ -264,6 +302,8 @@ export const MainPanel = () => {
     "statistics-view": t("statistics"),
     "database-management-view": t("database-management"),
     "friends-view": t("friends"),
+    "migration-review-view": t("migration-review"),
+    "identity-links-view": t("identity-links"),
   };
   const selectMediaSection = (section: MediaSection) => {
     guardNavigate(() => {
@@ -283,7 +323,7 @@ export const MainPanel = () => {
       onValueChange={handleTabChange}
       className="h-full flex flex-col"
     >
-      <TreeBreadcrumb />
+      <WorkspaceBreadcrumb />
       <div
         className="ml-16 mr-4 mt-3 flex-none md:hidden flex items-center gap-2"
         data-tutorial="views-tabs-mobile"
@@ -320,7 +360,7 @@ export const MainPanel = () => {
         // flex-1 + min-w-0 + truncate so tabs shrink with an ellipsis under
         // that cap instead of overflowing; overflow-x-auto is just a safety
         // net for the pathological case where even truncated labels don't
-        // fit (matches TreeBreadcrumb's approach to the same problem).
+        // fit (matches WorkspaceBreadcrumb's approach to the same problem).
         className="ml-16 mt-3 hidden md:inline-flex max-w-[calc(100%-8rem)] overflow-x-auto"
         data-tutorial="views-tabs"
       >
@@ -374,6 +414,18 @@ export const MainPanel = () => {
                     {incomingFriendCount}
                   </Badge>
                 )}
+                {view === MIGRATION_REVIEW_VIEW &&
+                  pendingMigrationCount > 0 && (
+                    <Badge variant="default" className="ml-1.5 px-1.5 shrink-0">
+                      {pendingMigrationCount}
+                    </Badge>
+                  )}
+                {view === IDENTITY_LINKS_VIEW &&
+                  incomingIdentityClaimCount > 0 && (
+                    <Badge variant="default" className="ml-1.5 px-1.5 shrink-0">
+                      {incomingIdentityClaimCount}
+                    </Badge>
+                  )}
               </TabsTrigger>
             )}
           </span>

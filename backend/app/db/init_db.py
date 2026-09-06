@@ -13,6 +13,7 @@ from app.core.config import settings
 from app.core.security import hash_password
 from app.db.session import SessionLocal
 from app.models import RelationType, User
+from app.services.migration.orchestrator import run_startup_migration
 from app.services.system.backups.backup_service import reconcile_interrupted_restore
 from app.services.system.settings_service import ensure_defaults
 
@@ -87,6 +88,15 @@ def init_db() -> None:
     settings.APP_DATA_PATH.mkdir(parents=True, exist_ok=True)
 
     run_migrations()
+
+    # The v2 startup migration (#994) must settle before anything else below
+    # touches the database or media tree: it holds an exclusive advisory lock
+    # for as long as a v1->v2 conversion is pending or in progress, so a
+    # sibling worker process blocks here too instead of racing ahead into
+    # restore reconciliation, seeding, or (once lifespan reaches `yield`)
+    # normal requests and background jobs.
+    with SessionLocal() as db:
+        run_startup_migration(db)
 
     # Reconcile any restore interrupted by a crash before the media root is
     # (re)created below — an empty directory here would block the rollback

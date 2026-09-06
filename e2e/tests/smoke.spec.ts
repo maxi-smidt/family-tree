@@ -59,7 +59,7 @@ test("seed helper can create a tree and a member via API; UI reflects it after r
   adminPage,
   adminApi,
 }) => {
-  const tree = await createTree(adminApi, "Smoke-Seed-Tree");
+  const tree = await createTree(adminApi, "Smoke-Seed-Workspace");
   const member = await createMember(adminApi, tree.id, {
     firstName: "SeedTest",
     lastName: "Member",
@@ -67,19 +67,19 @@ test("seed helper can create a tree and a member via API; UI reflects it after r
 
   try {
     // Touch the tree via GET so last_opened is bumped to right now.
-    // The backend sorts /trees by last_opened desc, so this tree will be
+    // The backend sorts /workspaces by last_opened desc, so this tree will be
     // first in the list and auto-selected after reload, even if another
     // parallel worker has connected to a different tree more recently.
-    await adminApi.get(`/trees/${tree.id}`);
+    await adminApi.get(`/workspaces/${tree.id}`);
 
     await adminPage.reload({ waitUntil: "networkidle" });
 
-    // The SPA auto-selects trees[0] (sorted by last_opened) when no tree is
+    // The SPA auto-selects workspaces[0] (sorted by last_opened) when no tree is
     // pre-selected. Wait for the tree selector to reflect our tree.
     // Use data-testid to target DatabaseSelector specifically — the sidebar
     // has ThemeSelector/LanguageSelector/EdgeTypeSelector above it in the DOM.
     await expect(adminPage.locator('[data-testid="tree-selector"]')).toContainText(
-      "Smoke-Seed-Tree",
+      "Smoke-Seed-Workspace",
       { timeout: 15_000 },
     );
 

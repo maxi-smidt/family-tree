@@ -1,6 +1,6 @@
 import { SettingsField } from "@/components/sidebar/SettingsField";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import {
   Select,
   SelectContent,
@@ -18,7 +18,7 @@ import { useTranslation } from "react-i18next";
 
 export const GenerationLineSpacingSelector = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "sidebar" });
-  const activeTreeId = useTreeStore((s) => s.selectedTree?.id);
+  const activeTreeId = useWorkspaceStore((s) => s.selectedTree?.id);
   const { generationLineGaps, setGenerationLineGap } = useFamilyTreeSettings();
   const spacing = getGenerationLineSpacing(
     activeTreeId ? generationLineGaps[activeTreeId] : undefined,

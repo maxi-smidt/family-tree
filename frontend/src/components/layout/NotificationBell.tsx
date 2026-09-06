@@ -13,9 +13,13 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/utils/dateUtils";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useNotificationStore } from "@/hooks/useNotificationStore";
-import { FRIENDS_VIEW } from "@/lib/tabs";
+import {
+  FRIENDS_VIEW,
+  IDENTITY_LINKS_VIEW,
+  MIGRATION_REVIEW_VIEW,
+} from "@/lib/tabs";
 import { NotificationDB } from "@/types/notification";
 
 const MAX_BADGE_DISPLAY = 9;
@@ -27,25 +31,44 @@ function navigateForNotification(n: NotificationDB): void {
     case "friend_request_accepted":
       useNavigationStore.getState().navigateTo(FRIENDS_VIEW);
       break;
+    case "migration_report_ready":
+    case "migration_conflict_pending":
+      useNavigationStore.getState().navigateTo(MIGRATION_REVIEW_VIEW);
+      break;
+    case "identity_link_claim_received":
+    case "identity_link_claim_decided":
+      useNavigationStore.getState().navigateTo(IDENTITY_LINKS_VIEW);
+      break;
+    case "identity_link_proposed":
+    case "identity_link_decided":
+    case "identity_link_legacy_migrated": {
+      const workspaceId = String(n.payload?.workspace_id);
+      if (useWorkspaceStore.getState().selectedTree?.id === workspaceId) break;
+      void useWorkspaceStore
+        .getState()
+        .openTreeById(workspaceId)
+        .catch(() => toast.error(i18n.t("tree-view.search.open-error")));
+      break;
+    }
     case "tree_shared": {
-      const treeId = String(n.payload?.tree_id);
-      const previousTree = useTreeStore.getState().selectedTree;
+      const workspaceId = String(n.payload?.workspace_id);
+      const previousTree = useWorkspaceStore.getState().selectedTree;
       // Already there — nothing to navigate. Also avoids retrying the same
       // now-inaccessible tree below if access was revoked while it was open
       // (that retry would fail again and land on the same empty state).
-      if (previousTree?.id === treeId) break;
+      if (previousTree?.id === workspaceId) break;
       // The tree may since have been unshared or deleted — capture where
       // the user already was so a failed open can land them back there
       // instead of on whatever partial state the failed attempt left,
       // and tell them why nothing opened instead of failing silently.
-      void useTreeStore
+      void useWorkspaceStore
         .getState()
-        .openTreeById(treeId)
+        .openTreeById(workspaceId)
         .catch(() => {
           toast.error(i18n.t("tree-view.search.open-error"));
-          const current = useTreeStore.getState().selectedTree;
+          const current = useWorkspaceStore.getState().selectedTree;
           if (previousTree && current?.id !== previousTree.id) {
-            void useTreeStore.getState().selectTree(previousTree);
+            void useWorkspaceStore.getState().selectTree(previousTree);
           }
         });
       break;

@@ -1,19 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { useDeferredStoreLoad } from "./useDeferredStoreLoad";
-import { useTreeStore } from "./useTreeStore";
-import { Tree } from "@/types/tree";
+import { useWorkspaceStore } from "./useWorkspaceStore";
+import { Workspace } from "@/types/workspace";
 
-const TREE: Tree = { id: "tree-123", name: "Test Tree", role: "owner" };
+const TREE: Workspace = { id: "tree-123", name: "Test Workspace", role: "owner" };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  useTreeStore.setState({ selectedTree: undefined });
+  useWorkspaceStore.setState({ selectedTree: undefined });
 });
 
 describe("useDeferredStoreLoad", () => {
   it("calls refresh with selectedTree.id when not initialized and tree is selected", () => {
-    useTreeStore.setState({ selectedTree: TREE });
+    useWorkspaceStore.setState({ selectedTree: TREE });
     const refresh = vi.fn();
 
     renderHook(() => useDeferredStoreLoad(false, refresh));
@@ -23,7 +23,7 @@ describe("useDeferredStoreLoad", () => {
   });
 
   it("does NOT call refresh when already initialized", () => {
-    useTreeStore.setState({ selectedTree: TREE });
+    useWorkspaceStore.setState({ selectedTree: TREE });
     const refresh = vi.fn();
 
     renderHook(() => useDeferredStoreLoad(true, refresh));
@@ -32,7 +32,7 @@ describe("useDeferredStoreLoad", () => {
   });
 
   it("does NOT call refresh when no selectedTree", () => {
-    useTreeStore.setState({ selectedTree: undefined });
+    useWorkspaceStore.setState({ selectedTree: undefined });
     const refresh = vi.fn();
 
     renderHook(() => useDeferredStoreLoad(false, refresh));

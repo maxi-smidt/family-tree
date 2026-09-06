@@ -10,8 +10,8 @@ class ActivityLog(Base):
     __tablename__ = "activity_log"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
-    tree_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("trees.id", ondelete="CASCADE"), index=True
+    workspace_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
     )
     # actor_id is nullable so that log rows survive user deletion.
     actor_id: Mapped[str | None] = mapped_column(

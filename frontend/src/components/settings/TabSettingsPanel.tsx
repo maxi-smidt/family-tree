@@ -107,6 +107,8 @@ export function TabSettingsPanel() {
     "statistics-view": tTabs("statistics"),
     "database-management-view": tTabs("database-management"),
     "friends-view": tTabs("friends"),
+    "migration-review-view": tTabs("migration-review"),
+    "identity-links-view": tTabs("identity-links"),
   };
 
   function handleDragEnd(event: DragEndEvent) {

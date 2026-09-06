@@ -20,7 +20,7 @@ const N1: NotificationDB = {
 const N2: NotificationDB = {
   id: "n2",
   type: "tree_shared",
-  payload: { tree_id: "t1", tree_name: "Tree", role: "viewer", actor_username: "bob" },
+  payload: { workspace_id: "t1", workspace_name: "Workspace", role: "viewer", actor_username: "bob" },
   created_at: "2026-07-19T10:00:00Z",
   read_at: "2026-07-19T11:00:00Z",
 };

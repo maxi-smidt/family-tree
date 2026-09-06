@@ -1,5 +1,5 @@
 /**
- * Displays the selected tree owner's combined storage usage. Tree data and
+ * Displays the selected tree owner's combined storage usage. Workspace data and
  * media each show usage against their quota (the ∞ symbol when the quota is
  * null/unlimited); the total is just the reported sum of the two, with no
  * quota of its own.
@@ -76,16 +76,16 @@ function UsageRow({
 }
 
 interface StorageUsagePanelProps {
-  treeId: string;
+  workspaceId: string;
 }
 
-export function StorageUsagePanel({ treeId }: StorageUsagePanelProps) {
+export function StorageUsagePanel({ workspaceId }: StorageUsagePanelProps) {
   const { t, i18n } = useTranslation(undefined, { keyPrefix: "storage-usage" });
   const { usage, isLoading, error, refreshStorageUsage } = useStorageStore();
 
   useEffect(() => {
-    void refreshStorageUsage(treeId);
-  }, [treeId, refreshStorageUsage]);
+    void refreshStorageUsage(workspaceId);
+  }, [workspaceId, refreshStorageUsage]);
 
   if (isLoading && !usage) {
     return (
@@ -109,7 +109,7 @@ export function StorageUsagePanel({ treeId }: StorageUsagePanelProps) {
       <SidebarGroupLabel>{t("title")}</SidebarGroupLabel>
       <div className="flex flex-col gap-2 px-3 py-2">
         <UsageRow
-          label={t("tree")}
+          label={t("workspace")}
           used={usage.tree_bytes}
           quota={usage.tree_quota_bytes}
           locale={locale}

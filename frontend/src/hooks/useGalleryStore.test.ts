@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useGalleryStore } from "./useGalleryStore";
-import { useTreeStore } from "./useTreeStore";
-import { TreeService } from "@/services/TreeService";
+import { useWorkspaceStore } from "./useWorkspaceStore";
+import { WorkspaceService } from "@/services/WorkspaceService";
 import { GalleryImageDB } from "@/types/gallery";
-import { Tree } from "@/types/tree";
+import { Workspace } from "@/types/workspace";
 
-vi.mock("@/services/TreeService");
+vi.mock("@/services/WorkspaceService");
 
 const TREE_ID = "tree-gal";
-const TREE: Tree = { id: TREE_ID, name: "Gal Tree", role: "owner" };
+const TREE: Workspace = { id: TREE_ID, name: "Gal Workspace", role: "owner" };
 
 const IMAGE_DB: GalleryImageDB = {
   id: "img1",
@@ -22,8 +22,8 @@ const IMAGE_DB: GalleryImageDB = {
 beforeEach(() => {
   vi.clearAllMocks();
   useGalleryStore.setState({ galleryImages: [] });
-  useTreeStore.setState({ selectedTree: undefined });
-  vi.mocked(TreeService.getGalleryUnknownFaces).mockResolvedValue([]);
+  useWorkspaceStore.setState({ selectedTree: undefined });
+  vi.mocked(WorkspaceService.getGalleryUnknownFaces).mockResolvedValue([]);
 });
 
 describe("useGalleryStore — refreshGalleryImages", () => {
@@ -33,13 +33,13 @@ describe("useGalleryStore — refreshGalleryImages", () => {
     await useGalleryStore.getState().refreshGalleryImages();
 
     expect(useGalleryStore.getState().galleryImages).toHaveLength(0);
-    expect(TreeService.getGalleryImages).not.toHaveBeenCalled();
+    expect(WorkspaceService.getGalleryImages).not.toHaveBeenCalled();
   });
 
   it("fetches images and attaches member link IDs", async () => {
-    useTreeStore.setState({ selectedTree: TREE });
-    vi.mocked(TreeService.getGalleryImages).mockResolvedValue([IMAGE_DB]);
-    vi.mocked(TreeService.getGalleryMemberLinks).mockResolvedValue([
+    useWorkspaceStore.setState({ selectedTree: TREE });
+    vi.mocked(WorkspaceService.getGalleryImages).mockResolvedValue([IMAGE_DB]);
+    vi.mocked(WorkspaceService.getGalleryMemberLinks).mockResolvedValue([
       {
         gallery_image_id: "img1",
         member_id: "m1",
@@ -72,12 +72,12 @@ describe("useGalleryStore — refreshGalleryImages", () => {
   });
 
   it("drops missing gallery-image entries returned by the API", async () => {
-    useTreeStore.setState({ selectedTree: TREE });
-    vi.mocked(TreeService.getGalleryImages).mockResolvedValue([
+    useWorkspaceStore.setState({ selectedTree: TREE });
+    vi.mocked(WorkspaceService.getGalleryImages).mockResolvedValue([
       IMAGE_DB,
       undefined as never,
     ]);
-    vi.mocked(TreeService.getGalleryMemberLinks).mockResolvedValue([]);
+    vi.mocked(WorkspaceService.getGalleryMemberLinks).mockResolvedValue([]);
 
     await useGalleryStore.getState().refreshGalleryImages();
 
@@ -87,11 +87,11 @@ describe("useGalleryStore — refreshGalleryImages", () => {
   });
 
   it("keeps a gallery image whose photo-taken date is null", async () => {
-    useTreeStore.setState({ selectedTree: TREE });
-    vi.mocked(TreeService.getGalleryImages).mockResolvedValue([
+    useWorkspaceStore.setState({ selectedTree: TREE });
+    vi.mocked(WorkspaceService.getGalleryImages).mockResolvedValue([
       { ...IMAGE_DB, createdAt: null },
     ]);
-    vi.mocked(TreeService.getGalleryMemberLinks).mockResolvedValue([]);
+    vi.mocked(WorkspaceService.getGalleryMemberLinks).mockResolvedValue([]);
 
     await useGalleryStore.getState().refreshGalleryImages();
 
@@ -106,13 +106,13 @@ describe("useGalleryStore — addGalleryImage", () => {
     type: "image/png",
   });
 
-  it("streams the file via TreeService.uploadGalleryImage then refreshes", async () => {
-    useTreeStore.setState({ selectedTree: TREE });
-    vi.mocked(TreeService.uploadGalleryImage).mockResolvedValue(
+  it("streams the file via WorkspaceService.uploadGalleryImage then refreshes", async () => {
+    useWorkspaceStore.setState({ selectedTree: TREE });
+    vi.mocked(WorkspaceService.uploadGalleryImage).mockResolvedValue(
       undefined as never,
     );
-    vi.mocked(TreeService.getGalleryImages).mockResolvedValue([]);
-    vi.mocked(TreeService.getGalleryMemberLinks).mockResolvedValue([]);
+    vi.mocked(WorkspaceService.getGalleryImages).mockResolvedValue([]);
+    vi.mocked(WorkspaceService.getGalleryMemberLinks).mockResolvedValue([]);
 
     const imageId = await useGalleryStore.getState().addGalleryImage({
       file: FILE,
@@ -122,14 +122,14 @@ describe("useGalleryStore — addGalleryImage", () => {
     });
 
     expect(imageId).toEqual(expect.any(String));
-    expect(TreeService.uploadGalleryImage).toHaveBeenCalledWith(
+    expect(WorkspaceService.uploadGalleryImage).toHaveBeenCalledWith(
       TREE_ID,
       imageId,
       FILE,
       expect.objectContaining({ title: "New Photo", memberIds: ["m3"] }),
       expect.any(String),
     );
-    expect(TreeService.getGalleryImages).toHaveBeenCalled();
+    expect(WorkspaceService.getGalleryImages).toHaveBeenCalled();
   });
 
   it("does nothing when no tree is selected", async () => {
@@ -141,29 +141,29 @@ describe("useGalleryStore — addGalleryImage", () => {
     });
 
     expect(imageId).toBeUndefined();
-    expect(TreeService.uploadGalleryImage).not.toHaveBeenCalled();
+    expect(WorkspaceService.uploadGalleryImage).not.toHaveBeenCalled();
   });
 });
 
 describe("useGalleryStore — updateGalleryImage", () => {
-  it("calls TreeService.updateGalleryImage and setGalleryImageLinks when links change", async () => {
-    useTreeStore.setState({ selectedTree: TREE });
-    vi.mocked(TreeService.updateGalleryImage).mockResolvedValue(undefined);
-    vi.mocked(TreeService.setGalleryImageLinks).mockResolvedValue(undefined);
-    vi.mocked(TreeService.getGalleryImages).mockResolvedValue([]);
-    vi.mocked(TreeService.getGalleryMemberLinks).mockResolvedValue([]);
+  it("calls WorkspaceService.updateGalleryImage and setGalleryImageLinks when links change", async () => {
+    useWorkspaceStore.setState({ selectedTree: TREE });
+    vi.mocked(WorkspaceService.updateGalleryImage).mockResolvedValue(undefined);
+    vi.mocked(WorkspaceService.setGalleryImageLinks).mockResolvedValue(undefined);
+    vi.mocked(WorkspaceService.getGalleryImages).mockResolvedValue([]);
+    vi.mocked(WorkspaceService.getGalleryMemberLinks).mockResolvedValue([]);
 
     await useGalleryStore.getState().updateGalleryImage("img1", {
       title: "Renamed",
       memberLinks: [{ memberId: "m4", x: 0.1, y: 0.2, w: 0.3, h: 0.4 }],
     });
 
-    expect(TreeService.updateGalleryImage).toHaveBeenCalledWith(
+    expect(WorkspaceService.updateGalleryImage).toHaveBeenCalledWith(
       TREE_ID,
       "img1",
       expect.objectContaining({ title: "Renamed" }),
     );
-    expect(TreeService.setGalleryImageLinks).toHaveBeenCalledWith(
+    expect(WorkspaceService.setGalleryImageLinks).toHaveBeenCalledWith(
       TREE_ID,
       "img1",
       [{ memberId: "m4", x: 0.1, y: 0.2, w: 0.3, h: 0.4 }],
@@ -171,33 +171,33 @@ describe("useGalleryStore — updateGalleryImage", () => {
   });
 
   it("does not call setGalleryImageLinks when linkedMemberIds is not in changes", async () => {
-    useTreeStore.setState({ selectedTree: TREE });
-    vi.mocked(TreeService.updateGalleryImage).mockResolvedValue(undefined);
-    vi.mocked(TreeService.getGalleryImages).mockResolvedValue([]);
-    vi.mocked(TreeService.getGalleryMemberLinks).mockResolvedValue([]);
+    useWorkspaceStore.setState({ selectedTree: TREE });
+    vi.mocked(WorkspaceService.updateGalleryImage).mockResolvedValue(undefined);
+    vi.mocked(WorkspaceService.getGalleryImages).mockResolvedValue([]);
+    vi.mocked(WorkspaceService.getGalleryMemberLinks).mockResolvedValue([]);
 
     await useGalleryStore
       .getState()
       .updateGalleryImage("img1", { title: "Title only" });
 
-    expect(TreeService.setGalleryImageLinks).not.toHaveBeenCalled();
+    expect(WorkspaceService.setGalleryImageLinks).not.toHaveBeenCalled();
   });
 });
 
 describe("useGalleryStore — deleteGalleryImage", () => {
-  it("calls TreeService.removeGalleryImage then refreshes", async () => {
-    useTreeStore.setState({ selectedTree: TREE });
-    vi.mocked(TreeService.removeGalleryImage).mockResolvedValue(undefined);
-    vi.mocked(TreeService.getGalleryImages).mockResolvedValue([]);
-    vi.mocked(TreeService.getGalleryMemberLinks).mockResolvedValue([]);
+  it("calls WorkspaceService.removeGalleryImage then refreshes", async () => {
+    useWorkspaceStore.setState({ selectedTree: TREE });
+    vi.mocked(WorkspaceService.removeGalleryImage).mockResolvedValue(undefined);
+    vi.mocked(WorkspaceService.getGalleryImages).mockResolvedValue([]);
+    vi.mocked(WorkspaceService.getGalleryMemberLinks).mockResolvedValue([]);
 
     await useGalleryStore.getState().deleteGalleryImage("img1");
 
-    expect(TreeService.removeGalleryImage).toHaveBeenCalledWith(
+    expect(WorkspaceService.removeGalleryImage).toHaveBeenCalledWith(
       TREE_ID,
       "img1",
     );
-    expect(TreeService.getGalleryImages).toHaveBeenCalled();
+    expect(WorkspaceService.getGalleryImages).toHaveBeenCalled();
   });
 });
 
@@ -207,13 +207,13 @@ describe("useGalleryStore — stale-write guard", () => {
     const pending = new Promise<GalleryImageDB[]>((r) => {
       resolve = r;
     });
-    vi.mocked(TreeService.getGalleryImages).mockReturnValue(pending);
-    vi.mocked(TreeService.getGalleryMemberLinks).mockResolvedValue([]);
-    useTreeStore.setState({ selectedTree: TREE });
+    vi.mocked(WorkspaceService.getGalleryImages).mockReturnValue(pending);
+    vi.mocked(WorkspaceService.getGalleryMemberLinks).mockResolvedValue([]);
+    useWorkspaceStore.setState({ selectedTree: TREE });
 
     const p = useGalleryStore.getState().refreshGalleryImages(TREE_ID);
     // user switches away before the fetch resolves
-    useTreeStore.setState({
+    useWorkspaceStore.setState({
       selectedTree: { id: "other", name: "Other", role: "owner" },
     });
     resolve([IMAGE_DB]);
@@ -227,27 +227,27 @@ describe("useGalleryStore — stale-write guard", () => {
     const pending = new Promise<GalleryImageDB[]>((r) => {
       resolve = r;
     });
-    vi.mocked(TreeService.getGalleryImages).mockReturnValue(pending);
-    vi.mocked(TreeService.getGalleryMemberLinks).mockResolvedValue([]);
-    useTreeStore.setState({ selectedTree: TREE });
+    vi.mocked(WorkspaceService.getGalleryImages).mockReturnValue(pending);
+    vi.mocked(WorkspaceService.getGalleryMemberLinks).mockResolvedValue([]);
+    useWorkspaceStore.setState({ selectedTree: TREE });
 
     const p = useGalleryStore.getState().refreshGalleryImages(TREE_ID);
     // user disconnects before the fetch resolves
-    useTreeStore.setState({ selectedTree: undefined });
+    useWorkspaceStore.setState({ selectedTree: undefined });
     resolve([IMAGE_DB]);
     await p;
 
     expect(useGalleryStore.getState().galleryImages).toHaveLength(0); // stale data dropped
   });
 
-  it("writes data when the explicit treeId is still active", async () => {
+  it("writes data when the explicit workspaceId is still active", async () => {
     let resolve!: (v: GalleryImageDB[]) => void;
     const pending = new Promise<GalleryImageDB[]>((r) => {
       resolve = r;
     });
-    vi.mocked(TreeService.getGalleryImages).mockReturnValue(pending);
-    vi.mocked(TreeService.getGalleryMemberLinks).mockResolvedValue([]);
-    useTreeStore.setState({ selectedTree: TREE });
+    vi.mocked(WorkspaceService.getGalleryImages).mockReturnValue(pending);
+    vi.mocked(WorkspaceService.getGalleryMemberLinks).mockResolvedValue([]);
+    useWorkspaceStore.setState({ selectedTree: TREE });
 
     const p = useGalleryStore.getState().refreshGalleryImages(TREE_ID);
     resolve([IMAGE_DB]);
@@ -268,14 +268,14 @@ describe("useGalleryStore — stale-write guard", () => {
 
 describe("useGalleryStore — unknown faces", () => {
   beforeEach(() => {
-    useTreeStore.setState({ selectedTree: TREE });
-    vi.mocked(TreeService.getGalleryImages).mockResolvedValue([]);
-    vi.mocked(TreeService.getGalleryMemberLinks).mockResolvedValue([]);
-    vi.mocked(TreeService.getGalleryUnknownFaces).mockResolvedValue([]);
+    useWorkspaceStore.setState({ selectedTree: TREE });
+    vi.mocked(WorkspaceService.getGalleryImages).mockResolvedValue([]);
+    vi.mocked(WorkspaceService.getGalleryMemberLinks).mockResolvedValue([]);
+    vi.mocked(WorkspaceService.getGalleryUnknownFaces).mockResolvedValue([]);
   });
 
   it("addUnknownFace streams a face + task, then refreshes", async () => {
-    vi.mocked(TreeService.addGalleryUnknownFace).mockResolvedValue(
+    vi.mocked(WorkspaceService.addGalleryUnknownFace).mockResolvedValue(
       undefined as never,
     );
 
@@ -287,7 +287,7 @@ describe("useGalleryStore — unknown faces", () => {
         { title: "Who is this?", notes: null },
       );
 
-    expect(TreeService.addGalleryUnknownFace).toHaveBeenCalledWith(
+    expect(WorkspaceService.addGalleryUnknownFace).toHaveBeenCalledWith(
       TREE_ID,
       "img1",
       expect.objectContaining({
@@ -299,11 +299,11 @@ describe("useGalleryStore — unknown faces", () => {
         taskNotes: null,
       }),
     );
-    expect(TreeService.getGalleryImages).toHaveBeenCalled();
+    expect(WorkspaceService.getGalleryImages).toHaveBeenCalled();
   });
 
-  it("updateUnknownFace calls TreeService and refreshes", async () => {
-    vi.mocked(TreeService.updateGalleryUnknownFace).mockResolvedValue(
+  it("updateUnknownFace calls WorkspaceService and refreshes", async () => {
+    vi.mocked(WorkspaceService.updateGalleryUnknownFace).mockResolvedValue(
       undefined as never,
     );
 
@@ -311,45 +311,45 @@ describe("useGalleryStore — unknown faces", () => {
       .getState()
       .updateUnknownFace("face1", { x: 0.5, y: 0.5, w: 0.1, h: 0.1 });
 
-    expect(TreeService.updateGalleryUnknownFace).toHaveBeenCalledWith(
+    expect(WorkspaceService.updateGalleryUnknownFace).toHaveBeenCalledWith(
       TREE_ID,
       "face1",
       { x: 0.5, y: 0.5, w: 0.1, h: 0.1 },
     );
-    expect(TreeService.getGalleryImages).toHaveBeenCalled();
+    expect(WorkspaceService.getGalleryImages).toHaveBeenCalled();
   });
 
-  it("resolveUnknownFace calls TreeService and refreshes", async () => {
-    vi.mocked(TreeService.resolveGalleryUnknownFace).mockResolvedValue(
+  it("resolveUnknownFace calls WorkspaceService and refreshes", async () => {
+    vi.mocked(WorkspaceService.resolveGalleryUnknownFace).mockResolvedValue(
       undefined,
     );
 
     await useGalleryStore.getState().resolveUnknownFace("face1", "m1");
 
-    expect(TreeService.resolveGalleryUnknownFace).toHaveBeenCalledWith(
+    expect(WorkspaceService.resolveGalleryUnknownFace).toHaveBeenCalledWith(
       TREE_ID,
       "face1",
       "m1",
     );
-    expect(TreeService.getGalleryImages).toHaveBeenCalled();
+    expect(WorkspaceService.getGalleryImages).toHaveBeenCalled();
   });
 
-  it("removeUnknownFace calls TreeService and refreshes", async () => {
-    vi.mocked(TreeService.removeGalleryUnknownFace).mockResolvedValue(
+  it("removeUnknownFace calls WorkspaceService and refreshes", async () => {
+    vi.mocked(WorkspaceService.removeGalleryUnknownFace).mockResolvedValue(
       undefined,
     );
 
     await useGalleryStore.getState().removeUnknownFace("face1");
 
-    expect(TreeService.removeGalleryUnknownFace).toHaveBeenCalledWith(
+    expect(WorkspaceService.removeGalleryUnknownFace).toHaveBeenCalledWith(
       TREE_ID,
       "face1",
     );
-    expect(TreeService.getGalleryImages).toHaveBeenCalled();
+    expect(WorkspaceService.getGalleryImages).toHaveBeenCalled();
   });
 
   it("does nothing when no tree is selected", async () => {
-    useTreeStore.setState({ selectedTree: undefined });
+    useWorkspaceStore.setState({ selectedTree: undefined });
 
     await useGalleryStore
       .getState()
@@ -359,11 +359,11 @@ describe("useGalleryStore — unknown faces", () => {
         { title: null, notes: null },
       );
 
-    expect(TreeService.addGalleryUnknownFace).not.toHaveBeenCalled();
+    expect(WorkspaceService.addGalleryUnknownFace).not.toHaveBeenCalled();
   });
 
   it("attaches fetched unknown faces to their gallery image", async () => {
-    vi.mocked(TreeService.getGalleryImages).mockResolvedValue([
+    vi.mocked(WorkspaceService.getGalleryImages).mockResolvedValue([
       {
         id: "img1",
         imageData: "data:image/png;base64,abc",
@@ -373,7 +373,7 @@ describe("useGalleryStore — unknown faces", () => {
         uploadedAt: "2024-01-01T00:00:00Z",
       },
     ]);
-    vi.mocked(TreeService.getGalleryUnknownFaces).mockResolvedValue([
+    vi.mocked(WorkspaceService.getGalleryUnknownFaces).mockResolvedValue([
       {
         id: "face1",
         gallery_image_id: "img1",

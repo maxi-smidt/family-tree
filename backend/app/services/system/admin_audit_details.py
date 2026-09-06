@@ -102,20 +102,20 @@ class TwoFactorUpdateDetails(TypedDict):
 # ---------------------------------------------------------------------------
 
 
-class TreeDeleteDetails(TypedDict, total=False):
-    """Tree deletion carries no extra details."""
+class WorkspaceDeleteDetails(TypedDict, total=False):
+    """Workspace deletion carries no extra details."""
 
 
 class PublicRoleSnapshot(TypedDict):
     public_role: str | None
 
 
-class TreePublicAccessUpdateDetails(TypedDict):
+class WorkspacePublicAccessUpdateDetails(TypedDict):
     before: PublicRoleSnapshot
     after: PublicRoleSnapshot
 
 
-class TreePublicAccessPasswordDetails(TypedDict):
+class WorkspacePublicAccessPasswordDetails(TypedDict):
     password_protected: bool
 
 
@@ -161,6 +161,15 @@ class BackupCreateFailedDetails(TypedDict):
 class BackupDeleteDetails(TypedDict):
     created_at: str
     status: str
+
+
+# ---------------------------------------------------------------------------
+# Migration (#997)
+# ---------------------------------------------------------------------------
+
+
+class MigrationFinalizeDetails(TypedDict):
+    target_version: str
 
 
 # ---------------------------------------------------------------------------
@@ -230,15 +239,16 @@ AdminAuditDetails = (
     | AuthLoginDetails
     | OAuthUserCreateDetails
     | TwoFactorUpdateDetails
-    | TreeDeleteDetails
-    | TreePublicAccessUpdateDetails
-    | TreePublicAccessPasswordDetails
+    | WorkspaceDeleteDetails
+    | WorkspacePublicAccessUpdateDetails
+    | WorkspacePublicAccessPasswordDetails
     | VirtualViewCreateDetails
     | VirtualViewUpdateDetails
     | VirtualViewDeleteDetails
     | BackupCreateSuccessDetails
     | BackupCreateFailedDetails
     | BackupDeleteDetails
+    | MigrationFinalizeDetails
     | AppSettingsUpdateDetails
     | LegalDocumentUpdateDetails
 )

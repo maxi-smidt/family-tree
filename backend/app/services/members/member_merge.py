@@ -1,17 +1,16 @@
 """In-place, same-tree member merge (#729).
 
-Unlike ``app.services.trees.merge`` (which clones two whole *trees* into a brand
+Unlike ``app.services.workspaces.merge`` (which clones two whole *workspaces* into a brand
 new third tree), this combines two *members of the same tree*: one survives
 (``keep``), the other is removed (``remove``) after everything it owns —
-relations, content links, diseases, and an optional tree-in-tree bridge — has
-been re-pointed onto ``keep``. Field-conflict detection/resolution is reused
-from ``app.services.members.member_clone`` rather than forked.
+relations, content links, and diseases — has been re-pointed onto ``keep``.
+Field-conflict detection/resolution is reused from
+``app.services.members.member_clone`` rather than forked.
 """
 
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Literal
 
 from pydantic.alias_generators import to_camel
 from sqlalchemy import select
@@ -27,8 +26,10 @@ from app.models import (
     MemberDisease,
     MemberTaskLink,
     Relation,
+    SectionMember,
+    SectionPosition,
     StoryMemberLink,
-    Tree,
+    Workspace,
 )
 from app.schemas.family import MemberOut
 from app.schemas.merge import (
@@ -38,6 +39,8 @@ from app.schemas.merge import (
     MemberMergeTransferCounts,
 )
 from app.services.activity.activity import SNAPSHOT_VERSION, member_delete_snapshot
+from app.services.identity_link_claims import repoint_identity_link_claims_for_merge
+from app.services.identity_links import repoint_identity_links_for_merge
 from app.services.members.member_clone import (
     CONFLICT_FIELDS,
     apply_field_choices,
@@ -46,8 +49,7 @@ from app.services.members.member_clone import (
     norm,
     to_snake_case,
 )
-
-BridgeOutcome = Literal["inherited", "dissolved"]
+from app.services.saved_views.saved_views import repoint_saved_views_for_merge
 
 
 def _merge_creates_cycle_through_keep(
@@ -141,7 +143,7 @@ def _count_new_links(
 
 
 def _count_new_event_links(
-    db: Session, tree_id: str, keep_id: str, remove_id: str
+    db: Session, workspace_id: str, keep_id: str, remove_id: str
 ) -> int:
     """Like ``_count_new_links`` for events, but also excludes a remove-side
     birth/death mirror event when keep already has one of that type — the
@@ -159,7 +161,7 @@ def _count_new_event_links(
             select(Event.event_type)
             .join(EventMemberLink, EventMemberLink.event_id == Event.id)
             .where(
-                Event.tree_id == tree_id,
+                Event.workspace_id == workspace_id,
                 EventMemberLink.member_id == keep_id,
                 Event.event_type.in_(("birth", "death")),
             )
@@ -201,7 +203,7 @@ def _count_new_diseases(db: Session, keep_id: str, remove_id: str) -> int:
 
 
 def compute_member_merge_preview(
-    db: Session, tree: Tree, keep: Member, remove: Member
+    db: Session, tree: Workspace, keep: Member, remove: Member
 ) -> MemberMergePreviewOut:
     """Field conflicts plus counts of what a merge would transfer onto ``keep``.
 
@@ -221,7 +223,7 @@ def compute_member_merge_preview(
     )
 
     all_relations = list(
-        db.scalars(select(Relation).where(Relation.tree_id == tree.id))
+        db.scalars(select(Relation).where(Relation.workspace_id == tree.id))
     )
     would_create_cycle = _merge_creates_cycle_through_keep(
         all_relations, keep.id, remove.id
@@ -229,9 +231,7 @@ def compute_member_merge_preview(
     keep_keys, remove_relations = _plan_relation_transfer(
         all_relations, keep.id, remove.id
     )
-    relations = len(
-        _new_relation_keys(remove_relations, keep_keys, keep.id, remove.id)
-    )
+    relations = len(_new_relation_keys(remove_relations, keep_keys, keep.id, remove.id))
 
     transfer = MemberMergeTransferCounts(
         relations=relations,
@@ -287,7 +287,8 @@ def _repoint_member_links(
 def _transfer_diseases(db: Session, keep_id: str, remove_id: str) -> None:
     """Move ``remove``'s disease records onto ``keep``, deduping by name.
 
-    Mirrors the tree-merge dedup policy (``app.services.trees.merge_copy.copy_diseases``):
+    Mirrors the tree-merge dedup policy
+    (``app.services.workspaces.merge_copy.copy_diseases``):
     two rows naming the same condition on the same person are
     noise once the two records describe one person, so the duplicate is
     dropped rather than kept alongside.
@@ -315,18 +316,14 @@ def _transfer_diseases(db: Session, keep_id: str, remove_id: str) -> None:
 
 def merge_members_in_place(
     db: Session,
-    tree: Tree,
+    tree: Workspace,
     keep: Member,
     remove: Member,
     fields: dict[str, FieldChoice],
-) -> tuple[Member, dict, Member | None, BridgeOutcome | None]:
+) -> tuple[Member, dict]:
     """Merge ``remove`` into ``keep`` within ``tree``; caller commits.
 
-    Returns ``(keep, activity_details, counterpart, bridge_outcome)`` —
-    ``counterpart`` is the bridge-person row in another tree, set only when
-    ``remove`` was linked to one; ``bridge_outcome`` says what happened to it
-    (``"inherited"`` onto ``keep``, or ``"dissolved"`` because ``keep`` already
-    had its own link) so the route can log it and notify that other tree.
+    Returns ``(keep, activity_details)``.
     """
     if keep.id == remove.id:
         raise InvalidInputError("Cannot merge a member with itself")
@@ -341,20 +338,13 @@ def merge_members_in_place(
 
     # --- Cycle guard: scoped to cycles that would involve keep --------------
     all_relations = list(
-        db.scalars(select(Relation).where(Relation.tree_id == tree.id))
+        db.scalars(select(Relation).where(Relation.workspace_id == tree.id))
     )
     if _merge_creates_cycle_through_keep(all_relations, keep.id, remove.id):
-        raise InvalidInputError(
-            "This merge would make this member their own ancestor"
-        )
+        raise InvalidInputError("This merge would make this member their own ancestor")
 
     # --- Pre-image for the activity log, captured before any mutation -------
-    counterpart: Member | None = (
-        db.get(Member, remove.linked_member_id)
-        if remove.linked_member_id is not None
-        else None
-    )
-    removed_snapshot = member_delete_snapshot(db, remove, counterpart)["snapshot"]
+    removed_snapshot = member_delete_snapshot(db, remove)["snapshot"]
     keep_before = {field: getattr(keep, field) for field in CONFLICT_FIELDS}
 
     # --- Field resolution onto keep (keep=clone=ma, remove=mb) --------------
@@ -371,7 +361,7 @@ def merge_members_in_place(
     for f, t, relation_type in new_relations:
         db.add(
             Relation(
-                tree_id=tree.id,
+                workspace_id=tree.id,
                 from_member_id=f,
                 to_member_id=t,
                 relation_type=relation_type,
@@ -391,21 +381,18 @@ def merge_members_in_place(
     )
     _repoint_member_links(db, DocumentMemberLink, "document_id", keep.id, remove.id)
     _repoint_member_links(db, MemberTaskLink, "task_id", keep.id, remove.id)
+    _repoint_member_links(db, SectionMember, "section_id", keep.id, remove.id)
+    _repoint_member_links(
+        db,
+        SectionPosition,
+        "section_id",
+        keep.id,
+        remove.id,
+        extra_fields=("position_x", "position_y"),
+    )
     _transfer_diseases(db, keep.id, remove.id)
-
-    # --- Tree-in-tree bridge: carry the link onto keep, else dissolve it ----
-    bridge_outcome: BridgeOutcome | None = None
-    if counterpart is not None:
-        if keep.linked_member_id is None:
-            keep.linked_tree_id = remove.linked_tree_id
-            keep.linked_member_id = remove.linked_member_id
-            counterpart.linked_tree_id = keep.tree_id
-            counterpart.linked_member_id = keep.id
-            bridge_outcome = "inherited"
-        else:
-            counterpart.linked_tree_id = None
-            counterpart.linked_member_id = None
-            bridge_outcome = "dissolved"
+    repoint_identity_links_for_merge(db, keep, remove)
+    repoint_identity_link_claims_for_merge(db, keep, remove)
 
     details = {
         "merge": {
@@ -417,5 +404,6 @@ def merge_members_in_place(
         }
     }
 
+    repoint_saved_views_for_merge(db, tree.id, keep.id, remove.id)
     db.delete(remove)
-    return keep, details, counterpart, bridge_outcome
+    return keep, details

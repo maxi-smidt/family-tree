@@ -11,9 +11,11 @@ Usage::
 
     with UnitOfWork(db) as uow:
         db.add(story)
-        record_activity(db, tree_id=tree.id, actor=user, action="create", ...)
-        uow.after_commit(lambda: publish_tree_event(db, tree, "entry_added", ...))
-        uow.after_commit(lambda: publish_tree_event(db, tree, "content_changed", ...))
+        record_activity(db, workspace_id=tree.id, actor=user, action="create", ...)
+        uow.after_commit(lambda: publish_workspace_event(db, tree, "entry_added", ...))
+        uow.after_commit(
+    lambda: publish_workspace_event(db, tree, "content_changed", ...)
+)
 
 On a clean exit the session is committed and the queued callbacks run, in
 order. On an exception raised inside the block — or by the commit itself —

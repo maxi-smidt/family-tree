@@ -1,9 +1,9 @@
 """Application service for ``PATCH /members/{id}``.
 
 Orchestrates parent-slot reconciliation, the derived vital-event mirror,
-tree-link validation, bridge-person sync, activity recording and cache
-invalidation, so the route is left doing only HTTP input/output mapping (the
-same shape ``document_service.save_document`` gives the document save path).
+activity recording and cache invalidation, so the route is left doing only
+HTTP input/output mapping (the same shape ``document_service.save_document``
+gives the document save path).
 """
 
 from __future__ import annotations
@@ -17,12 +17,12 @@ from app.core.exceptions import (
     PayloadTooLargeError,
     QuotaExceeded,
 )
-from app.models import Member, Tree
+from app.models import Member, Workspace
 from app.models.user import User
 from app.schemas.family import MemberUpdate
 from app.services.activity.activity import record_activity
 from app.services.cache import invalidate_stats
-from app.services.event_bus import publish_tree_event
+from app.services.event_bus import publish_workspace_event
 from app.services.media.storage import (
     MEDIA_URL_PREFIX,
     ImageTooLarge,
@@ -31,11 +31,6 @@ from app.services.media.storage import (
     process_image_field,
 )
 from app.services.media.storage_usage import check_media_quota
-from app.services.members.bridge import (
-    sync_bridge_person,
-    validate_linked_member,
-    validate_linked_tree,
-)
 from app.services.members.member_access import get_member
 from app.services.members.member_vitals import (
     event_updates_allowed,
@@ -52,17 +47,16 @@ _DIFF_SKIP_FIELDS = {"position_x", "position_y", "is_collapsed", "image_data"}
 @dataclass(frozen=True)
 class MemberUpdateResult:
     member: Member
-    bridge_sync: str | None
 
 
 def update_member(
-    db: Session, *, tree: Tree, user: User, member_id: str, payload: MemberUpdate
+    db: Session, *, tree: Workspace, user: User, member_id: str, payload: MemberUpdate
 ) -> MemberUpdateResult:
     """Apply *payload* to one member and every downstream effect as one unit.
 
-    Raises ``InvalidInputError``, ``NotFoundError``, ``QuotaExceeded`` or
-    ``PayloadTooLargeError`` on invalid input, an unresolvable link, or an
-    over-quota image — always before the member row itself is committed.
+    Raises ``NotFoundError``, ``QuotaExceeded`` or ``PayloadTooLargeError`` on
+    invalid input or an over-quota image — always before the member row
+    itself is committed.
     """
     member = get_member(db, tree, member_id)
     changes = payload.model_dump(exclude_unset=True)
@@ -70,47 +64,6 @@ def update_member(
     maternal_changed = "maternal_parent_id" in changes
     paternal_parent_id = changes.pop("paternal_parent_id", None)
     maternal_parent_id = changes.pop("maternal_parent_id", None)
-    # The member form re-sends the link fields unchanged on every save. Only an
-    # actual change is a link edit — an unchanged value must not re-run the
-    # feature/access checks, otherwise ordinary edits fail once the tree_links
-    # flag is turned off (or for editors without access to the linked tree).
-    if "linked_tree_id" in changes and changes["linked_tree_id"] == member.linked_tree_id:
-        del changes["linked_tree_id"]
-    if (
-        "linked_member_id" in changes
-        and changes["linked_member_id"] == member.linked_member_id
-    ):
-        del changes["linked_member_id"]
-    unlinked_counterpart_tree: Tree | None = None
-    if "linked_tree_id" in changes:
-        if changes["linked_tree_id"] is not None:
-            # Establishing a link requires resolving a bridge person on both
-            # sides, which touches two trees — this single-row endpoint can't
-            # do that safely. Only clearing (null) or leaving it unchanged is
-            # allowed here; see POST /members/{id}/link.
-            raise InvalidInputError("Establish tree links via the link endpoint")
-        validate_linked_tree(db, tree, user, changes["linked_tree_id"])
-        # Unlinking invalidates the counterpart pointer into the old tree.
-        changes["linked_member_id"] = None
-        # Tear down the other side too: a bridge is symmetric, so unlinking
-        # here must also clear the counterpart's fields. Otherwise the link
-        # lingers in the other tree (phantom badge) and identity edits keep
-        # flowing one-directionally from the still-linked counterpart back to
-        # this member. Cleared unconditionally, like the delete path — this is
-        # integrity cleanup of a now-broken bridge, not a content edit.
-        if member.linked_member_id is not None:
-            counterpart = db.get(Member, member.linked_member_id)
-            if counterpart is not None:
-                counterpart.linked_tree_id = None
-                counterpart.linked_member_id = None
-                unlinked_counterpart_tree = db.get(Tree, counterpart.tree_id)
-    if changes.get("linked_member_id") is not None:
-        validate_linked_member(
-            db,
-            changes.get("linked_tree_id", member.linked_tree_id),
-            changes["linked_member_id"],
-            member.id,
-        )
     new_image_url: str | None = None
     if "image_data" in changes:
         try:
@@ -169,9 +122,6 @@ def update_member(
                     db, tree, member, "death", member.date_of_death, member.cemetery
                 )
         after = {k: getattr(member, k) for k in before}
-        # Bridge person: mirror identity edits onto the counterpart row so the
-        # same human stays consistent on both sides of a tree-in-tree link.
-        bridge_sync, synced_tree = sync_bridge_person(db, member, changes, user)
         diff_details: dict | None = None
         changed = {
             k: {"before": before[k], "after": after[k]}
@@ -186,7 +136,7 @@ def update_member(
         label = " ".join(filter(None, [member.first_name, member.last_name])) or None
         record_activity(
             db,
-            tree_id=tree.id,
+            workspace_id=tree.id,
             actor=user,
             action="update",
             target_type="member",
@@ -195,44 +145,27 @@ def update_member(
             details=diff_details,
         )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            lambda: publish_workspace_event(
+                db, tree, "activity.entry_added", {"workspace_id": tree.id}
             )
         )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "tree.content_changed", {"tree_id": tree.id, "domain": "member"}
+            lambda: publish_workspace_event(
+                db,
+                tree,
+                "workspace.content_changed",
+                {"workspace_id": tree.id, "domain": "member"},
             )
         )
         if vital_events_changed:
             uow.after_commit(
-                lambda: publish_tree_event(
+                lambda: publish_workspace_event(
                     db,
                     tree,
-                    "tree.content_changed",
-                    {"tree_id": tree.id, "domain": "event"},
+                    "workspace.content_changed",
+                    {"workspace_id": tree.id, "domain": "event"},
                 )
             )
         uow.after_commit(lambda: invalidate_stats(tree.id))
-        if synced_tree is not None:
-            uow.after_commit(
-                lambda: publish_tree_event(
-                    db,
-                    synced_tree,
-                    "tree.content_changed",
-                    {"tree_id": synced_tree.id, "domain": "member"},
-                )
-            )
-            uow.after_commit(lambda: invalidate_stats(synced_tree.id))
-        if unlinked_counterpart_tree is not None:
-            uow.after_commit(
-                lambda: publish_tree_event(
-                    db,
-                    unlinked_counterpart_tree,
-                    "tree.content_changed",
-                    {"tree_id": unlinked_counterpart_tree.id, "domain": "member"},
-                )
-            )
-            uow.after_commit(lambda: invalidate_stats(unlinked_counterpart_tree.id))
     db.refresh(member)
-    return MemberUpdateResult(member=member, bridge_sync=bridge_sync)
+    return MemberUpdateResult(member=member)

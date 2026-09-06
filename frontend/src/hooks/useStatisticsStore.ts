@@ -1,67 +1,51 @@
 import { create } from "zustand";
 import {
-  CombinedStatisticsReport,
   CustomWidgetAggregation,
   CustomWidgetAggregationConfig,
   StatisticsReport,
-  StatisticsScope,
 } from "@/types/statistics";
-import { TreeService } from "@/services/TreeService";
-import { activeTreeId, isActiveTree } from "@/hooks/useTreeStore";
-
-export type { StatisticsScope } from "@/types/statistics";
+import { WorkspaceService } from "@/services/WorkspaceService";
+import { activeTreeId, isActiveTree } from "@/hooks/useWorkspaceStore";
 
 let customWidgetAggregationRequest = 0;
 
 interface StatisticsState {
-  report: StatisticsReport | CombinedStatisticsReport | null;
+  report: StatisticsReport | null;
   isLoading: boolean;
-  scope: StatisticsScope;
   customWidgetAggregations: Record<string, CustomWidgetAggregation>;
   isCustomWidgetAggregationsLoading: boolean;
-  setScope: (scope: StatisticsScope, treeId?: string) => Promise<void>;
-  refreshStatistics: (treeId?: string) => Promise<void>;
+  refreshStatistics: (workspaceId?: string) => Promise<void>;
   refreshCustomWidgetAggregations: (
     widgets: CustomWidgetAggregationConfig[],
-    treeId?: string,
+    workspaceId?: string,
   ) => Promise<void>;
   clearCustomWidgetAggregations: () => void;
   clear: () => void;
 }
 
-export const useStatisticsStore = create<StatisticsState>((set, get) => ({
+export const useStatisticsStore = create<StatisticsState>((set) => ({
   report: null,
   isLoading: false,
-  scope: "tree",
   customWidgetAggregations: {},
   isCustomWidgetAggregationsLoading: false,
 
-  setScope: async (scope, treeId = activeTreeId()) => {
-    customWidgetAggregationRequest += 1;
-    set({ scope, customWidgetAggregations: {} });
-    await get().refreshStatistics(treeId);
-  },
-
-  refreshStatistics: async (treeId = activeTreeId()) => {
-    if (!treeId) {
+  refreshStatistics: async (workspaceId = activeTreeId()) => {
+    if (!workspaceId) {
       set({ report: null });
       return;
     }
     set({ isLoading: true });
     try {
-      const report =
-        get().scope === "linked"
-          ? await TreeService.getCombinedStatistics(treeId)
-          : await TreeService.getStatistics(treeId);
-      if (!isActiveTree(treeId)) return;
+      const report = await WorkspaceService.getStatistics(workspaceId);
+      if (!isActiveTree(workspaceId)) return;
       set({ report });
     } finally {
       set({ isLoading: false });
     }
   },
 
-  refreshCustomWidgetAggregations: async (widgets, treeId = activeTreeId()) => {
-    if (!treeId || widgets.length === 0) {
+  refreshCustomWidgetAggregations: async (widgets, workspaceId = activeTreeId()) => {
+    if (!workspaceId || widgets.length === 0) {
       customWidgetAggregationRequest += 1;
       set({
         customWidgetAggregations: {},
@@ -70,23 +54,17 @@ export const useStatisticsStore = create<StatisticsState>((set, get) => ({
       return;
     }
 
-    const scope = get().scope;
     const request = ++customWidgetAggregationRequest;
     set({
       customWidgetAggregations: {},
       isCustomWidgetAggregationsLoading: true,
     });
     try {
-      const response = await TreeService.getCustomWidgetAggregations(
-        treeId,
-        scope,
+      const response = await WorkspaceService.getCustomWidgetAggregations(
+        workspaceId,
         widgets,
       );
-      if (
-        !isActiveTree(treeId) ||
-        get().scope !== scope ||
-        request !== customWidgetAggregationRequest
-      ) {
+      if (!isActiveTree(workspaceId) || request !== customWidgetAggregationRequest) {
         return;
       }
       set({
@@ -95,21 +73,11 @@ export const useStatisticsStore = create<StatisticsState>((set, get) => ({
         ),
       });
     } catch {
-      // Never fall back to the active-tree members for linked scope: showing
-      // a blank widget is safer than silently presenting the wrong scope.
-      if (
-        isActiveTree(treeId) &&
-        get().scope === scope &&
-        request === customWidgetAggregationRequest
-      ) {
+      if (isActiveTree(workspaceId) && request === customWidgetAggregationRequest) {
         set({ customWidgetAggregations: {} });
       }
     } finally {
-      if (
-        isActiveTree(treeId) &&
-        get().scope === scope &&
-        request === customWidgetAggregationRequest
-      ) {
+      if (isActiveTree(workspaceId) && request === customWidgetAggregationRequest) {
         set({ isCustomWidgetAggregationsLoading: false });
       }
     }
@@ -127,7 +95,6 @@ export const useStatisticsStore = create<StatisticsState>((set, get) => ({
     customWidgetAggregationRequest += 1;
     set({
       report: null,
-      scope: "tree",
       customWidgetAggregations: {},
       isCustomWidgetAggregationsLoading: false,
     });

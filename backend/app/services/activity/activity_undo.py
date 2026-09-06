@@ -31,7 +31,7 @@ from app.models.content import (
     StoryMemberLink,
 )
 from app.models.family import Member, MemberDisease, Relation
-from app.models.tree import Tree
+from app.models.workspace import Workspace
 from app.schemas.activity import UndoSkippedItem
 from app.services.activity.activity_snapshots import (
     DiseaseSnapshot,
@@ -44,6 +44,7 @@ from app.services.activity.activity_snapshots import (
     RowSnapshot,
     StorySnapshot,
 )
+from app.services.provenance import restore_scopes
 
 
 class UndoConflict(Exception):
@@ -88,31 +89,32 @@ def _instantiate(
     return model(**{k: v for k, v in data.items() if k in columns and k not in drop})
 
 
-def _in_tree(db: Session, model: type, row_id: str, tree_id: str) -> object | None:
-    """Look up a row by id, but only if it belongs to ``tree_id``.
+def _in_tree(db: Session, model: type, row_id: str, workspace_id: str) -> object | None:
+    """Look up a row by id, but only if it belongs to ``workspace_id``.
 
     Member/event/story/gallery-image/document ids are client-suppliable
     (see e.g. ``MemberCreate.id``), so a plain ``db.get(model, row_id)``
     existence check could be fooled by an unrelated row in a different tree
     that happens to reuse the same id. Every cross-reference validity check
     in this module scopes through here instead, matching the "every content
-    query is scoped by tree_id" rule the rest of the app follows. The one
-    exception is a *main row* conflict check (a global PK collision, which
-    would fail on insert regardless of tree) and the bridge counterpart,
-    which is expected to live in a different tree by design.
+    query is scoped by workspace_id" rule the rest of the app follows. The one
+    exception is a *main row* conflict check — a global PK collision, which
+    would fail on insert regardless of tree.
     """
     row = db.get(model, row_id)
-    if row is not None and row.tree_id != tree_id:
+    if row is not None and row.workspace_id != workspace_id:
         return None
     return row
 
 
 # ---------------------------------------------------------------------------
-# Member (+ relations, diseases, five link tables, bridge)
+# Member (+ relations, diseases, five link tables)
 # ---------------------------------------------------------------------------
 
 
-def restore_member(db: Session, tree: Tree, snapshot: MemberSnapshot) -> RestoreResult:
+def restore_member(
+    db: Session, tree: Workspace, snapshot: MemberSnapshot
+) -> RestoreResult:
     member_data = snapshot["member"]
     member_id = member_data["id"]
     if db.get(Member, member_id) is not None:
@@ -121,39 +123,10 @@ def restore_member(db: Session, tree: Tree, snapshot: MemberSnapshot) -> Restore
     member = _instantiate(
         Member, member_data, drop=frozenset({"date_of_birth_sort", "date_of_death_sort"})
     )
-    # Bridge pointers are re-established below (only if the counterpart still
-    # validates) — never carry a stale pointer straight through on insert.
-    member.linked_tree_id = None
-    member.linked_member_id = None
     db.add(member)
     db.flush()
 
     result = RestoreResult(main_id=member_id, restored={"member": member_id})
-
-    bridge = snapshot.get("bridge")
-    if bridge is not None:
-        # The counterpart is expected to live in a *different* tree by
-        # design (that's the whole point of a tree-in-tree bridge), so it's
-        # scoped to the bridge's own recorded tree, not the tree being
-        # restored into.
-        counterpart = _in_tree(
-            db, Member, bridge["counterpart_member_id"], bridge["counterpart_tree_id"]
-        )
-        if counterpart is None:
-            result.add_skip(
-                "members",
-                f"bridge counterpart {bridge['counterpart_member_id']} no longer exists",
-            )
-        elif counterpart.linked_member_id is not None:
-            result.add_skip(
-                "members", "bridge counterpart is already linked to another member"
-            )
-        else:
-            member.linked_tree_id = bridge["counterpart_tree_id"]
-            member.linked_member_id = counterpart.id
-            counterpart.linked_tree_id = tree.id
-            counterpart.linked_member_id = member_id
-            result.restored["bridge"] = counterpart.id
 
     relation_count = 0
     for rel in snapshot.get("relations", []):
@@ -183,6 +156,7 @@ def restore_member(db: Session, tree: Tree, snapshot: MemberSnapshot) -> Restore
         disease_count += 1
     if disease_count:
         result.restored["diseases"] = disease_count
+    restore_scopes(db, tree, snapshot.get("content_scopes", {}))
 
     _restore_member_links(
         db,
@@ -244,7 +218,7 @@ def restore_member(db: Session, tree: Tree, snapshot: MemberSnapshot) -> Restore
 
 def _restore_member_links(
     db: Session,
-    tree: Tree,
+    tree: Workspace,
     result: RestoreResult,
     links: list[RowSnapshot],
     *,
@@ -276,7 +250,7 @@ def _restore_member_links(
 
 
 def restore_relation(
-    db: Session, tree: Tree, snapshot: RelationSnapshot
+    db: Session, tree: Workspace, snapshot: RelationSnapshot
 ) -> RestoreResult:
     rel = snapshot["relation"]
     key = (tree.id, rel["from_member_id"], rel["to_member_id"], rel["relation_type"])
@@ -289,13 +263,16 @@ def restore_relation(
     return RestoreResult(main_id=None, restored={"relation": 1})
 
 
-def restore_disease(db: Session, tree: Tree, snapshot: DiseaseSnapshot) -> RestoreResult:
+def restore_disease(
+    db: Session, tree: Workspace, snapshot: DiseaseSnapshot
+) -> RestoreResult:
     disease = snapshot["disease"]
     if db.get(MemberDisease, disease["id"]) is not None:
         raise UndoConflict(f"disease {disease['id']} already exists")
     if _in_tree(db, Member, disease["member_id"], tree.id) is None:
         raise UndoConflict(f"member {disease['member_id']} no longer exists")
     db.add(MemberDisease(**disease))
+    restore_scopes(db, tree, snapshot.get("content_scopes", {}))
     return RestoreResult(main_id=disease["id"], restored={"disease": disease["id"]})
 
 
@@ -304,12 +281,13 @@ def restore_disease(db: Session, tree: Tree, snapshot: DiseaseSnapshot) -> Resto
 # ---------------------------------------------------------------------------
 
 
-def restore_event(db: Session, tree: Tree, snapshot: EventSnapshot) -> RestoreResult:
+def restore_event(db: Session, tree: Workspace, snapshot: EventSnapshot) -> RestoreResult:
     event_data = snapshot["event"]
     event_id = event_data["id"]
     if db.get(Event, event_id) is not None:
         raise UndoConflict(f"event {event_id} already exists")
     db.add(Event(**event_data))
+    restore_scopes(db, tree, snapshot.get("content_scopes", {}))
     result = RestoreResult(main_id=event_id, restored={"event": event_id})
 
     count = 0
@@ -344,12 +322,13 @@ def restore_event(db: Session, tree: Tree, snapshot: EventSnapshot) -> RestoreRe
     return result
 
 
-def restore_story(db: Session, tree: Tree, snapshot: StorySnapshot) -> RestoreResult:
+def restore_story(db: Session, tree: Workspace, snapshot: StorySnapshot) -> RestoreResult:
     story_data = snapshot["story"]
     story_id = story_data["id"]
     if db.get(Story, story_id) is not None:
         raise UndoConflict(f"story {story_id} already exists")
     db.add(Story(**story_data))
+    restore_scopes(db, tree, snapshot.get("content_scopes", {}))
     result = RestoreResult(main_id=story_id, restored={"story": story_id})
 
     count = 0
@@ -390,13 +369,14 @@ def restore_story(db: Session, tree: Tree, snapshot: StorySnapshot) -> RestoreRe
 
 
 def restore_gallery_image(
-    db: Session, tree: Tree, snapshot: GalleryImageSnapshot
+    db: Session, tree: Workspace, snapshot: GalleryImageSnapshot
 ) -> RestoreResult:
     image_data = snapshot["gallery_image"]
     image_id = image_data["id"]
     if db.get(GalleryImage, image_id) is not None:
         raise UndoConflict(f"gallery image {image_id} already exists")
     db.add(GalleryImage(**image_data))
+    restore_scopes(db, tree, snapshot.get("content_scopes", {}))
     result = RestoreResult(
         main_id=image_id,
         restored={"gallery_image": image_id},
@@ -421,13 +401,14 @@ def restore_gallery_image(
 
 
 def restore_document(
-    db: Session, tree: Tree, snapshot: DocumentSnapshot
+    db: Session, tree: Workspace, snapshot: DocumentSnapshot
 ) -> RestoreResult:
     doc_data = snapshot["document"]
     doc_id = doc_data["id"]
     if db.get(Document, doc_id) is not None:
         raise UndoConflict(f"document {doc_id} already exists")
     db.add(Document(**doc_data))
+    restore_scopes(db, tree, snapshot.get("content_scopes", {}))
     result = RestoreResult(
         main_id=doc_id,
         restored={"document": doc_id},
@@ -488,7 +469,7 @@ def restore_document(
 
 
 def restore_document_file(
-    db: Session, tree: Tree, snapshot: DocumentFileSnapshot
+    db: Session, tree: Workspace, snapshot: DocumentFileSnapshot
 ) -> RestoreResult:
     file_data = snapshot["document_file"]
     file_id = file_data["id"]
@@ -519,7 +500,7 @@ RESTORERS = {
     "document_file": restore_document_file,
 }
 
-# tree.content_changed domain for each undoable target type (mirrors the
+# workspace.content_changed domain for each undoable target type (mirrors the
 # domain each type's own delete route publishes — see e.g. members.py,
 # events.py, stories.py, gallery.py, documents.py).
 CONTENT_DOMAIN = {

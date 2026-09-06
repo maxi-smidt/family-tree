@@ -8,8 +8,6 @@ other schemas intentionally stay snake_case because the frontend reads them
 as-is.
 """
 
-from typing import Literal
-
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.schemas.base import FamilyTreeBaseModel, FamilyTreeOrmBaseModel
@@ -74,12 +72,6 @@ class MemberOut(FamilyTreeOrmBaseModel):
     is_collapsed: bool = False
     position_x: float = 0
     position_y: float = 0
-    linked_tree_id: str | None = None
-    linked_member_id: str | None = None
-    # Transient outcome of the bridge-person mirror on updates (not a column):
-    # "synced" when the counterpart row was updated too, "skipped_no_access"
-    # when identity fields changed but the actor may not write the other tree.
-    bridge_sync: str | None = None
 
 
 class MemberSurfaceOut(FamilyTreeOrmBaseModel):
@@ -109,15 +101,40 @@ class MemberSurfaceOut(FamilyTreeOrmBaseModel):
     is_collapsed: bool = False
     position_x: float = 0
     position_y: float = 0
-    linked_tree_id: str | None = None
-    linked_member_id: str | None = None
 
 
 class MemberSearchHitOut(MemberSurfaceOut):
     """A searchable member surface annotated with its containing tree."""
 
-    tree_id: str
-    tree_name: str
+    workspace_id: str
+    workspace_name: str
+
+
+class SearchSectionLabel(BaseModel):
+    id: str
+    name: str
+
+
+class WorkspaceSearchHitOut(MemberSurfaceOut):
+    """A member surface annotated with the caller's readable section labels.
+
+    ``sections`` lists only the sections *this caller* may read — a scoped
+    caller never sees a label for a section their grant doesn't reach, even
+    when the member also belongs to one. ``unassigned`` is true only when a
+    whole-workspace caller can see the member belongs to no section at all;
+    it is always false for a scoped caller, who cannot tell "no sections"
+    apart from "sections I can't see" (#1024).
+    """
+
+    sections: list[SearchSectionLabel] = []
+    unassigned: bool = False
+
+
+class WorkspaceSearchResultOut(BaseModel):
+    items: list[WorkspaceSearchHitOut]
+    total: int
+    has_more: bool
+    next_cursor: str | None = None
 
 
 class PublicMemberOut(FamilyTreeOrmBaseModel):
@@ -162,8 +179,6 @@ class MemberCreate(_TrimMemberStringsMixin, FamilyTreeBaseModel):
     is_collapsed: bool = False
     position_x: float = 0
     position_y: float = 0
-    linked_tree_id: str | None = None
-    linked_member_id: str | None = None
 
 
 class MemberUpdate(_TrimMemberStringsMixin, FamilyTreeBaseModel):
@@ -192,8 +207,6 @@ class MemberUpdate(_TrimMemberStringsMixin, FamilyTreeBaseModel):
     is_collapsed: bool | None = None
     position_x: float | None = None
     position_y: float | None = None
-    linked_tree_id: str | None = None
-    linked_member_id: str | None = None
 
 
 class MemberPositionUpdate(FamilyTreeBaseModel):
@@ -211,36 +224,6 @@ class MemberCollapsedUpdate(FamilyTreeBaseModel):
     is_collapsed: bool
 
 
-class MemberSubtreeCreate(FamilyTreeBaseModel):
-    """Request body for the create-and-link-subtree endpoint."""
-
-    name: str
-
-
-class MemberLinkRequest(FamilyTreeBaseModel):
-    """Request body for establishing a tree-in-tree bridge on an existing
-    member: either by finding a matching person already in the target tree
-    (``mode="existing"``) or by copying the member into it as a new bridge
-    person (``mode="create"``)."""
-
-    linked_tree_id: str
-    mode: Literal["existing", "create"]
-    counterpart_member_id: str | None = None
-    # Per-field resolution choices (a = this member, b = counterpart) applied
-    # when mode="existing" reconciles the bridge pair's conflicting fields.
-    # Ignored for mode="create" (nothing to reconcile — the counterpart is a
-    # fresh clone of this member).
-    field_choices: dict[str, Literal["a", "b", "combine"]] = Field(default_factory=dict)
-
-
-class BridgeSyncRequest(FamilyTreeBaseModel):
-    """Resolve bridge-person drift by copying fields across the link.
-
-    ``push`` copies this member's values onto the counterpart; ``pull`` adopts
-    the counterpart's values into this member.
-    """
-
-    direction: Literal["push", "pull"]
 
 
 # --- Relations -------------------------------------------------------------
@@ -328,9 +311,28 @@ class DiseaseUpdate(BaseModel):
 
 
 # --- Neighborhood view -----------------------------------------------------
+class NeighborhoodContinuation(BaseModel):
+    """What was left out of this page and where — "42 more in North America".
+
+    ``remaining_count`` is the number of readable members of that scope not yet
+    delivered. It is a count over the scope, not over what the traversal can
+    still reach from the focus root: an exact reachable count would need the
+    unbounded walk the budget exists to prevent.
+    """
+
+    #: ``None`` for the workspace-wide scope (no section filter in effect).
+    section_id: str | None = None
+    section_name: str | None = None
+    remaining_count: int
+
+
 class NeighborhoodOut(BaseModel):
     members: list[MemberSurfaceOut]
     relations: list[RelationOut]
     root_id: str
     truncated: bool
     total_member_count: int
+    #: Cursor that resumes this traversal where the page stopped; ``None`` when
+    #: nothing is left or the cursor chain has hit its ceiling.
+    next_cursor: str | None = None
+    continuations: list[NeighborhoodContinuation] = []

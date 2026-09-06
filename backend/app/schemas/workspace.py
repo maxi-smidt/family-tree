@@ -1,0 +1,216 @@
+from __future__ import annotations
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.schemas.base import FamilyTreeBaseModel
+from app.schemas.merge import MergeResolution
+
+
+class WorkspaceOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    name: str
+    owner_id: str
+    created_at: str
+    last_opened: str | None = None
+    # Access level of the requesting user: "owner", "editor" or "viewer".
+    role: str = "owner"
+    # Number of other users this tree is shared with (memberships). Lets owners
+    # see at a glance whether a tree is shared, without a second request.
+    shared_count: int = 0
+    # null = private; "viewer" = public read-only.
+    public_role: str | None = None
+    # True when a public tree is password-gated (the hash is never exposed).
+    public_password_protected: bool = False
+    # Domains the requesting member may not see. Empty for owner/admin.
+    restrictions: list[str] = Field(default_factory=list)
+
+
+class WorkspaceMetadataOut(FamilyTreeBaseModel):
+    id: str
+    name: str
+    created_at: str
+    last_opened: str | None = None
+
+
+class WorkspaceCreate(BaseModel):
+    name: str
+
+
+class WorkspaceUpdate(BaseModel):
+    name: str | None = None
+
+
+class WorkspaceShare(BaseModel):
+    username: str
+    role: str = "editor"  # "viewer" or "editor"
+
+
+class WorkspaceTransfer(BaseModel):
+    """Hand a tree's ownership to another (active) user."""
+
+    username: str
+    retain_role: str | None = None  # "viewer" | "editor" | None
+
+
+class WorkspaceTransferResult(BaseModel):
+    """Result of a successful ownership transfer."""
+
+    access: list[WorkspaceMemberOut]
+    undo_available_until: str | None = None
+
+
+class WorkspaceMerge(BaseModel):
+    name: str
+    source_a: str
+    # Optional second source; when omitted the merge is effectively a copy.
+    source_b: str | None = None
+    # Optional per-pair conflict resolutions (new in #166). When None the old
+    # behaviour is preserved exactly (backwards-compatible).
+    resolutions: list[MergeResolution] | None = None
+
+
+class WorkspaceMemberOut(BaseModel):
+    """A user that has access to a tree, with their role.
+
+    A user with several grants (#993) — a workspace-wide membership plus one
+    or more section-scoped grants — appears as one row per grant, each with
+    its own ``section_id``, role, and restrictions; never merged into one.
+    """
+
+    user_id: str
+    username: str
+    role: str  # "owner", "editor" or "viewer"
+    restrictions: list[str] = Field(default_factory=list)
+    # None = workspace-wide grant (every row before #993).
+    section_id: str | None = None
+
+
+class MemberRestrictionsUpdate(BaseModel):
+    restrictions: list[str] = Field(default_factory=list)
+
+
+class ShareCandidate(BaseModel):
+    """A user that a tree can be shared with (not yet a member or the owner)."""
+
+    user_id: str
+    username: str
+
+
+class InvitationCreate(BaseModel):
+    email: str | None = None
+    role: str = "editor"
+    expires_in_days: int | None = None
+    # None = the invitation grants workspace-wide access on acceptance
+    # (the default). A section id scopes the grant it creates instead (#993).
+    section_id: str | None = None
+
+
+class InvitationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    workspace_id: str
+    email: str | None = None
+    role: str
+    section_id: str | None = None
+    created_at: str
+    expires_at: str | None = None
+    accepted_at: str | None = None
+    revoked_at: str | None = None
+    token: str | None = None
+    status: str = "pending"
+
+
+class InvitationAcceptResult(BaseModel):
+    workspace_id: str
+    workspace_name: str
+    role: str
+
+
+class InvitationPreview(BaseModel):
+    workspace_name: str
+    role: str
+    valid: bool
+    requires_account: bool
+
+
+class PublicAccessUpdate(BaseModel):
+    public_role: str | None = None
+
+
+class PublicPasswordUpdate(BaseModel):
+    # New password; null or empty string clears/removes protection.
+    password: str | None = None
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            return ""
+        if len(value.encode("utf-8")) > 72:
+            raise ValueError("Password must be at most 72 UTF-8 bytes")
+        if len(value) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        return value
+
+
+class PublicWorkspaceUnlock(BaseModel):
+    password: str
+    # None = the workspace-wide public link; otherwise a
+    # WorkspaceSectionPublicLink id (#993).
+    link_id: str | None = None
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Password is required")
+        if len(value.encode("utf-8")) > 72:
+            raise ValueError("Password must be at most 72 UTF-8 bytes")
+        return value
+
+
+class PublicWorkspaceUnlockResult(BaseModel):
+    token: str
+
+
+class WorkspaceLegacyIdResolution(BaseModel):
+    """Where a pre-conversion workspace id was folded into during the v1->v2
+    migration (#1012), for a stale deep link or public bookmark. Null when the
+    id was never a conversion source (already current, or unknown)."""
+
+    target_workspace_id: str | None
+
+
+class WorkspaceStorageUsageOut(BaseModel):
+    """Owner-wide storage usage plus the owner's effective quota limits."""
+
+    tree_bytes: int
+    media_bytes: int
+    # total_bytes is the reported sum of tree + media; it has no separate quota.
+    total_bytes: int
+    # Effective quota limits for the tree's owner (None = unlimited).
+    tree_quota_bytes: int | None = None
+    media_quota_bytes: int | None = None
+
+
+class WorkspaceShareBatch(BaseModel):
+    """Grant one user the same role across the anchor tree and a batch of
+    linked workspaces in one call."""
+
+    username: str
+    role: str = "editor"  # "viewer" or "editor"
+    workspace_ids: list[str]
+
+
+class WorkspaceAccessBatchRevoke(BaseModel):
+    """Revoke one user's access across a batch of workspaces in one call."""
+
+    user_id: str
+    workspace_ids: list[str]

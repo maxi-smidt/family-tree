@@ -33,16 +33,18 @@ import {
   Activity,
   ClipboardList,
   Crosshair,
+  FolderTree,
   Minus,
   Plus,
 } from "lucide-react";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { createMember, Member } from "@/types/member";
 import { NODE_WIDTH } from "@/constants";
 import { RelationControls } from "@/components/view/tree-view/RelationControls";
 import { PanelMoreMenu } from "@/components/view/tree-view/PanelMoreMenu";
+import { CreateSectionDialog } from "@/components/view/tree-view/nav/CreateSectionDialog";
 import { useTranslation } from "react-i18next";
 import { Separator } from "@/components/ui/separator";
 
@@ -66,6 +68,7 @@ export const MemberControls = ({
 }: Props) => {
   const { t } = useTranslation(undefined, { keyPrefix: "tree-view.controls" });
   const [isArrangeDialogOpen, setIsArrangeDialogOpen] = useState(false);
+  const [isCreateSectionOpen, setIsCreateSectionOpen] = useState(false);
   const {
     isLockedScreen,
     isFastMode,
@@ -75,7 +78,9 @@ export const MemberControls = ({
     showTaskIndicators,
     setShowTaskIndicators,
   } = useFamilyTreeSettings();
-  const taskRestrictions = useTreeStore((s) => s.selectedTree?.restrictions);
+  const taskRestrictions = useWorkspaceStore(
+    (s) => s.selectedTree?.restrictions,
+  );
   const tasksEnabled = !taskRestrictions?.includes("tasks");
   const {
     batchSetCollapsed,
@@ -273,7 +278,18 @@ export const MemberControls = ({
             {t("focus-here")}
           </DropdownMenuItem>
         )}
+        {!readOnly && selectedNodes.length === 1 && (
+          <DropdownMenuItem inset onSelect={() => setIsCreateSectionOpen(true)}>
+            <FolderTree />
+            {t("create-section-here")}
+          </DropdownMenuItem>
+        )}
       </PanelMoreMenu>
+      <CreateSectionDialog
+        open={isCreateSectionOpen}
+        onOpenChange={setIsCreateSectionOpen}
+        initialRootMemberId={selectedNodes[0]?.id ?? null}
+      />
       <AlertDialog
         open={isArrangeDialogOpen}
         onOpenChange={setIsArrangeDialogOpen}

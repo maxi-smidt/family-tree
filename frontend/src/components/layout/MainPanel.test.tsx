@@ -8,9 +8,11 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { useFriendStore } from "@/hooks/useFriendStore";
+import { useIdentityLinkStore } from "@/hooks/useIdentityLinkStore";
+import { useMigrationReviewStore } from "@/hooks/useMigrationReviewStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useTabPreferences } from "@/hooks/useTabPreferences";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useTutorialStore } from "@/hooks/useTutorialStore";
 import { useUnsavedChangesStore } from "@/hooks/useUnsavedChangesStore";
 import { type User } from "@/types/user";
@@ -54,6 +56,9 @@ vi.mock("@/components/view/map-view/MapView", () => ({
 vi.mock("@/components/view/friends-view/FriendsView", () => ({
   FriendsView: () => <div>Friends view</div>,
 }));
+vi.mock("@/components/view/migration-review-view/MigrationReviewView", () => ({
+  MigrationReviewView: () => <div>Migration review view</div>,
+}));
 vi.mock("@/components/layout/MobileManagementSheet", () => ({
   MobileManagementSheet: () => null,
 }));
@@ -73,9 +78,8 @@ describe("MainPanel", () => {
   beforeEach(() => {
     localStorage.clear();
 
-    useTreeStore.setState({
-      trees: [],
-      virtualViews: [],
+    useWorkspaceStore.setState({
+      workspaces: [],
       selectedTree: undefined,
       metadata: {},
       relationTypes: [],
@@ -103,6 +107,18 @@ describe("MainPanel", () => {
       loading: false,
       loadIncoming: vi.fn().mockResolvedValue(undefined),
     });
+    useMigrationReviewStore.setState({
+      reports: [],
+      conflicts: [],
+      loading: false,
+      loaded: false,
+      load: vi.fn().mockResolvedValue(undefined),
+    });
+    useIdentityLinkStore.setState({
+      incomingClaims: [],
+      outgoingClaims: [],
+      loadClaimInbox: vi.fn().mockResolvedValue(undefined),
+    });
     useTutorialStore.setState({
       completed: false,
       loaded: false,
@@ -110,12 +126,12 @@ describe("MainPanel", () => {
     });
   });
 
-  it("keeps Tree, Tree Management, and Friends visible for a fresh account", () => {
+  it("keeps Tree, Workspace Management, and Friends visible for a fresh account", () => {
     render(<MainPanel />);
 
     expect(screen.getByRole("tab", { name: "Tree" })).toBeInTheDocument();
     expect(
-      screen.getByRole("tab", { name: "Tree Management" }),
+      screen.getByRole("tab", { name: "Workspace Management" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Friends" })).toBeInTheDocument();
 
@@ -126,7 +142,7 @@ describe("MainPanel", () => {
   });
 
   it("opens Gallery and Documents from the Media tab menu", async () => {
-    useTreeStore.setState({
+    useWorkspaceStore.setState({
       selectedTree: { id: "tree-1", role: "owner", restrictions: [] } as never,
     });
     render(<MainPanel />);
@@ -155,7 +171,7 @@ describe("MainPanel", () => {
   it("restores the selected Media section after a refresh", async () => {
     localStorage.setItem("ft_active_tab", "media-view");
     localStorage.setItem("ft_active_media_section", "documents");
-    useTreeStore.setState({
+    useWorkspaceStore.setState({
       selectedTree: { id: "tree-1", role: "owner", restrictions: [] } as never,
     });
     render(<MainPanel />);

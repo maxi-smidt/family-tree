@@ -13,8 +13,10 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import (
     get_current_user,
-    get_readable_tree,
-    get_writable_tree,
+    get_readable_workspace,
+    get_workspace_access_authenticated,
+    get_workspace_access_write,
+    get_writable_workspace,
     require_domain,
 )
 from app.api.pagination import Pagination, apply_pagination, pagination_params
@@ -22,13 +24,14 @@ from app.core.exceptions import QuotaExceeded
 from app.db.base import utcnow_iso
 from app.db.session import get_db
 from app.models import (
+    ContentType,
     Document,
     DocumentFile,
     DocumentMemberLink,
     DocumentUpload,
     EventDocumentLink,
     StoryDocumentLink,
-    Tree,
+    Workspace,
 )
 from app.models.user import User
 from app.schemas.content import (
@@ -49,11 +52,12 @@ from app.services.activity.activity import (
 )
 from app.services.documents.content_links import replace_member_links
 from app.services.documents.document_service import (
+    DOMAIN,
     external_link_url,
     prune_stale_uploads,
     save_document,
 )
-from app.services.event_bus import publish_tree_event
+from app.services.event_bus import publish_workspace_event
 from app.services.media.storage import (
     ChecksumMismatch,
     FileTooLarge,
@@ -62,20 +66,28 @@ from app.services.media.storage import (
     store_document_upload,
     trash_media,
 )
-from app.services.media.storage_usage import check_media_quota, check_tree_quota
+from app.services.media.storage_usage import check_media_quota, check_workspace_quota
+from app.services.provenance import origin_section
 from app.services.system.settings_service import get_media_limits
 from app.services.unit_of_work import UnitOfWork
+from app.services.workspaces.visibility import WorkspaceAccessContext
 
 router = APIRouter(
-    prefix="/trees/{tree_id}/documents",
+    prefix="/workspaces/{workspace_id}/documents",
     tags=["documents"],
     dependencies=[Depends(require_domain("sources"))],
 )
 
-def _get_document(db: Session, tree: Tree, document_id: str) -> Document:
+
+def _get_document(
+    db: Session, tree: Workspace, document_id: str, context: WorkspaceAccessContext
+) -> Document:
+    """Load a document for a *write* — see events._get_event for why the
+    #984 visibility/write check lives here rather than a separate GET route."""
     document = db.get(Document, document_id)
-    if document is None or document.tree_id != tree.id:
+    if document is None or document.workspace_id != tree.id:
         raise HTTPException(status_code=404, detail="Document not found")
+    context.require_write_content(db, ContentType.DOCUMENT, document_id, domain=DOMAIN)
     return document
 
 
@@ -88,9 +100,7 @@ def _get_file(db: Session, document: Document, file_id: str) -> DocumentFile:
 
 def _linked_ids(db: Session, link_model, id_column, document_id: str) -> list[str]:
     return list(
-        db.scalars(
-            select(id_column).where(link_model.document_id == document_id)
-        ).all()
+        db.scalars(select(id_column).where(link_model.document_id == document_id)).all()
     )
 
 
@@ -155,12 +165,19 @@ def _documents_out(db: Session, documents: list[Document]) -> list[DocumentOut]:
 @router.get("", response_model=list[DocumentOut])
 def list_documents(
     pagination: Pagination = Depends(pagination_params),
-    tree: Tree = Depends(get_readable_tree),
+    tree: Workspace = Depends(get_readable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_authenticated),
     db: Session = Depends(get_db),
 ):
+    filters = [Document.workspace_id == tree.id]
+    content_filter = context.content_filter(
+        ContentType.DOCUMENT, Document.id, domain=DOMAIN
+    )
+    if content_filter is not None:
+        filters.append(content_filter)
     statement = (
         select(Document)
-        .where(Document.tree_id == tree.id)
+        .where(*filters)
         .order_by(Document.created_at, Document.id)
         .options(selectinload(Document.files))
     )
@@ -171,17 +188,19 @@ def list_documents(
 @router.post("", response_model=DocumentOut, status_code=201)
 def create_document(
     payload: DocumentCreate,
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
+    context.require_write_scope(origin_section(db), domain=DOMAIN)
     data = payload.model_dump()
     member_ids = data.pop("member_ids")
-    check_tree_quota(db, tree, len(str(data).encode()))
+    check_workspace_quota(db, tree, len(str(data).encode()))
     now = utcnow_iso()
     document = Document(
         id=str(uuid4()),
-        tree_id=tree.id,
+        workspace_id=tree.id,
         created_at=now,
         updated_at=now,
         **data,
@@ -199,7 +218,7 @@ def create_document(
         )
         record_activity(
             db,
-            tree_id=tree.id,
+            workspace_id=tree.id,
             actor=user,
             action="create",
             target_type="document",
@@ -207,14 +226,16 @@ def create_document(
             target_label=document.title,
         )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            lambda: publish_workspace_event(
+                db, tree, "activity.entry_added", {"workspace_id": tree.id}
             )
         )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "tree.content_changed",
-                {"tree_id": tree.id, "domain": "document"},
+            lambda: publish_workspace_event(
+                db,
+                tree,
+                "workspace.content_changed",
+                {"workspace_id": tree.id, "domain": "document"},
             )
         )
     db.refresh(document)
@@ -225,18 +246,19 @@ def create_document(
 def update_document(
     document_id: str,
     payload: DocumentUpdate,
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
-    document = _get_document(db, tree, document_id)
+    document = _get_document(db, tree, document_id, context)
     for key, value in payload.model_dump().items():
         setattr(document, key, value)
     document.updated_at = utcnow_iso()
     with UnitOfWork(db) as uow:
         record_activity(
             db,
-            tree_id=tree.id,
+            workspace_id=tree.id,
             actor=user,
             action="update",
             target_type="document",
@@ -244,14 +266,16 @@ def update_document(
             target_label=document.title,
         )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            lambda: publish_workspace_event(
+                db, tree, "activity.entry_added", {"workspace_id": tree.id}
             )
         )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "tree.content_changed",
-                {"tree_id": tree.id, "domain": "document"},
+            lambda: publish_workspace_event(
+                db,
+                tree,
+                "workspace.content_changed",
+                {"workspace_id": tree.id, "domain": "document"},
             )
         )
     db.refresh(document)
@@ -262,8 +286,9 @@ def update_document(
 def save_document_route(
     document_id: str,
     payload: DocumentSave,
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
     """Create or update a document and apply every file change atomically.
@@ -275,7 +300,12 @@ def save_document_route(
     ``app.services.documents.document_service.save_document``).
     """
     document = save_document(
-        db, tree=tree, user=user, document_id=document_id, payload=payload
+        db,
+        tree=tree,
+        user=user,
+        context=context,
+        document_id=document_id,
+        payload=payload,
     )
     return _document_out(db, document)
 
@@ -283,11 +313,12 @@ def save_document_route(
 @router.delete("/{document_id}", status_code=204)
 def delete_document(
     document_id: str,
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
-    document = _get_document(db, tree, document_id)
+    document = _get_document(db, tree, document_id, context)
     # Capture the on-disk URLs before the row is gone, but only move the bytes
     # to trash *after* the DB commit succeeds. Removing them first would leave
     # a live row pointing at a missing file if the commit then failed.
@@ -300,7 +331,7 @@ def delete_document(
     with UnitOfWork(db) as uow:
         record_activity(
             db,
-            tree_id=tree.id,
+            workspace_id=tree.id,
             actor=user,
             action="delete",
             target_type="document",
@@ -311,14 +342,16 @@ def delete_document(
         db.delete(document)
         uow.after_commit(_trash_files)
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            lambda: publish_workspace_event(
+                db, tree, "activity.entry_added", {"workspace_id": tree.id}
             )
         )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "tree.content_changed",
-                {"tree_id": tree.id, "domain": "document"},
+            lambda: publish_workspace_event(
+                db,
+                tree,
+                "workspace.content_changed",
+                {"workspace_id": tree.id, "domain": "document"},
             )
         )
 
@@ -330,12 +363,13 @@ def delete_document(
 def set_document_members(
     document_id: str,
     payload: LinksSet,
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
     """Replace the full set of people mentioned by this document."""
-    document = _get_document(db, tree, document_id)
+    document = _get_document(db, tree, document_id, context)
     with UnitOfWork(db) as uow:
         replace_member_links(
             db,
@@ -346,18 +380,25 @@ def set_document_members(
             member_ids=payload.member_ids,
         )
         record_activity(
-            db, tree_id=tree.id, actor=user, action="update",
-            target_type="document", target_id=document.id, target_label=document.title,
+            db,
+            workspace_id=tree.id,
+            actor=user,
+            action="update",
+            target_type="document",
+            target_id=document.id,
+            target_label=document.title,
         )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            lambda: publish_workspace_event(
+                db, tree, "activity.entry_added", {"workspace_id": tree.id}
             )
         )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "tree.content_changed",
-                {"tree_id": tree.id, "domain": "document"},
+            lambda: publish_workspace_event(
+                db,
+                tree,
+                "workspace.content_changed",
+                {"workspace_id": tree.id, "domain": "document"},
             )
         )
 
@@ -370,7 +411,7 @@ async def stage_upload(
     file: UploadFile = File(...),
     filename: str = Form(...),
     checksum: str | None = Form(default=None),
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
     db: Session = Depends(get_db),
 ):
     """Stream a file into the staging area, to be attached by a document save.
@@ -411,7 +452,7 @@ async def stage_upload(
 
     upload = DocumentUpload(
         id=str(uuid4()),
-        tree_id=tree.id,
+        workspace_id=tree.id,
         filename=filename,
         url=url,
         mime_type=mime,
@@ -436,10 +477,11 @@ async def add_file(
     file: UploadFile = File(...),
     filename: str = Form(...),
     checksum: str | None = Form(default=None),
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
-    document = _get_document(db, tree, document_id)
+    document = _get_document(db, tree, document_id, context)
 
     try:
         url, mime, size = await store_document_upload(
@@ -470,7 +512,7 @@ async def add_file(
 
     file = DocumentFile(
         id=str(uuid4()),
-        tree_id=tree.id,
+        workspace_id=tree.id,
         document_id=document.id,
         kind="file",
         filename=filename,
@@ -483,9 +525,11 @@ async def add_file(
         with UnitOfWork(db) as uow:
             db.add(file)
             uow.after_commit(
-                lambda: publish_tree_event(
-                    db, tree, "tree.content_changed",
-                    {"tree_id": tree.id, "domain": "document"},
+                lambda: publish_workspace_event(
+                    db,
+                    tree,
+                    "workspace.content_changed",
+                    {"workspace_id": tree.id, "domain": "document"},
                 )
             )
     except Exception:
@@ -501,16 +545,17 @@ async def add_file(
 def add_link(
     document_id: str,
     payload: DocumentLinkCreate,
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
-    document = _get_document(db, tree, document_id)
+    document = _get_document(db, tree, document_id, context)
 
     link_url = external_link_url(payload.url)
 
     file = DocumentFile(
         id=str(uuid4()),
-        tree_id=tree.id,
+        workspace_id=tree.id,
         document_id=document.id,
         kind="link",
         filename=payload.filename,
@@ -522,9 +567,11 @@ def add_link(
     with UnitOfWork(db) as uow:
         db.add(file)
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "tree.content_changed",
-                {"tree_id": tree.id, "domain": "document"},
+            lambda: publish_workspace_event(
+                db,
+                tree,
+                "workspace.content_changed",
+                {"workspace_id": tree.id, "domain": "document"},
             )
         )
     db.refresh(file)
@@ -536,17 +583,20 @@ def rename_file(
     document_id: str,
     file_id: str,
     payload: DocumentFileUpdate,
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
-    document = _get_document(db, tree, document_id)
+    document = _get_document(db, tree, document_id, context)
     file = _get_file(db, document, file_id)
     with UnitOfWork(db) as uow:
         file.filename = payload.filename
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "tree.content_changed",
-                {"tree_id": tree.id, "domain": "document"},
+            lambda: publish_workspace_event(
+                db,
+                tree,
+                "workspace.content_changed",
+                {"workspace_id": tree.id, "domain": "document"},
             )
         )
     db.refresh(file)
@@ -557,11 +607,12 @@ def rename_file(
 def delete_file(
     document_id: str,
     file_id: str,
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
-    document = _get_document(db, tree, document_id)
+    document = _get_document(db, tree, document_id, context)
     file = _get_file(db, document, file_id)
     # Move the bytes to trash only after the row is durably gone: deleting
     # first would leave a live row pointing at a missing file if the commit
@@ -570,7 +621,7 @@ def delete_file(
     with UnitOfWork(db) as uow:
         record_activity(
             db,
-            tree_id=tree.id,
+            workspace_id=tree.id,
             actor=user,
             action="delete",
             target_type="document_file",
@@ -582,13 +633,15 @@ def delete_file(
         if url is not None:
             uow.after_commit(lambda: trash_media(url))
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            lambda: publish_workspace_event(
+                db, tree, "activity.entry_added", {"workspace_id": tree.id}
             )
         )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "tree.content_changed",
-                {"tree_id": tree.id, "domain": "document"},
+            lambda: publish_workspace_event(
+                db,
+                tree,
+                "workspace.content_changed",
+                {"workspace_id": tree.id, "domain": "document"},
             )
         )

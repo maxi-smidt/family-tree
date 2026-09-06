@@ -6,7 +6,7 @@ own sibling modules (``member_relations``, ``member_diseases``,
 itself plus the read surfaces (list/search/neighborhood) and merge.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -14,13 +14,21 @@ from sqlalchemy.orm import Session
 from app.api.deps import (
     get_current_user,
     get_current_user_optional,
-    get_readable_tree_public,
-    get_writable_tree,
+    get_readable_workspace,
+    get_readable_workspace_public,
+    get_workspace_access,
+    get_workspace_access_authenticated,
+    get_workspace_access_write,
+    get_writable_workspace,
 )
 from app.api.pagination import Pagination, apply_pagination, pagination_params
+from app.core.config import settings
+from app.core.db_timeout import statement_timeout
 from app.core.exceptions import QuotaExceeded
+from app.core.rate_limit import neighborhood_rate_limiter, search_rate_limiter
+from app.core.request_ip import client_ip
 from app.db.session import get_db
-from app.models import Event, EventMemberLink, Member, Relation, Tree
+from app.models import Event, EventMemberLink, Member, Workspace
 from app.models.user import User
 from app.schemas.family import (
     MemberCollapsedUpdate,
@@ -29,13 +37,17 @@ from app.schemas.family import (
     MemberPositionUpdate,
     MemberSurfaceOut,
     MemberUpdate,
+    NeighborhoodContinuation,
     NeighborhoodOut,
     RelationOut,
+    SearchSectionLabel,
+    WorkspaceSearchHitOut,
+    WorkspaceSearchResultOut,
 )
 from app.schemas.merge import MemberMergePreviewOut, MemberMergeRequest
 from app.services.activity.activity import member_delete_snapshot, record_activity
 from app.services.cache import invalidate_stats
-from app.services.event_bus import publish_tree_event
+from app.services.event_bus import publish_workspace_event
 from app.services.media.storage import (
     MEDIA_URL_PREFIX,
     ImageTooLarge,
@@ -43,8 +55,7 @@ from app.services.media.storage import (
     delete_media,
     process_image_field,
 )
-from app.services.media.storage_usage import check_media_quota, check_tree_quota
-from app.services.members.bridge import sync_bridge_person
+from app.services.media.storage_usage import check_media_quota, check_workspace_quota
 from app.services.members.member_access import (
     PUBLIC_MEMBER_COLUMNS,
     public_member_payloads,
@@ -63,62 +74,72 @@ from app.services.members.member_search import (
 )
 from app.services.members.member_update import update_member as update_member_service
 from app.services.members.member_vitals import event_updates_allowed, sync_vital_event
+from app.services.saved_views.saved_views import degrade_saved_views_for_member
 from app.services.system.settings_service import get_media_limits
-from app.services.trees.neighborhood import collect_neighborhood_ids, pick_default_root
 from app.services.unit_of_work import UnitOfWork
+from app.services.workspaces import search_cursor
+from app.services.workspaces.neighborhood import (
+    MAX_NEIGHBORHOOD_NODES,
+    MAX_NEIGHBORHOOD_TOTAL,
+    NeighborhoodQuery,
+    collect_neighborhood_page,
+    continuation_counts,
+    graph_revision,
+    pick_default_root,
+    relations_for_page,
+    resolve_section_ids,
+)
+from app.services.workspaces.neighborhood_cursor import (
+    decode_cursor,
+    encode_cursor,
+    visibility_fingerprint,
+)
+from app.services.workspaces.search import (
+    count_workspace_search,
+    fetch_workspace_search_page,
+    search_revision,
+)
+from app.services.workspaces.visibility import PUBLIC_PRINCIPAL, WorkspaceAccessContext
 
-router = APIRouter(prefix="/trees/{tree_id}", tags=["members"])
+router = APIRouter(prefix="/workspaces/{workspace_id}", tags=["members"])
 
 
 # --- Members ---------------------------------------------------------------
 @router.get("/members", response_model=list[MemberOut])
 def list_members(
     pagination: Pagination = Depends(pagination_params),
-    tree: Tree = Depends(get_readable_tree_public),
+    tree: Workspace = Depends(get_readable_workspace_public),
     user: User | None = Depends(get_current_user_optional),
+    context: WorkspaceAccessContext = Depends(get_workspace_access),
     db: Session = Depends(get_db),
     surface: bool = Query(False),
 ):
+    filters = [Member.workspace_id == tree.id]
+    member_filter = context.member_filter()
+    if member_filter is not None:
+        filters.append(member_filter)
     if public_only(db, tree, user):
-        stmt = (
-            select(*PUBLIC_MEMBER_COLUMNS)
-            .where(Member.tree_id == tree.id)
-            .order_by(Member.id)
-        )
+        stmt = select(*PUBLIC_MEMBER_COLUMNS).where(*filters).order_by(Member.id)
         rows = db.execute(apply_pagination(stmt, pagination)).all()
         return JSONResponse(content=public_member_payloads(rows))
     if surface:
-        stmt = (
-            select(*MEMBER_SURFACE_COLUMNS)
-            .where(Member.tree_id == tree.id)
-            .order_by(Member.id)
-        )
+        stmt = select(*MEMBER_SURFACE_COLUMNS).where(*filters).order_by(Member.id)
         return [
             MemberSurfaceOut(**row._mapping)
             for row in db.execute(apply_pagination(stmt, pagination)).all()
         ]
-    statement = select(Member).where(Member.tree_id == tree.id).order_by(Member.id)
+    statement = select(Member).where(*filters).order_by(Member.id)
     return db.scalars(apply_pagination(statement, pagination)).all()
 
 
 @router.post("/members", response_model=MemberOut, status_code=201)
 def create_member(
     payload: MemberCreate,
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     data = payload.model_dump()
-    if data.get("linked_tree_id") is not None or (
-        data.get("linked_member_id") is not None
-    ):
-        # A brand-new member can't already have a bridge counterpart — that
-        # requires writing a row in another tree, which only the dedicated
-        # link endpoint does. See POST /members/{id}/link.
-        raise HTTPException(
-            status_code=400,
-            detail="Establish tree links via the link endpoint",
-        )
     new_image_url: str | None = None
     try:
         new_image_url_candidate = process_image_field(
@@ -146,14 +167,14 @@ def create_member(
 
     # Check tree-data quota (pre-write estimate).
     try:
-        check_tree_quota(db, tree, len(str(data).encode()))
+        check_workspace_quota(db, tree, len(str(data).encode()))
     except QuotaExceeded:
         if new_image_url:
             delete_media(new_image_url)
         raise
 
     with UnitOfWork(db) as uow:
-        member = Member(tree_id=tree.id, **data)
+        member = Member(workspace_id=tree.id, **data)
         db.add(member)
         label = (
             " ".join(filter(None, [data.get("first_name"), data.get("last_name")]))
@@ -161,7 +182,7 @@ def create_member(
         )
         record_activity(
             db,
-            tree_id=tree.id,
+            workspace_id=tree.id,
             actor=user,
             action="create",
             target_type="member",
@@ -169,16 +190,16 @@ def create_member(
             target_label=label,
         )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            lambda: publish_workspace_event(
+                db, tree, "activity.entry_added", {"workspace_id": tree.id}
             )
         )
         uow.after_commit(
-            lambda: publish_tree_event(
+            lambda: publish_workspace_event(
                 db,
                 tree,
-                "tree.content_changed",
-                {"tree_id": tree.id, "domain": "member"},
+                "workspace.content_changed",
+                {"workspace_id": tree.id, "domain": "member"},
             )
         )
         uow.after_commit(lambda: invalidate_stats(tree.id))
@@ -189,13 +210,15 @@ def create_member(
 @router.patch("/members/positions", status_code=204)
 def update_member_positions(
     payload: list[MemberPositionUpdate],
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
     """Persist many member positions in one round-trip (re-layout / drag).
 
     Declared before ``/members/{member_id}`` so the literal ``positions`` path
-    isn't captured as a member id. Unknown ids are silently skipped.
+    isn't captured as a member id. Unknown ids, and ids the caller may not
+    edit, are silently skipped.
     """
     if not payload:
         return
@@ -203,8 +226,9 @@ def update_member_positions(
     members = {
         m.id: m
         for m in db.scalars(
-            select(Member).where(Member.tree_id == tree.id, Member.id.in_(ids))
+            select(Member).where(Member.workspace_id == tree.id, Member.id.in_(ids))
         )
+        if context.can_write_member(db, m.id, mode="edit")
     }
     with UnitOfWork(db) as uow:
         for p in payload:
@@ -213,8 +237,8 @@ def update_member_positions(
                 member.position_x = p.position_x
                 member.position_y = p.position_y
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "tree.layout_changed", {"tree_id": tree.id}
+            lambda: publish_workspace_event(
+                db, tree, "workspace.layout_changed", {"workspace_id": tree.id}
             )
         )
 
@@ -222,13 +246,15 @@ def update_member_positions(
 @router.patch("/members/collapsed", status_code=204)
 def update_member_collapsed(
     payload: list[MemberCollapsedUpdate],
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
     """Persist collapse/expand state for many members in one round-trip.
 
     Declared before ``/members/{member_id}`` so the literal ``collapsed`` path
-    isn't captured as a member id. Unknown ids are silently skipped.
+    isn't captured as a member id. Unknown ids, and ids the caller may not
+    edit, are silently skipped.
     """
     if not payload:
         return
@@ -236,8 +262,9 @@ def update_member_collapsed(
     members = {
         m.id: m
         for m in db.scalars(
-            select(Member).where(Member.tree_id == tree.id, Member.id.in_(ids))
+            select(Member).where(Member.workspace_id == tree.id, Member.id.in_(ids))
         )
+        if context.can_write_member(db, m.id, mode="edit")
     }
     with UnitOfWork(db):
         for p in payload:
@@ -246,7 +273,7 @@ def update_member_collapsed(
                 member.is_collapsed = p.is_collapsed
 
 
-def _sync_merged_vital_events(db: Session, tree: Tree, member: Member) -> None:
+def _sync_merged_vital_events(db: Session, tree: Workspace, member: Member) -> None:
     """After a merge re-points event links onto ``member``, drop duplicate
     birth/death mirror events.
 
@@ -261,7 +288,7 @@ def _sync_merged_vital_events(db: Session, tree: Tree, member: Member) -> None:
                 select(Event)
                 .join(EventMemberLink, EventMemberLink.event_id == Event.id)
                 .where(
-                    Event.tree_id == tree.id,
+                    Event.workspace_id == tree.id,
                     Event.event_type == event_type,
                     EventMemberLink.member_id == member.id,
                 )
@@ -276,8 +303,9 @@ def _sync_merged_vital_events(db: Session, tree: Tree, member: Member) -> None:
 @router.post("/members/merge", response_model=MemberOut)
 def merge_members(
     payload: MemberMergeRequest,
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
     """Merge two members of this tree in place (#729).
@@ -289,11 +317,13 @@ def merge_members(
     ``/members/{member_id}`` — like ``positions``/``collapsed`` — so the
     literal ``merge`` path segment isn't captured as a member id.
     """
+    context.require_write_member(db, payload.keep_id, mode="edit")
+    # remove_id's row disappears from every section it was in, so it needs
+    # the stricter "editor everywhere it's assigned" delete-level check.
+    context.require_write_member(db, payload.remove_id, mode="delete")
     keep = get_member_row(db, tree, payload.keep_id)
     remove = get_member_row(db, tree, payload.remove_id)
-    merged, details, counterpart, bridge_outcome = merge_members_in_place(
-        db, tree, keep, remove, payload.fields
-    )
+    merged, details = merge_members_in_place(db, tree, keep, remove, payload.fields)
 
     # Vital-event mirror consistency: dedup always runs (integrity cleanup);
     # the date/location resync is skipped when the actor can't touch Events,
@@ -303,27 +333,12 @@ def merge_members(
         sync_vital_event(
             db, tree, merged, "birth", merged.date_of_birth, merged.birthplace
         )
-        sync_vital_event(
-            db, tree, merged, "death", merged.date_of_death, merged.cemetery
-        )
-
-    # Bridge-person drift: mirror field choices that changed keep's identity
-    # fields onto its own counterpart, same as update_member does. Uses
-    # keep_before (captured pre-merge) rather than remove's raw fields, since
-    # a "b" choice can pull remove's value while a "combine" produces a value
-    # neither side had.
-    keep_before = details["merge"]["keep_before"]
-    changed_fields = {
-        field: getattr(merged, field)
-        for field, before_value in keep_before.items()
-        if getattr(merged, field) != before_value
-    }
-    _, bridge_synced_tree = sync_bridge_person(db, merged, changed_fields, user)
+        sync_vital_event(db, tree, merged, "death", merged.date_of_death, merged.cemetery)
 
     label = " ".join(filter(None, [merged.first_name, merged.last_name])) or None
     record_activity(
         db,
-        tree_id=tree.id,
+        workspace_id=tree.id,
         actor=user,
         action="update",
         target_type="member",
@@ -332,39 +347,10 @@ def merge_members(
         details=details,
     )
 
-    # A bridge person's counterpart lives in another tree: its own
-    # linked_tree_id/linked_member_id just changed (re-pointed onto `merged`,
-    # or cleared entirely), so that tree gets its own activity entry too —
-    # same reasoning as the two record_activity calls in link_member_to_tree.
-    counterpart_tree: Tree | None = None
-    if counterpart is not None and bridge_outcome is not None:
-        counterpart_tree = db.get(Tree, counterpart.tree_id)
-        counterpart_label = (
-            " ".join(filter(None, [counterpart.first_name, counterpart.last_name]))
-            or None
-        )
-        bridge_details = {
-            "after": (
-                {"linked_tree_id": merged.tree_id, "linked_member_id": merged.id}
-                if bridge_outcome == "inherited"
-                else {"linked_tree_id": None, "linked_member_id": None}
-            )
-        }
-        record_activity(
-            db,
-            tree_id=counterpart_tree.id,
-            actor=user,
-            action="update",
-            target_type="member",
-            target_id=counterpart.id,
-            target_label=counterpart_label,
-            details=bridge_details,
-        )
-
     with UnitOfWork(db) as uow:
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            lambda: publish_workspace_event(
+                db, tree, "activity.entry_added", {"workspace_id": tree.id}
             )
         )
         # A merge can touch any content that was linked to `remove`, not just
@@ -372,48 +358,14 @@ def merge_members(
         # notified — see MemberMergeTransferCounts (#812).
         for domain in ("member", "event", "story", "gallery", "document", "task"):
             uow.after_commit(
-                lambda domain=domain: publish_tree_event(
+                lambda domain=domain: publish_workspace_event(
                     db,
                     tree,
-                    "tree.content_changed",
-                    {"tree_id": tree.id, "domain": domain},
+                    "workspace.content_changed",
+                    {"workspace_id": tree.id, "domain": domain},
                 )
             )
         uow.after_commit(lambda: invalidate_stats(tree.id))
-
-        notified_tree_ids: set[str] = set()
-        if counterpart_tree is not None:
-            uow.after_commit(
-                lambda: publish_tree_event(
-                    db,
-                    counterpart_tree,
-                    "activity.entry_added",
-                    {"tree_id": counterpart_tree.id},
-                )
-            )
-            uow.after_commit(
-                lambda: publish_tree_event(
-                    db,
-                    counterpart_tree,
-                    "tree.content_changed",
-                    {"tree_id": counterpart_tree.id, "domain": "member"},
-                )
-            )
-            uow.after_commit(lambda: invalidate_stats(counterpart_tree.id))
-            notified_tree_ids.add(counterpart_tree.id)
-        if (
-            bridge_synced_tree is not None
-            and bridge_synced_tree.id not in notified_tree_ids
-        ):
-            uow.after_commit(
-                lambda: publish_tree_event(
-                    db,
-                    bridge_synced_tree,
-                    "tree.content_changed",
-                    {"tree_id": bridge_synced_tree.id, "domain": "member"},
-                )
-            )
-            uow.after_commit(lambda: invalidate_stats(bridge_synced_tree.id))
     db.refresh(merged)
     return merged
 
@@ -422,8 +374,9 @@ def merge_members(
 def search_members(
     q: str = Query(..., min_length=1, max_length=200),
     limit: int = Query(20, ge=1, le=50),
-    tree: Tree = Depends(get_readable_tree_public),
+    tree: Workspace = Depends(get_readable_workspace_public),
     user: User | None = Depends(get_current_user_optional),
+    context: WorkspaceAccessContext = Depends(get_workspace_access),
     db: Session = Depends(get_db),
 ):
     """Full-text name search scoped to the tree.  Declared before
@@ -431,12 +384,13 @@ def search_members(
     as a member id."""
     public = public_only(db, tree, user)
     columns = PUBLIC_MEMBER_COLUMNS if public else MEMBER_SURFACE_COLUMNS
+    filters = [Member.workspace_id == tree.id, member_name_search_clause(q)]
+    member_filter = context.member_filter()
+    if member_filter is not None:
+        filters.append(member_filter)
     stmt = (
         select(*columns)
-        .where(
-            Member.tree_id == tree.id,
-            member_name_search_clause(q),
-        )
+        .where(*filters)
         .order_by(Member.last_name, Member.first_name)
         .limit(limit)
     )
@@ -446,74 +400,246 @@ def search_members(
     return [MemberSurfaceOut(**row._mapping) for row in rows]
 
 
+@router.get("/search", response_model=WorkspaceSearchResultOut)
+def search_workspace(
+    q: str = Query(..., min_length=1, max_length=200),
+    limit: int = Query(20, ge=1, le=50),
+    cursor: str | None = Query(None),
+    tree: Workspace = Depends(get_readable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_authenticated),
+    db: Session = Depends(get_db),
+):
+    """Paginated, visibility- and section-aware name search across the whole
+    workspace (#1024) — not just the currently loaded graph.
+
+    Authenticated only: unlike the public-safe ``/members/search``, hits here
+    carry the full member surface plus section labels, which an anonymous
+    public-link visitor must not see.
+
+    Every hit carries only the section labels this caller may read; a scoped
+    caller can never tell a hit also sits in a section their grant doesn't
+    reach, and never sees ``unassigned`` (only a whole-workspace caller can
+    tell "no section" apart from "a section I can't see"). ``cursor`` —
+    replayed with the same ``q``/``limit`` — continues where the previous
+    page stopped; one whose searchable set has moved on returns 409
+    ``stale_cursor``, one that doesn't belong to this request returns 400.
+
+    Rate limited and statement-timeout-bounded the same way as the
+    neighborhood endpoint (#1032, #983).
+    """
+    rate_key = f"{tree.id}:{context.principal}"
+    retry_after = search_rate_limiter.retry_after(rate_key)
+    if retry_after is not None:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many search requests. Please try again later.",
+            headers={"Retry-After": str(int(retry_after) + 1)},
+        )
+    search_rate_limiter.record_hit(rate_key)
+
+    with statement_timeout(db, settings.SEARCH_QUERY_TIMEOUT_MS):
+        visibility = search_cursor.visibility_fingerprint(context)
+        revision = search_revision(db, tree.id)
+        offset = 0
+        if cursor is not None:
+            offset = search_cursor.decode_cursor(
+                cursor, tree.id, q, limit, visibility=visibility, revision=revision
+            )
+        total = count_workspace_search(db, tree.id, context, q)
+        hits = fetch_workspace_search_page(
+            db, tree.id, context, q, offset=offset, limit=limit
+        )
+
+    items = [
+        WorkspaceSearchHitOut(
+            **hit.row._mapping,
+            sections=[SearchSectionLabel(id=s.id, name=s.name) for s in hit.sections],
+            unassigned=hit.unassigned,
+        )
+        for hit in hits
+    ]
+    has_more = offset + len(items) < total
+    next_cursor = (
+        search_cursor.encode_cursor(
+            tree.id,
+            q,
+            limit,
+            visibility=visibility,
+            revision=revision,
+            offset=offset + len(items),
+        )
+        if has_more
+        else None
+    )
+    return WorkspaceSearchResultOut(
+        items=items, total=total, has_more=has_more, next_cursor=next_cursor
+    )
+
+
+def _empty_neighborhood(total_count: int) -> NeighborhoodOut:
+    return NeighborhoodOut(
+        members=[],
+        relations=[],
+        root_id="",
+        truncated=False,
+        total_member_count=total_count,
+    )
+
+
 @router.get("/members/neighborhood", response_model=NeighborhoodOut)
 def get_neighborhood(
+    request: Request,
     root: str | None = Query(None),
     up: int = Query(3, ge=0, le=20),
     down: int = Query(3, ge=0, le=20),
     partners: bool = Query(True),
-    tree: Tree = Depends(get_readable_tree_public),
+    sections: list[str] | None = Query(None),
+    budget: int = Query(MAX_NEIGHBORHOOD_NODES, ge=1, le=MAX_NEIGHBORHOOD_NODES),
+    cursor: str | None = Query(None),
+    tree: Workspace = Depends(get_readable_workspace_public),
     user: User | None = Depends(get_current_user_optional),
+    context: WorkspaceAccessContext = Depends(get_workspace_access),
     db: Session = Depends(get_db),
 ):
-    """Return a bounded BFS neighborhood around *root*.  Declared before
-    ``/members/{member_id}`` so the literal ``neighborhood`` path is not
+    """Return one bounded page of the neighborhood around *root*.  Declared
+    before ``/members/{member_id}`` so the literal ``neighborhood`` path is not
     captured as a member id.
 
-    When *root* is omitted the most-connected member is chosen automatically.
+    When *root* is omitted the most-connected member in scope is chosen
+    automatically. ``sections`` restricts the traversal to those sections;
+    ``budget`` caps this page; ``cursor`` — replayed with the *same* request
+    parameters — continues where the previous page stopped. A cursor whose
+    graph or focus root has moved on returns 409 ``stale_cursor`` (restart the
+    traversal); one that does not belong to this request returns 400.
+
+    Every member this endpoint can return — root, page, continuation counts —
+    is bounded by ``context``'s resolved visibility boundary (#984), not just
+    by ``sections``: that query param is a view filter the caller chooses,
+    never an access grant.
+
+    Rate limited per principal + workspace (#1032): ``context.principal`` is a
+    user id for an authenticated caller, but always the same literal for every
+    anonymous one, so the client IP stands in for the principal there.
     """
-    total_count: int = (
-        db.scalar(select(func.count(Member.id)).where(Member.tree_id == tree.id)) or 0
-    )
-
-    if total_count == 0:
-        return NeighborhoodOut(
-            members=[], relations=[], root_id="", truncated=False, total_member_count=0
+    if context.principal == PUBLIC_PRINCIPAL:
+        principal_key = f"ip:{client_ip(request) or 'unknown'}"
+    else:
+        principal_key = context.principal
+    rate_key = f"{tree.id}:{principal_key}"
+    retry_after = neighborhood_rate_limiter.retry_after(rate_key)
+    if retry_after is not None:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many neighborhood requests. Please try again later.",
+            headers={"Retry-After": str(int(retry_after) + 1)},
         )
+    neighborhood_rate_limiter.record_hit(rate_key)
 
-    root_id = root
-    if root_id is None:
-        root_id = pick_default_root(db, tree.id)
-    if root_id is None:
-        return NeighborhoodOut(
-            members=[], relations=[], root_id="", truncated=False, total_member_count=0
+    visible_section_ids = context.visible_section_ids()
+    with statement_timeout(db, settings.NEIGHBORHOOD_QUERY_TIMEOUT_MS):
+        count_filters = [Member.workspace_id == tree.id]
+        member_filter = context.member_filter()
+        if member_filter is not None:
+            count_filters.append(member_filter)
+        total_count: int = (
+            db.scalar(select(func.count(Member.id)).where(*count_filters)) or 0
         )
+        if total_count == 0:
+            return _empty_neighborhood(0)
 
-    if (
-        db.scalar(
-            select(Member.id).where(Member.id == root_id, Member.tree_id == tree.id)
+        section_ids = resolve_section_ids(
+            db, tree.id, sections, visible_section_ids=visible_section_ids
         )
-        is None
-    ):
-        raise HTTPException(status_code=404, detail="Root member not found")
-
-    member_ids, truncated = collect_neighborhood_ids(
-        db, tree.id, root_id, up, down, partners
-    )
-
-    public = public_only(db, tree, user)
-    columns = PUBLIC_MEMBER_COLUMNS if public else MEMBER_SURFACE_COLUMNS
-    surface_stmt = (
-        select(*columns)
-        .where(Member.tree_id == tree.id, Member.id.in_(member_ids))
-        .order_by(Member.id)
-    )
-    member_rows = db.execute(surface_stmt).all()
-    members = (
-        public_member_payloads(member_rows)
-        if public
-        else [MemberSurfaceOut(**row._mapping) for row in member_rows]
-    )
-
-    relations = list(
-        db.scalars(
-            select(Relation).where(
-                Relation.tree_id == tree.id,
-                Relation.from_member_id.in_(member_ids),
-                Relation.to_member_id.in_(member_ids),
+        root_id = (
+            root
+            if root is not None
+            else pick_default_root(
+                db, tree.id, section_ids, visible_section_ids=visible_section_ids
             )
         )
-    )
+        if root_id is None:
+            # Reachable on a populated workspace: a section filter can resolve
+            # to nothing, or name only sections/members the caller cannot read.
+            return _empty_neighborhood(total_count)
+
+        if (
+            db.scalar(
+                select(Member.id).where(
+                    Member.id == root_id, Member.workspace_id == tree.id
+                )
+            )
+            is None
+            or not context.can_read_member(db, root_id)
+        ):
+            raise HTTPException(status_code=404, detail="Root member not found")
+
+        query = NeighborhoodQuery(
+            root_id=root_id,
+            up=up,
+            down=down,
+            include_partners=partners,
+            section_ids=section_ids,
+            budget=budget,
+            visible_section_ids=visible_section_ids,
+        )
+        visibility = visibility_fingerprint(context)
+        revision = graph_revision(db, tree.id)
+        offset = (
+            decode_cursor(
+                cursor, tree.id, query, visibility=visibility, revision=revision
+            )
+            if cursor
+            else 0
+        )
+
+        page = collect_neighborhood_page(db, tree.id, query, offset)
+
+        public = public_only(db, tree, user)
+        columns = PUBLIC_MEMBER_COLUMNS if public else MEMBER_SURFACE_COLUMNS
+        member_rows = db.execute(
+            select(*columns)
+            .where(Member.workspace_id == tree.id, Member.id.in_(page.member_ids))
+            .order_by(Member.id)
+        ).all()
+        members = (
+            public_member_payloads(member_rows)
+            if public
+            else [MemberSurfaceOut(**row._mapping) for row in member_rows]
+        )
+        relations = relations_for_page(db, tree.id, page.member_ids, page.delivered_ids)
+
+        next_offset = offset + len(page.member_ids)
+        next_cursor = (
+            encode_cursor(
+                tree.id,
+                query,
+                visibility=visibility,
+                revision=revision,
+                offset=next_offset,
+            )
+            if page.has_more and next_offset < MAX_NEIGHBORHOOD_TOTAL
+            else None
+        )
+        # Only what this page actually left behind: a scope the traversal
+        # cannot reach anyway (a disconnected member, a section member off
+        # the focus branch) must not show up as a "load more" the cursor can
+        # never satisfy. Section names and counts also stay out of public
+        # responses — reading sections needs an authenticated grant (see the
+        # sections router).
+        continuations = (
+            [
+                NeighborhoodContinuation(
+                    section_id=section_id,
+                    section_name=section_name,
+                    remaining_count=remaining,
+                )
+                for section_id, section_name, remaining in continuation_counts(
+                    db, tree.id, section_ids, page.delivered_ids, total_count
+                )
+            ]
+            if page.has_more and not (public and section_ids is not None)
+            else []
+        )
 
     if public:
         return JSONResponse(
@@ -524,28 +650,34 @@ def get_neighborhood(
                     for relation in relations
                 ],
                 "root_id": root_id,
-                "truncated": truncated,
+                "truncated": page.has_more,
                 "total_member_count": total_count,
+                "next_cursor": next_cursor,
+                "continuations": [c.model_dump() for c in continuations],
             }
         )
     return NeighborhoodOut(
         members=members,
         relations=[RelationOut.model_validate(r) for r in relations],
         root_id=root_id,
-        truncated=truncated,
+        truncated=page.has_more,
         total_member_count=total_count,
+        next_cursor=next_cursor,
+        continuations=continuations,
     )
 
 
 @router.get("/members/{member_id}", response_model=MemberOut)
 def get_member(
     member_id: str,
-    tree: Tree = Depends(get_readable_tree_public),
+    tree: Workspace = Depends(get_readable_workspace_public),
     user: User | None = Depends(get_current_user_optional),
+    context: WorkspaceAccessContext = Depends(get_workspace_access),
     db: Session = Depends(get_db),
 ):
     if public_only(db, tree, user):
         raise HTTPException(status_code=404, detail="Member not found")
+    context.require_read_member(db, member_id)
     return get_member_row(db, tree, member_id)
 
 
@@ -556,7 +688,8 @@ def get_member(
 def get_member_merge_preview(
     member_id: str,
     other: str = Query(...),
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
     """Field conflicts + transfer counts for a same-tree member merge (#729).
@@ -565,6 +698,8 @@ def get_member_merge_preview(
     the one that would be removed; the merge itself is symmetric in what it
     computes here, only ``POST /members/merge`` cares which id is which.
     """
+    context.require_read_member(db, member_id)
+    context.require_read_member(db, other)
     keep = get_member_row(db, tree, member_id)
     remove = get_member_row(db, tree, other)
     if keep.id == remove.id:
@@ -576,72 +711,53 @@ def get_member_merge_preview(
 def update_member(
     member_id: str,
     payload: MemberUpdate,
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
+    context.require_write_member(db, member_id, mode="edit")
     result = update_member_service(
         db, tree=tree, user=user, member_id=member_id, payload=payload
     )
-    out = MemberOut.model_validate(result.member)
-    out.bridge_sync = result.bridge_sync
-    return out
+    return MemberOut.model_validate(result.member)
 
 
 @router.delete("/members/{member_id}", status_code=204)
 def delete_member(
     member_id: str,
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
+    context.require_write_member(db, member_id, mode="delete")
     member = get_member_row(db, tree, member_id)
-    # Deleting one half of a bridge person dissolves the tree-in-tree link: the
-    # surviving counterpart becomes an ordinary member again. The FK only SET
-    # NULLs its linked_member_id (the pointer at this row), leaving a dangling
-    # linked_tree_id / broken badge — so clear both sides explicitly here.
-    counterpart: Member | None = None
-    counterpart_tree: Tree | None = None
-    if member.linked_member_id is not None:
-        counterpart = db.get(Member, member.linked_member_id)
-        if counterpart is not None:
-            counterpart.linked_tree_id = None
-            counterpart.linked_member_id = None
-            counterpart_tree = db.get(Tree, counterpart.tree_id)
     label = " ".join(filter(None, [member.first_name, member.last_name])) or None
     record_activity(
         db,
-        tree_id=tree.id,
+        workspace_id=tree.id,
         actor=user,
         action="delete",
         target_type="member",
         target_id=member.id,
         target_label=label,
-        details=member_delete_snapshot(db, member, counterpart),
+        details=member_delete_snapshot(db, member),
     )
+    degrade_saved_views_for_member(db, tree.id, member.id)
     db.delete(member)
     with UnitOfWork(db) as uow:
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            lambda: publish_workspace_event(
+                db, tree, "activity.entry_added", {"workspace_id": tree.id}
             )
         )
         uow.after_commit(
-            lambda: publish_tree_event(
+            lambda: publish_workspace_event(
                 db,
                 tree,
-                "tree.content_changed",
-                {"tree_id": tree.id, "domain": "member"},
+                "workspace.content_changed",
+                {"workspace_id": tree.id, "domain": "member"},
             )
         )
         uow.after_commit(lambda: invalidate_stats(tree.id))
-        if counterpart_tree is not None:
-            uow.after_commit(
-                lambda: publish_tree_event(
-                    db,
-                    counterpart_tree,
-                    "tree.content_changed",
-                    {"tree_id": counterpart_tree.id, "domain": "member"},
-                )
-            )
-            uow.after_commit(lambda: invalidate_stats(counterpart_tree.id))

@@ -40,7 +40,7 @@ import { RemoveMemberDialog } from "@/components/shared/dialog/RemoveMemberDialo
 import { useTranslation } from "react-i18next";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { formatDate as formatLocaleDate, getYear } from "@/utils/dateUtils";
-import { useTreeStore, isVirtualId } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useIsMobile } from "@/hooks/useMobile";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useListSettings, normalizeOrder } from "@/hooks/useListSettings";
@@ -76,10 +76,9 @@ export const ListView = () => {
   const { t: tCommon } = useTranslation(undefined, { keyPrefix: "common" });
 
   const { members, removeMember } = useMemberStore();
-  const activeTree = useTreeStore((s) => s.selectedTree);
-  const isReady = useTreeStore((s) => s.isReady);
+  const activeTree = useWorkspaceStore((s) => s.selectedTree);
+  const isReady = useWorkspaceStore((s) => s.isReady);
   const canWrite = activeTree?.role !== "viewer";
-  const isVirtual = !!activeTree?.id && isVirtualId(activeTree.id);
   const isMobile = useIsMobile();
 
   const { order, hidden, pageSize, setPageSize } = useListSettings();
@@ -97,7 +96,7 @@ export const ListView = () => {
   const [memberToDelete, setMemberToDelete] = useState<Member | null>(null);
   const [inlineEdit, setInlineEdit] = useState(false);
 
-  const canInlineEdit = canWrite && !isVirtual && !isMobile;
+  const canInlineEdit = canWrite && !isMobile;
   const inlineEditActive = inlineEdit && canInlineEdit;
 
   const EDITABLE_COLUMNS = new Set<ListColumnId>([
@@ -112,7 +111,7 @@ export const ListView = () => {
     "death",
   ]);
 
-  // Reset inline edit when the user loses write access (e.g. switches to a viewer/virtual tree).
+  // Reset inline edit when the user loses write access (e.g. switches to a viewer tree).
   useEffect(() => {
     if (!canInlineEdit) setInlineEdit(false);
   }, [canInlineEdit]);
@@ -152,13 +151,10 @@ export const ListView = () => {
     return map;
   }, [members]);
 
-  // Columns visible in the desktop table (respects user settings + virtual flag).
+  // Columns visible in the desktop table (respects user settings).
   const visibleColumns = useMemo(
-    () =>
-      normalizeOrder(order).filter(
-        (id) => !hidden.includes(id) && (id !== "sourceTree" || isVirtual),
-      ),
-    [order, hidden, isVirtual],
+    () => normalizeOrder(order).filter((id) => !hidden.includes(id)),
+    [order, hidden],
   );
 
   const filteredMembers = useMemo(() => {
@@ -261,17 +257,15 @@ export const ListView = () => {
             return String(childrenCountById.get(m.id) ?? 0);
           case "status":
             return isDeceased(m) ? t("status.deceased") : t("status.alive");
-          case "sourceTree":
-            return m.sourceTreeName ?? "";
           default:
             return "";
         }
       });
     });
     const csv = toCsv([header, ...rows]);
-    const treeName =
+    const workspaceName =
       activeTree?.name?.replace(/[^a-z0-9]/gi, "-").toLowerCase() ?? "members";
-    downloadCsv(`${treeName}-members.csv`, csv);
+    downloadCsv(`${workspaceName}-members.csv`, csv);
   };
 
   const GenderIcon = (member: Member) => {
@@ -350,14 +344,6 @@ export const ListView = () => {
             {isDeceased(member) ? t("status.deceased") : t("status.alive")}
           </Badge>
         );
-      case "sourceTree":
-        return member.sourceTreeName ? (
-          <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground border border-border">
-            {member.sourceTreeName}
-          </span>
-        ) : (
-          "-"
-        );
       default:
         return null;
     }
@@ -398,7 +384,7 @@ export const ListView = () => {
         </div>
         <div className="flex items-center gap-2">
           <ListFilters filters={filters} onChange={setFilters} />
-          <ListCustomizePopover isVirtual={isVirtual} />
+          <ListCustomizePopover />
           {canInlineEdit && (
             <Button
               variant={inlineEdit ? "default" : "outline"}

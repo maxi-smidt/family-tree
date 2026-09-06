@@ -4,7 +4,7 @@ Usage inside a mutation route (before the existing db.commit()):
 
     record_activity(
         db,
-        tree_id=tree.id,
+        workspace_id=tree.id,
         actor=user,
         action="create",
         target_type="member",
@@ -39,9 +39,9 @@ from app.models.content import (
     StoryMemberLink,
 )
 from app.models.family import Member, MemberDisease, Relation
+from app.models.provenance import ContentType
 from app.models.user import User
 from app.services.activity.activity_snapshots import (
-    BridgeSnapshot,
     DeleteSnapshot,
     DiseaseSnapshot,
     DocumentFileSnapshot,
@@ -52,6 +52,7 @@ from app.services.activity.activity_snapshots import (
     RelationSnapshot,
     StorySnapshot,
 )
+from app.services.provenance import scope_snapshot
 
 # Version of the delete-snapshot payload shape stored in ``details``
 # (see docs/ACTIVITY_AUDIT.md §b). Bump when the shape changes so a future
@@ -70,18 +71,14 @@ def row_to_dict(obj: Base) -> dict:
 
 
 def member_delete_snapshot(
-    db: Session, member: Member, counterpart: Member | None = None
+    db: Session, member: Member
 ) -> DeleteSnapshot[MemberSnapshot]:
     """Full pre-image of a member row and its cascade children.
 
     Must be called BEFORE ``db.delete(member)``. Captures everything the DB
     cascade will remove: relations on either side, disease records, and the
     five content link tables (research-task rows themselves survive a member
-    delete; only their links cascade). ``counterpart`` is the bridge person in the
-    linked tree whose link pointers the delete route dissolves; its identity
-    is recorded so the tree-in-tree link can be re-established on undo.
-    Virtual-view match rows also cascade but are derived state the matching
-    service recomputes, so they are deliberately not snapshotted.
+    delete; only their links cascade).
     """
     relations = db.scalars(
         select(Relation).where(
@@ -115,18 +112,15 @@ def member_delete_snapshot(
         "member": row_to_dict(member),
         "relations": [row_to_dict(r) for r in relations],
         "diseases": [row_to_dict(d) for d in diseases],
+        "content_scopes": scope_snapshot(
+            db, [(ContentType.DISEASE, d.id) for d in diseases]
+        ),
         "task_links": [row_to_dict(r) for r in task_links],
         "event_links": [row_to_dict(r) for r in event_links],
         "story_links": [row_to_dict(r) for r in story_links],
         "gallery_links": [row_to_dict(r) for r in gallery_links],
         "document_links": [row_to_dict(r) for r in document_links],
     }
-    if counterpart is not None:
-        bridge: BridgeSnapshot = {
-            "counterpart_member_id": counterpart.id,
-            "counterpart_tree_id": counterpart.tree_id,
-        }
-        snapshot["bridge"] = bridge
     return {"snapshot": snapshot}
 
 
@@ -146,6 +140,7 @@ def event_delete_snapshot(db: Session, event: Event) -> DeleteSnapshot[EventSnap
     snapshot: EventSnapshot = {
         "version": SNAPSHOT_VERSION,
         "event": row_to_dict(event),
+        "content_scopes": scope_snapshot(db, [(ContentType.EVENT, event.id)]),
         "member_links": [row_to_dict(r) for r in member_links],
         "document_links": [row_to_dict(r) for r in document_links],
     }
@@ -167,6 +162,7 @@ def story_delete_snapshot(db: Session, story: Story) -> DeleteSnapshot[StorySnap
     snapshot: StorySnapshot = {
         "version": SNAPSHOT_VERSION,
         "story": row_to_dict(story),
+        "content_scopes": scope_snapshot(db, [(ContentType.STORY, story.id)]),
         "member_links": [row_to_dict(r) for r in member_links],
         "document_links": [row_to_dict(r) for r in document_links],
     }
@@ -191,6 +187,9 @@ def gallery_delete_snapshot(
     snapshot: GalleryImageSnapshot = {
         "version": SNAPSHOT_VERSION,
         "gallery_image": row_to_dict(image),
+        "content_scopes": scope_snapshot(
+            db, [(ContentType.GALLERY_IMAGE, image.id)]
+        ),
         "member_links": [row_to_dict(r) for r in member_links],
         "trashed_media": [image.image_data] if image.image_data else [],
     }
@@ -220,6 +219,7 @@ def document_delete_snapshot(
     snapshot: DocumentSnapshot = {
         "version": SNAPSHOT_VERSION,
         "document": row_to_dict(document),
+        "content_scopes": scope_snapshot(db, [(ContentType.DOCUMENT, document.id)]),
         "files": [row_to_dict(f) for f in files],
         "member_links": [row_to_dict(r) for r in member_links],
         "event_links": [row_to_dict(r) for r in event_links],
@@ -238,11 +238,14 @@ def relation_delete_snapshot(relation: Relation) -> DeleteSnapshot[RelationSnaps
     return {"snapshot": snapshot}
 
 
-def disease_delete_snapshot(disease: MemberDisease) -> DeleteSnapshot[DiseaseSnapshot]:
+def disease_delete_snapshot(
+    db: Session, disease: MemberDisease
+) -> DeleteSnapshot[DiseaseSnapshot]:
     """Pre-image of a bare disease-record delete (no cascade children)."""
     snapshot: DiseaseSnapshot = {
         "version": SNAPSHOT_VERSION,
         "disease": row_to_dict(disease),
+        "content_scopes": scope_snapshot(db, [(ContentType.DISEASE, disease.id)]),
     }
     return {"snapshot": snapshot}
 
@@ -266,7 +269,7 @@ def document_file_delete_snapshot(
 def record_activity(
     db: Session,
     *,
-    tree_id: str,
+    workspace_id: str,
     actor: User,
     action: str,
     target_type: str,
@@ -282,7 +285,7 @@ def record_activity(
     that ignore the return value are unaffected.
     """
     row = ActivityLog(
-        tree_id=tree_id,
+        workspace_id=workspace_id,
         actor_id=actor.id,
         actor_username=actor.username,
         action=action,

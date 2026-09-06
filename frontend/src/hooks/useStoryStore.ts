@@ -1,13 +1,13 @@
 import { create } from "zustand";
 import { Story, StoryInput, mapStoryFromDB } from "@/types/story";
-import { TreeService } from "@/services/TreeService";
-import { activeTreeId, isActiveTree } from "@/hooks/useTreeStore";
+import { WorkspaceService } from "@/services/WorkspaceService";
+import { activeTreeId, isActiveTree } from "@/hooks/useWorkspaceStore";
 import { invalidateActivityView } from "@/hooks/invalidateDerivedViews";
 
 interface StoryState {
   stories: Story[];
   initialized: boolean;
-  refreshStories: (treeId?: string) => Promise<void>;
+  refreshStories: (workspaceId?: string) => Promise<void>;
   getStoriesByMember: (memberId: string) => Story[];
   addStory: (
     memberIds: string[],
@@ -29,18 +29,18 @@ export const useStoryStore = create<StoryState>((set, get) => ({
   stories: [],
   initialized: false,
 
-  refreshStories: async (treeId = activeTreeId()) => {
-    if (!treeId) {
+  refreshStories: async (workspaceId = activeTreeId()) => {
+    if (!workspaceId) {
       set({ stories: [] });
       return;
     }
 
     const [storiesResult, linksResult] = await Promise.all([
-      TreeService.getStories(treeId),
-      TreeService.getStoryMemberLinks(treeId),
+      WorkspaceService.getStories(workspaceId),
+      WorkspaceService.getStoryMemberLinks(workspaceId),
     ]);
 
-    if (!isActiveTree(treeId)) return; // tree switched/disconnected mid-flight — drop stale data
+    if (!isActiveTree(workspaceId)) return; // tree switched/disconnected mid-flight — drop stale data
 
     const linksByStory = new Map<string, string[]>();
     for (const link of linksResult) {
@@ -67,18 +67,18 @@ export const useStoryStore = create<StoryState>((set, get) => ({
     story: StoryInput,
     documentIds: string[] = [],
   ) => {
-    const treeId = activeTreeId();
-    if (!treeId) return;
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return;
 
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
 
-    await TreeService.addStory(treeId, id, story, now, memberIds);
+    await WorkspaceService.addStory(workspaceId, id, story, now, memberIds);
     if (documentIds.length > 0) {
-      await TreeService.setStoryDocuments(treeId, id, documentIds);
+      await WorkspaceService.setStoryDocuments(workspaceId, id, documentIds);
     }
 
-    await get().refreshStories(treeId);
+    await get().refreshStories(workspaceId);
     invalidateActivityView();
   },
 
@@ -88,35 +88,35 @@ export const useStoryStore = create<StoryState>((set, get) => ({
     memberIds: string[],
     documentIds?: string[],
   ) => {
-    const treeId = activeTreeId();
-    if (!treeId) return;
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return;
 
     const now = new Date().toISOString();
-    await TreeService.updateStory(treeId, id, story, now);
-    await TreeService.setStoryLinks(treeId, id, memberIds);
+    await WorkspaceService.updateStory(workspaceId, id, story, now);
+    await WorkspaceService.setStoryLinks(workspaceId, id, memberIds);
     if (documentIds !== undefined) {
-      await TreeService.setStoryDocuments(treeId, id, documentIds);
+      await WorkspaceService.setStoryDocuments(workspaceId, id, documentIds);
     }
 
-    await get().refreshStories(treeId);
+    await get().refreshStories(workspaceId);
     invalidateActivityView();
   },
 
   removeStory: async (id: string) => {
-    const treeId = activeTreeId();
-    if (!treeId) return;
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return;
 
-    await TreeService.removeStory(treeId, id);
-    await get().refreshStories(treeId);
+    await WorkspaceService.removeStory(workspaceId, id);
+    await get().refreshStories(workspaceId);
     invalidateActivityView();
   },
 
   setStoryDocuments: async (id: string, documentIds: string[]) => {
-    const treeId = activeTreeId();
-    if (!treeId) return;
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return;
 
-    await TreeService.setStoryDocuments(treeId, id, documentIds);
-    await get().refreshStories(treeId);
+    await WorkspaceService.setStoryDocuments(workspaceId, id, documentIds);
+    await get().refreshStories(workspaceId);
     invalidateActivityView();
   },
 

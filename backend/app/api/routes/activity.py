@@ -10,29 +10,29 @@ from sqlalchemy.orm import Session
 from app.api.activity_query import activity_page, hidden_activity_target_types
 from app.api.deps import (
     get_current_user,
-    get_readable_tree,
-    get_writable_tree,
+    get_readable_workspace,
+    get_writable_workspace,
 )
 from app.db.session import get_db
-from app.models import ActivityLog, Tree, User
+from app.models import ActivityLog, User, Workspace
 from app.schemas.activity import ActivityPageOut, ActivityUndoOut, UndoSkippedItem
 from app.services.activity.activity import SNAPSHOT_VERSION, record_activity
 from app.services.activity.activity_snapshots import UndoLogDetails
 from app.services.activity.activity_undo import CONTENT_DOMAIN, RESTORERS, UndoConflict
 from app.services.cache import invalidate_stats
-from app.services.event_bus import publish_tree_event
+from app.services.event_bus import publish_workspace_event
 from app.services.media.storage import untrash_media
 from app.services.unit_of_work import UnitOfWork
 
 router = APIRouter(
-    prefix="/trees/{tree_id}",
+    prefix="/workspaces/{workspace_id}",
     tags=["activity"],
 )
 
 
 @router.get("/activity", response_model=ActivityPageOut)
 def list_activity(
-    tree: Tree = Depends(get_readable_tree),
+    tree: Workspace = Depends(get_readable_workspace),
     user: User = Depends(get_current_user),
     limit: int = Query(default=25, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
@@ -64,7 +64,7 @@ def list_activity(
 )
 def undo_activity(
     entry_id: str,
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> ActivityUndoOut:
@@ -76,7 +76,7 @@ def undo_activity(
     rest rather than failing outright — see app.services.activity.activity_undo.
     """
     entry = db.get(ActivityLog, entry_id)
-    if entry is None or entry.tree_id != tree.id:
+    if entry is None or entry.workspace_id != tree.id:
         raise HTTPException(status_code=404, detail="Activity entry not found")
     if entry.action != "delete":
         raise HTTPException(status_code=422, detail="Only delete actions can be undone")
@@ -107,7 +107,7 @@ def undo_activity(
             }
             undo_entry = record_activity(
                 db,
-                tree_id=tree.id,
+                workspace_id=tree.id,
                 actor=user,
                 action="create",
                 target_type=entry.target_type,
@@ -137,16 +137,19 @@ def undo_activity(
 
             uow.after_commit(_untrash_and_report)
             uow.after_commit(
-                lambda: publish_tree_event(
-                    db, tree, "activity.entry_added", {"tree_id": tree.id}
+                lambda: publish_workspace_event(
+                    db, tree, "activity.entry_added", {"workspace_id": tree.id}
                 )
             )
             uow.after_commit(
-                lambda: publish_tree_event(
+                lambda: publish_workspace_event(
                     db,
                     tree,
-                    "tree.content_changed",
-                    {"tree_id": tree.id, "domain": CONTENT_DOMAIN[entry.target_type]},
+                    "workspace.content_changed",
+                    {
+                        "workspace_id": tree.id,
+                        "domain": CONTENT_DOMAIN[entry.target_type],
+                    },
                 )
             )
             uow.after_commit(lambda: invalidate_stats(tree.id))

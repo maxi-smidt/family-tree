@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useJobStore } from "@/hooks/useJobStore";
-import { useTreeStore } from "@/hooks/useTreeStore";
-import { pickFile, useTreeManager } from "@/hooks/useTreeManager";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
+import { pickFile, useWorkspaceManager } from "@/hooks/useWorkspaceManager";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -27,12 +27,7 @@ import {
   Hash,
   FileUp,
   FileDown,
-  Layers,
-  AlertTriangle,
-  RefreshCw,
   MoreHorizontal,
-  Scissors,
-  Network,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -52,35 +47,28 @@ import { RemoveDatabaseDialog } from "@/components/view/database-management-view
 import { ShareTreeDialog } from "@/components/view/database-management-view/dialog/ShareTreeDialog";
 import { MergeTreesDialog } from "@/components/view/database-management-view/dialog/MergeTreesDialog";
 import { DuplicateTreeDialog } from "@/components/view/database-management-view/dialog/DuplicateTreeDialog";
-import { ExtractSubtreeDialog } from "@/components/view/database-management-view/dialog/ExtractSubtreeDialog";
-import { LinkedTreesGraphDialog } from "@/components/view/database-management-view/dialog/LinkedTreesGraphDialog";
-import { VirtualViewDialog } from "@/components/view/database-management-view/dialog/VirtualViewDialog";
 import { PasswordDialog } from "@/components/shared/dialog/PasswordDialog";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-import { Tree } from "@/types/tree";
+import { Workspace } from "@/types/workspace";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 
 export const DatabaseManagementView = () => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "database-management-view",
   });
-  const trees = useTreeStore((s) => s.trees);
-  const virtualViews = useTreeStore((s) => s.virtualViews);
-  const selectedTree = useTreeStore((s) => s.selectedTree);
-  const selectTree = useTreeStore((s) => s.selectTree);
-  const renameTree = useTreeStore((s) => s.renameTree);
-  const deleteVirtualView = useTreeStore((s) => s.deleteVirtualView);
-  const renameVirtualView = useTreeStore((s) => s.renameVirtualView);
-  const recomputeMatches = useTreeStore((s) => s.recomputeMatches);
-  const loadTrees = useTreeStore((s) => s.loadTrees);
+  const workspaces = useWorkspaceStore((s) => s.workspaces);
+  const selectedTree = useWorkspaceStore((s) => s.selectedTree);
+  const selectTree = useWorkspaceStore((s) => s.selectTree);
+  const renameTree = useWorkspaceStore((s) => s.renameTree);
+  const loadTrees = useWorkspaceStore((s) => s.loadTrees);
   const {
     exportDatabase,
     importDatabase,
     inspectImport,
     exportGedcom,
     importGedcom,
-  } = useTreeManager();
+  } = useWorkspaceManager();
   const [isImporting, setIsImporting] = useState(false);
   const importPct = useJobStore((s) => s.activeJobPct);
 
@@ -89,14 +77,8 @@ export const DatabaseManagementView = () => {
   const [isRemoveDatabaseDialogOpen, setIsRemoveDatabaseDialogOpen] =
     useState(false);
   const [isMergeDialogOpen, setIsMergeDialogOpen] = useState(false);
-  const [isVirtualViewDialogOpen, setIsVirtualViewDialogOpen] = useState(false);
-  const [editingVirtualView, setEditingVirtualView] = useState<Tree | null>(
-    null,
-  );
-  const [duplicateTree, setDuplicateTree] = useState<Tree | null>(null);
-  const [extractTree, setExtractTree] = useState<Tree | null>(null);
-  const [linkGraphTree, setLinkGraphTree] = useState<Tree | null>(null);
-  const [shareTree, setShareTree] = useState<Tree | null>(null);
+  const [duplicateTree, setDuplicateTree] = useState<Workspace | null>(null);
+  const [shareTree, setShareTree] = useState<Workspace | null>(null);
   const [passwordDialogState, setPasswordDialogState] = useState<{
     isOpen: boolean;
     mode: "export" | "import";
@@ -151,7 +133,7 @@ export const DatabaseManagementView = () => {
     }
   };
 
-  const handleExportDatabase = async (database: Tree) => {
+  const handleExportDatabase = async (database: Workspace) => {
     const password = await askPassword("export");
     if (password === undefined) return; // cancelled
     try {
@@ -177,7 +159,7 @@ export const DatabaseManagementView = () => {
     }
   };
 
-  const handleExportGedcom = async (database: Tree) => {
+  const handleExportGedcom = async (database: Workspace) => {
     try {
       await exportGedcom(database);
     } catch (err) {
@@ -186,7 +168,7 @@ export const DatabaseManagementView = () => {
     }
   };
 
-  const handleStartRename = (database: Tree) => {
+  const handleStartRename = (database: Workspace) => {
     setEditingDatabaseId(database.id);
     setEditingName(database.name);
   };
@@ -196,7 +178,7 @@ export const DatabaseManagementView = () => {
     setEditingName("");
   };
 
-  const handleSaveRename = async (database: Tree) => {
+  const handleSaveRename = async (database: Workspace) => {
     if (!editingName.trim()) {
       toast.error(t("toast-rename-empty"));
       return;
@@ -212,7 +194,7 @@ export const DatabaseManagementView = () => {
     }
   };
 
-  const handleSelectDatabase = async (database: Tree) => {
+  const handleSelectDatabase = async (database: Workspace) => {
     if (selectedTree?.id !== database.id) {
       try {
         await selectTree(database);
@@ -223,7 +205,7 @@ export const DatabaseManagementView = () => {
     }
   };
 
-  const handleCopyId = async (database: Tree) => {
+  const handleCopyId = async (database: Workspace) => {
     try {
       await navigator.clipboard.writeText(database.id);
       toast.success(t("toast-id-copied"));
@@ -233,7 +215,7 @@ export const DatabaseManagementView = () => {
     }
   };
 
-  const handleOpenRemoveDialog = async (database: Tree) => {
+  const handleOpenRemoveDialog = async (database: Workspace) => {
     try {
       await selectTree(database);
     } catch {
@@ -243,50 +225,10 @@ export const DatabaseManagementView = () => {
     setIsRemoveDatabaseDialogOpen(true);
   };
 
-  const handleDeleteVirtualView = async (view: Tree) => {
-    await deleteVirtualView(view);
-    toast.success(t("toast-virtual-view-deleted"));
-  };
+  const ownedDatabases = workspaces.filter((d) => d.role === "owner");
+  const sharedDatabases = workspaces.filter((d) => d.role !== "owner");
 
-  const handleRecomputeMatches = async (view: Tree) => {
-    try {
-      const { mergedMemberCount } = await recomputeMatches(view);
-      toast.success(t("toast-recompute-success", { count: mergedMemberCount }));
-    } catch {
-      toast.error(t("toast-recompute-error"));
-    }
-  };
-
-  const handleSelectVirtualView = async (view: Tree) => {
-    if (selectedTree?.id !== view.id) {
-      try {
-        await selectTree(view);
-      } catch {
-        toast.error(t("toast-select-error"));
-      }
-    }
-  };
-
-  const handleRenameVirtualView = async (view: Tree, name: string) => {
-    if (!name.trim()) {
-      toast.error(t("toast-rename-empty"));
-      return;
-    }
-    try {
-      await renameVirtualView(view, name.trim());
-      toast.success(t("toast-rename-success"));
-      setEditingDatabaseId(null);
-      setEditingName("");
-    } catch (err) {
-      console.error(err);
-      toast.error(t("toast-rename-error"));
-    }
-  };
-
-  const ownedDatabases = trees.filter((d) => d.role === "owner");
-  const sharedDatabases = trees.filter((d) => d.role !== "owner");
-
-  const renderStatusCell = (database: Tree) => {
+  const renderStatusCell = (database: Workspace) => {
     if (database.role === "owner") {
       if (database.shared_count && database.shared_count > 0) {
         return (
@@ -310,7 +252,7 @@ export const DatabaseManagementView = () => {
     return <Badge variant="outline">{t(`role-${database.role}`)}</Badge>;
   };
 
-  const renderRow = (database: Tree) => {
+  const renderRow = (database: Workspace) => {
     const isOwned = database.role === "owner";
     const isSelected = selectedTree?.id === database.id;
     return (
@@ -408,16 +350,6 @@ export const DatabaseManagementView = () => {
                   <Copy className="h-4 w-4" />
                   {t("duplicate-button")}
                 </DropdownMenuItem>
-                {isOwned && (
-                  <DropdownMenuItem onSelect={() => setExtractTree(database)}>
-                    <Scissors className="h-4 w-4" />
-                    {t("extract-subtree-button")}
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem onSelect={() => setLinkGraphTree(database)}>
-                  <Network className="h-4 w-4" />
-                  {t("linked-trees-graph-button")}
-                </DropdownMenuItem>
                 {database.role !== "viewer" && (
                   <DropdownMenuItem
                     disabled={editingDatabaseId !== null}
@@ -458,7 +390,7 @@ export const DatabaseManagementView = () => {
 
   const renderSection = (
     heading: string,
-    rows: Tree[],
+    rows: Workspace[],
     emptyLabel: string,
     statusHeader: string,
   ) => (
@@ -518,16 +450,6 @@ export const DatabaseManagementView = () => {
                 <Plus className="h-4 w-4" />
                 {t("create-button")}
               </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={trees.length < 2}
-                onSelect={() => {
-                  setEditingVirtualView(null);
-                  setIsVirtualViewDialogOpen(true);
-                }}
-              >
-                <Layers className="h-4 w-4" />
-                {t("virtual-view-button")}
-              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -554,7 +476,7 @@ export const DatabaseManagementView = () => {
             variant="outline"
             size="sm"
             onClick={() => setIsMergeDialogOpen(true)}
-            disabled={trees.length < 2}
+            disabled={workspaces.length < 2}
           >
             <GitMerge className="h-4 w-4" />
             {t("merge-button")}
@@ -584,206 +506,6 @@ export const DatabaseManagementView = () => {
             t("no-shared"),
             t("table-your-role"),
           )}
-          <section className="flex min-h-0 flex-1 flex-col gap-2">
-            <h3 className="shrink-0 text-sm font-semibold">
-              {t("virtual-views-section")}{" "}
-              <span className="text-muted-foreground font-normal">
-                ({virtualViews.length})
-              </span>
-            </h3>
-            <div className="min-h-0 flex-1 overflow-auto rounded-lg border">
-              <Table containerClassName="overflow-visible">
-                <TableHeader className="sticky top-0 z-10 bg-background">
-                  <TableRow>
-                    <TableHead className="w-12"></TableHead>
-                    <TableHead>{t("table-name")}</TableHead>
-                    <TableHead>{t("table-sources")}</TableHead>
-                    <TableHead className="text-right">
-                      {t("table-actions")}
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {virtualViews.length === 0 ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={4}
-                        className="text-center text-muted-foreground"
-                      >
-                        {t("no-virtual-views")}
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    virtualViews.map((view) => {
-                      const isSelected = selectedTree?.id === view.id;
-                      const hasInaccessible = view.sources?.some(
-                        (s) => !s.accessible,
-                      );
-                      return (
-                        <TableRow
-                          key={view.id}
-                          onClick={() => handleSelectVirtualView(view)}
-                          className={`group cursor-pointer ${isSelected ? "bg-muted" : ""}`}
-                        >
-                          <TableCell
-                            className={
-                              isSelected
-                                ? "border-l-2 border-l-primary"
-                                : "border-l-2 border-l-transparent"
-                            }
-                          >
-                            <input
-                              type="radio"
-                              checked={isSelected}
-                              onChange={() => handleSelectVirtualView(view)}
-                              className="cursor-pointer"
-                              aria-label={t("select-tree")}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            {editingDatabaseId === view.id ? (
-                              <div
-                                className="flex items-center gap-2"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <Input
-                                  value={editingName}
-                                  onChange={(e) =>
-                                    setEditingName(e.target.value)
-                                  }
-                                  className="h-8"
-                                  autoFocus
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Enter") {
-                                      void handleRenameVirtualView(
-                                        view,
-                                        editingName,
-                                      );
-                                    } else if (e.key === "Escape") {
-                                      handleCancelRename();
-                                    }
-                                  }}
-                                />
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() =>
-                                    handleRenameVirtualView(view, editingName)
-                                  }
-                                >
-                                  <Check className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={handleCancelRename}
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-1.5 font-medium">
-                                <Layers className="h-4 w-4 text-muted-foreground shrink-0" />
-                                {view.name}
-                              </div>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex flex-wrap gap-1">
-                              {view.sources?.map((src) => (
-                                <Tooltip key={src.tree_id}>
-                                  <TooltipTrigger asChild>
-                                    <Badge
-                                      variant={
-                                        src.accessible ? "secondary" : "outline"
-                                      }
-                                      className="gap-1"
-                                    >
-                                      {!src.accessible && (
-                                        <AlertTriangle className="h-3 w-3 text-destructive" />
-                                      )}
-                                      {src.is_virtual && (
-                                        <Layers className="h-3 w-3" />
-                                      )}
-                                      {src.tree_name}
-                                    </Badge>
-                                  </TooltipTrigger>
-                                  {!src.accessible && (
-                                    <TooltipContent>
-                                      {t("source-inaccessible")}
-                                    </TooltipContent>
-                                  )}
-                                </Tooltip>
-                              ))}
-                              {hasInaccessible && (
-                                <span className="text-xs text-destructive self-center">
-                                  {t("view-degraded")}
-                                </span>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell
-                            className="text-right"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <div className="flex justify-end">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    aria-label={t("row-actions-button")}
-                                  >
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem
-                                    onSelect={() => {
-                                      setEditingVirtualView(view);
-                                      setIsVirtualViewDialogOpen(true);
-                                    }}
-                                  >
-                                    <Edit2 className="h-4 w-4" />
-                                    {t("edit-sources-button")}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onSelect={() =>
-                                      void handleRecomputeMatches(view)
-                                    }
-                                  >
-                                    <RefreshCw className="h-4 w-4" />
-                                    {t("recompute-button")}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    disabled={editingDatabaseId !== null}
-                                    onSelect={() => handleStartRename(view)}
-                                  >
-                                    <Hash className="h-4 w-4" />
-                                    {t("rename-button")}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    onSelect={() =>
-                                      void handleDeleteVirtualView(view)
-                                    }
-                                    className="text-destructive focus:text-destructive"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                    {t("delete-virtual-view-button")}
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </section>
         </div>
       </div>
 
@@ -812,14 +534,6 @@ export const DatabaseManagementView = () => {
         tree={duplicateTree}
         onClose={() => setDuplicateTree(null)}
       />
-      <ExtractSubtreeDialog
-        tree={extractTree}
-        onClose={() => setExtractTree(null)}
-      />
-      <LinkedTreesGraphDialog
-        tree={linkGraphTree}
-        onClose={() => setLinkGraphTree(null)}
-      />
       {shareTree && (
         <ShareTreeDialog
           tree={shareTree}
@@ -843,14 +557,6 @@ export const DatabaseManagementView = () => {
           passwordDialogState?.resolve(undefined);
           setPasswordDialogState(null);
         }}
-      />
-      <VirtualViewDialog
-        isOpen={isVirtualViewDialogOpen}
-        onClose={() => {
-          setIsVirtualViewDialogOpen(false);
-          setEditingVirtualView(null);
-        }}
-        view={editingVirtualView}
       />
     </ViewLayout>
   );

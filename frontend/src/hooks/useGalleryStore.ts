@@ -5,8 +5,8 @@ import {
   GalleryMemberLink,
   UnknownFace,
 } from "@/types/gallery";
-import { TreeService } from "@/services/TreeService";
-import { activeTreeId, isActiveTree } from "@/hooks/useTreeStore";
+import { WorkspaceService } from "@/services/WorkspaceService";
+import { activeTreeId, isActiveTree } from "@/hooks/useWorkspaceStore";
 import { useStorageStore } from "@/hooks/useStorageStore";
 import { invalidateActivityView } from "@/hooks/invalidateDerivedViews";
 import { refreshTaskStore } from "@/hooks/taskStoreRegistry";
@@ -47,7 +47,7 @@ export interface NewGalleryImage {
 interface GalleryState {
   galleryImages: GalleryImage[];
   initialized: boolean;
-  refreshGalleryImages: (treeId?: string) => Promise<void>;
+  refreshGalleryImages: (workspaceId?: string) => Promise<void>;
   addGalleryImage: (
     image: NewGalleryImage,
     opts?: AddGalleryImageOptions,
@@ -78,19 +78,19 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
   galleryImages: [],
   initialized: false,
 
-  refreshGalleryImages: async (treeId = activeTreeId()) => {
-    if (!treeId) {
+  refreshGalleryImages: async (workspaceId = activeTreeId()) => {
+    if (!workspaceId) {
       set({ galleryImages: [] });
       return;
     }
 
     const [imagesResult, linksResult, unknownFacesResult] = await Promise.all([
-      TreeService.getGalleryImages(treeId),
-      TreeService.getGalleryMemberLinks(treeId),
-      TreeService.getGalleryUnknownFaces(treeId),
+      WorkspaceService.getGalleryImages(workspaceId),
+      WorkspaceService.getGalleryMemberLinks(workspaceId),
+      WorkspaceService.getGalleryUnknownFaces(workspaceId),
     ]);
 
-    if (!isActiveTree(treeId)) return; // tree switched/disconnected mid-flight — drop stale data
+    if (!isActiveTree(workspaceId)) return; // tree switched/disconnected mid-flight — drop stale data
 
     const linksByImage = new Map<string, GalleryMemberLink[]>();
     for (const link of linksResult) {
@@ -140,15 +140,15 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
     image: NewGalleryImage,
     opts?: AddGalleryImageOptions,
   ) => {
-    const treeId = activeTreeId();
-    if (!treeId) return undefined;
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return undefined;
 
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     // The file streams as multipart; member links are created in the same
     // request (image.linkedMemberIds).
-    await TreeService.uploadGalleryImage(
-      treeId,
+    await WorkspaceService.uploadGalleryImage(
+      workspaceId,
       id,
       image.file,
       {
@@ -160,7 +160,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
     );
 
     if (opts?.refresh !== false) {
-      await get().refreshGalleryImages(treeId);
+      await get().refreshGalleryImages(workspaceId);
       useStorageStore.getState().refreshStorageUsage();
       invalidateActivityView();
     }
@@ -169,18 +169,18 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
   },
 
   updateGalleryImage: async (id: string, changes: Partial<GalleryImage>) => {
-    const treeId = activeTreeId();
-    if (!treeId) return;
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return;
 
     const { linkedMemberIds, memberLinks } = changes;
 
-    await TreeService.updateGalleryImage(treeId, id, changes);
+    await WorkspaceService.updateGalleryImage(workspaceId, id, changes);
 
     if (memberLinks) {
-      await TreeService.setGalleryImageLinks(treeId, id, memberLinks);
+      await WorkspaceService.setGalleryImageLinks(workspaceId, id, memberLinks);
     } else if (linkedMemberIds) {
-      await TreeService.setGalleryImageLinks(
-        treeId,
+      await WorkspaceService.setGalleryImageLinks(
+        workspaceId,
         id,
         linkedMemberIds.map((memberId) => ({
           memberId,
@@ -192,17 +192,17 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
       );
     }
 
-    await get().refreshGalleryImages(treeId);
+    await get().refreshGalleryImages(workspaceId);
     // Editing only touches metadata/links — image bytes (and therefore storage
     // usage) can't change here, so no storage refresh is needed.
     invalidateActivityView();
   },
 
   deleteGalleryImage: async (id: string) => {
-    const treeId = activeTreeId();
-    if (!treeId) return;
-    await TreeService.removeGalleryImage(treeId, id);
-    await get().refreshGalleryImages(treeId);
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return;
+    await WorkspaceService.removeGalleryImage(workspaceId, id);
+    await get().refreshGalleryImages(workspaceId);
     useStorageStore.getState().refreshStorageUsage();
     invalidateActivityView();
   },
@@ -212,10 +212,10 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
     region: { x: number; y: number; w: number; h: number },
     task: { title: string | null; notes: string | null },
   ) => {
-    const treeId = activeTreeId();
-    if (!treeId) return;
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return;
 
-    await TreeService.addGalleryUnknownFace(treeId, imageId, {
+    await WorkspaceService.addGalleryUnknownFace(workspaceId, imageId, {
       id: crypto.randomUUID(),
       x: region.x,
       y: region.y,
@@ -226,8 +226,8 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
       taskNotes: task.notes,
     });
 
-    await get().refreshGalleryImages(treeId);
-    refreshTaskStore(treeId);
+    await get().refreshGalleryImages(workspaceId);
+    refreshTaskStore(workspaceId);
     invalidateActivityView();
   },
 
@@ -235,34 +235,34 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
     faceId: string,
     region: { x: number; y: number; w: number; h: number },
   ) => {
-    const treeId = activeTreeId();
-    if (!treeId) return;
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return;
 
-    await TreeService.updateGalleryUnknownFace(treeId, faceId, region);
+    await WorkspaceService.updateGalleryUnknownFace(workspaceId, faceId, region);
 
-    await get().refreshGalleryImages(treeId);
+    await get().refreshGalleryImages(workspaceId);
     invalidateActivityView();
   },
 
   resolveUnknownFace: async (faceId: string, memberId: string) => {
-    const treeId = activeTreeId();
-    if (!treeId) return;
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return;
 
-    await TreeService.resolveGalleryUnknownFace(treeId, faceId, memberId);
+    await WorkspaceService.resolveGalleryUnknownFace(workspaceId, faceId, memberId);
 
-    await get().refreshGalleryImages(treeId);
-    refreshTaskStore(treeId);
+    await get().refreshGalleryImages(workspaceId);
+    refreshTaskStore(workspaceId);
     invalidateActivityView();
   },
 
   removeUnknownFace: async (faceId: string) => {
-    const treeId = activeTreeId();
-    if (!treeId) return;
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return;
 
-    await TreeService.removeGalleryUnknownFace(treeId, faceId);
+    await WorkspaceService.removeGalleryUnknownFace(workspaceId, faceId);
 
-    await get().refreshGalleryImages(treeId);
-    refreshTaskStore(treeId);
+    await get().refreshGalleryImages(workspaceId);
+    refreshTaskStore(workspaceId);
     invalidateActivityView();
   },
 

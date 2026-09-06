@@ -1,9 +1,9 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useMemberStore } from "@/hooks/useMemberStore";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import type { Member } from "@/types/member";
-import type { Tree } from "@/types/tree";
+import type { Workspace } from "@/types/workspace";
 import { EditableCell } from "./EditableCell";
 import { ListView } from "./ListView";
 
@@ -66,23 +66,16 @@ const member: Member = {
   position: { x: 0, y: 0 },
 };
 
-const ownerTree: Tree = {
+const ownerTree: Workspace = {
   id: "tree-1",
-  name: "My Tree",
+  name: "My Workspace",
   role: "owner",
 };
 
-const viewerTree: Tree = {
+const viewerTree: Workspace = {
   id: "tree-2",
-  name: "Shared Tree",
+  name: "Shared Workspace",
   role: "viewer",
-};
-
-const virtualTree: Tree = {
-  id: "vv_tree-3",
-  name: "Virtual View",
-  role: "owner",
-  is_virtual: true,
 };
 
 describe("EditableCell — text field (firstName)", () => {
@@ -91,7 +84,7 @@ describe("EditableCell — text field (firstName)", () => {
   beforeEach(() => {
     updateMemberPartial.mockClear();
     useMemberStore.setState({ members: [member], updateMemberPartial });
-    useTreeStore.setState({ selectedTree: ownerTree, isReady: true });
+    useWorkspaceStore.setState({ selectedTree: ownerTree, isReady: true });
   });
 
   it("1. happy commit: renders idle button, enters edit, changes value, Enter key → updateMemberPartial called once", async () => {
@@ -239,16 +232,7 @@ describe("ListView — Quick edit toggle gating", () => {
   });
 
   it("4a. Quick edit toggle is NOT rendered for a viewer-role tree", () => {
-    useTreeStore.setState({ selectedTree: viewerTree, isReady: true });
-    render(<ListView />);
-
-    expect(
-      screen.queryByRole("button", { name: /quick edit/i }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("4b. Quick edit toggle is NOT rendered for a virtual tree (vv_ prefix)", () => {
-    useTreeStore.setState({ selectedTree: virtualTree, isReady: true });
+    useWorkspaceStore.setState({ selectedTree: viewerTree, isReady: true });
     render(<ListView />);
 
     expect(
@@ -257,7 +241,7 @@ describe("ListView — Quick edit toggle gating", () => {
   });
 
   it("4c. Quick edit toggle IS rendered for an owner tree", () => {
-    useTreeStore.setState({ selectedTree: ownerTree, isReady: true });
+    useWorkspaceStore.setState({ selectedTree: ownerTree, isReady: true });
     render(<ListView />);
 
     expect(
@@ -266,7 +250,7 @@ describe("ListView — Quick edit toggle gating", () => {
   });
 
   it("4d. clicking Quick edit toggle activates inline edit mode (aria-pressed becomes true)", () => {
-    useTreeStore.setState({ selectedTree: ownerTree, isReady: true });
+    useWorkspaceStore.setState({ selectedTree: ownerTree, isReady: true });
     render(<ListView />);
 
     const toggleBtn = screen.getByRole("button", { name: /quick edit/i });
@@ -279,7 +263,7 @@ describe("ListView — Quick edit toggle gating", () => {
 
   it("4e. Quick edit toggle is NOT rendered on mobile (owner tree, non-virtual)", () => {
     mockUseIsMobile.mockReturnValue(true);
-    useTreeStore.setState({ selectedTree: ownerTree, isReady: true });
+    useWorkspaceStore.setState({ selectedTree: ownerTree, isReady: true });
     render(<ListView />);
 
     expect(

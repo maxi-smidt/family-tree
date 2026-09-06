@@ -122,14 +122,14 @@ def test_fallback_publish_dispatches_locally(monkeypatch):
         bus.set_loop(loop)
         q = await bus.subscribe("user-1")
         # publish() is sync; call it after set_loop
-        bus.publish(["user-1"], "tree.deleted", {"tree_id": "t1"})
+        bus.publish(["user-1"], "workspace.deleted", {"workspace_id": "t1"})
         # Give the loop a tick to process call_soon_threadsafe.
         await asyncio.sleep(0)
         return q
 
     q = run(_run())
     event = q.get_nowait()
-    assert event == {"type": "tree.deleted", "data": {"tree_id": "t1"}}
+    assert event == {"type": "workspace.deleted", "data": {"workspace_id": "t1"}}
 
 
 def test_fallback_no_double_dispatch(monkeypatch):
@@ -176,7 +176,7 @@ def test_redis_listener_delivers_message(monkeypatch):
         q = await bus.subscribe("user-1")
 
         # Simulate a publish from another worker by injecting a message.
-        event = {"type": "tree.deleted", "data": {"tree_id": "t1"}}
+        event = {"type": "workspace.deleted", "data": {"workspace_id": "t1"}}
         fake_pubsub.push_message(_channel("user-1"), json.dumps(event))
 
         # Wait deterministically for the listener to enqueue it.
@@ -186,7 +186,7 @@ def test_redis_listener_delivers_message(monkeypatch):
         return received
 
     received = run(_run())
-    assert received == {"type": "tree.deleted", "data": {"tree_id": "t1"}}
+    assert received == {"type": "workspace.deleted", "data": {"workspace_id": "t1"}}
 
 
 def test_redis_listener_ignores_unknown_channels(monkeypatch):
@@ -314,7 +314,7 @@ def test_redis_publish_calls_redis_publish(monkeypatch):
         q = await bus.subscribe("user-1")
 
         # publish() is sync — it schedules a coroutine on the loop.
-        bus.publish(["user-1", "user-2"], "tree.deleted", {"tree_id": "t1"})
+        bus.publish(["user-1", "user-2"], "workspace.deleted", {"workspace_id": "t1"})
 
         # Wait deterministically for the scheduled coroutine to run.
         await _until(lambda: len(fake_redis.published) >= 2)
@@ -349,7 +349,7 @@ def test_redis_publish_payload_is_correct_json(monkeypatch):
 
         await bus.start_redis_listener()
 
-        bus.publish(["user-1"], "tree.updated", {"tree_id": "t2", "name": "Family"})
+        bus.publish(["user-1"], "tree.updated", {"workspace_id": "t2", "name": "Family"})
         await _until(lambda: len(fake_redis.published) >= 1)
 
         await bus.stop_redis_listener()
@@ -360,7 +360,10 @@ def test_redis_publish_payload_is_correct_json(monkeypatch):
     ch, payload = fake_redis.published[0]
     assert ch == _channel("user-1")
     event = json.loads(payload)
-    assert event == {"type": "tree.updated", "data": {"tree_id": "t2", "name": "Family"}}
+    assert event == {
+        "type": "tree.updated",
+        "data": {"workspace_id": "t2", "name": "Family"},
+    }
 
 
 # ---------------------------------------------------------------------------

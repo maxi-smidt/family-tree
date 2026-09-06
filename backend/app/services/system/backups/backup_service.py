@@ -1,10 +1,18 @@
 """Encrypted, portable instance backups and guarded restores.
 
-An ``.ftbackup`` is an encrypted JSON bundle.  Version 2 records every
-durable model row together with every file below ``DATA_PATH/media``.  The
-manifest is part of the encrypted payload and contains the expected table row
-counts and SHA-256 hashes of the media files, so a backup is only reported as
-successful after its own contents have been verified.
+New backups are written as a bounded streaming archive (format version 3, see
+``streaming_archive.py``): every durable model row and every file below
+``DATA_PATH/media`` is still covered, but rows are read from the database in
+batches and media is read/written in fixed-size chunks, so creating or
+restoring a backup never holds the whole database or media tree in memory at
+once. A deterministic manifest frame closes the archive with the source
+schema epoch, table row counts, and media counts/sizes; a backup is only
+reported as successful after its own installed bytes have been re-read and
+verified against that manifest.
+
+Older ``.ftbackup`` files (format version 2, a single encrypted JSON bundle)
+remain restorable — ``restore_backup_file`` detects the format from the
+file's header and dispatches accordingly.
 
 Restores are intentionally an operator action rather than an Admin UI button:
 they target a blank instance by default and require an explicit ``replace``
@@ -15,23 +23,28 @@ import base64
 import hashlib
 import json
 import logging
+import os
 import shutil
+from collections.abc import Iterator
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from alembic.runtime.migration import MigrationContext
 from pydantic import ValidationError
 from sqlalchemy import delete, func, select
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.exceptions import ConflictError
 from app.db.base import new_uuid, utcnow_iso
 from app.models import (
     ActivityLog,
     AdminAuditLog,
     AppSetting,
     BackgroundJob,
+    ContentScope,
     Document,
     DocumentFile,
     DocumentMemberLink,
@@ -44,35 +57,67 @@ from app.models import (
     GalleryMemberLink,
     GalleryUnknownFace,
     GeocodeCache,
+    IdentityLink,
+    IdentityLinkBlock,
+    IdentityLinkClaim,
+    IdentityLinkEvent,
+    IdentityLinkIdempotencyKey,
     LegalAcceptance,
     LegalDocumentVersion,
     Member,
     MemberDisease,
     MemberTask,
     MemberTaskLink,
+    MigrationConflict,
+    MigrationIdempotencyKey,
+    MigrationMapping,
+    MigrationReport,
+    MigrationRun,
     Notification,
     QualityIssueDismissal,
     Relation,
     RelationType,
     RestoreMarker,
+    SavedView,
+    SavedViewPosition,
+    SavedViewSection,
+    SavedViewUserState,
+    Section,
+    SectionMember,
+    SectionPosition,
     Story,
     StoryDocumentLink,
     StoryMemberLink,
-    Tree,
-    TreeInvitation,
-    TreeMembership,
-    TreeUserState,
     User,
     VirtualView,
     VirtualViewMemberMatch,
     VirtualViewPosition,
     VirtualViewSource,
     VirtualViewUserState,
+    Workspace,
+    WorkspaceInvitation,
+    WorkspaceMembership,
+    WorkspaceSectionGrant,
+    WorkspaceSectionPublicLink,
+    WorkspaceUserState,
 )
 from app.models.backup import BackupRecord
+from app.models.migration import MigrationStatus
 from app.schemas.backup import BackupBundle, MediaItem
-from app.services.crypto_export import decrypt_bundle, encrypt_bundle
+from app.services.crypto_export import decrypt_bundle
+from app.services.members.member_search import normalize_member_name
 from app.services.system.admin_audit import record_admin_audit
+from app.services.system.backups.streaming_archive import (
+    HEADER_LEN,
+    MEDIA_CHUNK_BYTES,
+    STREAM_FORMAT,
+    STREAM_FORMAT_VERSION,
+    ArchiveWriter,
+    BackupValidationError,
+    iter_archive_frames,
+    safe_relative_media_path,
+)
+from app.services.system.backups.streaming_archive import MAGIC as STREAM_MAGIC
 from app.services.unit_of_work import UnitOfWork
 
 logger = logging.getLogger("app.backup_service")
@@ -80,6 +125,17 @@ logger = logging.getLogger("app.backup_service")
 BACKUP_VERSION = 2
 BACKUP_FORMAT = "family-tree-instance-backup"
 BACKUP_DIR: Path = settings.APP_DATA_PATH / "backups"
+
+# Streaming archive batching and defensive ceilings (see streaming_archive.py
+# for the per-frame size bound). The counts here are deliberately generous —
+# they exist to reject a corrupted or hostile manifest before it can mutate
+# anything, not to cap legitimate instance size.
+ROW_BATCH_TARGET_ROWS = 500
+ROW_BATCH_TARGET_BYTES = 1 * 1024 * 1024
+MAX_TOTAL_ROWS = 100_000_000
+MAX_MEDIA_FILES = 5_000_000
+MAX_TOTAL_MEDIA_BYTES = 5 * 1024**4
+MAX_MEDIA_PATH_DEPTH = 32
 
 # Parent tables always precede tables that reference them. See
 # BACKUP_EXCLUDED_MODELS below for the models deliberately left out of this
@@ -90,11 +146,22 @@ BACKUP_MODELS: tuple[type, ...] = (
     AppSetting,
     LegalDocumentVersion,
     GeocodeCache,
-    Tree,
+    Workspace,
     Member,
-    TreeMembership,
-    TreeInvitation,
-    TreeUserState,
+    IdentityLink,
+    IdentityLinkEvent,
+    IdentityLinkBlock,
+    IdentityLinkIdempotencyKey,
+    IdentityLinkClaim,
+    Section,
+    SectionMember,
+    SectionPosition,
+    ContentScope,
+    WorkspaceMembership,
+    WorkspaceInvitation,
+    WorkspaceSectionGrant,
+    WorkspaceSectionPublicLink,
+    WorkspaceUserState,
     Friendship,
     Relation,
     MemberDisease,
@@ -123,6 +190,15 @@ BACKUP_MODELS: tuple[type, ...] = (
     VirtualViewMemberMatch,
     VirtualViewPosition,
     VirtualViewUserState,
+    SavedView,
+    SavedViewSection,
+    SavedViewPosition,
+    SavedViewUserState,
+    MigrationRun,
+    MigrationMapping,
+    MigrationReport,
+    MigrationConflict,
+    MigrationIdempotencyKey,
 )
 
 # Every other model registered on Base must be listed here, with a reason it
@@ -139,10 +215,6 @@ BACKUP_EXCLUDED_MODELS: tuple[type, ...] = (
     # without it just means read/unread badges reset, nothing is orphaned.
     Notification,
 )
-
-
-class BackupValidationError(ValueError):
-    """Raised when a backup is incomplete, corrupt, or incompatible."""
 
 
 class RestoreTargetNotEmptyError(ValueError):
@@ -212,9 +284,7 @@ def _collect_bundle(db: Session) -> BackupBundle:
         manifest={
             "format": BACKUP_FORMAT,
             "version": BACKUP_VERSION,
-            "table_row_counts": {
-                name: len(rows) for name, rows in tables.items()
-            },
+            "table_row_counts": {name: len(rows) for name, rows in tables.items()},
             "media": [
                 {"path": item.path, "size_bytes": item.size_bytes, "sha256": item.sha256}
                 for item in media
@@ -227,6 +297,32 @@ def _expected_table_names() -> set[str]:
     return {model.__tablename__ for model in BACKUP_MODELS}
 
 
+_MODEL_BY_TABLE: dict[str, type] = {model.__tablename__: model for model in BACKUP_MODELS}
+
+
+def _live_backup_models(db: Session) -> tuple[type, ...]:
+    """``BACKUP_MODELS`` restricted to tables that still physically exist.
+
+    A model here may outlive its table: once
+    ``app.services.migration.legacy_cleanup`` drops the legacy virtual-view
+    tables (#1021), the five ``VirtualView*`` models stay in ``BACKUP_MODELS``
+    (an archive predating that cleanup can still contain rows for them,
+    and the streaming format's manifest always records one row count per
+    ``BACKUP_MODELS`` entry — 0 for a table that no longer exists, exactly
+    like an empty one), but nothing may ``SELECT``/``DELETE`` against a
+    dropped table. Callers that touch the live database directly (as opposed
+    to reading an already-decoded archive) filter through this first.
+    """
+    existing = set(sa_inspect(db.connection()).get_table_names())
+    return tuple(model for model in BACKUP_MODELS if model.__tablename__ in existing)
+
+
+def _current_schema_epoch(db: Session) -> str:
+    """Return the database's current Alembic head(s) as a stable string."""
+    heads = MigrationContext.configure(db.connection()).get_current_heads()
+    return ",".join(sorted(heads)) if heads else "unknown"
+
+
 # Tables added to BACKUP_MODELS after BACKUP_VERSION 2 was first shipped. A v2
 # backup taken before the table existed is still a valid v2 backup; treat the
 # table as empty on restore rather than rejecting the whole file, so pre-#871
@@ -236,8 +332,33 @@ def _expected_table_names() -> set[str]:
 LEGACY_OPTIONAL_TABLES: frozenset[str] = frozenset(
     {
         DocumentUpload.__tablename__,
-        TreeUserState.__tablename__,
+        WorkspaceUserState.__tablename__,
         VirtualViewUserState.__tablename__,
+        # Sections (#982) landed after v2 was already in development; a v2
+        # backup taken before this table existed must stay restorable too.
+        Section.__tablename__,
+        SectionMember.__tablename__,
+        SectionPosition.__tablename__,
+        ContentScope.__tablename__,
+        # Scoped grants/public links/invitation scope (#993) landed after v2
+        # was already in development; a v2 backup taken before these existed
+        # must stay restorable too.
+        WorkspaceSectionGrant.__tablename__,
+        WorkspaceSectionPublicLink.__tablename__,
+        # Saved views (#986) landed after v2 was already in development; a v2
+        # backup taken before these existed must stay restorable too.
+        SavedView.__tablename__,
+        SavedViewSection.__tablename__,
+        SavedViewPosition.__tablename__,
+        SavedViewUserState.__tablename__,
+        # Durable migration state (#997) landed after v2 was already in
+        # development; a v2 backup taken before these existed must stay
+        # restorable too.
+        MigrationRun.__tablename__,
+        MigrationMapping.__tablename__,
+        MigrationReport.__tablename__,
+        MigrationConflict.__tablename__,
+        MigrationIdempotencyKey.__tablename__,
     }
 )
 
@@ -253,7 +374,7 @@ def _migrate_legacy_last_opened(
 
     ``bulk_insert_mappings`` silently ignores dict keys that aren't mapped
     columns, so without this the ``last_opened`` values embedded in an old
-    ``trees``/``virtual_views`` row would just vanish on restore instead of
+    ``workspaces``/``virtual_views`` row would just vanish on restore instead of
     landing in the new per-user state table. Mirrors the owner-seeding the
     Alembic migration did for rows already in the live database. No-op when
     *target_table* is already present — that backup was taken by a build new
@@ -291,7 +412,9 @@ def _backfill_legacy_optional_tables(bundle_dict: dict[str, Any]) -> dict[str, A
     counts = manifest.get("table_row_counts") if isinstance(manifest, dict) else None
     if not isinstance(tables, dict) or not isinstance(counts, dict):
         return bundle_dict
-    _migrate_legacy_last_opened(tables, "trees", "tree_user_states", "tree_id")
+    _migrate_legacy_last_opened(
+        tables, "workspaces", "workspace_user_states", "workspace_id"
+    )
     _migrate_legacy_last_opened(
         tables, "virtual_views", "virtual_view_user_states", "view_id"
     )
@@ -361,7 +484,11 @@ def validate_bundle(bundle: BackupBundle | dict[str, Any]) -> BackupBundle:
 
 
 def _verify_database_counts(db: Session, expected_counts: dict[str, int]) -> None:
-    for model in BACKUP_MODELS:
+    # A table missing from this target (the legacy virtual-view tables,
+    # once dropped — #1021) was deliberately skipped by _insert_rows/
+    # _insert_row_batch above, so its restored count can never match an
+    # archive's pre-cleanup expectation; nothing else to verify for it.
+    for model in _live_backup_models(db):
         actual = db.scalar(select(func.count()).select_from(model))
         if actual != expected_counts[model.__tablename__]:
             raise BackupValidationError(
@@ -369,10 +496,449 @@ def _verify_database_counts(db: Session, expected_counts: dict[str, int]) -> Non
             )
 
 
+# --- Streaming (format version 3) archive: write, verify, restore ---------
+
+
+def _fsync_dir(path: Path) -> None:
+    fd = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
+def _iter_media_files(root: Path) -> Iterator[Path]:
+    """Yield every regular file under *root* in a deterministic order.
+
+    Sorts each directory's entries before descending into it, so at most one
+    directory's worth of names is ever held in memory — unlike
+    ``sorted(root.rglob("*"))``, which would materialize every path in the
+    tree up front.
+    """
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames.sort()
+        for filename in sorted(filenames):
+            path = Path(dirpath) / filename
+            if path.is_file() and not path.is_symlink():
+                yield path
+
+
+def _write_media_frames(writer: ArchiveWriter, path: Path, relative: str) -> int:
+    """Stream one media file out as chunk frames, hashing it as it goes.
+
+    Reads one chunk ahead so the final frame — the one carrying the size and
+    hash the reader verifies against — can be flagged without needing the
+    file size up front. Returns the file's total byte count.
+    """
+    hasher = hashlib.sha256()
+    written = 0
+    chunk_index = 0
+    with path.open("rb") as fh:
+        current = fh.read(MEDIA_CHUNK_BYTES)
+        while True:
+            following = fh.read(MEDIA_CHUNK_BYTES)
+            is_final = not following
+            hasher.update(current)
+            written += len(current)
+            frame: dict[str, Any] = {
+                "t": "media",
+                "path": relative,
+                "chunk_index": chunk_index,
+                "final": is_final,
+                "data": base64.b64encode(current).decode("ascii"),
+            }
+            if is_final:
+                frame["size_bytes"] = written
+                frame["sha256"] = hasher.hexdigest()
+            writer.write_frame(frame)
+            if is_final:
+                return written
+            current = following
+            chunk_index += 1
+
+
+def _write_streaming_archive(db: Session, filepath: Path) -> None:
+    """Write a bounded streaming backup archive to *filepath*.
+
+    Rows are read from the database in bounded batches — never a whole table
+    at once — and media files are read and hashed in fixed-size chunks, so
+    peak memory stays proportional to one batch/chunk rather than to instance
+    size.
+    """
+    with ArchiveWriter(filepath) as writer:
+        writer.write_frame(
+            {"t": "meta", "format": STREAM_FORMAT, "version": STREAM_FORMAT_VERSION}
+        )
+
+        # A model in BACKUP_MODELS whose table has been physically dropped
+        # (the legacy virtual-view tables, once app.services.migration.
+        # legacy_cleanup runs — see #1021) contributes a 0 count exactly like
+        # an empty table would: no "row" frame is written for it either way
+        # (see the `if batch:` check below), so the manifest stays the same
+        # shape regardless of which BACKUP_MODELS tables this instance still
+        # physically has.
+        existing_tables = set(sa_inspect(db.connection()).get_table_names())
+        table_row_counts: dict[str, int] = {}
+        row_count_total = 0
+        for model in BACKUP_MODELS:
+            table = model.__tablename__
+            count = 0
+            if table in existing_tables:
+                columns = [
+                    column.key for column in sa_inspect(model).mapper.column_attrs
+                ]
+                batch: list[dict[str, Any]] = []
+                batch_bytes = 0
+                query = select(model).execution_options(
+                    yield_per=ROW_BATCH_TARGET_ROWS, stream_results=True
+                )
+                for item in db.scalars(query):
+                    row = {column: getattr(item, column) for column in columns}
+                    db.expunge(item)
+                    batch.append(row)
+                    batch_bytes += len(json.dumps(row, default=str))
+                    count += 1
+                    if (
+                        len(batch) >= ROW_BATCH_TARGET_ROWS
+                        or batch_bytes >= ROW_BATCH_TARGET_BYTES
+                    ):
+                        writer.write_frame({"t": "row", "table": table, "rows": batch})
+                        batch = []
+                        batch_bytes = 0
+                if batch:
+                    writer.write_frame({"t": "row", "table": table, "rows": batch})
+            table_row_counts[table] = count
+            row_count_total += count
+
+        media_count = 0
+        media_bytes_total = 0
+        root = settings.media_root
+        if root.exists():
+            for path in _iter_media_files(root):
+                relative = safe_relative_media_path(
+                    path.relative_to(root).as_posix()
+                ).as_posix()
+                media_bytes_total += _write_media_frames(writer, path, relative)
+                media_count += 1
+
+        writer.write_frame(
+            {
+                "t": "manifest",
+                "format": STREAM_FORMAT,
+                "version": STREAM_FORMAT_VERSION,
+                "schema_epoch": _current_schema_epoch(db),
+                "created_at": utcnow_iso(),
+                "table_row_counts": table_row_counts,
+                "row_count_total": row_count_total,
+                "media_count": media_count,
+                "media_bytes_total": media_bytes_total,
+            }
+        )
+        writer.close()
+
+
+class _MediaStager:
+    """Consumes ``media`` frames, streaming their bytes to disk (or, when
+    *staging_root* is ``None``, only through a running hash) while enforcing
+    the archive's media limits.
+
+    Chunks for one file must arrive contiguously, in order — that is what
+    ``_write_media_frames`` always produces; anything else is corruption.
+    """
+
+    def __init__(self, staging_root: Path | None):
+        self._staging_root = staging_root
+        self._seen_paths: set[str] = set()
+        self._active: dict[str, Any] | None = None
+        self.media_count = 0
+        self.media_bytes_total = 0
+
+    def handle_chunk(self, record: dict[str, Any]) -> None:
+        path = record.get("path")
+        chunk_index = record.get("chunk_index")
+        final = record.get("final")
+        data = record.get("data")
+        if (
+            not isinstance(path, str)
+            or not isinstance(chunk_index, int)
+            or chunk_index < 0
+            or not isinstance(final, bool)
+            or not isinstance(data, str)
+        ):
+            raise BackupValidationError("Backup archive contains a malformed media entry")
+        try:
+            raw = base64.b64decode(data, validate=True)
+        except (TypeError, ValueError) as exc:
+            raise BackupValidationError(
+                f"Backup archive contains invalid media data for {path}"
+            ) from exc
+        if len(raw) > MEDIA_CHUNK_BYTES:
+            raise BackupValidationError(
+                f"Backup media chunk exceeds the maximum chunk size for {path}"
+            )
+
+        if chunk_index == 0:
+            if self._active is not None:
+                raise BackupValidationError(
+                    "Backup archive interleaves media file chunks"
+                )
+            if path in self._seen_paths:
+                raise BackupValidationError(f"Backup archive repeats media path {path}")
+            if self.media_count + 1 > MAX_MEDIA_FILES:
+                raise BackupValidationError(
+                    "Backup archive exceeds the maximum media file count"
+                )
+            relative = safe_relative_media_path(path)
+            if len(relative.parts) > MAX_MEDIA_PATH_DEPTH:
+                raise BackupValidationError(
+                    f"Backup media path is nested too deeply: {path}"
+                )
+            handle = None
+            if self._staging_root is not None:
+                destination = self._staging_root.joinpath(*relative.parts)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                handle = open(destination, "wb")
+            self._active = {
+                "path": path,
+                "next_index": 0,
+                "written": 0,
+                "hasher": hashlib.sha256(),
+                "handle": handle,
+            }
+
+        active = self._active
+        if (
+            active is None
+            or active["path"] != path
+            or chunk_index != active["next_index"]
+        ):
+            raise BackupValidationError(
+                f"Backup media chunks are out of order for {path}"
+            )
+
+        if active["handle"] is not None:
+            active["handle"].write(raw)
+        active["hasher"].update(raw)
+        active["written"] += len(raw)
+        active["next_index"] += 1
+
+        # Checked on every chunk — including a still-in-progress file's bytes
+        # so far — rather than only once a file finishes, so an oversized
+        # single file is rejected as it streams instead of after it has
+        # already been written to staging in full.
+        if self.media_bytes_total + active["written"] > MAX_TOTAL_MEDIA_BYTES:
+            raise BackupValidationError(
+                "Backup archive exceeds the maximum total media size"
+            )
+
+        if not final:
+            return
+
+        if active["handle"] is not None:
+            active["handle"].close()
+        size_bytes = record.get("size_bytes")
+        sha256 = record.get("sha256")
+        if (
+            not isinstance(size_bytes, int)
+            or size_bytes != active["written"]
+            or not isinstance(sha256, str)
+            or sha256 != active["hasher"].hexdigest()
+        ):
+            raise BackupValidationError(f"Staged media does not match backup for {path}")
+
+        self._seen_paths.add(path)
+        self.media_count += 1
+        self.media_bytes_total += active["written"]
+        self._active = None
+
+    def is_incomplete(self) -> bool:
+        """True if a media file's chunks were interrupted before its final one."""
+        return self._active is not None
+
+    def close_incomplete(self) -> None:
+        if self._active is not None and self._active["handle"] is not None:
+            self._active["handle"].close()
+
+
+def _backfill_member_name_normalized(rows: list[dict[str, Any]]) -> None:
+    """Derive ``Member.name_normalized`` for rows an older backup predates.
+
+    ``bulk_insert_mappings`` bypasses the ORM ``@validates`` hook that
+    normally derives this column (#1024), and a backup taken before the
+    column existed carries no key for it at all — without this, every
+    restored member would keep the ``""`` server default and be permanently
+    unsearchable until individually re-saved.
+    """
+    for row in rows:
+        if not row.get("name_normalized"):
+            row["name_normalized"] = normalize_member_name(
+                row.get("first_name"), row.get("last_name"), row.get("maiden_name")
+            )
+
+
+def _insert_row_batch(
+    db: Session,
+    table: str,
+    rows: list[Any],
+) -> None:
+    model = _MODEL_BY_TABLE[table]
+    if not all(isinstance(row, dict) for row in rows):
+        raise BackupValidationError(
+            f"Backup archive contains a malformed row for {table}"
+        )
+    # An archive taken before app.services.migration.legacy_cleanup dropped
+    # the legacy virtual-view tables (#1021) can still carry "row" frames for
+    # them; restoring into a target where they're already gone silently
+    # drops those rows rather than erroring — see the matching comment on
+    # _insert_rows.
+    if not sa_inspect(db.connection()).has_table(table):
+        return
+    prepared = [dict(row) for row in rows]
+    if model is Member:
+        _backfill_member_name_normalized(prepared)
+    if model is MigrationRun:
+        # See the matching comment in _insert_rows: BackupRecord is never
+        # part of a restorable archive, so a restored run's backup_id/
+        # backup_path would otherwise dangle-reference a row that was never
+        # brought back.
+        for row in prepared:
+            row["backup_id"] = None
+            row["backup_path"] = None
+    if prepared:
+        db.bulk_insert_mappings(model, prepared)
+
+
+def _validate_stream_meta(record: dict[str, Any]) -> None:
+    if (
+        record.get("format") != STREAM_FORMAT
+        or record.get("version") != STREAM_FORMAT_VERSION
+    ):
+        raise BackupValidationError(
+            "Backup archive has an unrecognized format or version"
+        )
+
+
+def _validate_manifest_totals(
+    manifest: dict[str, Any],
+    table_counts: dict[str, int],
+    row_count_total: int,
+    media: _MediaStager,
+) -> None:
+    _validate_stream_meta(manifest)
+    if manifest.get("table_row_counts") != table_counts:
+        raise BackupValidationError(
+            "Backup archive manifest row counts do not match its contents"
+        )
+    if manifest.get("row_count_total") != row_count_total:
+        raise BackupValidationError(
+            "Backup archive manifest row total does not match its contents"
+        )
+    if manifest.get("media_count") != media.media_count:
+        raise BackupValidationError(
+            "Backup archive manifest media count does not match its contents"
+        )
+    if manifest.get("media_bytes_total") != media.media_bytes_total:
+        raise BackupValidationError(
+            "Backup archive manifest media size does not match its contents"
+        )
+
+
+def _consume_streaming_archive(
+    filepath: Path, *, db: Session | None, staging_root: Path | None
+) -> dict[str, Any]:
+    """Stream-validate *filepath*, optionally restoring it into *db*/*staging_root*.
+
+    With both ``None`` this is a pure self-verify pass: it never writes to
+    disk or touches the database, only recomputing counts and media hashes
+    from the decrypted frames and checking them against the archive's own
+    manifest. Bounded to O(one frame) of memory, regardless of the archive's
+    total size. Returns the manifest record on success.
+    """
+    seen_meta = False
+    manifest_record: dict[str, Any] | None = None
+    table_counts: dict[str, int] = dict.fromkeys(_expected_table_names(), 0)
+    row_count_total = 0
+    media = _MediaStager(staging_root)
+
+    try:
+        for record in iter_archive_frames(filepath):
+            if manifest_record is not None:
+                raise BackupValidationError(
+                    "Backup archive contains data after its manifest"
+                )
+            kind = record["t"]
+            if kind == "meta":
+                if seen_meta:
+                    raise BackupValidationError(
+                        "Backup archive contains duplicate metadata"
+                    )
+                _validate_stream_meta(record)
+                seen_meta = True
+                continue
+            if not seen_meta:
+                raise BackupValidationError(
+                    "Backup archive is missing its metadata header"
+                )
+            if kind == "row":
+                table = record.get("table")
+                rows = record.get("rows")
+                if table not in table_counts or not isinstance(rows, list):
+                    raise BackupValidationError(
+                        f"Backup archive references an unknown table {table!r}"
+                    )
+                row_count_total += len(rows)
+                if row_count_total > MAX_TOTAL_ROWS:
+                    raise BackupValidationError(
+                        "Backup archive exceeds the maximum row count"
+                    )
+                table_counts[table] += len(rows)
+                if db is not None:
+                    _insert_row_batch(db, table, rows)
+            elif kind == "media":
+                media.handle_chunk(record)
+            elif kind == "manifest":
+                if media.is_incomplete():
+                    raise BackupValidationError(
+                        "Backup archive manifest arrived with an incomplete media file"
+                    )
+                manifest_record = record
+            else:
+                raise BackupValidationError(
+                    f"Backup archive contains an unknown record type {kind!r}"
+                )
+
+        if manifest_record is None:
+            raise BackupValidationError(
+                "Backup archive is truncated or missing its manifest"
+            )
+        _validate_manifest_totals(manifest_record, table_counts, row_count_total, media)
+    finally:
+        media.close_incomplete()
+
+    return manifest_record
+
+
+def verify_archive(filepath: Path) -> dict[str, Any]:
+    """Stream-validate a completed archive without touching the database or media.
+
+    Used to self-verify a freshly written backup, and available for the
+    migration coordinator to confirm a recovery artifact before any
+    destructive change (see #994).
+    """
+    return _consume_streaming_archive(filepath, db=None, staging_root=None)
+
+
+def _is_streaming_archive(filepath: Path) -> bool:
+    with filepath.open("rb") as f:
+        header = f.read(HEADER_LEN)
+    return header[: len(STREAM_MAGIC)] == STREAM_MAGIC
+
+
 def _write_staged_media(
     media: list[MediaItem], media_root: Path, restore_id: str
 ) -> Path:
     staging = media_root.with_name(f"{media_root.name}.restore-stage-{restore_id}")
+    staging.mkdir(parents=True, exist_ok=True)
     try:
         for item in media:
             relative = _safe_media_relative(item.path)
@@ -408,7 +974,7 @@ def _media_root_is_empty(media_root: Path) -> bool:
 def _database_is_empty(db: Session) -> bool:
     return all(
         db.scalar(select(func.count()).select_from(model)) == 0
-        for model in BACKUP_MODELS
+        for model in _live_backup_models(db)
     )
 
 
@@ -418,7 +984,7 @@ def _clear_instance(db: Session) -> None:
     Media is handled separately by the journaled swap in ``restore_bundle``;
     this only ever touches the (uncommitted) database transaction.
     """
-    for model in reversed(BACKUP_MODELS):
+    for model in reversed(_live_backup_models(db)):
         db.execute(delete(model))
     db.flush()
 
@@ -507,21 +1073,29 @@ def _sweep_orphaned_media_dirs(media_root: Path) -> None:
 
 
 def _insert_rows(db: Session, tables: dict[str, list[dict[str, Any]]]) -> None:
-    """Restore rows while deferring the one nullable self-reference."""
-    linked_members: list[dict[str, str | None]] = []
-    for model in BACKUP_MODELS:
+    """Restore rows for every backed-up model whose table still exists.
+
+    An archive taken before app.services.migration.legacy_cleanup dropped
+    the legacy virtual-view tables (#1021) can still carry rows for them;
+    restoring into a target where they're already gone silently drops those
+    rows rather than erroring — that data described a feature that no longer
+    exists to read it back.
+    """
+    for model in _live_backup_models(db):
         rows = [dict(row) for row in tables[model.__tablename__]]
         if model is Member:
+            _backfill_member_name_normalized(rows)
+        if model is MigrationRun:
+            # BackupRecord is deliberately excluded from every restorable
+            # archive (see BACKUP_EXCLUDED_MODELS below), so a restored run's
+            # backup_id/backup_path would otherwise dangle-reference a
+            # backup_records row that was never brought back. Mark that
+            # recovery artifact unavailable instead of retaining the claim.
             for row in rows:
-                if row.get("linked_member_id") is not None:
-                    linked_members.append(
-                        {"id": row["id"], "linked_member_id": row["linked_member_id"]}
-                    )
-                    row["linked_member_id"] = None
+                row["backup_id"] = None
+                row["backup_path"] = None
         if rows:
             db.bulk_insert_mappings(model, rows)
-    if linked_members:
-        db.bulk_update_mappings(Member, linked_members)
 
 
 def restore_bundle(
@@ -610,6 +1184,70 @@ def restore_bundle(
     _finalize_restore(rollback, journal_path)
 
 
+def restore_streaming_backup(
+    db: Session,
+    filepath: Path,
+    *,
+    replace: bool = False,
+    media_root: Path | None = None,
+) -> None:
+    """Restore a streaming (format version 3) archive.
+
+    Follows the same journaled stage/verify/swap/commit protocol as
+    ``restore_bundle`` above (see its docstring for the crash-safety
+    reasoning); the difference is that rows are inserted and media is
+    written to the staging directory frame by frame as the archive is
+    decrypted, instead of after building the whole bundle in memory.
+    """
+    target_media = media_root or settings.media_root
+    if not replace and (
+        not _database_is_empty(db) or not _media_root_is_empty(target_media)
+    ):
+        raise RestoreTargetNotEmptyError(
+            "Restore target is not empty; use replace=True only for deliberate recovery"
+        )
+
+    restore_id = new_uuid()
+    staging = target_media.with_name(f"{target_media.name}.restore-stage-{restore_id}")
+    rollback = target_media.with_name(
+        f"{target_media.name}.restore-rollback-{restore_id}"
+    )
+    journal_path = _journal_path(target_media)
+    journal_written = False
+    staging.mkdir(parents=True, exist_ok=True)
+
+    try:
+        if replace:
+            _clear_instance(db)
+        manifest = _consume_streaming_archive(filepath, db=db, staging_root=staging)
+        db.flush()
+        _verify_database_counts(db, manifest["table_row_counts"])
+
+        _write_journal(
+            journal_path,
+            {
+                "id": restore_id,
+                "media_root": str(target_media),
+                "staging": str(staging),
+                "rollback": str(rollback),
+                "created_at": utcnow_iso(),
+            },
+        )
+        journal_written = True
+        _swap_media(target_media, staging, rollback)
+        db.add(RestoreMarker(id=restore_id))
+        db.commit()  # allowlisted-commit: see restore_bundle's docstring
+    except Exception:
+        db.rollback()  # allowlisted-rollback: see restore_bundle's docstring
+        if journal_written:
+            _revert_media_swap(target_media, staging, rollback)
+            _delete_journal(journal_path)
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
+
+    _finalize_restore(rollback, journal_path)
+
+
 def reconcile_interrupted_restore(db: Session, media_root: Path | None = None) -> None:
     """Finish or roll back a restore interrupted by a crash, on startup.
 
@@ -664,26 +1302,50 @@ def reconcile_interrupted_restore(db: Session, media_root: Path | None = None) -
 def restore_backup_file(
     db: Session, filepath: Path, *, replace: bool = False, media_root: Path | None = None
 ) -> None:
-    """Decrypt and restore a server-encrypted ``.ftbackup`` file."""
+    """Restore a ``.ftbackup`` file, detecting its format from the header.
+
+    Streaming (format version 3) archives are restored directly. Older
+    (format version 2) files are still a single encrypted JSON bundle — see
+    the module docstring — so they're decrypted and validated as a whole
+    before restoring. A version-2 bundle may be a genuine v1.x-era archive
+    (v1 table/column names, predating every v2-only table) rather than a
+    v2 one; see ``legacy_v1_backup`` for that compatibility adapter.
+    """
+    if _is_streaming_archive(filepath):
+        restore_streaming_backup(db, filepath, replace=replace, media_root=media_root)
+        return
     try:
         bundle_dict = decrypt_bundle(filepath.read_bytes(), None)
     except Exception as exc:  # noqa: BLE001
         raise BackupValidationError("Could not decrypt backup file") from exc
-    bundle_dict = _backfill_legacy_optional_tables(bundle_dict)
     bundle_dict = _drop_legacy_feature_metadata(bundle_dict)
-    try:
-        bundle = BackupBundle.model_validate(bundle_dict)
-    except ValidationError as exc:
-        raise BackupValidationError(
-            f"Invalid instance backup: {exc.errors(include_url=False)}"
-        ) from exc
+
+    # Local import: legacy_v1_backup imports this module back (BACKUP_MODELS,
+    # _collect_bundle, _insert_rows), so importing it at module scope here
+    # would be circular.
+    from app.services.system.backups.legacy_v1_backup import (
+        convert_v1_bundle,
+        is_v1_bundle,
+    )
+
+    bundle: BackupBundle | dict[str, Any]
+    if is_v1_bundle(bundle_dict.get("tables")):
+        bundle = convert_v1_bundle(bundle_dict)
+    else:
+        bundle_dict = _backfill_legacy_optional_tables(bundle_dict)
+        try:
+            bundle = BackupBundle.model_validate(bundle_dict)
+        except ValidationError as exc:
+            raise BackupValidationError(
+                f"Invalid instance backup: {exc.errors(include_url=False)}"
+            ) from exc
     restore_bundle(db, bundle, replace=replace, media_root=media_root)
 
 
 def create_backup(
     db: Session, *, trigger: str = "manual", actor: User | None = None
 ) -> BackupRecord:
-    """Create and self-verify a full encrypted backup of the instance."""
+    """Create and self-verify a full, bounded streaming backup of the instance."""
     _ensure_backup_dir()
     record = BackupRecord(
         id=new_uuid(), created_at=utcnow_iso(), status="running", trigger=trigger
@@ -694,24 +1356,27 @@ def create_backup(
     # pollers for the whole (possibly slow) backup, not just after it finishes.
     db.commit()
     db.refresh(record)
-    filepath: Path | None = None
+
+    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    filename = f"backup_{timestamp}_{record.id[:8]}.ftbackup"
+    filepath = BACKUP_DIR / filename
+    tmp_path = BACKUP_DIR / f".{filename}.tmp"
 
     try:
-        bundle = _collect_bundle(db)
-        validate_bundle(bundle)
-        blob = encrypt_bundle(bundle.model_dump(), None)
-        # Verify the encrypted file can be decrypted and still validates before
-        # it is eligible to be retained or displayed as successful.
-        validate_bundle(decrypt_bundle(blob, None))
-
-        timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-        filename = f"backup_{timestamp}_{record.id[:8]}.ftbackup"
-        filepath = BACKUP_DIR / filename
-        filepath.write_bytes(blob)
+        _write_streaming_archive(db, tmp_path)
+        # Atomic install: the backup only ever appears at its final name once
+        # every frame has been written, flushed, and fsync'd.
+        os.replace(tmp_path, filepath)
+        _fsync_dir(BACKUP_DIR)
+        # Re-read the installed bytes and confirm they match their own
+        # manifest before the backup is eligible to be retained or shown as
+        # successful.
+        verify_archive(filepath)
+        size_bytes = filepath.stat().st_size
 
         record.status = "success"
         record.filename = filename
-        record.size_bytes = len(blob)
+        record.size_bytes = size_bytes
         record_admin_audit(
             db,
             actor=actor,
@@ -719,14 +1384,14 @@ def create_backup(
             subject_type="backup",
             subject_id=record.id,
             subject_label=filename,
-            details={"trigger": trigger, "size_bytes": record.size_bytes},
+            details={"trigger": trigger, "size_bytes": size_bytes},
         )
         db.commit()  # allowlisted-commit: second phase of the running/done pair above
-        logger.info("Backup created and verified: %s (%d bytes)", filename, len(blob))
+        logger.info("Backup created and verified: %s (%d bytes)", filename, size_bytes)
     except Exception as exc:  # noqa: BLE001
         logger.exception("Backup failed (trigger=%s)", trigger)
-        if filepath is not None:
-            filepath.unlink(missing_ok=True)
+        tmp_path.unlink(missing_ok=True)
+        filepath.unlink(missing_ok=True)
         record.status = "failed"
         record.error = str(exc)
         record_admin_audit(
@@ -748,7 +1413,26 @@ def list_backups(db: Session) -> list[BackupRecord]:
     )
 
 
+def _is_unfinalized_pre_migration_backup(db: Session, record: BackupRecord) -> bool:
+    """A ``pre_migration`` backup (see ``app.services.migration.orchestrator``,
+    #994) is the only rollback path for a v2 conversion until an operator
+    finalizes that run, so it must survive both scheduled pruning and manual
+    deletion until then. A failed attempt holds no usable rollback data and
+    is never protected, regardless of whether a run references it."""
+    if record.trigger != "pre_migration" or record.status != "success":
+        return False
+    run = db.scalars(
+        select(MigrationRun).where(MigrationRun.backup_id == record.id)
+    ).first()
+    return run is None or run.status != MigrationStatus.FINALIZED
+
+
 def delete_backup(db: Session, record: BackupRecord) -> None:
+    if _is_unfinalized_pre_migration_backup(db, record):
+        raise ConflictError(
+            "Cannot delete the pre-migration backup before its migration run "
+            "is finalized"
+        )
     if record.filename:
         filepath = BACKUP_DIR / record.filename
         if filepath.is_file():
@@ -758,13 +1442,15 @@ def delete_backup(db: Session, record: BackupRecord) -> None:
 
 
 def prune_backups(db: Session, keep: int) -> None:
-    successful = list(
-        db.scalars(
+    successful = [
+        record
+        for record in db.scalars(
             select(BackupRecord)
             .where(BackupRecord.status == "success")
             .order_by(BackupRecord.created_at.desc())
         ).all()
-    )
+        if not _is_unfinalized_pre_migration_backup(db, record)
+    ]
     for record in successful[keep:]:
         logger.info("Pruning old backup: %s", record.filename)
         delete_backup(db, record)
