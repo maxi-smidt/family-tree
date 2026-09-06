@@ -3,7 +3,7 @@
   "checkpoint_id": "31057ba3c2fa",
   "strategy": "manual-commit",
   "branch": "ci/allow-release-pr-title-type",
-  "checkpoints_count": 2,
+  "checkpoints_count": 3,
   "files_touched": [
     ".github/workflows/pr-title-lint.yml",
     "cliff.toml"
@@ -22,13 +22,20 @@
       "compact_transcript": "/31/057ba3c2fa/1/transcript.jsonl",
       "content_hash": "/31/057ba3c2fa/1/content_hash.txt",
       "prompt": "/31/057ba3c2fa/1/prompt.txt"
+    },
+    {
+      "metadata": "/31/057ba3c2fa/2/metadata.json",
+      "transcript": "/31/057ba3c2fa/2/full.jsonl",
+      "compact_transcript": "/31/057ba3c2fa/2/transcript.jsonl",
+      "content_hash": "/31/057ba3c2fa/2/content_hash.txt",
+      "prompt": "/31/057ba3c2fa/2/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 194004,
+    "input_tokens": 308741,
     "cache_creation_tokens": 0,
-    "cache_read_tokens": 2817920,
-    "output_tokens": 18559,
-    "api_call_count": 83
+    "cache_read_tokens": 4713856,
+    "output_tokens": 30344,
+    "api_call_count": 110
   }
 }
