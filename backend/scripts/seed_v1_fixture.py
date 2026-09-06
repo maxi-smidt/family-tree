@@ -37,6 +37,7 @@ from sqlalchemy import MetaData, create_engine
 from sqlalchemy.engine import Connection
 
 from app.core.config import settings
+from app.core.security import hash_password
 from app.db.base import utcnow_iso
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -81,18 +82,36 @@ class V1Fixture:
     def __init__(self, conn: Connection) -> None:
         self._conn = conn
         meta = MetaData()
-        meta.reflect(bind=conn.engine, only=["users", "trees", "members"])
+        meta.reflect(
+            bind=conn.engine,
+            only=[
+                "users",
+                "trees",
+                "members",
+                "tree_memberships",
+                "virtual_views",
+                "virtual_view_sources",
+                "virtual_view_member_matches",
+            ],
+        )
         self._users = meta.tables["users"]
         self._trees = meta.tables["trees"]
         self._members = meta.tables["members"]
+        self._tree_memberships = meta.tables["tree_memberships"]
+        self._virtual_views = meta.tables["virtual_views"]
+        self._virtual_view_sources = meta.tables["virtual_view_sources"]
+        self._virtual_view_member_matches = meta.tables["virtual_view_member_matches"]
 
-    def user(self, username: str) -> str:
+    def user(
+        self, username: str, password: str | None = None, *, is_admin: bool = False
+    ) -> str:
         user_id = str(uuid.uuid4())
         self._conn.execute(
             self._users.insert().values(
                 id=user_id,
                 username=username,
-                is_admin=False,
+                hashed_password=hash_password(password) if password else None,
+                is_admin=is_admin,
                 is_active=True,
                 auth_provider="local",
                 created_at=utcnow_iso(),
@@ -100,16 +119,31 @@ class V1Fixture:
         )
         return user_id
 
-    def tree(self, owner_id: str, name: str) -> str:
+    def tree(
+        self,
+        owner_id: str,
+        name: str,
+        *,
+        public_password: str | None = None,
+    ) -> str:
+        """``public_password`` implies ``public_role="viewer"`` — a v1 tree
+        can only be password-protected while publicly shared."""
         tree_id = str(uuid.uuid4())
         self._conn.execute(
             self._trees.insert().values(
-                id=tree_id, name=name, owner_id=owner_id, created_at=utcnow_iso()
+                id=tree_id,
+                name=name,
+                owner_id=owner_id,
+                created_at=utcnow_iso(),
+                public_role="viewer" if public_password else None,
+                public_password_hash=hash_password(public_password)
+                if public_password
+                else None,
             )
         )
         return tree_id
 
-    def member(self, tree_id: str, member_id: str) -> None:
+    def member(self, tree_id: str, member_id: str, **fields: object) -> None:
         self._conn.execute(
             self._members.insert().values(
                 id=member_id,
@@ -117,6 +151,7 @@ class V1Fixture:
                 is_collapsed=False,
                 position_x=0.0,
                 position_y=0.0,
+                **fields,
             )
         )
 
@@ -125,6 +160,47 @@ class V1Fixture:
             self._members.update()
             .where(self._members.c.id == member_id)
             .values(linked_tree_id=linked_tree_id, linked_member_id=linked_member_id)
+        )
+
+    def share(
+        self,
+        tree_id: str,
+        user_id: str,
+        role: str = "viewer",
+        restrictions: list[str] | None = None,
+    ) -> None:
+        self._conn.execute(
+            self._tree_memberships.insert().values(
+                tree_id=tree_id, user_id=user_id, role=role, restrictions=restrictions
+            )
+        )
+
+    def virtual_view(
+        self, view_id: str, owner_id: str, name: str, source_tree_ids: list[str]
+    ) -> None:
+        self._conn.execute(
+            self._virtual_views.insert().values(
+                id=view_id, name=name, owner_id=owner_id, created_at=utcnow_iso()
+            )
+        )
+        self._conn.execute(
+            self._virtual_view_sources.insert(),
+            [
+                {"view_id": view_id, "position": i, "tree_id": tree_id}
+                for i, tree_id in enumerate(source_tree_ids)
+            ],
+        )
+
+    def virtual_view_match(
+        self, view_id: str, group_id: str, member_id: str, is_primary: bool = False
+    ) -> None:
+        self._conn.execute(
+            self._virtual_view_member_matches.insert().values(
+                view_id=view_id,
+                member_id=member_id,
+                group_id=group_id,
+                is_primary=is_primary,
+            )
         )
 
 

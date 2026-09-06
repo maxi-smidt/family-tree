@@ -6,6 +6,7 @@
 
 import { test, expect } from "../fixtures";
 import { createMember } from "../fixtures/seed";
+import { CURRENT_SCHEMA_EPOCH, SCHEMA_EPOCH_HEADER } from "../fixtures/api";
 import { API_URL } from "../playwright.config";
 import { randomUUID } from "crypto";
 
@@ -32,7 +33,9 @@ test("viewer — can read tree, write request is 403", async ({
   });
 
   // Viewer can list members (readable)
-  const members = await secondApi.get<unknown[]>(`/workspaces/${tree.id}/members`);
+  const members = await secondApi.get<unknown[]>(
+    `/workspaces/${tree.id}/members`,
+  );
   expect(Array.isArray(members)).toBe(true);
   expect(members.length).toBeGreaterThan(0);
 
@@ -42,6 +45,7 @@ test("viewer — can read tree, write request is 403", async ({
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${secondApi.token}`,
+      [SCHEMA_EPOCH_HEADER]: CURRENT_SCHEMA_EPOCH,
     },
     body: JSON.stringify({
       id: randomUUID(),
@@ -177,6 +181,7 @@ test("invite link — accept grants access", async ({
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${secondApi.token}`,
+        [SCHEMA_EPOCH_HEADER]: CURRENT_SCHEMA_EPOCH,
       },
     },
   );
@@ -209,6 +214,7 @@ test("revoked invite — accept returns 409", async ({
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${secondApi.token}`,
+        [SCHEMA_EPOCH_HEADER]: CURRENT_SCHEMA_EPOCH,
       },
     },
   );
@@ -231,7 +237,9 @@ test("public tree — unauthenticated visitor can read members", async ({
   });
 
   // Make tree public
-  await adminApi.patch(`/workspaces/${tree.id}/public`, { public_role: "viewer" });
+  await adminApi.patch(`/workspaces/${tree.id}/public`, {
+    public_role: "viewer",
+  });
 
   // Unauthenticated request to members (public endpoint)
   const res = await fetch(`${API_URL}/workspaces/${tree.id}/members`);
@@ -272,10 +280,12 @@ test("public tree link — anonymous visitor loads photos and custom relations",
     to_member_id: second.id,
     relation_type: customRelationId,
   });
-  await adminApi.patch(`/workspaces/${tree.id}/public`, { public_role: "viewer" });
+  await adminApi.patch(`/workspaces/${tree.id}/public`, {
+    public_role: "viewer",
+  });
 
-  const relationTypesResponse = page.waitForResponse(
-    (response) => response.url().endsWith("/api/relation-types"),
+  const relationTypesResponse = page.waitForResponse((response) =>
+    response.url().endsWith("/api/relation-types"),
   );
   const mediaResponse = page.waitForResponse(
     (response) =>
@@ -287,9 +297,9 @@ test("public tree link — anonymous visitor loads photos and custom relations",
   await expect(page.getByRole("heading", { name: tree.name })).toBeVisible();
   const relationTypes = await relationTypesResponse;
   expect(relationTypes.status()).toBe(200);
-  expect(
-    (await relationTypes.json()) as Array<{ id: string }>,
-  ).toContainEqual(expect.objectContaining({ id: customRelationId }));
+  expect((await relationTypes.json()) as Array<{ id: string }>).toContainEqual(
+    expect.objectContaining({ id: customRelationId }),
+  );
   await mediaResponse;
 
   // Remove the custom registry entry before fixture teardown deletes the tree.
@@ -309,7 +319,9 @@ test("public tree link — password-protected anonymous visitor can unlock", asy
     firstName: "ProtectedPublicPerson",
     lastName: "X",
   });
-  await adminApi.patch(`/workspaces/${tree.id}/public`, { public_role: "viewer" });
+  await adminApi.patch(`/workspaces/${tree.id}/public`, {
+    public_role: "viewer",
+  });
   const passwordResponse = await fetch(
     `${API_URL}/workspaces/${tree.id}/public/password`,
     {
@@ -317,6 +329,7 @@ test("public tree link — password-protected anonymous visitor can unlock", asy
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${adminApi.token}`,
+        [SCHEMA_EPOCH_HEADER]: CURRENT_SCHEMA_EPOCH,
       },
       body: JSON.stringify({ password: "public-password" }),
     },
@@ -341,7 +354,9 @@ test("public tree link — signed-in visitor opens the linked tree normally", as
     firstName: "SignedInPublicPerson",
     lastName: "X",
   });
-  await adminApi.patch(`/workspaces/${tree.id}/public`, { public_role: "viewer" });
+  await adminApi.patch(`/workspaces/${tree.id}/public`, {
+    public_role: "viewer",
+  });
 
   // The fixture has already loaded the SPA while signing in. Navigate away so
   // the public URL is handled as a fresh link visit rather than a hash-only
@@ -351,7 +366,9 @@ test("public tree link — signed-in visitor opens the linked tree normally", as
 
   await expect(adminPage.getByText("SignedInPublicPerson")).toBeVisible();
   await expect(
-    adminPage.getByText("Read-only view — log in to explore the full interactive tree."),
+    adminPage.getByText(
+      "Read-only view — log in to explore the full interactive tree.",
+    ),
   ).not.toBeVisible();
 });
 

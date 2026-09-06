@@ -289,5 +289,9 @@ class MigrationIdempotencyKey(Base):
     phase: Mapped[str] = mapped_column(String(20), primary_key=True)
     key: Mapped[str] = mapped_column(String(255), primary_key=True)
     target_type: Mapped[str] = mapped_column(String(30))
-    target_id: Mapped[str] = mapped_column(String(36))
+    # Wide enough for a prefixed id like SavedView's ("sv_" + uuid, 39 chars),
+    # not just a bare uuid (#992 — this truncated on every real Postgres
+    # virtual-view conversion; SQLite silently ignores VARCHAR length, which
+    # is why it went unnoticed until real-Postgres migration coverage).
+    target_id: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[str] = mapped_column(String(40), default=utcnow_iso)

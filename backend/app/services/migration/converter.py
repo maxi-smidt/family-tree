@@ -865,9 +865,16 @@ def _convert_virtual_views(
             }
             dropped.append(info)
             by_owner[view.owner_id]["dropped"].append(info)
+            # Also notify any *other* owner whose workspace this view spanned
+            # (a friend's tree used to compose it) — but only once each, and
+            # never re-add the view owner's own copy above (#992: the common
+            # case is every source sharing the view's owner, which duplicated
+            # this entry once per source workspace).
+            notified_owners = {view.owner_id}
             for sid in source_ids:
                 target_ws = db.get(Workspace, workspace_target.get(sid, sid))
-                if target_ws is not None:
+                if target_ws is not None and target_ws.owner_id not in notified_owners:
+                    notified_owners.add(target_ws.owner_id)
                     by_owner[target_ws.owner_id]["dropped"].append(info)
             continue
 

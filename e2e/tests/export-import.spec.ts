@@ -6,7 +6,11 @@
 
 import { test, expect } from "../fixtures";
 import { seedMinimalFamily, deleteTree } from "../fixtures/seed";
-import { waitForJob } from "../fixtures/api";
+import {
+  CURRENT_SCHEMA_EPOCH,
+  SCHEMA_EPOCH_HEADER,
+  waitForJob,
+} from "../fixtures/api";
 import { API_URL } from "../playwright.config";
 
 // ---------------------------------------------------------------------------
@@ -23,6 +27,7 @@ async function exportTree(
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
+      [SCHEMA_EPOCH_HEADER]: CURRENT_SCHEMA_EPOCH,
     },
     body: JSON.stringify({ password: password || null }),
   });
@@ -49,7 +54,10 @@ async function importBundle(
 
   const importRes = await fetch(`${API_URL}/workspaces/import`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
+    headers: {
+      Authorization: `Bearer ${token}`,
+      [SCHEMA_EPOCH_HEADER]: CURRENT_SCHEMA_EPOCH,
+    },
     body: form,
   });
   expect(importRes.status).toBe(202);
@@ -121,7 +129,10 @@ test("import inspect — returns bundle metadata without committing", async ({
 
   const inspectRes = await fetch(`${API_URL}/workspaces/import/inspect`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${adminApi.token}` },
+    headers: {
+      Authorization: `Bearer ${adminApi.token}`,
+      [SCHEMA_EPOCH_HEADER]: CURRENT_SCHEMA_EPOCH,
+    },
     body: formData,
   });
   expect(inspectRes.ok).toBe(true);
@@ -189,7 +200,10 @@ test("encrypted export — wrong passphrase is rejected", async ({
 
   const importRes = await fetch(`${API_URL}/workspaces/import`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${adminApi.token}` },
+    headers: {
+      Authorization: `Bearer ${adminApi.token}`,
+      [SCHEMA_EPOCH_HEADER]: CURRENT_SCHEMA_EPOCH,
+    },
     body: form,
   });
   // Should fail — wrong key
@@ -231,7 +245,10 @@ test("GEDCOM import — members are created from .ged file", async ({
 
     const importRes = await fetch(`${API_URL}/workspaces/import-gedcom`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${adminApi.token}` },
+      headers: {
+        Authorization: `Bearer ${adminApi.token}`,
+        [SCHEMA_EPOCH_HEADER]: CURRENT_SCHEMA_EPOCH,
+      },
       body: form,
     });
     expect(importRes.status).toBe(202);
