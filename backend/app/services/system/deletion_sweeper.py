@@ -19,6 +19,7 @@ from app.core.config import settings
 from app.db.advisory_lock import single_leader
 from app.db.session import SessionLocal
 from app.services.event_bus import admin_user_ids, event_bus
+from app.services.identity_link_claims import expire_stale_claims
 from app.services.identity_links import expire_stale_proposals
 from app.services.media.storage import MEDIA_TRASH_TTL_SECONDS, purge_expired_media_trash
 from app.services.system.user_purge import purge_due_users
@@ -45,6 +46,9 @@ def _run_sweep_once() -> None:
         expired_links = expire_stale_proposals(db)
         if expired_links > 0:
             logger.info("Expired %d stale identity-link proposal(s)", expired_links)
+        expired_claims = expire_stale_claims(db)
+        if expired_claims > 0:
+            logger.info("Expired %d stale identity-link claim(s)", expired_claims)
 
 
 def _sweep_if_leader() -> None:

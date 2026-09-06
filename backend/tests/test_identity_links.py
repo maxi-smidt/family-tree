@@ -19,6 +19,7 @@ from app.services.identity_links import (
     get_link_between,
     is_blocked,
     list_links_for_member,
+    list_links_for_workspace,
     propose_link,
     reject_link,
     repoint_identity_links_for_merge,
@@ -379,6 +380,30 @@ def test_counterpart_is_visible_with_read_access(db):
     assert out.counterpart.member_id == member_b.id
 
 
+# --- list for workspace ------------------------------------------------------
+
+
+def test_list_for_workspace_returns_every_link_touching_it(db):
+    owner_a, owner_b, tree_a, tree_b, member_a, member_b = _cross_owner_pair(db)
+    other_member = add_member(db, tree_a, "other", first_name="Other")
+    other_tree = make_tree(db, owner_b, "C")
+    other_target = add_member(db, other_tree, "ot", first_name="Target")
+    share(db, other_tree, owner_a, role="viewer")
+    propose_link(db, owner_a, tree_a, member_a, tree_b, member_b)
+    propose_link(db, owner_a, tree_a, other_member, other_tree, other_target)
+
+    out = list_links_for_workspace(db, owner_a, tree_a)
+    assert {o.self.member_id for o in out} == {member_a.id, other_member.id}
+
+
+def test_list_for_workspace_is_empty_for_an_unrelated_workspace(db):
+    owner_a, owner_b, tree_a, tree_b, member_a, member_b = _cross_owner_pair(db)
+    propose_link(db, owner_a, tree_a, member_a, tree_b, member_b)
+    unrelated = make_tree(db, owner_a, "C")
+
+    assert list_links_for_workspace(db, owner_a, unrelated) == []
+
+
 # --- member merge repoint --------------------------------------------------------
 
 
@@ -438,3 +463,21 @@ def test_propose_route_gives_identical_responses_for_missing_and_hidden_targets(
 
     assert resp_missing.status_code == resp_hidden.status_code == 403
     assert resp_missing.json() == resp_hidden.json()
+
+
+def test_list_workspace_route_requires_the_owner(client, db):
+    owner = make_user(db, "alice")
+    editor = make_user(db, "carol")
+    tree = make_tree(db, owner)
+    share(db, tree, editor, role="editor")
+
+    resp = client.get(
+        f"{API}/workspaces/{tree.id}/identity-links", headers=auth(editor)
+    )
+    assert resp.status_code == 403
+
+    resp = client.get(
+        f"{API}/workspaces/{tree.id}/identity-links", headers=auth(owner)
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {"links": []}

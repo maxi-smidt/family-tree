@@ -431,7 +431,8 @@
       "database-management": "Tree Management",
       "friends": "Friends",
       "map": "Map",
-      "migration-review": "Migration Review"
+      "migration-review": "Migration Review",
+      "identity-links": "Identity Links"
     },
     "no-database-placeholder": {
       "title": "No Trees Yet",
@@ -859,6 +860,43 @@
       "tab-write": "Write",
       "tab-preview": "Preview",
       "preview-empty": "Nothing to preview yet."
+    },
+    "identity-links": {
+      "title": "Identity Links",
+      "propose": "Propose link",
+      "none": "No identity links yet.",
+      "unnamed-member": "Unnamed member",
+      "protected-counterpart": "Linked member (access restricted)",
+      "basis-legacy": "Migrated — not mutually verified",
+      "go-to-member": "Go to member",
+      "revoke": "Revoke",
+      "approve": "Approve",
+      "reject-or-cancel": "Decline",
+      "status-pending": "Pending",
+      "status-invited": "Invited",
+      "claim-to": "Invited {{username}} to confirm",
+      "confirm-revoke-title": "Revoke this identity link?",
+      "confirm-revoke-description": "This only undoes the identity assertion — no records are changed or removed.",
+      "confirm-reject-title": "Decline this identity link?",
+      "confirm-reject-description": "The other side can propose it again later.",
+      "confirm-cancel": "Cancel",
+      "action-error": "Something went wrong. Please try again.",
+      "propose-dialog": {
+        "title": "Propose an identity link for {{name}}",
+        "description": "Link this member to the same person in another family tree.",
+        "tab-search": "Search",
+        "tab-invite": "Invite a friend",
+        "search-placeholder": "Search other trees by name",
+        "no-results": "No matches found.",
+        "propose-success": "Identity link proposed.",
+        "propose-error": "Couldn't propose the identity link.",
+        "invite-description": "Can't find them? If you're friends, invite them to pick the matching member themselves — you'll never see their tree.",
+        "username-placeholder": "Friend's username",
+        "note-placeholder": "Optional note to help them recognize the match",
+        "invite-submit": "Send invitation",
+        "invite-success": "Invitation sent.",
+        "invite-error": "Couldn't send the invitation."
+      }
     }
   },
   "tree-view": {
@@ -2048,7 +2086,12 @@
       "tree_unshared": "Access to \"{{tree_name}}\" was removed",
       "invitation_received": "You've been invited to \"{{tree_name}}\"",
       "migration_report_ready": "Your v2 migration report is ready to review",
-      "migration_conflict_pending": "A migration item needs your review"
+      "migration_conflict_pending": "A migration item needs your review",
+      "identity_link_proposed": "{{proposer_username}} proposed an identity link in \"{{workspace_name}}\"",
+      "identity_link_decided": "An identity link in \"{{workspace_name}}\" was {{status}}",
+      "identity_link_legacy_migrated": "A migrated identity link in \"{{workspace_name}}\" needs review",
+      "identity_link_claim_received": "{{proposer_username}} thinks their member \"{{source_display_name}}\" may be the same person as one of yours",
+      "identity_link_claim_decided": "Your identity link claim was {{status}}"
     }
   },
   "migration-review-view": {
@@ -2247,6 +2290,49 @@
       "confirming": "Adding…",
       "error": "Could not update section membership.",
       "read-only": "Read-only for you"
+    }
+  },
+  "identity-links-view": {
+    "title": "Identity Links",
+    "tab-links": "Links",
+    "tab-claims": "Claims",
+    "no-tree-selected": "Open a family tree to review its identity links.",
+    "owner-only": "Only the tree's owner can review its identity links.",
+    "pending-links": "Awaiting a decision",
+    "no-pending-links": "No pending identity links.",
+    "verified-links": "Verified",
+    "no-verified-links": "No verified identity links yet.",
+    "unnamed-member": "Unnamed member",
+    "protected-counterpart": "Linked member (access restricted)",
+    "approve": "Approve",
+    "reject-or-cancel": "Decline",
+    "revoke": "Revoke",
+    "incoming-claims": "Incoming",
+    "no-incoming-claims": "No incoming claims",
+    "incoming-claims-description": "When a friend thinks one of their members is the same person as one of yours, it shows up here.",
+    "outgoing-claims": "Outgoing",
+    "no-outgoing-claims": "You haven't invited anyone to confirm a match.",
+    "claim-from": "{{username}} thinks this is someone in your tree",
+    "claim-to": "Invited {{username}}",
+    "claim-status-pending": "Waiting for a response",
+    "claim-status-completed": "Confirmed",
+    "claim-status-declined": "Declined",
+    "claim-status-cancelled": "Cancelled",
+    "claim-status-expired": "Expired",
+    "choose-member": "Choose my member",
+    "decline": "Decline",
+    "confirm-decline-title": "Decline this claim?",
+    "confirm-decline-description": "The proposer will be notified. They can invite you again later.",
+    "confirm-cancel": "Cancel",
+    "action-error": "Something went wrong. Please try again.",
+    "complete-dialog": {
+      "title": "Which of your members is {{username}} referring to?",
+      "description": "Pick the workspace and member this claim resolves to. Nothing is shared until you choose.",
+      "workspace-placeholder": "Choose a tree you own",
+      "search-placeholder": "Search members by name",
+      "no-results": "No matches found.",
+      "success": "Identity link created.",
+      "error": "Couldn't complete the claim."
     }
   }
 }

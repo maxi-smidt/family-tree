@@ -431,7 +431,8 @@
       "database-management": "Stammbaumverwaltung",
       "friends": "Freunde",
       "map": "Karte",
-      "migration-review": "Migrationsüberprüfung"
+      "migration-review": "Migrationsüberprüfung",
+      "identity-links": "Identitätsverknüpfungen"
     },
     "no-database-placeholder": {
       "title": "Noch keine Stammbäume",
@@ -859,6 +860,43 @@
       "tab-write": "Schreiben",
       "tab-preview": "Vorschau",
       "preview-empty": "Noch nichts zum Anzeigen."
+    },
+    "identity-links": {
+      "title": "Identitätsverknüpfungen",
+      "propose": "Verknüpfung vorschlagen",
+      "none": "Noch keine Identitätsverknüpfungen.",
+      "unnamed-member": "Unbenannte Person",
+      "protected-counterpart": "Verknüpfte Person (Zugriff eingeschränkt)",
+      "basis-legacy": "Migriert — nicht gegenseitig bestätigt",
+      "go-to-member": "Zur Person wechseln",
+      "revoke": "Widerrufen",
+      "approve": "Bestätigen",
+      "reject-or-cancel": "Ablehnen",
+      "status-pending": "Ausstehend",
+      "status-invited": "Eingeladen",
+      "claim-to": "{{username}} zur Bestätigung eingeladen",
+      "confirm-revoke-title": "Diese Identitätsverknüpfung widerrufen?",
+      "confirm-revoke-description": "Dies hebt nur die Identitätszuordnung auf — keine Daten werden verändert oder entfernt.",
+      "confirm-reject-title": "Diese Identitätsverknüpfung ablehnen?",
+      "confirm-reject-description": "Die andere Seite kann sie später erneut vorschlagen.",
+      "confirm-cancel": "Abbrechen",
+      "action-error": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
+      "propose-dialog": {
+        "title": "Identitätsverknüpfung für {{name}} vorschlagen",
+        "description": "Verknüpfe diese Person mit derselben Person in einem anderen Stammbaum.",
+        "tab-search": "Suchen",
+        "tab-invite": "Freund einladen",
+        "search-placeholder": "Andere Stammbäume nach Namen durchsuchen",
+        "no-results": "Keine Treffer gefunden.",
+        "propose-success": "Identitätsverknüpfung vorgeschlagen.",
+        "propose-error": "Die Identitätsverknüpfung konnte nicht vorgeschlagen werden.",
+        "invite-description": "Nicht gefunden? Wenn ihr befreundet seid, lade die Person ein, die passende Person selbst auszuwählen — du siehst ihren Stammbaum nie.",
+        "username-placeholder": "Benutzername des Freundes",
+        "note-placeholder": "Optionaler Hinweis zur Wiedererkennung",
+        "invite-submit": "Einladung senden",
+        "invite-success": "Einladung gesendet.",
+        "invite-error": "Die Einladung konnte nicht gesendet werden."
+      }
     }
   },
   "tree-view": {
@@ -2048,7 +2086,12 @@
       "tree_unshared": "Der Zugriff auf \"{{tree_name}}\" wurde entzogen",
       "invitation_received": "Du wurdest zu \"{{tree_name}}\" eingeladen",
       "migration_report_ready": "Dein v2-Migrationsbericht ist bereit zur Überprüfung",
-      "migration_conflict_pending": "Ein Migrationseintrag benötigt deine Überprüfung"
+      "migration_conflict_pending": "Ein Migrationseintrag benötigt deine Überprüfung",
+      "identity_link_proposed": "{{proposer_username}} hat eine Identitätsverknüpfung in \"{{workspace_name}}\" vorgeschlagen",
+      "identity_link_decided": "Eine Identitätsverknüpfung in \"{{workspace_name}}\" wurde {{status}}",
+      "identity_link_legacy_migrated": "Eine migrierte Identitätsverknüpfung in \"{{workspace_name}}\" muss überprüft werden",
+      "identity_link_claim_received": "{{proposer_username}} vermutet, dass \"{{source_display_name}}\" dieselbe Person wie eine deiner Personen ist",
+      "identity_link_claim_decided": "Deine Identitätsverknüpfungsanfrage wurde {{status}}"
     }
   },
   "migration-review-view": {
@@ -2247,6 +2290,49 @@
       "confirming": "Wird hinzugefügt…",
       "error": "Die Bereichsmitgliedschaft konnte nicht aktualisiert werden.",
       "read-only": "Für dich nur lesbar"
+    }
+  },
+  "identity-links-view": {
+    "title": "Identitätsverknüpfungen",
+    "tab-links": "Verknüpfungen",
+    "tab-claims": "Anfragen",
+    "no-tree-selected": "Öffne einen Stammbaum, um dessen Identitätsverknüpfungen zu überprüfen.",
+    "owner-only": "Nur der Eigentümer des Stammbaums kann dessen Identitätsverknüpfungen überprüfen.",
+    "pending-links": "Ausstehende Entscheidung",
+    "no-pending-links": "Keine ausstehenden Identitätsverknüpfungen.",
+    "verified-links": "Bestätigt",
+    "no-verified-links": "Noch keine bestätigten Identitätsverknüpfungen.",
+    "unnamed-member": "Unbenannte Person",
+    "protected-counterpart": "Verknüpfte Person (Zugriff eingeschränkt)",
+    "approve": "Bestätigen",
+    "reject-or-cancel": "Ablehnen",
+    "revoke": "Widerrufen",
+    "incoming-claims": "Eingehend",
+    "no-incoming-claims": "Keine eingehenden Anfragen",
+    "incoming-claims-description": "Wenn ein Freund vermutet, dass eine seiner Personen dieselbe wie eine deiner Personen ist, erscheint das hier.",
+    "outgoing-claims": "Ausgehend",
+    "no-outgoing-claims": "Du hast noch niemanden zur Bestätigung eingeladen.",
+    "claim-from": "{{username}} vermutet, dass dies jemand in deinem Stammbaum ist",
+    "claim-to": "{{username}} eingeladen",
+    "claim-status-pending": "Wartet auf Antwort",
+    "claim-status-completed": "Bestätigt",
+    "claim-status-declined": "Abgelehnt",
+    "claim-status-cancelled": "Storniert",
+    "claim-status-expired": "Abgelaufen",
+    "choose-member": "Meine Person auswählen",
+    "decline": "Ablehnen",
+    "confirm-decline-title": "Diese Anfrage ablehnen?",
+    "confirm-decline-description": "Die vorschlagende Person wird benachrichtigt. Sie kann dich später erneut einladen.",
+    "confirm-cancel": "Abbrechen",
+    "action-error": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
+    "complete-dialog": {
+      "title": "Auf welche deiner Personen bezieht sich {{username}}?",
+      "description": "Wähle den Stammbaum und die Person, auf die sich diese Anfrage bezieht. Es wird nichts geteilt, bevor du auswählst.",
+      "workspace-placeholder": "Wähle einen Stammbaum, den du besitzt",
+      "search-placeholder": "Personen nach Namen suchen",
+      "no-results": "Keine Treffer gefunden.",
+      "success": "Identitätsverknüpfung erstellt.",
+      "error": "Die Anfrage konnte nicht abgeschlossen werden."
     }
   }
 }

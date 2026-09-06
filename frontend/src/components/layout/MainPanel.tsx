@@ -70,6 +70,11 @@ const MigrationReviewView = lazy(() =>
     (m) => ({ default: m.MigrationReviewView }),
   ),
 );
+const IdentityLinksView = lazy(() =>
+  import("@/components/view/identity-links-view/IdentityLinksView").then(
+    (m) => ({ default: m.IdentityLinksView }),
+  ),
+);
 import {
   Select,
   SelectContent,
@@ -82,6 +87,10 @@ import { useUnsavedChangesStore } from "@/hooks/useUnsavedChangesStore";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { useFriendStore, useIncomingFriendCount } from "@/hooks/useFriendStore";
 import {
+  useIdentityLinkStore,
+  useIncomingIdentityClaimCount,
+} from "@/hooks/useIdentityLinkStore";
+import {
   useMigrationReviewStore,
   usePendingMigrationReviewCount,
 } from "@/hooks/useMigrationReviewStore";
@@ -92,6 +101,7 @@ import { LEGAL_DEFAULT_LOCALE } from "@/lib/legalLocale";
 import {
   DATABASE_MANAGEMENT_VIEW,
   FRIENDS_VIEW,
+  IDENTITY_LINKS_VIEW,
   MEDIA_VIEW,
   MIGRATION_REVIEW_VIEW,
   TREE_VIEW,
@@ -114,6 +124,7 @@ const NO_TREE_VIEWS: ViewId[] = [
   DATABASE_MANAGEMENT_VIEW,
   FRIENDS_VIEW,
   MIGRATION_REVIEW_VIEW,
+  IDENTITY_LINKS_VIEW,
 ];
 
 const VIEW_COMPONENTS: Omit<Record<ViewId, React.ReactNode>, "media-view"> = {
@@ -127,6 +138,7 @@ const VIEW_COMPONENTS: Omit<Record<ViewId, React.ReactNode>, "media-view"> = {
   "database-management-view": <DatabaseManagementView />,
   "friends-view": <FriendsView />,
   "migration-review-view": <MigrationReviewView />,
+  "identity-links-view": <IdentityLinksView />,
 };
 
 const MANAGEMENT_VIEWS = new Set<ViewId>(["database-management-view"]);
@@ -201,6 +213,8 @@ export const MainPanel = () => {
   const incomingFriendCount = useIncomingFriendCount();
   const loadMigrationReview = useMigrationReviewStore((s) => s.load);
   const pendingMigrationCount = usePendingMigrationReviewCount();
+  const loadIdentityClaimInbox = useIdentityLinkStore((s) => s.loadClaimInbox);
+  const incomingIdentityClaimCount = useIncomingIdentityClaimCount();
 
   useEffect(() => {
     if (user) load();
@@ -249,6 +263,11 @@ export const MainPanel = () => {
     if (user) void loadMigrationReview();
   }, [user, loadMigrationReview]);
 
+  // Keep the Identity Links tab badge accurate without opening the tab.
+  useEffect(() => {
+    if (user) void loadIdentityClaimInbox();
+  }, [user, loadIdentityClaimInbox]);
+
   const selectedTree = useWorkspaceStore((s) => s.selectedTree);
   const restrictions = selectedTree?.restrictions ?? [];
   const galleryAvailable = !restrictions.includes("gallery");
@@ -284,6 +303,7 @@ export const MainPanel = () => {
     "database-management-view": t("database-management"),
     "friends-view": t("friends"),
     "migration-review-view": t("migration-review"),
+    "identity-links-view": t("identity-links"),
   };
   const selectMediaSection = (section: MediaSection) => {
     guardNavigate(() => {
@@ -398,6 +418,12 @@ export const MainPanel = () => {
                   pendingMigrationCount > 0 && (
                     <Badge variant="default" className="ml-1.5 px-1.5 shrink-0">
                       {pendingMigrationCount}
+                    </Badge>
+                  )}
+                {view === IDENTITY_LINKS_VIEW &&
+                  incomingIdentityClaimCount > 0 && (
+                    <Badge variant="default" className="ml-1.5 px-1.5 shrink-0">
+                      {incomingIdentityClaimCount}
                     </Badge>
                   )}
               </TabsTrigger>

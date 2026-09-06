@@ -30,6 +30,7 @@ import { Gender, Member } from "@/types/member";
 import { GalleryImage } from "@/types/gallery";
 import { ImageCropDialog } from "@/components/shared/member-sheet/dialog/ImageCropDialog";
 import { GalleryPickerDialog } from "@/components/shared/member-sheet/dialog/GalleryPickerDialog";
+import { IdentityLinksPanel } from "@/components/shared/member-sheet/IdentityLinksPanel";
 import { fetchMediaObjectUrl } from "@/hooks/useMediaUrl";
 import { toast } from "sonner";
 import debounce from "lodash.debounce";
@@ -108,7 +109,9 @@ export const EditMode = ({
   });
   const { updateMemberPartial, members } = useMemberStore();
   const { galleryImages } = useGalleryStore();
-  const restrictions = useWorkspaceStore((s) => s.selectedTree?.restrictions ?? []);
+  const restrictions = useWorkspaceStore(
+    (s) => s.selectedTree?.restrictions ?? [],
+  );
   const currentTreeId = useWorkspaceStore((s) => s.selectedTree?.id);
   const eventsEnabled = !restrictions.includes("events");
   const storiesEnabled = !restrictions.includes("stories");
@@ -765,6 +768,12 @@ export const EditMode = ({
                 />
               </Field>
             </FieldGroup>
+
+            {!isNew && (
+              <div className="mt-4 pt-4 border-t">
+                <IdentityLinksPanel member={member} />
+              </div>
+            )}
           </TabsContent>
 
           {/* Life tab */}

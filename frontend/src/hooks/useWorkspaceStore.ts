@@ -23,6 +23,7 @@ import { useQualityReportStore } from "@/hooks/useQualityReportStore";
 import { useStorageStore } from "@/hooks/useStorageStore";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import { useSectionStore } from "@/hooks/useSectionStore";
+import { useIdentityLinkStore } from "@/hooks/useIdentityLinkStore";
 import { useSavedViewStore } from "@/hooks/useSavedViewStore";
 import { useWorkspaceNavStore } from "@/hooks/useWorkspaceNavStore";
 
@@ -73,9 +74,18 @@ interface DatabaseState {
 
   loadTrees: () => Promise<void>;
   openTreeById: (workspaceId: string) => Promise<Workspace>;
-  openTreeAndLocateMember: (workspaceId: string, memberId: string) => Promise<void>;
-  unlockPublicTree: (workspaceId: string, password: string) => Promise<Workspace>;
-  createTree: (name: string, options?: { select?: boolean }) => Promise<Workspace>;
+  openTreeAndLocateMember: (
+    workspaceId: string,
+    memberId: string,
+  ) => Promise<void>;
+  unlockPublicTree: (
+    workspaceId: string,
+    password: string,
+  ) => Promise<Workspace>;
+  createTree: (
+    name: string,
+    options?: { select?: boolean },
+  ) => Promise<Workspace>;
   navigateToTreeStack: (index: number) => Promise<void>;
   renameTree: (tree: Workspace, name: string) => Promise<void>;
   updateTree: (tree: Workspace) => void;
@@ -109,6 +119,7 @@ const clearDataStores = () => {
   useSectionStore.getState().clear();
   useSavedViewStore.getState().clear();
   useWorkspaceNavStore.getState().clear();
+  useIdentityLinkStore.getState().clearWorkspaceScoped();
 };
 
 // Land on the most recently used remaining tree (the API sorts by
@@ -238,7 +249,9 @@ export const useWorkspaceStore = create<DatabaseState>((set, get) => ({
   },
 
   renameTree: async (tree: Workspace, name: string) => {
-    const updated = await api.patch<Workspace>(`/workspaces/${tree.id}`, { name });
+    const updated = await api.patch<Workspace>(`/workspaces/${tree.id}`, {
+      name,
+    });
     set((s) => ({
       workspaces: s.workspaces.map((t) => (t.id === tree.id ? updated : t)),
       selectedTree: s.selectedTree?.id === tree.id ? updated : s.selectedTree,

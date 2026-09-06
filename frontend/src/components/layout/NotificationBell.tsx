@@ -15,7 +15,11 @@ import { formatDate } from "@/utils/dateUtils";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useNotificationStore } from "@/hooks/useNotificationStore";
-import { FRIENDS_VIEW, MIGRATION_REVIEW_VIEW } from "@/lib/tabs";
+import {
+  FRIENDS_VIEW,
+  IDENTITY_LINKS_VIEW,
+  MIGRATION_REVIEW_VIEW,
+} from "@/lib/tabs";
 import { NotificationDB } from "@/types/notification";
 
 const MAX_BADGE_DISPLAY = 9;
@@ -31,6 +35,21 @@ function navigateForNotification(n: NotificationDB): void {
     case "migration_conflict_pending":
       useNavigationStore.getState().navigateTo(MIGRATION_REVIEW_VIEW);
       break;
+    case "identity_link_claim_received":
+    case "identity_link_claim_decided":
+      useNavigationStore.getState().navigateTo(IDENTITY_LINKS_VIEW);
+      break;
+    case "identity_link_proposed":
+    case "identity_link_decided":
+    case "identity_link_legacy_migrated": {
+      const workspaceId = String(n.payload?.workspace_id);
+      if (useWorkspaceStore.getState().selectedTree?.id === workspaceId) break;
+      void useWorkspaceStore
+        .getState()
+        .openTreeById(workspaceId)
+        .catch(() => toast.error(i18n.t("tree-view.search.open-error")));
+      break;
+    }
     case "tree_shared": {
       const workspaceId = String(n.payload?.workspace_id);
       const previousTree = useWorkspaceStore.getState().selectedTree;

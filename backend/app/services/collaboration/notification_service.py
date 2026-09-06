@@ -16,6 +16,8 @@ from app.models import Notification
 from app.schemas.notification import (
     FriendRequestAcceptedPayload,
     FriendRequestReceivedPayload,
+    IdentityLinkClaimDecidedPayload,
+    IdentityLinkClaimReceivedPayload,
     IdentityLinkDecidedPayload,
     IdentityLinkLegacyMigratedPayload,
     IdentityLinkProposedPayload,
@@ -94,6 +96,20 @@ def create_notification(
     user_id: str,
     type: Literal["identity_link_decided"],
     payload: IdentityLinkDecidedPayload,
+) -> None: ...
+@overload
+def create_notification(
+    db: Session,
+    user_id: str,
+    type: Literal["identity_link_claim_received"],
+    payload: IdentityLinkClaimReceivedPayload,
+) -> None: ...
+@overload
+def create_notification(
+    db: Session,
+    user_id: str,
+    type: Literal["identity_link_claim_decided"],
+    payload: IdentityLinkClaimDecidedPayload,
 ) -> None: ...
 @overload
 def create_notification(
