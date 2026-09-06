@@ -126,12 +126,12 @@ describe("MainPanel", () => {
     });
   });
 
-  it("keeps Tree, Tree Management, and Friends visible for a fresh account", () => {
+  it("keeps Tree, Workspace Management, and Friends visible for a fresh account", () => {
     render(<MainPanel />);
 
     expect(screen.getByRole("tab", { name: "Tree" })).toBeInTheDocument();
     expect(
-      screen.getByRole("tab", { name: "Tree Management" }),
+      screen.getByRole("tab", { name: "Workspace Management" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Friends" })).toBeInTheDocument();
 
