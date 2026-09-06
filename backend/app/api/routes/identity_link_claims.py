@@ -23,7 +23,7 @@ from app.core.rate_limit import (
 )
 from app.core.request_ip import client_ip
 from app.db.session import get_db
-from app.models import Member, Workspace
+from app.models import Workspace
 from app.models.identity_link_claim import IdentityLinkClaim
 from app.models.user import User
 from app.schemas.identity_link import (
@@ -49,18 +49,6 @@ from app.services.members.member_access import get_member
 from app.services.workspaces.visibility import WorkspaceAccessContext
 
 router = APIRouter(tags=["identity-link-claims"])
-
-
-def _get_claim_for_source(
-    db: Session, tree: Workspace, claim_id: str
-) -> IdentityLinkClaim:
-    claim = db.get(IdentityLinkClaim, claim_id)
-    if claim is None:
-        raise NotFoundError("Identity link claim not found")
-    member = db.get(Member, claim.source_member_id)
-    if member is None or member.workspace_id != tree.id:
-        raise NotFoundError("Identity link claim not found")
-    return claim
 
 
 @router.post(
@@ -122,16 +110,22 @@ def list_member_identity_link_claims(
 
 
 @router.post(
-    "/workspaces/{workspace_id}/identity-link-claims/{claim_id}/cancel",
+    "/identity-link-claims/{claim_id}/cancel",
     response_model=IdentityLinkClaimOut,
 )
 def cancel_identity_link_claim(
     claim_id: str,
-    tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    claim = _get_claim_for_source(db, tree, claim_id)
+    """The proposer's own action — deliberately not scoped through any
+    workspace dependency (unlike propose/list above), so cancelling a claim
+    still works after losing write access to the source workspace; the
+    lifecycle check that only the proposer (or an admin) may cancel is
+    `cancel_claim`'s job, not a route-level access guard."""
+    claim = db.get(IdentityLinkClaim, claim_id)
+    if claim is None or (claim.proposed_by != user.id and not user.is_admin):
+        raise NotFoundError("Identity link claim not found")
     claim = cancel_claim(db, user, claim)
     return to_claim_out(db, claim)
 

@@ -286,12 +286,7 @@ export const IdentityLinksView = () => {
                         variant="ghost"
                         size="sm"
                         onClick={() =>
-                          void run(() =>
-                            cancelOutgoingClaim(
-                              claim.source_workspace_id,
-                              claim.id,
-                            ),
-                          )
+                          void run(() => cancelOutgoingClaim(claim.id))
                         }
                       >
                         {t("reject-or-cancel")}

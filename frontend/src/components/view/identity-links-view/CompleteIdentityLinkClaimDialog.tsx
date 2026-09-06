@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/select";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useIdentityLinkStore } from "@/hooks/useIdentityLinkStore";
-import { WorkspaceService } from "@/services/WorkspaceService";
+import { useMemberStore } from "@/hooks/useMemberStore";
 import { IdentityLinkClaim } from "@/types/identityLink";
 import { MemberDB } from "@/types/member";
 
@@ -41,6 +41,7 @@ export const CompleteIdentityLinkClaimDialog = ({
     s.workspaces.filter((w) => w.role === "owner"),
   );
   const completeClaim = useIdentityLinkStore((s) => s.completeClaim);
+  const searchMembers = useMemberStore((s) => s.searchMembers);
 
   const [workspaceId, setWorkspaceId] = useState<string>("");
   const [query, setQuery] = useState("");
@@ -64,12 +65,12 @@ export const CompleteIdentityLinkClaimDialog = ({
     }
     setSearching(true);
     const handle = setTimeout(() => {
-      void WorkspaceService.searchMembers(workspaceId, term)
+      void searchMembers(workspaceId, term)
         .then(setResults)
         .finally(() => setSearching(false));
     }, 300);
     return () => clearTimeout(handle);
-  }, [workspaceId, query]);
+  }, [workspaceId, query, searchMembers]);
 
   if (!claim) return null;
 

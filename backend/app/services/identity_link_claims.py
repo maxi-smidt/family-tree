@@ -17,6 +17,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import StaleDataError
 
@@ -45,6 +46,7 @@ from app.services.identity_links import (
     _canonical_pair,
     _display_name,
     _notify_decision,
+    _notify_pending_owners,
     _record_event,
     get_link_between,
 )
@@ -123,17 +125,23 @@ def propose_claim(
     ):
         raise AccessDeniedError("Cannot propose an identity link claim to this user")
 
-    existing = db.scalar(
-        select(IdentityLinkClaim).where(
-            IdentityLinkClaim.source_member_id == source_member.id,
-            IdentityLinkClaim.target_user_id == target_user.id,
-            IdentityLinkClaim.status == IdentityLinkClaimStatus.PENDING,
+    def _find_pending(db: Session) -> IdentityLinkClaim | None:
+        return db.scalar(
+            select(IdentityLinkClaim).where(
+                IdentityLinkClaim.source_member_id == source_member.id,
+                IdentityLinkClaim.target_user_id == target_user.id,
+                IdentityLinkClaim.status == IdentityLinkClaimStatus.PENDING,
+            )
         )
-    )
-    now = utcnow_iso()
-    is_owner = actor.is_admin or role_for(db, source_workspace, actor) == "owner"
 
-    if existing is not None:
+    def _refresh(db: Session, existing: IdentityLinkClaim, now: str) -> IdentityLinkClaim:
+        if existing.proposed_by != actor.id:
+            # Someone else already has a pending claim for this exact pair —
+            # refreshing it would let a second proposer silently rewrite
+            # another user's note/expiry under the first proposer's name.
+            raise ConflictError(
+                "An identity link claim to this user is already pending"
+            )
         existing.note = note
         existing.expires_at = _expiry(now)
         with UnitOfWork(db):
@@ -141,6 +149,12 @@ def propose_claim(
         db.refresh(existing)
         return existing
 
+    existing = _find_pending(db)
+    now = utcnow_iso()
+    if existing is not None:
+        return _refresh(db, existing, now)
+
+    is_owner = actor.is_admin or role_for(db, source_workspace, actor) == "owner"
     claim = IdentityLinkClaim(
         id=new_uuid(),
         source_member_id=source_member.id,
@@ -154,21 +168,32 @@ def propose_claim(
         expires_at=_expiry(now),
     )
 
-    with UnitOfWork(db) as uow:
-        db.add(claim)
-        db.flush()
-        uow.after_commit(
-            lambda: create_notification(
-                db,
-                target_user.id,
-                "identity_link_claim_received",
-                IdentityLinkClaimReceivedPayload(
-                    identity_link_claim_id=claim.id,
-                    proposer_username=actor.username,
-                    source_display_name=_display_name(source_member),
-                ),
+    try:
+        with UnitOfWork(db) as uow:
+            db.add(claim)
+            db.flush()
+            uow.after_commit(
+                lambda: create_notification(
+                    db,
+                    target_user.id,
+                    "identity_link_claim_received",
+                    IdentityLinkClaimReceivedPayload(
+                        identity_link_claim_id=claim.id,
+                        proposer_username=actor.username,
+                        source_display_name=_display_name(source_member),
+                    ),
+                )
             )
-        )
+    except IntegrityError as exc:
+        # Lost a race against another concurrent propose_claim for the same
+        # pair (see the partial unique index on the model) — replay the
+        # winner's row instead of surfacing a raw DB error.
+        replay = _find_pending(db)
+        if replay is not None:
+            return _refresh(db, replay, utcnow_iso())
+        raise ConflictError(
+            "An identity link claim to this user is already pending"
+        ) from exc
     db.refresh(claim)
     return claim
 
@@ -242,8 +267,19 @@ def decline_claim(
     claim.decided_at = utcnow_iso()
     claim.decision_reason = reason
     try:
-        with UnitOfWork(db):
-            pass
+        with UnitOfWork(db) as uow:
+            if claim.proposed_by is not None:
+                proposer_id = claim.proposed_by
+                uow.after_commit(
+                    lambda: create_notification(
+                        db,
+                        proposer_id,
+                        "identity_link_claim_decided",
+                        IdentityLinkClaimDecidedPayload(
+                            identity_link_claim_id=claim.id, status=claim.status
+                        ),
+                    )
+                )
     except StaleDataError as exc:
         raise ConflictError(
             "Identity link claim changed concurrently; reload and retry"
@@ -370,6 +406,16 @@ def complete_claim(
                 )
             if link.status == IdentityLinkStatus.VERIFIED:
                 uow.after_commit(lambda: _notify_decision(db, link, actor.id))
+            else:
+                # The claim's implicit source-side approval only applied when
+                # its proposer owned that workspace (see propose_claim) — an
+                # editor-proposed claim still needs that owner's sign-off,
+                # same as a direct cross-owner proposal would.
+                uow.after_commit(
+                    lambda: _notify_pending_owners(
+                        db, link, actor, workspace_a, workspace_b
+                    )
+                )
     except StaleDataError as exc:
         raise ConflictError(
             "Identity link claim changed concurrently; reload and retry"

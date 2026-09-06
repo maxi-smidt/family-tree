@@ -94,12 +94,11 @@ export const IdentityLinkService = {
       .then((r) => r.claims);
   },
 
-  cancelClaim(
-    workspaceId: string,
-    claimId: string,
-  ): Promise<IdentityLinkClaim> {
+  /** The proposer's own action — not workspace-scoped, so it still works
+   *  after losing write access to the source workspace (#1014). */
+  cancelClaim(claimId: string): Promise<IdentityLinkClaim> {
     return api.post<IdentityLinkClaim>(
-      `/workspaces/${workspaceId}/identity-link-claims/${claimId}/cancel`,
+      `/identity-link-claims/${claimId}/cancel`,
       {},
     );
   },

@@ -16,7 +16,7 @@ claim and a direct proposal are indistinguishable in the link's own history.
 
 from enum import StrEnum
 
-from sqlalchemy import ForeignKey, Integer, String
+from sqlalchemy import ForeignKey, Index, Integer, String, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, new_uuid, utcnow_iso
@@ -32,6 +32,20 @@ class IdentityLinkClaimStatus(StrEnum):
 
 class IdentityLinkClaim(Base):
     __tablename__ = "identity_link_claims"
+    __table_args__ = (
+        # Enforced in the database, not just checked-then-inserted in
+        # app.services.identity_link_claims.propose_claim: two concurrent
+        # proposals for the same (source member, target user) pair must not
+        # both succeed. Partial on status so a pair can be re-proposed once
+        # its earlier claim is no longer pending.
+        Index(
+            "uq_identity_link_claim_pending",
+            "source_member_id",
+            "target_user_id",
+            unique=True,
+            postgresql_where=text("status = 'pending'"),
+        ),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
 

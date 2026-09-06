@@ -66,8 +66,9 @@ interface IdentityLinkState {
     workspaceId: string,
     memberId: string,
   ) => Promise<void>;
-  cancelOutgoingClaim: (workspaceId: string, claimId: string) => Promise<void>;
+  cancelOutgoingClaim: (claimId: string) => Promise<void>;
 
+  clearWorkspaceScoped: () => void;
   clear: () => void;
 }
 
@@ -130,7 +131,7 @@ export const useIdentityLinkStore = create<IdentityLinkState>((set, get) => ({
   },
 
   cancelClaim: async (workspaceId, memberId, claimId) => {
-    await IdentityLinkService.cancelClaim(workspaceId, claimId);
+    await IdentityLinkService.cancelClaim(claimId);
     await get().loadForMember(workspaceId, memberId);
   },
 
@@ -172,10 +173,20 @@ export const useIdentityLinkStore = create<IdentityLinkState>((set, get) => ({
     await get().loadClaimInbox();
   },
 
-  cancelOutgoingClaim: async (workspaceId, claimId) => {
-    await IdentityLinkService.cancelClaim(workspaceId, claimId);
+  cancelOutgoingClaim: async (claimId) => {
+    await IdentityLinkService.cancelClaim(claimId);
     await get().loadClaimInbox();
   },
+
+  // Workspace-scoped caches only — the global claims inbox
+  // (incoming/outgoing) belongs to the user, not the open workspace, and
+  // must survive a workspace switch (#1014).
+  clearWorkspaceScoped: () =>
+    set({
+      linksByMember: {},
+      claimsByMember: {},
+      workspaceLinks: [],
+    }),
 
   clear: () =>
     set({

@@ -58,6 +58,17 @@ describe("IdentityLinkService", () => {
     });
   });
 
+  it("cancels a claim without a workspace path segment, so it still works after losing access", async () => {
+    vi.mocked(api.post).mockResolvedValue({ id: "c1" });
+
+    await IdentityLinkService.cancelClaim("c1");
+
+    expect(api.post).toHaveBeenCalledWith(
+      "/identity-link-claims/c1/cancel",
+      {},
+    );
+  });
+
   it("unwraps the claims envelope for incoming/outgoing listings", async () => {
     vi.mocked(api.get).mockResolvedValue({ claims: [{ id: "c1" }] });
 

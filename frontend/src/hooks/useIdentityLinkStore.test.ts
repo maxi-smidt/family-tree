@@ -140,4 +140,34 @@ describe("useIdentityLinkStore", () => {
 
     expect(useIdentityLinkStore.getState().linksByMember).toEqual({});
   });
+
+  it("clearWorkspaceScoped preserves the global claims inbox across a workspace switch", async () => {
+    vi.mocked(IdentityLinkService.listForMember).mockResolvedValue([
+      link("l1"),
+    ]);
+    vi.mocked(IdentityLinkService.listClaimsForMember).mockResolvedValue([]);
+    vi.mocked(IdentityLinkService.listIncomingClaims).mockResolvedValue([
+      claim("in1"),
+    ]);
+    vi.mocked(IdentityLinkService.listOutgoingClaims).mockResolvedValue([]);
+    await useIdentityLinkStore.getState().loadForMember("w1", "m1");
+    await useIdentityLinkStore.getState().loadClaimInbox();
+
+    useIdentityLinkStore.getState().clearWorkspaceScoped();
+
+    const state = useIdentityLinkStore.getState();
+    expect(state.linksByMember).toEqual({});
+    expect(state.incomingClaims.map((c) => c.id)).toEqual(["in1"]);
+  });
+
+  it("cancelOutgoingClaim cancels by claim id alone and refreshes the inbox", async () => {
+    vi.mocked(IdentityLinkService.cancelClaim).mockResolvedValue(claim("c1"));
+    vi.mocked(IdentityLinkService.listIncomingClaims).mockResolvedValue([]);
+    vi.mocked(IdentityLinkService.listOutgoingClaims).mockResolvedValue([]);
+
+    await useIdentityLinkStore.getState().cancelOutgoingClaim("c1");
+
+    expect(IdentityLinkService.cancelClaim).toHaveBeenCalledWith("c1");
+    expect(IdentityLinkService.listIncomingClaims).toHaveBeenCalledTimes(1);
+  });
 });

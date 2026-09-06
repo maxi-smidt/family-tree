@@ -119,7 +119,7 @@ const clearDataStores = () => {
   useSectionStore.getState().clear();
   useSavedViewStore.getState().clear();
   useWorkspaceNavStore.getState().clear();
-  useIdentityLinkStore.getState().clear();
+  useIdentityLinkStore.getState().clearWorkspaceScoped();
 };
 
 // Land on the most recently used remaining tree (the API sorts by
