@@ -68,6 +68,7 @@ commit_parsers = [
     { message = "^security", group = "Security" },
     # Internal-only, never user-facing — excluded from generated notes.
     { message = "^chore", skip = true },
+    { message = "^release", skip = true },
     { message = "^typing", skip = true },
     { message = "^test", skip = true },
     { message = "^docs", skip = true },
