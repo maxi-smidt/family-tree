@@ -6,6 +6,7 @@
     "test": "playwright test",
     "test:headed": "playwright test --headed",
     "test:ui": "playwright test --ui",
+    "test:migrated": "playwright test --config=playwright.migrated.config.ts",
     "report": "playwright show-report"
   },
   "devDependencies": {

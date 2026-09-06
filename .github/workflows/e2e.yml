@@ -12,6 +12,7 @@ on:
       - "backend/**"
       - "e2e/**"
       - "docker-compose.e2e.yml"
+      - "docker-compose.e2e.migrated.yml"
       - ".github/workflows/e2e.yml"
       - ".github/workflows/check-build.yml"
       - ".github/workflows/release-e2e.yml"
@@ -116,3 +117,110 @@ jobs:
       - name: "Tear down compose stack"
         if: always()
         run: docker compose -f docker-compose.e2e.yml down -v
+
+  # Runs tests/migrated/** (#992) against a stack booted from a seeded v1.x
+  # fixture instead of a fresh install — the migration report/review UI,
+  # scoped grants, and scoped public links only exist once a v1->v2
+  # conversion has actually run. See docker-compose.e2e.migrated.yml's
+  # header for the up/seed/up sequence this job follows.
+  e2e-migrated:
+    name: "Playwright E2E (seeded migration)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      E2E_ADMIN_USERNAME: e2e-admin
+      E2E_ADMIN_PASSWORD: e2e-admin-password
+      E2E_BASE_URL: http://localhost:8080
+      E2E_API_URL: http://localhost:8080/api
+      MIGRATED_DATABASE_URL: postgresql+psycopg2://familytree:familytree@localhost:5434/familytree
+
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v7
+
+      - name: "Set up uv"
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+
+      - name: "Install backend dependencies"
+        working-directory: backend
+        run: uv sync --frozen
+
+      - name: "Start a blank database"
+        run: docker compose -f docker-compose.e2e.yml -f docker-compose.e2e.migrated.yml up -d db redis
+
+      - name: "Seed a representative v1 fixture"
+        working-directory: backend
+        run: |
+          uv run python -m scripts.seed_e2e_migration_fixture \
+            --database-url "$MIGRATED_DATABASE_URL"
+
+      - name: "Build & start the stack against the seeded fixture"
+        run: docker compose -f docker-compose.e2e.yml -f docker-compose.e2e.migrated.yml up --build -d
+
+      - name: "Wait for stack to be healthy"
+        run: |
+          echo "Waiting for frontend to be reachable..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080 > /dev/null 2>&1; then
+              echo "Stack is up after ${i} attempts"
+              break
+            fi
+            echo "  attempt $i/30 — waiting 5s"
+            sleep 5
+          done
+          curl -sf http://localhost:8080/api/health/ready || {
+            echo "Backend health check failed"
+            docker compose -f docker-compose.e2e.yml -f docker-compose.e2e.migrated.yml logs
+            exit 1
+          }
+
+      - name: "Set up Node.js"
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: "Install dependencies"
+        working-directory: e2e
+        run: npm ci
+
+      - name: "Install Playwright browsers"
+        working-directory: e2e
+        run: npx playwright install --with-deps chromium
+
+      - name: "Run Playwright tests"
+        working-directory: e2e
+        run: npm run test:migrated
+        env:
+          E2E_ADMIN_USERNAME: ${{ env.E2E_ADMIN_USERNAME }}
+          E2E_ADMIN_PASSWORD: ${{ env.E2E_ADMIN_PASSWORD }}
+          E2E_BASE_URL: ${{ env.E2E_BASE_URL }}
+          E2E_API_URL: ${{ env.E2E_API_URL }}
+
+      - name: "Upload test report"
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: playwright-report-migrated
+          path: e2e/playwright-report/
+          retention-days: 14
+
+      - name: "Upload traces on failure"
+        uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-traces-migrated
+          path: e2e/test-results/
+          retention-days: 7
+
+      - name: "Dump compose logs on failure"
+        if: failure()
+        run: docker compose -f docker-compose.e2e.yml -f docker-compose.e2e.migrated.yml logs
+
+      - name: "Tear down compose stack"
+        if: always()
+        run: docker compose -f docker-compose.e2e.yml -f docker-compose.e2e.migrated.yml down -v

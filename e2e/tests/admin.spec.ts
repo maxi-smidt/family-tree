@@ -5,6 +5,7 @@
 
 import { test, expect } from "../fixtures";
 import { createTestUser, deleteTestUser } from "../fixtures/users";
+import { CURRENT_SCHEMA_EPOCH, SCHEMA_EPOCH_HEADER } from "../fixtures/api";
 import { API_URL } from "../playwright.config";
 
 // ---------------------------------------------------------------------------
@@ -114,7 +115,10 @@ test("backups — delete removes the backup record", async ({ adminApi }) => {
 
   const res = await fetch(`${API_URL}/admin/backups/${backup.id}`, {
     method: "DELETE",
-    headers: { Authorization: `Bearer ${adminApi.token}` },
+    headers: {
+      Authorization: `Bearer ${adminApi.token}`,
+      [SCHEMA_EPOCH_HEADER]: CURRENT_SCHEMA_EPOCH,
+    },
   });
   expect(res.status).toBe(204);
 

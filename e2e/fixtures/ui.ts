@@ -49,3 +49,24 @@ export async function selectTree(page: Page, name: string): Promise<void> {
   await option.click();
   await expect(selector).toContainText(name, { timeout: 15_000 });
 }
+
+/**
+ * Search the workspace nav panel for `query` and click the hit matching
+ * `name`, focusing the canvas on it. Scoped to the search dropdown's `<li>`
+ * rows (not `.getByRole("button", { name })` alone) — a member already
+ * resident on the canvas renders its own `role="button"` node with a
+ * same-named accessible label, which would otherwise make the click
+ * ambiguous whenever the workspace isn't freshly empty.
+ */
+export async function searchWorkspaceAndSelect(
+  page: Page,
+  query: string,
+  name: string | RegExp,
+): Promise<void> {
+  await page.getByPlaceholder("Search this workspace…").fill(query);
+  await page
+    .locator("li")
+    .filter({ hasText: name })
+    .getByRole("button")
+    .click();
+}

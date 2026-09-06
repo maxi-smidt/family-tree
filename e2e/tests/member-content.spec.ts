@@ -5,6 +5,7 @@
 
 import { test, expect } from "../fixtures";
 import { createMember } from "../fixtures/seed";
+import { CURRENT_SCHEMA_EPOCH, SCHEMA_EPOCH_HEADER } from "../fixtures/api";
 import { randomUUID } from "crypto";
 import { API_URL } from "../playwright.config";
 
@@ -16,6 +17,7 @@ function authHeaders(token: string) {
   return {
     "Content-Type": "application/json",
     Authorization: `Bearer ${token}`,
+    [SCHEMA_EPOCH_HEADER]: CURRENT_SCHEMA_EPOCH,
   };
 }
 
@@ -118,10 +120,13 @@ test("delete event — removed from event list", async ({
     },
   );
 
-  const res = await fetch(`${API_URL}/workspaces/${tree.id}/events/${event.id}`, {
-    method: "DELETE",
-    headers: authHeaders(adminApi.token),
-  });
+  const res = await fetch(
+    `${API_URL}/workspaces/${tree.id}/events/${event.id}`,
+    {
+      method: "DELETE",
+      headers: authHeaders(adminApi.token),
+    },
+  );
   expect(res.status).toBe(204);
 
   const events = await adminApi.get<Array<{ id: string }>>(
@@ -213,10 +218,13 @@ test("delete story — removed from list", async ({ adminApi, seedTree }) => {
     },
   );
 
-  const res = await fetch(`${API_URL}/workspaces/${tree.id}/stories/${story.id}`, {
-    method: "DELETE",
-    headers: authHeaders(adminApi.token),
-  });
+  const res = await fetch(
+    `${API_URL}/workspaces/${tree.id}/stories/${story.id}`,
+    {
+      method: "DELETE",
+      headers: authHeaders(adminApi.token),
+    },
+  );
   expect(res.status).toBe(204);
 
   const stories = await adminApi.get<Array<{ id: string }>>(
