@@ -18,7 +18,11 @@ import { NODE_WIDTH, NODE_HEIGHT } from "@/constants";
 import { EXPANSION_NODE_BUDGET, useMemberStore } from "@/hooks/useMemberStore";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
-import { FlowPanelControls } from "@/components/view/tree-view/FlowPanelControls";
+import {
+  CanvasMenuItems,
+  FlowPanelControls,
+} from "@/components/view/tree-view/FlowPanelControls";
+import { ToolbarSeparator } from "@/components/view/tree-view/CanvasToolbar";
 import GenerationLines from "@/components/view/tree-view/GenerationLines";
 import { CanvasSearch } from "@/components/view/tree-view/CanvasSearch";
 import { ContinuationControls } from "@/components/view/tree-view/ContinuationControls";
@@ -959,7 +963,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
               <div
                 role="toolbar"
                 aria-label={t("tree-view.controls.toolbar")}
-                className="flex flex-wrap items-center justify-center gap-1 rounded-2xl border bg-card p-1 shadow-lg [&>*:not(:first-child)]:border-l [&>*:not(:first-child)]:border-border [&>*:not(:first-child)]:pl-1"
+                className="flex flex-wrap items-center justify-center gap-y-1 rounded-[1.375rem] border bg-card p-1 shadow-lg"
               >
                 <FlowPanelControls
                   navigationOnly={isCanvasReadOnly}
@@ -970,16 +974,21 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
                   onToggleSelectionMode={selection.toggleSelectionMode}
                   selectionAvailable={!isCanvasReadOnly}
                   selectionDisabled={members.length < 1 || isLockedScreen}
+                  showMoreMenu={isCanvasReadOnly}
                 />
                 {!isCanvasReadOnly && (
-                  <MemberControls
-                    nodes={nodes}
-                    selectedNodes={selectedNodes}
-                    setMembersToDelete={setMembersToDelete}
-                    onEditMember={(member) => pending.editExisting(member)}
-                    onCreateNewMember={(member) => pending.createNew(member)}
-                    onRearrange={rearrangeNodes}
-                  />
+                  <>
+                    <ToolbarSeparator />
+                    <MemberControls
+                      nodes={nodes}
+                      selectedNodes={selectedNodes}
+                      setMembersToDelete={setMembersToDelete}
+                      onEditMember={(member) => pending.editExisting(member)}
+                      onCreateNewMember={(member) => pending.createNew(member)}
+                      onRearrange={rearrangeNodes}
+                      leadingMenuItems={<CanvasMenuItems />}
+                    />
+                  </>
                 )}
               </div>
             </Panel>

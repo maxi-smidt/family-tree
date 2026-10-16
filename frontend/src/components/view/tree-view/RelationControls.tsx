@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button";
+import { ToolbarButton } from "@/components/view/tree-view/CanvasToolbar";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -34,13 +34,9 @@ export const RelationControls = () => {
       <Tooltip>
         <TooltipTrigger asChild>
           <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label={t("select-relation")}
-            >
+            <ToolbarButton aria-label={t("select-relation")}>
               <Settings2 className="h-4 w-4" />
-            </Button>
+            </ToolbarButton>
           </DropdownMenuTrigger>
         </TooltipTrigger>
         <TooltipContent side="top">{t("select-relation")}</TooltipContent>

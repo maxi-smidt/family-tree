@@ -1,15 +1,18 @@
-import { ButtonGroup } from "@/components/ui/button-group";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenuCheckboxItem,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { PanelMoreMenu } from "@/components/view/tree-view/PanelMoreMenu";
+import {
+  ToolbarButton,
+  ToolbarGroup,
+  ToolbarSeparator,
+} from "@/components/view/tree-view/CanvasToolbar";
 import {
   ImageDown,
   Lock,
@@ -39,6 +42,12 @@ type Props = {
   selectionAvailable?: boolean;
   onToggleSelectionMode?: () => void;
   selectionDisabled?: boolean;
+  /**
+   * Render the overflow menu here. Off when MemberControls follows in the
+   * same toolbar: it then carries these items in its own menu, so the bar
+   * ends in a single "more" button.
+   */
+  showMoreMenu?: boolean;
 };
 
 export const FlowPanelControls = ({
@@ -50,101 +59,91 @@ export const FlowPanelControls = ({
   selectionAvailable = false,
   onToggleSelectionMode,
   selectionDisabled = false,
+  showMoreMenu = true,
 }: Props) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "tree-view.controls",
   });
-  const { isLockedScreen, setIsLockedScreen } = useFamilyTreeSettings();
   const reactFlow = useReactFlow();
   const undo = useMemberStore((s) => s.undo);
   const redo = useMemberStore((s) => s.redo);
   const undoStack = useMemberStore((s) => s.undoStack);
   const redoStack = useMemberStore((s) => s.redoStack);
-  const { exportImage, isExporting } = useTreeExport();
 
   return (
-    <div className="flex items-center gap-1 [&>*:not(:first-child)]:border-l [&>*:not(:first-child)]:border-border [&>*:not(:first-child)]:pl-1">
+    <>
       {!navigationOnly && (
-        <ButtonGroup orientation="horizontal">
+        <ToolbarGroup>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
+              <ToolbarButton
                 onClick={() => undo()}
                 disabled={undoStack.length === 0}
                 aria-label={t("undo")}
               >
                 <Undo2 />
-              </Button>
+              </ToolbarButton>
             </TooltipTrigger>
             <TooltipContent side="top">{t("undo")}</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
+              <ToolbarButton
                 onClick={() => redo()}
                 disabled={redoStack.length === 0}
                 aria-label={t("redo")}
               >
                 <Redo2 />
-              </Button>
+              </ToolbarButton>
             </TooltipTrigger>
             <TooltipContent side="top">{t("redo")}</TooltipContent>
           </Tooltip>
-        </ButtonGroup>
+        </ToolbarGroup>
       )}
+      {!navigationOnly && <ToolbarSeparator />}
 
-      <ButtonGroup orientation="horizontal">
+      <ToolbarGroup>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
+            <ToolbarButton
               onClick={() => reactFlow.zoomIn()}
               aria-label={t("zoom-in")}
             >
               <Plus />
-            </Button>
+            </ToolbarButton>
           </TooltipTrigger>
           <TooltipContent side="top">{t("zoom-in")}</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
+            <ToolbarButton
               onClick={() => reactFlow.zoomOut()}
               aria-label={t("zoom-out")}
             >
               <Minus />
-            </Button>
+            </ToolbarButton>
           </TooltipTrigger>
           <TooltipContent side="top">{t("zoom-out")}</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
+            <ToolbarButton
               onClick={() => fitViewToAllNodes(reactFlow)}
               aria-label={t("fit-view")}
             >
               <Maximize />
-            </Button>
+            </ToolbarButton>
           </TooltipTrigger>
           <TooltipContent side="top">{t("fit-view")}</TooltipContent>
         </Tooltip>
-      </ButtonGroup>
+      </ToolbarGroup>
+      <ToolbarSeparator />
 
-      <ButtonGroup orientation="horizontal">
+      <ToolbarGroup>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
-              variant={isConnectionMode ? "default" : "ghost"}
-              size="icon"
+            <ToolbarButton
+              active={isConnectionMode}
               onClick={onToggleConnectionMode}
               disabled={connectionDisabled || !onToggleConnectionMode}
               aria-label={
@@ -154,7 +153,7 @@ export const FlowPanelControls = ({
               }
             >
               <Route />
-            </Button>
+            </ToolbarButton>
           </TooltipTrigger>
           <TooltipContent side="top">
             {isConnectionMode
@@ -165,9 +164,8 @@ export const FlowPanelControls = ({
         {selectionAvailable && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant={isSelectionMode ? "default" : "ghost"}
-                size="icon"
+              <ToolbarButton
+                active={isSelectionMode}
                 onClick={onToggleSelectionMode}
                 disabled={selectionDisabled || !onToggleSelectionMode}
                 aria-label={
@@ -177,7 +175,7 @@ export const FlowPanelControls = ({
                 }
               >
                 <SquareDashedMousePointer />
-              </Button>
+              </ToolbarButton>
             </TooltipTrigger>
             <TooltipContent side="top">
               {isSelectionMode
@@ -186,28 +184,55 @@ export const FlowPanelControls = ({
             </TooltipContent>
           </Tooltip>
         )}
-      </ButtonGroup>
+      </ToolbarGroup>
 
-      <PanelMoreMenu label={t("more-actions")} side="top">
-        {!navigationOnly && (
-          <DropdownMenuCheckboxItem
-            checked={isLockedScreen}
-            onCheckedChange={setIsLockedScreen}
-            onSelect={(e) => e.preventDefault()}
-          >
-            {isLockedScreen ? <Lock /> : <LockOpen />}
-            {isLockedScreen ? t("unlock-canvas") : t("lock-canvas")}
-          </DropdownMenuCheckboxItem>
-        )}
-        <DropdownMenuItem
-          inset
-          onSelect={() => void exportImage()}
-          disabled={isExporting}
+      {showMoreMenu && (
+        <>
+          <ToolbarSeparator />
+          <PanelMoreMenu label={t("more-actions")} side="top">
+            <CanvasMenuItems navigationOnly={navigationOnly} />
+          </PanelMoreMenu>
+        </>
+      )}
+    </>
+  );
+};
+
+/**
+ * Canvas-wide overflow actions (lock, export). Rendered in this panel's own
+ * menu, or handed to MemberControls so both sets share one menu.
+ */
+export const CanvasMenuItems = ({
+  navigationOnly = false,
+}: {
+  navigationOnly?: boolean;
+}) => {
+  const { t } = useTranslation(undefined, {
+    keyPrefix: "tree-view.controls",
+  });
+  const { isLockedScreen, setIsLockedScreen } = useFamilyTreeSettings();
+  const { exportImage, isExporting } = useTreeExport();
+
+  return (
+    <>
+      {!navigationOnly && (
+        <DropdownMenuCheckboxItem
+          checked={isLockedScreen}
+          onCheckedChange={setIsLockedScreen}
+          onSelect={(e) => e.preventDefault()}
         >
-          {isExporting ? <Loader2 className="animate-spin" /> : <ImageDown />}
-          {t("export-image")}
-        </DropdownMenuItem>
-      </PanelMoreMenu>
-    </div>
+          {isLockedScreen ? <Lock /> : <LockOpen />}
+          {isLockedScreen ? t("unlock-canvas") : t("lock-canvas")}
+        </DropdownMenuCheckboxItem>
+      )}
+      <DropdownMenuItem
+        inset
+        onSelect={() => void exportImage()}
+        disabled={isExporting}
+      >
+        {isExporting ? <Loader2 className="animate-spin" /> : <ImageDown />}
+        {t("export-image")}
+      </DropdownMenuItem>
+    </>
   );
 };

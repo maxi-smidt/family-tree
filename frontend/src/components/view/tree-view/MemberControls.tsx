@@ -1,12 +1,10 @@
 import { Node, useReactFlow } from "@xyflow/react";
-import { useState } from "react";
-import { ButtonGroup } from "@/components/ui/button-group";
+import { ReactNode, useState } from "react";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,6 +18,7 @@ import {
 import {
   DropdownMenuCheckboxItem,
   DropdownMenuItem,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
   ChevronsDownUp,
@@ -44,6 +43,11 @@ import { createMember, Member } from "@/types/member";
 import { NODE_WIDTH } from "@/constants";
 import { RelationControls } from "@/components/view/tree-view/RelationControls";
 import { PanelMoreMenu } from "@/components/view/tree-view/PanelMoreMenu";
+import {
+  ToolbarButton,
+  ToolbarGroup,
+  ToolbarSeparator,
+} from "@/components/view/tree-view/CanvasToolbar";
 import { CreateSectionDialog } from "@/components/view/tree-view/nav/CreateSectionDialog";
 import { useTranslation } from "react-i18next";
 
@@ -55,6 +59,8 @@ type Props = {
   onCreateNewMember: (member: Member) => void;
   onRearrange: () => void;
   readOnly?: boolean;
+  /** Items from FlowPanelControls, listed first in the shared overflow menu. */
+  leadingMenuItems?: ReactNode;
 };
 
 export const MemberControls = ({
@@ -64,6 +70,7 @@ export const MemberControls = ({
   onCreateNewMember,
   onRearrange,
   readOnly = false,
+  leadingMenuItems,
 }: Props) => {
   const { t } = useTranslation(undefined, { keyPrefix: "tree-view.controls" });
   const [isArrangeDialogOpen, setIsArrangeDialogOpen] = useState(false);
@@ -106,115 +113,113 @@ export const MemberControls = ({
   };
 
   return (
-    <div className="flex items-center gap-1 [&>*:not(:first-child)]:border-l [&>*:not(:first-child)]:border-border [&>*:not(:first-child)]:pl-1">
-      {/* Relations — hidden in read-only (virtual view) mode */}
-      {!readOnly && <RelationControls />}
+    <>
+      <ToolbarGroup>
+        {/* Relations — hidden in read-only (virtual view) mode */}
+        {!readOnly && <RelationControls />}
 
-      {/* View Modes */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant={isFastMode ? "default" : "ghost"}
-            size="icon"
-            onClick={() => setIsFastMode(!isFastMode)}
-            disabled={isLockedScreen}
-            aria-label={
-              isFastMode ? t("disable-quick-add") : t("enable-quick-add")
-            }
-          >
-            <UserRoundPlus className={isFastMode ? "fill-current" : ""} />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="top">
-          {isFastMode ? t("disable-quick-add") : t("enable-quick-add")}
-        </TooltipContent>
-      </Tooltip>
-
-      {/* Collapse/Expand Controls */}
-      <ButtonGroup orientation="horizontal">
+        {/* View Modes */}
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
+            <ToolbarButton
+              active={isFastMode}
+              onClick={() => setIsFastMode(!isFastMode)}
+              disabled={isLockedScreen}
+              aria-label={
+                isFastMode ? t("disable-quick-add") : t("enable-quick-add")
+              }
+            >
+              <UserRoundPlus className={isFastMode ? "fill-current" : ""} />
+            </ToolbarButton>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            {isFastMode ? t("disable-quick-add") : t("enable-quick-add")}
+          </TooltipContent>
+        </Tooltip>
+      </ToolbarGroup>
+      <ToolbarSeparator />
+
+      {/* Collapse/Expand Controls */}
+      <ToolbarGroup>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <ToolbarButton
               onClick={onCollapseMembers}
               disabled={selectedNoExpandedMember()}
               aria-label={t("collapse-children")}
             >
               <ChevronsDownUp />
-            </Button>
+            </ToolbarButton>
           </TooltipTrigger>
           <TooltipContent side="top">{t("collapse-children")}</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
+            <ToolbarButton
               onClick={onExpandMembers}
               disabled={selectedNoCollapsedMember()}
               aria-label={t("expand-children")}
             >
               <ChevronsUpDown />
-            </Button>
+            </ToolbarButton>
           </TooltipTrigger>
           <TooltipContent side="top">{t("expand-children")}</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
+            <ToolbarButton
               onClick={onExpandAllMembers}
               disabled={noCollapsedMember()}
               aria-label={t("expand-all-children")}
             >
               <ListChevronsUpDown />
-            </Button>
+            </ToolbarButton>
           </TooltipTrigger>
           <TooltipContent side="top">{t("expand-all-children")}</TooltipContent>
         </Tooltip>
-      </ButtonGroup>
+      </ToolbarGroup>
 
       {/* Member Add/Remove — hidden in read-only (virtual view) mode */}
       {!readOnly && (
-        <ButtonGroup orientation="horizontal">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onAddMember}
-                disabled={isLockedScreen}
-                aria-label={t("add-person")}
-                className="text-primary hover:bg-primary-soft hover:text-primary"
-                data-tutorial="add-member"
-              >
-                <UserPlus size={20} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="top">{t("add-person")}</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onRemoveMembers}
-                disabled={!selectedNodes.length || isLockedScreen}
-                aria-label={t("remove-person")}
-                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-              >
-                <UserMinus />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="top">{t("remove-person")}</TooltipContent>
-          </Tooltip>
-        </ButtonGroup>
+        <>
+          <ToolbarSeparator />
+          <ToolbarGroup>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <ToolbarButton
+                  onClick={onAddMember}
+                  disabled={isLockedScreen}
+                  aria-label={t("add-person")}
+                  className="text-primary hover:bg-primary-soft hover:text-primary dark:hover:bg-primary-soft"
+                  data-tutorial="add-member"
+                >
+                  <UserPlus size={20} />
+                </ToolbarButton>
+              </TooltipTrigger>
+              <TooltipContent side="top">{t("add-person")}</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <ToolbarButton
+                  onClick={onRemoveMembers}
+                  disabled={!selectedNodes.length || isLockedScreen}
+                  aria-label={t("remove-person")}
+                  className="text-destructive hover:bg-destructive/10 hover:text-destructive dark:hover:bg-destructive/15"
+                >
+                  <UserMinus />
+                </ToolbarButton>
+              </TooltipTrigger>
+              <TooltipContent side="top">{t("remove-person")}</TooltipContent>
+            </Tooltip>
+          </ToolbarGroup>
+        </>
       )}
 
-      {/* Layout + situational actions */}
+      {/* Layout + situational actions, after the canvas-wide ones */}
+      <ToolbarSeparator />
       <PanelMoreMenu label={t("more-actions")} side="top">
+        {leadingMenuItems}
+        {leadingMenuItems && <DropdownMenuSeparator />}
         <DropdownMenuItem
           inset
           onSelect={() => setIsArrangeDialogOpen(true)}
@@ -305,7 +310,7 @@ export const MemberControls = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </>
   );
 
   async function onAddMember() {

@@ -1,5 +1,4 @@
 import { ReactNode } from "react";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,6 +10,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { MoreHorizontal } from "lucide-react";
+import { ToolbarButton } from "@/components/view/tree-view/CanvasToolbar";
 
 type Props = {
   label: string;
@@ -21,18 +21,17 @@ type Props = {
 /**
  * Overflow ("more actions") trigger for a canvas control stack: an icon
  * button with a tooltip that opens a dropdown menu of secondary actions.
- * Shared by FlowPanelControls (bottom-left) and MemberControls
- * (bottom-right) so the two panels stay visually and behaviourally
- * consistent.
+ * The canvas toolbar shows exactly one: MemberControls' when editing (it
+ * also carries the canvas-wide items), FlowPanelControls' otherwise.
  */
 export const PanelMoreMenu = ({ label, side, children }: Props) => (
   <DropdownMenu>
     <Tooltip>
       <TooltipTrigger asChild>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" aria-label={label}>
+          <ToolbarButton aria-label={label}>
             <MoreHorizontal />
-          </Button>
+          </ToolbarButton>
         </DropdownMenuTrigger>
       </TooltipTrigger>
       <TooltipContent side={side}>{label}</TooltipContent>
