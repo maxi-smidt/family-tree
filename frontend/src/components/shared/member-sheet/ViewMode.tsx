@@ -150,28 +150,31 @@ export const ViewMode = ({
           {!isNew && (
             <MemberFamily member={member} onOpenMember={onOpenMember} />
           )}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <h3 className="mb-3 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+            {t("details-heading")}
+          </h3>
+          <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
             {member.academicTitle && (
-              <Item variant="muted" className="sm:col-span-2">
+              <Item variant="field" className="sm:col-span-2">
                 <ItemContent>
                   <ItemTitle>{t("academic-title-item")}</ItemTitle>
                   <ItemDescription>{member.academicTitle}</ItemDescription>
                 </ItemContent>
               </Item>
             )}
-            <Item variant="muted">
+            <Item variant="field">
               <ItemContent>
                 <ItemTitle>{t("firstname-item")}</ItemTitle>
                 <ItemDescription>{member.firstName}</ItemDescription>
               </ItemContent>
             </Item>
-            <Item variant="muted">
+            <Item variant="field">
               <ItemContent>
                 <ItemTitle>{t("lastname-item")}</ItemTitle>
                 <ItemDescription>{member.lastName}</ItemDescription>
               </ItemContent>
             </Item>
-            <Item variant="muted">
+            <Item variant="field">
               <ItemContent>
                 <ItemTitle>{t("middle-names-item")}</ItemTitle>
                 <ItemDescription>
@@ -179,7 +182,7 @@ export const ViewMode = ({
                 </ItemDescription>
               </ItemContent>
             </Item>
-            <Item variant="muted">
+            <Item variant="field">
               <ItemContent>
                 <ItemTitle>{t("maiden-item")}</ItemTitle>
                 <ItemDescription>
@@ -187,7 +190,7 @@ export const ViewMode = ({
                 </ItemDescription>
               </ItemContent>
             </Item>
-            <Item variant="muted">
+            <Item variant="field">
               <ItemContent>
                 <ItemTitle>{t("baptismal-name-item")}</ItemTitle>
                 <ItemDescription>
@@ -195,7 +198,7 @@ export const ViewMode = ({
                 </ItemDescription>
               </ItemContent>
             </Item>
-            <Item variant="muted">
+            <Item variant="field">
               <ItemContent>
                 <ItemTitle>{t("gender-item")}</ItemTitle>
                 <ItemDescription className="capitalize">
@@ -203,7 +206,7 @@ export const ViewMode = ({
                 </ItemDescription>
               </ItemContent>
             </Item>
-            <Item variant="muted">
+            <Item variant="field">
               <ItemContent>
                 <ItemTitle>{t("dob-item")}</ItemTitle>
                 <ItemDescription>
@@ -211,7 +214,7 @@ export const ViewMode = ({
                 </ItemDescription>
               </ItemContent>
             </Item>
-            <Item variant="muted">
+            <Item variant="field">
               <ItemContent>
                 <ItemTitle>{t("dod-item")}</ItemTitle>
                 <ItemDescription>
@@ -239,7 +242,7 @@ export const ViewMode = ({
           <TabsContent value="life">
             <div className="space-y-3">
               {biographyEnabled && member.additionalData && (
-                <Item variant="muted">
+                <Item variant="field">
                   <ItemContent>
                     <ItemTitle>{t("notes-item")}</ItemTitle>
                     <div className="text-muted-foreground text-sm font-normal">
@@ -253,7 +256,7 @@ export const ViewMode = ({
                 (mapEnabled && member.hometown) ||
                 (mapEnabled && member.cemetery) ||
                 (mapEnabled && member.placesLived.length > 0)) && (
-                <Item variant="muted">
+                <Item variant="field">
                   <ItemContent>
                     <ItemTitle>{t("locations-section")}</ItemTitle>
                     <div className="space-y-2 mt-1">

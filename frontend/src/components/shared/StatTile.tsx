@@ -14,9 +14,15 @@ interface StatTileProps {
 
 /**
  * A headline number on a card — label, big value, one line of context.
- * Used for the KPI rows on Statistics, Data quality and Workspaces.
+ * Used for the KPI rows on Statistics and Data quality.
  */
-export function StatTile({ label, value, unit, note, className }: StatTileProps) {
+export function StatTile({
+  label,
+  value,
+  unit,
+  note,
+  className,
+}: StatTileProps) {
   return (
     <Card className={cn("gap-0 px-5", className)}>
       <p className="mb-2.5 text-[13px] font-semibold text-muted-foreground">

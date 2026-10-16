@@ -237,7 +237,7 @@ export function AdminAuditPanel() {
           <Button
             variant="outline"
             size="sm"
-            
+
             onClick={() => void handleExport()}
             disabled={exporting || total === 0}
           >

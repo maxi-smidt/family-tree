@@ -1,6 +1,8 @@
 import { ReactNode } from "react";
 import { SidebarTrigger, useOptionalSidebar } from "@/components/ui/sidebar";
 import { NotificationBell } from "@/components/layout/NotificationBell";
+import { GlobalSearch } from "@/components/layout/GlobalSearch";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { cn } from "@/lib/utils";
 
 interface PageHeaderProps {
@@ -26,6 +28,7 @@ export const PageHeader = ({
   // Views are also rendered on their own (tests, embedded screens) where no
   // sidebar exists — only offer the toggle when there is one to toggle.
   const hasSidebar = useOptionalSidebar() !== null;
+  const hasWorkspace = useWorkspaceStore((s) => !!s.selectedTree);
   return (
     <header
       className={cn(
@@ -49,8 +52,13 @@ export const PageHeader = ({
           </span>
         )}
       </div>
+      {hasSidebar && hasWorkspace && <GlobalSearch />}
       {actions && (
-        <div className="flex flex-wrap items-center gap-2">{actions}</div>
+        // On phones the page actions drop to their own row under the title
+        // so the title never truncates to a letter.
+        <div className="flex flex-wrap items-center gap-2 max-sm:order-last max-sm:w-full [&>*]:max-sm:flex-1 sm:[&>*]:flex-none">
+          {actions}
+        </div>
       )}
       {hasSidebar && <NotificationBell />}
     </header>

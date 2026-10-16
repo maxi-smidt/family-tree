@@ -117,7 +117,9 @@ test("rename: the selector updates and the name survives reload", async ({
     await loginAs(page, secondUser);
     await openTreeManagement(page);
 
-    const row = page.locator('[data-slot="workspace-card"]').filter({ hasText: original });
+    const row = page
+      .locator('[data-slot="workspace-card"]')
+      .filter({ hasText: original });
     await expect(row).toBeVisible();
     await row.getByRole("button", { name: "More actions" }).click();
     await page.getByRole("menuitem", { name: "Rename", exact: true }).click();
@@ -177,7 +179,9 @@ test("delete: the active tree disappears and another tree is selected", async ({
     await loginAs(page, secondUser);
     await openTreeManagement(page);
 
-    const row = page.locator('[data-slot="workspace-card"]').filter({ hasText: removed.name });
+    const row = page
+      .locator('[data-slot="workspace-card"]')
+      .filter({ hasText: removed.name });
     await expect(row).toBeVisible();
     await row.getByRole("button", { name: "More actions" }).click();
     await page.getByRole("menuitem", { name: "Delete", exact: true }).click();

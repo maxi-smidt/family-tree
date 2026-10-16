@@ -33,3 +33,5 @@ data
 .claude
 .codex
 .entire
+# Redis snapshots from local dev
+*.rdb

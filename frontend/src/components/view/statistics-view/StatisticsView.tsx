@@ -139,6 +139,9 @@ export const StatisticsView = () => {
   const selectedTree = useWorkspaceStore((s) => s.selectedTree);
   const setOpenSheet = useMemberSheetStore((s) => s.setOpenSheet);
   const setActiveView = useActiveViewStore((s) => s.setActiveView);
+  const setPendingLocateMemberId = useMemberStore(
+    (s) => s.setPendingLocateMemberId,
+  );
 
   useDeferredStoreLoad(eventsInitialized, refreshEvents);
   useDeferredStoreLoad(storiesInitialized, refreshStories);
@@ -152,13 +155,14 @@ export const StatisticsView = () => {
   const handleOpenMember = useCallback(
     (memberId: string) => {
       if (!selectedTree?.id) return;
+      setPendingLocateMemberId(memberId);
       setOpenSheet(selectedTree.id, {
         memberId,
         tab: "identity",
         mode: "view",
       });
     },
-    [selectedTree?.id, setOpenSheet],
+    [selectedTree?.id, setOpenSheet, setPendingLocateMemberId],
   );
 
   return (

@@ -172,7 +172,9 @@ export const DeleteAccountDialog = ({ isOpen, onClose }: Props) => {
         <div className="space-y-4 py-2">
           {ownedTrees.length > 0 && (
             <div className="space-y-3">
-              <p className="text-sm font-medium">{t("owned-workspaces-label")}</p>
+              <p className="text-sm font-medium">
+                {t("owned-workspaces-label")}
+              </p>
               <div className="max-h-[40vh] space-y-2 overflow-y-auto pr-1">
                 {ownedTrees.map((tree) => {
                   const state = transferStates[tree.id];
@@ -209,9 +211,7 @@ export const DeleteAccountDialog = ({ isOpen, onClose }: Props) => {
                             }}
                           >
                             <SelectTrigger size="sm" className="min-w-0 flex-1">
-                              <SelectValue
-                                placeholder={t("transfer-select")}
-                              />
+                              <SelectValue placeholder={t("transfer-select")} />
                             </SelectTrigger>
                             <SelectContent>
                               {!state.targetsLoaded ? (

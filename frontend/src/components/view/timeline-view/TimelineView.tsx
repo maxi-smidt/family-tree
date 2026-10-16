@@ -354,10 +354,7 @@ export const TimelineView = () => {
   };
 
   const shortDate = (date: string | null) =>
-    date
-      ? formatDate(date) ||
-        date
-      : "—";
+    date ? formatDate(date) || date : "—";
 
   const avatars = (ids: string[]) => (
     <span className="flex w-14 shrink-0 justify-end -space-x-1.5 pt-0.5">

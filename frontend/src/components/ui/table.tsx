@@ -1,5 +1,9 @@
 import * as React from "react";
-import { ChevronDownIcon, ChevronUpIcon, ChevronsUpDownIcon } from "lucide-react";
+import {
+  ChevronDownIcon,
+  ChevronUpIcon,
+  ChevronsUpDownIcon,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
 

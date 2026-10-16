@@ -1,7 +1,11 @@
 import { isDeceased, type Member } from "@/types/member";
 import type { Event } from "@/types/event";
 import type { Story } from "@/types/story";
-import { getDatePrecision, getYear, isValidPartialDate } from "@/utils/dateUtils";
+import {
+  getDatePrecision,
+  getYear,
+  isValidPartialDate,
+} from "@/utils/dateUtils";
 
 export const ON_THIS_DAY_WINDOW_DAYS = 7;
 
@@ -85,7 +89,10 @@ export function buildOnThisDayItems(
   windowDays = ON_THIS_DAY_WINDOW_DAYS,
 ): OnThisDayItem[] {
   const datesByMonthDay = new Map(
-    createOnThisDayDates(referenceDate, windowDays).map((entry) => [entry.monthDay, entry]),
+    createOnThisDayDates(referenceDate, windowDays).map((entry) => [
+      entry.monthDay,
+      entry,
+    ]),
   );
   const membersById = new Map(members.map((member) => [member.id, member]));
   const items: OnThisDayItem[] = [];
@@ -204,4 +211,3 @@ export function buildOnThisDayItems(
       a.dayOffset - b.dayOffset || kindOrder[a.kind] - kindOrder[b.kind],
   );
 }
-

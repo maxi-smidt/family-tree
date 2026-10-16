@@ -58,7 +58,9 @@ export function Meter({
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={pct}
-        aria-label={ariaLabel ?? (typeof label === "string" ? label : undefined)}
+        aria-label={
+          ariaLabel ?? (typeof label === "string" ? label : undefined)
+        }
         className="h-1.5 overflow-hidden rounded-full bg-muted"
       >
         <div

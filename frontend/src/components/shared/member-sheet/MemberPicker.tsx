@@ -83,7 +83,9 @@ export const MemberPicker = ({
           >
             <span className="flex min-w-0 items-center gap-2">
               {icon}
-              <span className={cn("truncate", !label && "text-muted-foreground")}>
+              <span
+                className={cn("truncate", !label && "text-muted-foreground")}
+              >
                 {label ?? placeholder}
               </span>
             </span>

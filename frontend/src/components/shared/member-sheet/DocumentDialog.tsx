@@ -495,7 +495,7 @@ export const DocumentDialog = ({
                         type="button"
                         variant="ghost"
                         size="icon-sm"
-                        
+
                         title={t("files.remove")}
                         onClick={() =>
                           setExisting((prev) =>
@@ -555,7 +555,7 @@ export const DocumentDialog = ({
                         type="button"
                         variant="ghost"
                         size="icon-sm"
-                        
+
                         title={t("files.remove")}
                         disabled={submitting}
                         onClick={() =>
@@ -584,7 +584,7 @@ export const DocumentDialog = ({
                         type="button"
                         variant="ghost"
                         size="icon-sm"
-                        
+
                         title={t("files.remove")}
                         onClick={() =>
                           setAddedLinks((prev) =>

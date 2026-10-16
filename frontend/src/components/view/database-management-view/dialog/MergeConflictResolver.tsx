@@ -100,7 +100,7 @@ function FieldRow({
             value={fieldChoice ?? "a"}
             onValueChange={(v) => onChoiceChange(v as MergeFieldChoice)}
           >
-            <SelectTrigger size="sm" >
+            <SelectTrigger size="sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

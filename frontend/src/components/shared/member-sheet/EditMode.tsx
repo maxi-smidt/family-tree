@@ -616,7 +616,8 @@ export const EditMode = ({
                 <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
                   {t("academic-title-field")}
                 </FieldLabel>
-                <Input size="sm"
+                <Input
+                  size="sm"
                   id="academicTitle"
                   value={formData.academicTitle || ""}
                   className="shadow-none"
@@ -639,25 +640,13 @@ export const EditMode = ({
                   onValueChange={(val) => handleGenderChange(val as Gender)}
                   className="justify-start"
                 >
-                  <ToggleGroupItem
-                    value="m"
-                    aria-label={t("gender-male")}
-                    
-                  >
+                  <ToggleGroupItem value="m" aria-label={t("gender-male")}>
                     <Mars />
                   </ToggleGroupItem>
-                  <ToggleGroupItem
-                    value="f"
-                    aria-label={t("gender-female")}
-                    
-                  >
+                  <ToggleGroupItem value="f" aria-label={t("gender-female")}>
                     <Venus />
                   </ToggleGroupItem>
-                  <ToggleGroupItem
-                    value="o"
-                    aria-label={t("gender-other")}
-                    
-                  >
+                  <ToggleGroupItem value="o" aria-label={t("gender-other")}>
                     <VenusAndMars />
                   </ToggleGroupItem>
                 </ToggleGroup>
@@ -671,7 +660,8 @@ export const EditMode = ({
                   >
                     {t("firstname-field")}
                   </FieldLabel>
-                  <Input size="sm"
+                  <Input
+                    size="sm"
                     ref={firstNameRef}
                     id="firstName"
                     required
@@ -701,7 +691,8 @@ export const EditMode = ({
                   >
                     {t("lastname-field")}
                   </FieldLabel>
-                  <Input size="sm"
+                  <Input
+                    size="sm"
                     ref={lastNameRef}
                     id="lastName"
                     required
@@ -728,7 +719,8 @@ export const EditMode = ({
                   <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
                     {t("middle-names-field")}
                   </FieldLabel>
-                  <Input size="sm"
+                  <Input
+                    size="sm"
                     id="middleNames"
                     value={formData.middleNames || ""}
                     className="shadow-none"
@@ -743,7 +735,8 @@ export const EditMode = ({
                   <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
                     {t("maiden-field")}
                   </FieldLabel>
-                  <Input size="sm"
+                  <Input
+                    size="sm"
                     id="maidenName"
                     value={formData.maidenName || ""}
                     className="shadow-none"
@@ -757,7 +750,8 @@ export const EditMode = ({
                 <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
                   {t("baptismal-name-field")}
                 </FieldLabel>
-                <Input size="sm"
+                <Input
+                  size="sm"
                   id="baptismalName"
                   value={formData.baptismalName || ""}
                   className="shadow-none"
@@ -784,7 +778,8 @@ export const EditMode = ({
                   <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
                     {t("born-field")}
                   </FieldLabel>
-                  <PartialDatePicker size="sm"
+                  <PartialDatePicker
+                    size="sm"
                     className="shadow-none border-input"
                     value={formData.date.birth}
                     onChange={(date) => handleDateChange("birth", date)}
@@ -834,7 +829,8 @@ export const EditMode = ({
                     <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
                       {t("death-field")}
                     </FieldLabel>
-                    <PartialDatePicker size="sm"
+                    <PartialDatePicker
+                      size="sm"
                       className="shadow-none border-input"
                       value={formData.date.death}
                       onChange={(date) => handleDateChange("death", date)}
@@ -942,7 +938,8 @@ export const EditMode = ({
                           }
                         />
                         <div className="flex gap-1">
-                          <Input size="sm"
+                          <Input
+                            size="sm"
                             value={place.from || ""}
                             className="shadow-none"
                             placeholder={t("places-lived-from")}
@@ -955,7 +952,8 @@ export const EditMode = ({
                               handleChange("placesLived", next);
                             }}
                           />
-                          <Input size="sm"
+                          <Input
+                            size="sm"
                             value={place.to || ""}
                             className="shadow-none"
                             placeholder={t("places-lived-to")}

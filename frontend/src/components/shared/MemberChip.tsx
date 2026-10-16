@@ -52,7 +52,9 @@ export function MemberChip({
         {fullName ? name : member.firstName || name}
       </span>
       {life && (
-        <span className="text-xs text-muted-foreground tabular-nums">{life}</span>
+        <span className="text-xs text-muted-foreground tabular-nums">
+          {life}
+        </span>
       )}
     </>
   );

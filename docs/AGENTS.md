@@ -226,6 +226,47 @@ export function Component({ prop }: ComponentProps) {
 - **Lucide Icons**: Use consistent icon set throughout the app
 - **Responsive Design**: Ensure components work on different window sizes
 
+#### Control sizes
+
+Controls that sit in one row must line up, so there are exactly two sizes,
+shared by `Button`, `Input`, `SelectTrigger`, `Toggle`/`ToggleGroup`,
+`PartialDatePicker`, `LocationInput`, `MemberPicker` and `SearchInput`:
+
+| Size      | Height       | Where                                                                          |
+| --------- | ------------ | ------------------------------------------------------------------------------ |
+| `default` | 36px (`h-9`) | Page header actions, forms and dialogs                                         |
+| `sm`      | 32px (`h-8`) | View toolbars (filter chips, search, columns), card-level actions, table cells |
+
+Pick the size with the `size` prop. Never override heights with `h-7`/`h-8`
+classes or shrink text with `text-xs` on a control — that is how mismatched
+rows crept in before. Icon-only buttons use `icon` / `icon-sm` to match.
+
+#### Shared building blocks
+
+Reach for these before hand-rolling markup (all in `components/shared/`
+unless noted):
+
+| Need                                             | Use                                                              |
+| ------------------------------------------------ | ---------------------------------------------------------------- |
+| Page title, subtitle, actions                    | `ViewLayout` → `PageHeader` (`components/layout/`)               |
+| Toolbar search field                             | `SearchInput`                                                    |
+| Single-choice filter pills (Everyone / Living …) | `ToggleGroup variant="chip" size="sm" spacing={2}`               |
+| Multi-select filter pills (map layers)           | `ToggleGroup type="multiple" variant="filter"`                   |
+| Headline number on a card                        | `StatTile`                                                       |
+| "How much of X" bar                              | `Meter`                                                          |
+| A person as a clickable pill                     | `MemberChip`                                                     |
+| A person's avatar / initials                     | `MemberAvatar` (members), `AccountAvatar` (user accounts)        |
+| A workspace's logo tile                          | `WorkspaceMonogram`                                              |
+| Stacked page sections ("WAITING FOR YOU · 1")    | `PageSection`                                                    |
+| Status tags                                      | `Badge` with `success` / `warning` / `danger` / `info` / `muted` |
+| In-page nudge with an action                     | `Alert` (`warning` or `info` variant) + `AlertAction`            |
+| Read-only label/value pairs                      | `Item variant="field"`                                           |
+| Empty states                                     | `Empty` (`components/ui/empty`)                                  |
+| Sortable table header                            | `TableSortButton` (`components/ui/table`)                        |
+
+Cards are `Card` (rounded-2xl, 20px padding); content lists inside a card use
+`divide-y` rows with `px-5 py-3`.
+
 ### React Flow Integration
 
 When working with the family tree visualization:

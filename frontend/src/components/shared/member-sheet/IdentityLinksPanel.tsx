@@ -93,7 +93,7 @@ export const IdentityLinksPanel = ({ member }: Props) => {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-muted-foreground">
+        <h3 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
           {t("title")}
         </h3>
         {canPropose && (

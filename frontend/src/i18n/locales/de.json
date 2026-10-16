@@ -1,7 +1,5 @@
 {
   "sidebar": {
-    "appearance": "Erscheinung",
-    "dataManagement": "Datenmanagement",
     "version-link-label": "Release-Notes auf GitHub ansehen",
     "edge-type": "Kanten Typ",
     "generation-line-spacing": "Abstand der Generationslinien",
@@ -46,9 +44,7 @@
     "preferences": {
       "open": "Anzeigeeinstellungen",
       "title": "Anzeige"
-    },
-    "storage-used": "{{size}} belegt",
-    "storage": "Speicher"
+    }
   },
   "dialog": {
     "add-relation": {
@@ -411,7 +407,6 @@
     "external-links": "Externe Links",
     "linked-people-heading": "Verknüpfte Personen",
     "unlinked": "Nicht verknüpft",
-    "unknown-member": "Unbekannte Person",
     "unknown-event": "Unbekanntes Ereignis",
     "unknown-story": "Unbekannte Geschichte",
     "open-hint": "Doppelklicken, um eine Dokumentdatei zu öffnen",
@@ -431,10 +426,6 @@
     "subtitle": "{{count}} Dokumente · {{people}} Personen erfasst",
     "subtitle_one": "{{count}} Dokument · {{people}} Personen erfasst",
     "subtitle_other": "{{count}} Dokumente · {{people}} Personen erfasst"
-  },
-  "media-view": {
-    "gallery": "Galerie",
-    "documents": "Dokumente"
   },
   "layout": {
     "tree-breadcrumb": {
@@ -469,7 +460,6 @@
       "toast-error": "Stammbaum konnte nicht importiert werden."
     },
     "mobile-management": {
-      "manage": "Verwalten",
       "title": "Verwalten",
       "no-tree-selected": "Kein Baum ausgewählt",
       "group-sharing": "Freigabe",
@@ -499,9 +489,21 @@
       "workspace": "Arbeitsbereich",
       "gallery": "Galerie",
       "documents": "Dokumente",
-      "open": "Navigation öffnen",
-      "collapse": "Seitenleiste ausblenden",
       "manage": "Teilen, Export & Import"
+    },
+    "search": {
+      "open": "Personen, Orte und Ereignisse suchen",
+      "placeholder": "Personen, Orte, Ereignisse suchen",
+      "title": "Suche",
+      "description": "Finde eine Person, einen Ort oder ein Ereignis in diesem Arbeitsbereich oder springe zu einer Seite.",
+      "empty": "Nichts gefunden.",
+      "people": "Personen",
+      "places": "Orte",
+      "events": "Ereignisse",
+      "go-to": "Gehe zu",
+      "people-count": "{{count}} Personen",
+      "people-count_one": "{{count}} Person",
+      "people-count_other": "{{count}} Personen"
     }
   },
   "list-view": {
@@ -679,7 +681,8 @@
       "family-parents": "Eltern",
       "family-partners": "Partner",
       "family-children": "Kinder",
-      "family-siblings": "Geschwister"
+      "family-siblings": "Geschwister",
+      "details-heading": "Details"
     },
     "member-sheet": {
       "loading-detail": "Details werden geladen...",

@@ -248,9 +248,7 @@ export const ListView = () => {
 
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return "—";
-    return (
-      formatLocaleDate(dateString) || dateString
-    );
+    return formatLocaleDate(dateString) || dateString;
   };
 
   const confirmDelete = () => {
@@ -507,7 +505,7 @@ export const ListView = () => {
             disabled={sortedMembers.length === 0}
           >
             <Download />
-            <span className="hidden sm:inline">{t("export-csv")}</span>
+            {t("export-csv")}
           </Button>
           {canWrite && (
             <Button onClick={handleAddPerson}>

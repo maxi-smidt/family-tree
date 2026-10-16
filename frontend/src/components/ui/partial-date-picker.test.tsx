@@ -36,7 +36,9 @@ describe("PartialDatePicker", () => {
   it("shows the value as editable text in the locale's numeric format", () => {
     render(<ControlledPicker initialValue="2025-06-12" />);
 
-    expect(screen.getByRole("textbox")).toHaveValue(formatPartialDateForInput("2025-06-12"));
+    expect(screen.getByRole("textbox")).toHaveValue(
+      formatPartialDateForInput("2025-06-12"),
+    );
   });
 
   it("opens an empty day picker on the current month", () => {

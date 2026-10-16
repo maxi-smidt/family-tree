@@ -27,7 +27,9 @@ export const ViewLayout = ({
       <PageHeader title={title} subtitle={subtitle} actions={action} />
       <div className="flex min-h-0 flex-1 flex-col px-4 pt-4 pb-4 md:px-6 md:pt-5">
         {toolbar && (
-          <div className={cn("mb-4 flex-none", toolbarClassName)}>{toolbar}</div>
+          <div className={cn("mb-4 flex-none", toolbarClassName)}>
+            {toolbar}
+          </div>
         )}
         <div
           className={cn(

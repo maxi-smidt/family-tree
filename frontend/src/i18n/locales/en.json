@@ -1,7 +1,5 @@
 {
   "sidebar": {
-    "appearance": "Appearance",
-    "dataManagement": "Data Management",
     "version-link-label": "View release notes on GitHub",
     "edge-type": "Edge Type",
     "generation-line-spacing": "Generation line spacing",
@@ -46,9 +44,7 @@
     "preferences": {
       "open": "Display preferences",
       "title": "Display"
-    },
-    "storage-used": "{{size}} used",
-    "storage": "Storage"
+    }
   },
   "dialog": {
     "add-relation": {
@@ -411,7 +407,6 @@
     "external-links": "External links",
     "linked-people-heading": "Linked people",
     "unlinked": "Not linked",
-    "unknown-member": "Unknown person",
     "unknown-event": "Unknown event",
     "unknown-story": "Unknown story",
     "open-hint": "Double-click to open a document file",
@@ -431,10 +426,6 @@
     "subtitle": "{{count}} records · {{people}} people covered",
     "subtitle_one": "{{count}} record · {{people}} people covered",
     "subtitle_other": "{{count}} records · {{people}} people covered"
-  },
-  "media-view": {
-    "gallery": "Gallery",
-    "documents": "Documents"
   },
   "layout": {
     "tree-breadcrumb": {
@@ -469,7 +460,6 @@
       "toast-error": "Failed to import tree."
     },
     "mobile-management": {
-      "manage": "Manage",
       "title": "Manage",
       "no-tree-selected": "No tree selected",
       "group-sharing": "Sharing",
@@ -499,9 +489,21 @@
       "workspace": "Workspace",
       "gallery": "Gallery",
       "documents": "Documents",
-      "open": "Open navigation",
-      "collapse": "Hide sidebar",
       "manage": "Share, export & import"
+    },
+    "search": {
+      "open": "Search people, places and events",
+      "placeholder": "Search people, places, events",
+      "title": "Search",
+      "description": "Find a person, place or event in this workspace, or jump to a page.",
+      "empty": "Nothing found.",
+      "people": "People",
+      "places": "Places",
+      "events": "Events",
+      "go-to": "Go to",
+      "people-count": "{{count}} people",
+      "people-count_one": "{{count}} person",
+      "people-count_other": "{{count}} people"
     }
   },
   "list-view": {
@@ -679,7 +681,8 @@
       "family-parents": "Parents",
       "family-partners": "Partner",
       "family-children": "Children",
-      "family-siblings": "Siblings"
+      "family-siblings": "Siblings",
+      "details-heading": "Details"
     },
     "member-sheet": {
       "loading-detail": "Loading details...",
