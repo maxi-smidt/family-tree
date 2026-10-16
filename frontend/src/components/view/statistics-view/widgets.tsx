@@ -698,15 +698,3 @@ export const STATISTICS_WIDGETS: StatisticsWidgetDefinition[] = [
     Component: LastNamesChart,
   },
 ];
-
-export const ALL_WIDGET_IDS: StatisticsWidgetId[] = STATISTICS_WIDGETS.map(
-  (w) => w.id,
-);
-
-export const WIDGET_MAP: Record<
-  StatisticsWidgetId,
-  StatisticsWidgetDefinition
-> = Object.fromEntries(STATISTICS_WIDGETS.map((w) => [w.id, w])) as Record<
-  StatisticsWidgetId,
-  StatisticsWidgetDefinition
->;
