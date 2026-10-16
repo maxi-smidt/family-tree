@@ -67,7 +67,7 @@ describe("CanvasSearch", () => {
       );
     });
 
-    expect(screen.getByText("Current tree")).toBeInTheDocument();
+    expect(screen.getByText("Current workspace")).toBeInTheDocument();
     expect(screen.getByText("Other accessible workspaces")).toBeInTheDocument();
     expect(screen.getByText("Shared family")).toBeInTheDocument();
 

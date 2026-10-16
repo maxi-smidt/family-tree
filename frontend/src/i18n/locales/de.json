@@ -18,10 +18,10 @@
       "smoothstep": "Runde Stufe"
     },
     "database-selector": {
-      "placeholder": "Wähle Stammbaum",
+      "placeholder": "Wähle Arbeitsbereich",
       "your-workspaces-group": "Deine Arbeitsbereiche",
       "shared-workspaces-group": "Mit dir geteilt",
-      "open-error": "Dieser Stammbaum konnte nicht geöffnet werden – er ist möglicherweise nicht mehr mit dir geteilt.",
+      "open-error": "Dieser Arbeitsbereich konnte nicht geöffnet werden – er ist möglicherweise nicht mehr mit dir geteilt.",
       "switch": "Arbeitsbereich wechseln",
       "role-owner": "Eigentümer",
       "role-editor": "Bearbeiter",
@@ -55,12 +55,12 @@
       "add": "Beziehung hinzufügen"
     },
     "create-database": {
-      "title": "Stammbaum erstellen",
-      "description": "Hier kann ein neuer Stammbaum erstellt werden.",
+      "title": "Neuer Arbeitsbereich",
+      "description": "Hier kann ein neuer Arbeitsbereich erstellt werden.",
       "name": "Name",
       "create": "Erstellen",
       "cancel": "Abbrechen",
-      "toast-error": "Stammbaum konnte nicht erstellt werden."
+      "toast-error": "Arbeitsbereich konnte nicht erstellt werden."
     },
     "image-crop": {
       "title": "Bild zuschneiden",
@@ -76,7 +76,7 @@
       },
       "description": {
         "export": "Alle Exporte sind standardmäßig verschlüsselt. Füge ein Passwort für zusätzliche Sicherheit hinzu. Ohne Passwort wird weiterhin Basis-Verschlüsselung angewendet.",
-        "import": "Dieser Stammbaum ist passwortgeschützt. Bitte gib das Passwort ein, um ihn zu importieren."
+        "import": "Diese Arbeitsbereich-Datei ist passwortgeschützt. Bitte gib das Passwort ein, um sie zu importieren."
       },
       "label": {
         "password": "Passwort",
@@ -101,21 +101,21 @@
       }
     },
     "remove-database": {
-      "title": "Stammbaum entfernen",
-      "description": "Bist du sicher, dass der gewählte Stammbaum entfernt werden soll? Diese Aktion kann nicht rückgängig gemacht werden. Um sicher zu gehen, schreibe den Namen des Stammbaums: '{{name}}'",
+      "title": "Arbeitsbereich entfernen",
+      "description": "Bist du sicher, dass der gewählte Arbeitsbereich entfernt werden soll? Diese Aktion kann nicht rückgängig gemacht werden. Um sicher zu gehen, schreibe den Namen des Arbeitsbereichs: '{{name}}'",
       "name": "Name",
       "cancel": "Abbrechen",
       "remove": "Entfernen",
-      "toast-warning": "Du hast den letzten Stammbaum entfernt. Erstelle einen neuen.",
-      "toast-success": "Stammbaum erfolgreich entfernt.",
-      "toast-error": "Stammbaum konnte nicht entfernt werden.",
-      "toast-permission-error": "Du hast keine Berechtigung mehr, diesen Stammbaum zu löschen.",
+      "toast-warning": "Du hast den letzten Arbeitsbereich entfernt. Erstelle einen neuen.",
+      "toast-success": "Arbeitsbereich erfolgreich entfernt.",
+      "toast-error": "Arbeitsbereich konnte nicht entfernt werden.",
+      "toast-permission-error": "Du hast keine Berechtigung mehr, diesen Arbeitsbereich zu löschen.",
       "toast-undo-window-error": "Der vorherige Eigentümer kann diese Übertragung noch rückgängig machen. Bitte warte kurz, bevor du löschst."
     },
     "remove-node": {
       "title_one": "Lösche Person",
       "title_other": "Lösche Personen",
-      "description": "Die ausgewählten Personen werden aus dem Stammbaum gelöscht. Dies kann anschließend einige Sekunden lang rückgängig gemacht werden.",
+      "description": "Die ausgewählten Personen werden aus diesem Arbeitsbereich gelöscht. Dies kann anschließend einige Sekunden lang rückgängig gemacht werden.",
       "validation": "Bis du dir sicher das folgende Personen gelöscht werden sollen?",
       "cancel": "Abbrechen",
       "delete": "Löschen"
@@ -145,9 +145,9 @@
     },
     "share-tree": {
       "title": "\"{{name}}\" teilen",
-      "description": "Anderen Benutzern Zugriff auf diesen Stammbaum geben.",
+      "description": "Anderen Benutzern Zugriff auf diesen Arbeitsbereich geben.",
       "shared": "Zugriff aktualisiert.",
-      "share-error": "Stammbaum konnte nicht geteilt werden.",
+      "share-error": "Arbeitsbereich konnte nicht geteilt werden.",
       "revoke-error": "Zugriff konnte nicht entzogen werden.",
       "current-access": "Personen mit Zugriff",
       "add-people": "Personen hinzufügen",
@@ -178,18 +178,18 @@
         "tasks": "Recherche-Aufgaben"
       },
       "transfer-title": "Eigentümerschaft übertragen",
-      "transfer-hint": "Der neue Eigentümer erhält die volle Kontrolle. Sie verlieren die Eigentümerrechte und Ihren Zugriff auf diesen Stammbaum.",
+      "transfer-hint": "Der neue Eigentümer erhält die volle Kontrolle. Sie verlieren die Eigentümerrechte und Ihren Zugriff auf diesen Arbeitsbereich.",
       "transfer-select": "Neuen Eigentümer auswählen…",
       "transfer-no-targets": "Keine geeigneten Benutzer",
       "transfer-button": "Übertragen",
       "transfer-confirm-title": "Eigentümerschaft übertragen?",
-      "transfer-confirm-description": "\"{{username}}\" zum Eigentümer von \"{{name}}\" machen? Sie sind dann nicht mehr der Eigentümer dieses Stammbaums.",
+      "transfer-confirm-description": "\"{{username}}\" zum Eigentümer von \"{{name}}\" machen? Sie sind dann nicht mehr der Eigentümer dieses Arbeitsbereichs.",
       "transfer-confirm-cancel": "Abbrechen",
       "transfer-confirm-action": "Eigentümerschaft übertragen",
       "transfer-success": "Eigentümerschaft übertragen.",
       "transfer-error": "Eigentümerschaft konnte nicht übertragen werden.",
       "transfer-retain-toggle": "Meinen Zugriff behalten",
-      "transfer-retain-hint": "Sie bleiben nach der Übertragung Mitglied dieses Stammbaums.",
+      "transfer-retain-hint": "Sie bleiben nach der Übertragung Mitglied dieses Arbeitsbereichs.",
       "transfer-retain-role-label": "Meine Rolle nach der Übertragung",
       "transfer-undo-button": "Rückgängig ({{seconds}}s)",
       "transfer-undo-title": "Eigentümerschaft übertragen",
@@ -217,16 +217,16 @@
       },
       "public": {
         "title": "Öffentlicher Lesezugriff",
-        "hint": "Jeder mit dem Link kann diesen Stammbaum lesen (nur Ansicht). Kein Konto erforderlich.",
+        "hint": "Jeder mit dem Link kann diesen Arbeitsbereich lesen (nur Ansicht). Kein Konto erforderlich.",
         "disable": "Privat machen",
-        "confirm-enable-title": "Diesen Stammbaum öffentlich teilen?",
+        "confirm-enable-title": "Diesen Arbeitsbereich öffentlich teilen?",
         "confirm-enable-description": "Jeder mit diesem Link kann Namen, Profilbilder, Geschlecht, Geburts- und Sterbedaten sowie Familienbeziehungen ohne Konto ansehen.",
         "confirm-enable-action": "Ich verstehe — öffentlich machen",
-        "confirm-disable-title": "Stammbaum privat machen?",
+        "confirm-disable-title": "Arbeitsbereich privat machen?",
         "confirm-disable-description": "Der öffentliche Link funktioniert dann nicht mehr. Bestehende Mitglieder behalten ihren Zugang.",
         "error": "Öffentlicher Zugang konnte nicht aktualisiert werden.",
         "password": {
-          "hint": "Optional ein Passwort verlangen, bevor anonyme Besucher diesen Stammbaum ansehen können.",
+          "hint": "Optional ein Passwort verlangen, bevor anonyme Besucher diesen Arbeitsbereich ansehen können.",
           "placeholder": "Neues Passwort",
           "set": "Passwort festlegen",
           "update": "Passwort aktualisieren",
@@ -243,16 +243,16 @@
       "invitation-received": "Du wurdest zu \"{{name}}\" eingeladen"
     },
     "duplicate-tree": {
-      "title": "Stammbaum duplizieren",
+      "title": "Arbeitsbereich duplizieren",
       "description": "Eine unabhängige Kopie von \"{{name}}\" erstellen. Das Original bleibt unverändert.",
-      "name": "Name des neuen Stammbaums",
+      "name": "Name des neuen Arbeitsbereichs",
       "copy-suffix": "(Kopie)",
       "duplicate": "Duplizieren",
       "duplicating": "Wird dupliziert...",
       "cancel": "Abbrechen",
-      "toast-success": "Stammbaum erfolgreich dupliziert.",
-      "toast-error": "Stammbaum konnte nicht dupliziert werden.",
-      "toast-error-name": "Bitte gib einen Namen für den neuen Stammbaum an."
+      "toast-success": "Arbeitsbereich erfolgreich dupliziert.",
+      "toast-error": "Arbeitsbereich konnte nicht dupliziert werden.",
+      "toast-error-name": "Bitte gib einen Namen für den neuen Arbeitsbereich an."
     },
     "tab-settings": {
       "title": "Tabs anpassen",
@@ -279,13 +279,13 @@
       "toast-error-image-too-large": "Das Bild ist zu groß. Maximale Größe: 10 MB.",
       "toast-error-image-unsupported": "Nicht unterstützter Bildtyp. Bitte JPEG, PNG, WebP, GIF oder AVIF verwenden.",
       "toast-error-quota-media": "Medienspeicher-Kontingent überschritten.",
-      "toast-error-quota-tree": "Stammbaumdaten-Kontingent überschritten.",
+      "toast-error-quota-tree": "Arbeitsbereichsdaten-Kontingent überschritten.",
       "toast-success-image-upload": "Bild erfolgreich hochgeladen!",
       "toast-error-read-file": "Datei konnte nicht gelesen werden.",
       "image-alt-fallback": "Galeriebild",
       "linked-members-more": "+{{count}} weitere",
       "empty-title": "Noch keine Fotos",
-      "empty-description": "Lade dein erstes Foto hoch, um die Galerie dieses Stammbaums zu füllen.",
+      "empty-description": "Lade dein erstes Foto hoch, um die Galerie dieses Arbeitsbereichs zu füllen.",
       "empty-cta": "Foto hochladen",
       "upload-queue": {
         "title": "Uploads",
@@ -397,7 +397,7 @@
     "filter-all": "Alle",
     "filter-unlinked": "Nicht verknüpft",
     "empty-title": "Noch keine Dokumente",
-    "empty-description": "Füge ein Dokument hinzu, um das Archiv dieses Stammbaums aufzubauen.",
+    "empty-description": "Füge ein Dokument hinzu, um das Archiv dieses Arbeitsbereichs aufzubauen.",
     "no-results": "Keine Dokumente entsprechen diesen Filtern.",
     "file-count_one": "{{count}} Datei",
     "file-count_other": "{{count}} Dateien",
@@ -429,12 +429,12 @@
   },
   "layout": {
     "tree-breadcrumb": {
-      "aria-label": "Navigation verknüpfter Stammbäume",
-      "untitled": "Unbenannter Stammbaum"
+      "aria-label": "Navigation verknüpfter Arbeitsbereiche",
+      "untitled": "Unbenannter Arbeitsbereich"
     },
     "presence": {
-      "aria-label_one": "{{count}} Person betrachtet diesen Stammbaum",
-      "aria-label_other": "{{count}} Personen betrachten diesen Stammbaum",
+      "aria-label_one": "{{count}} Person betrachtet diesen Arbeitsbereich",
+      "aria-label_other": "{{count}} Personen betrachten diesen Arbeitsbereich",
       "editing-tooltip": "{{name}} (bearbeitet)"
     },
     "main-panel": {
@@ -452,22 +452,22 @@
       "identity-links": "Identitätsverknüpfungen"
     },
     "no-database-placeholder": {
-      "title": "Noch keine Stammbäume",
-      "description": "Du hast noch keine Stammbäume erstellt. Starte mit der Erstellung eines neuen.",
+      "title": "Noch keine Arbeitsbereiche",
+      "description": "Du hast noch keine Arbeitsbereiche erstellt. Starte mit der Erstellung eines neuen.",
       "create": "Arbeitsbereich erstellen",
-      "import": "Stammbaum importieren",
-      "toast-success": "Stammbaum erfolgreich importiert!",
-      "toast-error": "Stammbaum konnte nicht importiert werden."
+      "import": "Arbeitsbereich importieren",
+      "toast-success": "Arbeitsbereich erfolgreich importiert!",
+      "toast-error": "Arbeitsbereich konnte nicht importiert werden."
     },
     "mobile-management": {
       "title": "Verwalten",
-      "no-tree-selected": "Kein Baum ausgewählt",
+      "no-tree-selected": "Kein Arbeitsbereich ausgewählt",
       "group-sharing": "Freigabe",
       "group-data": "Daten",
       "group-admin": "Administration",
       "share-action": "Freigabe & Berechtigungen",
-      "export-action": "Baum exportieren",
-      "import-action": "Baum importieren",
+      "export-action": "Arbeitsbereich exportieren",
+      "import-action": "Arbeitsbereich importieren",
       "export-gedcom-action": "GEDCOM exportieren",
       "import-gedcom-action": "GEDCOM importieren",
       "activity-action": "Aktivitätsprotokoll",
@@ -521,7 +521,6 @@
         "dob": "Geboren",
         "dod": "Gestorben",
         "no-members": "Keine Personen gefunden.",
-        "source-tree": "Quellbaum",
         "caption": "Familienmitglieder",
         "birthplace": "Geburtsort",
         "hometown": "Heimatort",
@@ -601,7 +600,7 @@
       "toast-error-image-too-large": "Das Foto ist zu groß. Maximale Größe: 10 MB.",
       "toast-error-image-unsupported": "Nicht unterstützter Bildtyp. Bitte JPEG, PNG, WebP, GIF oder AVIF verwenden.",
       "toast-error-quota-media": "Medienspeicher-Kontingent überschritten.",
-      "toast-error-quota-tree": "Stammbaumdaten-Kontingent überschritten.",
+      "toast-error-quota-tree": "Arbeitsbereichsdaten-Kontingent überschritten.",
       "toast-error-save": "Speichern fehlgeschlagen.",
       "toast-success": "Person aktualisiert.",
       "gender-field": "Geschlecht",
@@ -847,7 +846,7 @@
             "error-type": "Nicht unterstützter Dateityp",
             "error-size": "Datei ist zu groß (max. {{max}})",
             "error-quota-media": "Medienspeicher-Kontingent überschritten.",
-            "error-quota-tree": "Stammbaumdaten-Kontingent überschritten.",
+            "error-quota-tree": "Arbeitsbereichsdaten-Kontingent überschritten.",
             "error-quota-total": "Gesamtspeicher-Kontingent überschritten.",
             "error-open": "Datei konnte nicht geöffnet werden.",
             "error-upload-failed": "{{files}} konnte(n) nicht hochgeladen werden. Überprüfe deine Verbindung und speichere erneut."
@@ -919,7 +918,7 @@
           "title-placeholder": "z. B. Geburtsurkunde finden",
           "linked-members": "Verknüpfte Mitglieder",
           "linked-members-placeholder": "Mitglieder auswählen...",
-          "linked-members-description": "Optional. Leer lassen für eine allgemeine Aufgabe, die den ganzen Baum betrifft.",
+          "linked-members-description": "Optional. Leer lassen für eine allgemeine Aufgabe, die den ganzen Arbeitsbereich betrifft.",
           "notes": "Notizen",
           "notes-placeholder": "Details, zu prüfende Quellen, wen fragen...",
           "cancel": "Abbrechen",
@@ -972,14 +971,14 @@
       "action-error": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
       "propose-dialog": {
         "title": "Identitätsverknüpfung für {{name}} vorschlagen",
-        "description": "Verknüpfe diese Person mit derselben Person in einem anderen Stammbaum.",
+        "description": "Verknüpfe diese Person mit derselben Person in einem anderen Arbeitsbereich.",
         "tab-search": "Suchen",
         "tab-invite": "Freund einladen",
-        "search-placeholder": "Andere Stammbäume nach Namen durchsuchen",
+        "search-placeholder": "Andere Arbeitsbereiche nach Namen durchsuchen",
         "no-results": "Keine Treffer gefunden.",
         "propose-success": "Identitätsverknüpfung vorgeschlagen.",
         "propose-error": "Die Identitätsverknüpfung konnte nicht vorgeschlagen werden.",
-        "invite-description": "Nicht gefunden? Wenn ihr befreundet seid, lade die Person ein, die passende Person selbst auszuwählen — du siehst ihren Stammbaum nie.",
+        "invite-description": "Nicht gefunden? Wenn ihr befreundet seid, lade die Person ein, die passende Person selbst auszuwählen — du siehst ihren Arbeitsbereich nie.",
         "username-placeholder": "Benutzername des Freundes",
         "note-placeholder": "Optionaler Hinweis zur Wiedererkennung",
         "invite-submit": "Einladung senden",
@@ -1011,15 +1010,15 @@
       "born-short": "geb. {{date}}"
     },
     "canvas-label": "Stammbaum-Leinwand",
-    "access-revoked": "\"{{name}}\" ist nicht mehr verfügbar – die Freigabe wurde möglicherweise aufgehoben oder der Stammbaum gelöscht.",
+    "access-revoked": "\"{{name}}\" ist nicht mehr verfügbar – die Freigabe wurde möglicherweise aufgehoben oder der Arbeitsbereich gelöscht.",
     "search": {
       "placeholder": "Mitglieder suchen…",
       "no-results": "Keine Mitglieder gefunden",
-      "current-tree": "Aktueller Stammbaum",
+      "current-tree": "Aktueller Arbeitsbereich",
       "other-workspaces": "Weitere zugängliche Arbeitsbereiche",
       "other-workspaces-searching": "Weitere Arbeitsbereiche werden durchsucht…",
       "open-other-tree": "{{tree}} öffnen und {{member}} anzeigen",
-      "open-error": "Dieser Stammbaum konnte nicht geöffnet werden – er ist möglicherweise nicht mehr mit dir geteilt.",
+      "open-error": "Dieser Arbeitsbereich konnte nicht geöffnet werden – er ist möglicherweise nicht mehr mit dir geteilt.",
       "unnamed": "Unbenanntes Mitglied",
       "nee": "geb. {{name}}",
       "clear": "Suche löschen",
@@ -1212,7 +1211,7 @@
   "activity-view": {
     "title": "Aktivität",
     "empty-title": "Noch keine Aktivität",
-    "empty-description": "Änderungen an diesem Stammbaum werden hier angezeigt.",
+    "empty-description": "Änderungen an diesem Arbeitsbereich werden hier angezeigt.",
     "action-create": "hinzugefügt",
     "action-update": "bearbeitet",
     "action-delete": "entfernt",
@@ -1224,7 +1223,7 @@
     "target-document": "Dokument",
     "target-document_file": "Dokumentdatei",
     "target-disease": "Erkrankung",
-    "target-tree": "Stammbaum",
+    "target-tree": "Arbeitsbereich",
     "target-share": "Freigabe",
     "target-import": "Import",
     "target-merge": "Zusammenführung",
@@ -1323,21 +1322,21 @@
   },
   "merge-view": {
     "view": {
-      "title": "Stammbäume vereinen",
-      "description": "Zwei Stammbäume zu einem neuen vereinen. Die Quellstammbäume bleiben unverändert und doppelte Mitglieder werden kombiniert.",
-      "source-database-1": "Stammbaum 1",
-      "source-database-2": "Stammbaum 2",
-      "select-placeholder": "Stammbaum auswählen",
-      "new-database-field": "Stammbaumname",
-      "new-database-placeholder": "Stammbaumname",
+      "title": "Arbeitsbereiche vereinen",
+      "description": "Zwei Arbeitsbereiche zu einem neuen vereinen. Die Quell-Arbeitsbereiche bleiben unverändert und doppelte Mitglieder werden kombiniert.",
+      "source-database-1": "Arbeitsbereich 1",
+      "source-database-2": "Arbeitsbereich 2",
+      "select-placeholder": "Arbeitsbereich auswählen",
+      "new-database-field": "Name des neuen Arbeitsbereichs",
+      "new-database-placeholder": "Name des neuen Arbeitsbereichs",
       "merge-database": "Vereinen",
       "merging-database": "Am Vereinen...",
       "cancel": "Abbrechen",
-      "toast-preview-error": "Die Stammbäume konnten nicht für die Vorschau geladen werden.",
-      "toast-merge-success": "Stammbäume erfolgreich zusammengeführt.",
-      "toast-error-name": "Bitte gib einen Namen für den neuen Stammbaum an.",
-      "toast-error-merge": "Stammbäume konnten nicht zusammengeführt werden.",
-      "loading-preview": "Stammbäume werden analysiert…",
+      "toast-preview-error": "Die Arbeitsbereiche konnten nicht für die Vorschau geladen werden.",
+      "toast-merge-success": "Arbeitsbereiche erfolgreich zusammengeführt.",
+      "toast-error-name": "Bitte gib einen Namen für den neuen Arbeitsbereich an.",
+      "toast-error-merge": "Arbeitsbereiche konnten nicht zusammengeführt werden.",
+      "loading-preview": "Arbeitsbereiche werden analysiert…",
       "review-conflicts": "Konflikte überprüfen"
     },
     "resolve": {
@@ -1376,12 +1375,12 @@
       "duplicate-members_other": "Duplikate gefunden",
       "alert-duplicate": {
         "title": "Duplikate werden vereint",
-        "description_one": "{{count}} Person in beiden Stammbäumen gefunden die vereint werden. Zusätzliche Informationen werden kombiniert.",
-        "description_other": "{{count}} Personen in beiden Stammbäumen gefunden die vereint werden. Zusätzliche Informationen werden kombiniert."
+        "description_one": "{{count}} Person in beiden Arbeitsbereichen gefunden, die vereint wird. Zusätzliche Informationen werden kombiniert.",
+        "description_other": "{{count}} Personen in beiden Arbeitsbereichen gefunden, die vereint werden. Zusätzliche Informationen werden kombiniert."
       },
       "alert-no-duplicate": {
         "title": "Keine Duplikate",
-        "description": "Es gibt keine Duplikate. Die Stammbäume werden ohne Konflikt vereint."
+        "description": "Es gibt keine Duplikate. Die Arbeitsbereiche werden ohne Konflikt vereint."
       }
     }
   },
@@ -1429,7 +1428,7 @@
     "open-tasks-add": "Aufgabe hinzufügen",
     "open-tasks-empty": "Keine offenen Recherchepunkte.",
     "open-tasks-mark-done": "Als erledigt markieren",
-    "open-tasks-tree-level": "Baum",
+    "open-tasks-tree-level": "Arbeitsbereich",
     "merge-action": "Vergleichen & zusammenführen",
     "subtitle": "{{count}} Personen geprüft",
     "subtitle_one": "{{count}} Person geprüft",
@@ -1478,7 +1477,7 @@
   "statistics-view": {
     "title": "Statistiken",
     "empty-title": "Nicht genug Daten",
-    "empty-description": "Füge Personen zu deinem Stammbaum hinzu, um Statistiken zu sehen.",
+    "empty-description": "Füge Personen zu diesem Arbeitsbereich hinzu, um Statistiken zu sehen.",
     "on-this-day-years-ago_one": "vor {{count}} Jahr",
     "on-this-day-years-ago_other": "vor {{count}} Jahren",
     "gender-title": "Geschlecht",
@@ -1531,7 +1530,7 @@
     "lives-today": "heute",
     "birthplaces-title": "Geburtsorte",
     "birthplaces-description": "Wo alle geboren wurden",
-    "completeness-title": "Wie vollständig ist der Stammbaum?",
+    "completeness-title": "Wie vollständig ist dieser Arbeitsbereich?",
     "completeness-description": "Lücken füllen erweckt ihn zum Leben",
     "completeness-birth-dates": "Geburtsdaten",
     "completeness-birthplaces": "Geburtsorte",
@@ -1544,39 +1543,39 @@
   },
   "database-management-view": {
     "title": "Arbeitsbereiche",
-    "import-button": "Stammbaum importieren",
+    "import-button": "Arbeitsbereich importieren",
     "merge-button": "Vereinen",
     "duplicate-button": "Duplizieren",
     "copy-id-button": "ID kopieren",
-    "toast-import-success": "Stammbaum erfolgreich importiert!",
-    "toast-import-error": "Stammbaum konnte nicht importiert werden.",
+    "toast-import-success": "Arbeitsbereich erfolgreich importiert!",
+    "toast-import-error": "Arbeitsbereich konnte nicht importiert werden.",
     "import-provenance": "Exportiert aus v{{version}} am {{date}}",
-    "toast-gedcom-import-success": "Stammbaum erfolgreich aus GEDCOM importiert!",
+    "toast-gedcom-import-success": "Arbeitsbereich erfolgreich aus GEDCOM importiert!",
     "toast-gedcom-import-error": "GEDCOM-Datei konnte nicht importiert werden.",
-    "toast-gedcom-export-error": "Stammbaum konnte nicht als GEDCOM exportiert werden.",
+    "toast-gedcom-export-error": "Arbeitsbereich konnte nicht als GEDCOM exportiert werden.",
     "export-gedcom-button": "GEDCOM exportieren",
     "import-gedcom-button": "GEDCOM importieren",
-    "toast-rename-success": "Stammbaum erfolgreich umbenannt!",
-    "toast-rename-empty": "Stammbaumname darf nicht leer sein.",
-    "toast-rename-error": "Stammbaum konnte nicht umbenannt werden.",
+    "toast-rename-success": "Arbeitsbereich erfolgreich umbenannt!",
+    "toast-rename-empty": "Name des Arbeitsbereichs darf nicht leer sein.",
+    "toast-rename-error": "Arbeitsbereich konnte nicht umbenannt werden.",
     "share-button": "Teilen",
-    "toast-export-error": "Stammbaum konnte nicht exportiert werden.",
-    "toast-id-copied": "Stammbaum-ID in die Zwischenablage kopiert.",
+    "toast-export-error": "Arbeitsbereich konnte nicht exportiert werden.",
+    "toast-id-copied": "Arbeitsbereich-ID in die Zwischenablage kopiert.",
     "toast-id-copy-error": "ID konnte nicht kopiert werden.",
     "owned-section": "Deine",
     "shared-section": "Mit dir geteilt",
-    "no-owned": "Dir gehört noch kein Stammbaum. Erstelle oder importiere einen, um zu beginnen.",
-    "no-shared": "Es wurden noch keine Stammbäume mit dir geteilt.",
+    "no-owned": "Dir gehört noch kein Arbeitsbereich. Erstelle oder importiere einen, um zu beginnen.",
+    "no-shared": "Es wurden noch keine Arbeitsbereiche mit dir geteilt.",
     "shared-with-count_one": "Mit {{count}} Person geteilt",
     "shared-with-count_other": "Mit {{count}} Personen geteilt",
     "not-shared": "Privat",
     "role-editor": "Bearbeiter",
     "role-viewer": "Betrachter",
     "rename-button": "Umbenennen",
-    "toast-select-error": "Dieser Stammbaum konnte nicht geöffnet werden – er ist möglicherweise nicht mehr mit dir geteilt.",
+    "toast-select-error": "Dieser Arbeitsbereich konnte nicht geöffnet werden – er ist möglicherweise nicht mehr mit dir geteilt.",
     "import-menu-button": "Importieren",
     "row-actions-button": "Weitere Aktionen",
-    "export-button": "Stammbaum exportieren",
+    "export-button": "Arbeitsbereich exportieren",
     "delete-button": "Löschen",
     "subtitle": "Jeder Arbeitsbereich ist eine Familiengeschichte",
     "workspace-count": "{{count}} Arbeitsbereiche",
@@ -1764,7 +1763,7 @@
       "decline-error": "Anfrage konnte nicht abgelehnt werden.",
       "remove-error": "Freund konnte nicht entfernt werden.",
       "confirm-remove-title": "Freund entfernen?",
-      "confirm-remove-description": "{{name}} aus deinen Freunden entfernen? Gemeinsam geteilte Stammbäume sind danach nicht mehr zugänglich.",
+      "confirm-remove-description": "{{name}} aus deinen Freunden entfernen? Gemeinsam geteilte Arbeitsbereiche sind danach nicht mehr zugänglich.",
       "confirm-remove-confirm": "Entfernen",
       "confirm-remove-cancel": "Abbrechen",
       "new-request": "Neue Freundschaftsanfrage von {{name}}",
@@ -1774,14 +1773,14 @@
     "delete-account": {
       "title": "Konto löschen",
       "description": "Konto zum Löschen vormerken. Der Zugriff wird sofort gesperrt und alle Daten werden nach Ablauf der Frist endgültig gelöscht.",
-      "owned-workspaces-label": "Deine Stammbäume",
+      "owned-workspaces-label": "Deine Arbeitsbereiche",
       "transfer-select": "Neuen Besitzer wählen…",
       "transfer-no-targets": "Keine Benutzer verfügbar",
       "transfer-btn": "Übertragen",
       "transferred-to": "Übertragen an {{username}}",
       "loading": "Lädt…",
-      "workspaces-warning_one": "{{count}} Stammbaum wird endgültig gelöscht.",
-      "workspaces-warning_other": "{{count}} Stammbäume werden endgültig gelöscht.",
+      "workspaces-warning_one": "{{count}} Arbeitsbereich wird endgültig gelöscht.",
+      "workspaces-warning_other": "{{count}} Arbeitsbereiche werden endgültig gelöscht.",
       "password-label": "Passwort zur Bestätigung eingeben",
       "username-label": "Benutzernamen zur Bestätigung eingeben",
       "cancel": "Abbrechen",
@@ -1918,7 +1917,7 @@
     "image-storage-mode-default-hint": "Der Modus, der für Benutzer ohne eigene Einstellung gilt. Muss einer der oben erlaubten Modi sein.",
     "storage-quotas": "Standard-Speicherkontingente",
     "storage-quotas-hint": "Setzt das Standard-Kontingent je Bucket pro Nutzer. 0 = unbegrenzt. Nutzer-spezifische Werte haben Vorrang.",
-    "default-tree-quota": "Stammbaumdaten (MB)",
+    "default-tree-quota": "Arbeitsbereichsdaten (MB)",
     "default-media-quota": "Mediendateien (MB)",
     "save-settings": "Einstellungen speichern",
     "pending-deletion": "Löschung vorgemerkt · {{date}}",
@@ -1932,7 +1931,7 @@
       "title": "Speicherkontingente",
       "description": "Speicherkontingente für \"{{username}}\" überschreiben.",
       "hint": "Werte in MB. Leer lassen, um den Instanz-Standard zu verwenden; 0 für unbegrenzt.",
-      "tree": "Stammbaumdaten (MB)",
+      "tree": "Arbeitsbereichsdaten (MB)",
       "media": "Mediendateien (MB)",
       "default-placeholder": "Standard",
       "cancel": "Abbrechen",
@@ -1947,13 +1946,13 @@
     },
     "delete-dialog": {
       "title": "Kontolöschung vormerken",
-      "description": "\"{{username}}\" zum Löschen vormerken? Der Zugriff wird sofort gesperrt und alle Stammbäume und Dateien werden in {{days}} Tagen endgültig gelöscht. Sie können dies bis dahin jederzeit abbrechen.",
+      "description": "\"{{username}}\" zum Löschen vormerken? Der Zugriff wird sofort gesperrt und alle Arbeitsbereiche und Dateien werden in {{days}} Tagen endgültig gelöscht. Sie können dies bis dahin jederzeit abbrechen.",
       "cancel": "Abbrechen",
       "delete": "Löschung vormerken",
       "scheduled": "Konto zum Löschen vorgemerkt."
     },
     "relation-types": {
-      "hint": "Beziehungstypen gelten für alle Stammbäume dieser Instanz. Die Bezeichnung überschreibt den Anzeigenamen; die Beschreibung wird als Fallback angezeigt, wenn keine Übersetzung existiert.",
+      "hint": "Beziehungstypen gelten für alle Arbeitsbereiche dieser Instanz. Die Bezeichnung überschreibt den Anzeigenamen; die Beschreibung wird als Fallback angezeigt, wenn keine Übersetzung existiert.",
       "col-id": "ID",
       "col-label": "Bezeichnung",
       "col-description": "Beschreibung",
@@ -2066,11 +2065,11 @@
   "public-tree": {
     "read-only-hint": "Nur-Lese-Ansicht — melde dich an, um den interaktiven Stammbaum zu erkunden.",
     "login-button": "Anmelden",
-    "not-public": "Dieser Stammbaum ist privat oder der Link ist nicht mehr gültig.",
-    "error": "Dieser Stammbaum konnte nicht geladen werden.",
+    "not-public": "Dieser Arbeitsbereich ist privat oder der Link ist nicht mehr gültig.",
+    "error": "Dieser Arbeitsbereich konnte nicht geladen werden.",
     "password": {
       "title": "Passwort erforderlich",
-      "description": "Dieser Stammbaum ist passwortgeschützt. Gib das Passwort ein, um ihn anzusehen.",
+      "description": "Dieser Arbeitsbereich ist passwortgeschützt. Gib das Passwort ein, um ihn anzusehen.",
       "submit": "Entsperren",
       "error": "Falsches Passwort. Bitte versuche es erneut."
     }
@@ -2164,7 +2163,7 @@
     "unlimited": "unbegrenzt",
     "error": "Speichernutzung konnte nicht geladen werden.",
     "toast-error-quota-media": "Medienspeicher-Kontingent überschritten.",
-    "toast-error-quota-tree": "Stammbaumdaten-Kontingent überschritten.",
+    "toast-error-quota-tree": "Arbeitsbereichsdaten-Kontingent überschritten.",
     "quota-warning": "Der Medienspeicher dieses Besitzers ist fast voll."
   },
   "user-settings": {
@@ -2200,12 +2199,12 @@
       "body": "Diese kurze Tour führt dich durch die wichtigsten Funktionen. Du kannst sie jederzeit über das Benutzermenü neu starten."
     },
     "create-tree": {
-      "title": "Ersten Stammbaum erstellen",
-      "body": "Klicke auf Weiter, um den Dialog zu öffnen, in dem dein erster Stammbaum erstellt wird."
+      "title": "Ersten Arbeitsbereich erstellen",
+      "body": "Klicke auf Weiter, um den Dialog zu öffnen, in dem dein erster Arbeitsbereich erstellt wird."
     },
     "existing-tree": {
-      "title": "Mit diesem Stammbaum fortfahren",
-      "body": "Du hast bereits einen Stammbaum ausgewählt. Deshalb überspringen wir die Einrichtung und zeigen dir direkt die täglichen Werkzeuge."
+      "title": "Mit diesem Arbeitsbereich fortfahren",
+      "body": "Du hast bereits einen Arbeitsbereich ausgewählt. Deshalb überspringen wir die Einrichtung und zeigen dir direkt die täglichen Werkzeuge."
     },
     "add-member": {
       "title": "Erste Person hinzufügen",
@@ -2221,11 +2220,11 @@
     },
     "tree-management": {
       "title": "Arbeitsbereiche",
-      "body": "Hier kannst du neue Stammbäume erstellen, einen bestehenden Baum mit Freunden als Betrachter oder Bearbeiter teilen sowie Daten importieren oder exportieren."
+      "body": "Hier kannst du neue Arbeitsbereiche erstellen, einen bestehenden Arbeitsbereich mit Freunden als Betrachter oder Bearbeiter teilen sowie Daten importieren oder exportieren."
     },
     "friends": {
       "title": "Freunde & Teilen",
-      "body": "Suche andere Benutzer anhand ihres Benutzernamens, sende eine Freundschaftsanfrage und lade sie nach der Annahme zu einem deiner Stammbäume ein."
+      "body": "Suche andere Benutzer anhand ihres Benutzernamens, sende eine Freundschaftsanfrage und lade sie nach der Annahme zu einem deiner Arbeitsbereiche ein."
     },
     "finish": {
       "title": "Alles bereit!",
@@ -2238,9 +2237,9 @@
       "skip": "Überspringen"
     },
     "tree-name": {
-      "title": "Stammbaum benennen",
-      "default": "Mein erster Stammbaum",
-      "body": "Wir haben deinem Stammbaum schon einen Namen gegeben — du kannst ihn jederzeit später ändern. Klicke auf Weiter, um ihn zu erstellen."
+      "title": "Arbeitsbereich benennen",
+      "default": "Mein erster Arbeitsbereich",
+      "body": "Wir haben deinem Arbeitsbereich schon einen Namen gegeben — du kannst ihn jederzeit später ändern. Klicke auf Weiter, um ihn zu erstellen."
     }
   },
   "notifications": {
@@ -2492,7 +2491,7 @@
   },
   "identity-links-view": {
     "title": "Identitätsverknüpfungen",
-    "owner-only": "Nur der Eigentümer des Stammbaums kann dessen Identitätsverknüpfungen überprüfen.",
+    "owner-only": "Nur der Eigentümer des Arbeitsbereichs kann dessen Identitätsverknüpfungen überprüfen.",
     "verified-links": "Verknüpft",
     "no-verified-links": "Noch keine bestätigten Identitätsverknüpfungen.",
     "unnamed-member": "Unbenannte Person",
@@ -2503,7 +2502,7 @@
     "no-incoming-claims": "Keine eingehenden Anfragen",
     "incoming-claims-description": "Wenn ein Freund vermutet, dass eine seiner Personen dieselbe wie eine deiner Personen ist, erscheint das hier.",
     "outgoing-claims": "Von dir vorgeschlagen",
-    "claim-from": "{{username}} vermutet, dass dies jemand in deinem Stammbaum ist",
+    "claim-from": "{{username}} vermutet, dass dies jemand in deinem Arbeitsbereich ist",
     "claim-to": "{{username}} eingeladen",
     "claim-status-pending": "Wartet auf Antwort",
     "claim-status-completed": "Bestätigt",
@@ -2518,8 +2517,8 @@
     "action-error": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
     "complete-dialog": {
       "title": "Auf welche deiner Personen bezieht sich {{username}}?",
-      "description": "Wähle den Stammbaum und die Person, auf die sich diese Anfrage bezieht. Es wird nichts geteilt, bevor du auswählst.",
-      "workspace-placeholder": "Wähle einen Stammbaum, den du besitzt",
+      "description": "Wähle den Arbeitsbereich und die Person, auf die sich diese Anfrage bezieht. Es wird nichts geteilt, bevor du auswählst.",
+      "workspace-placeholder": "Wähle einen Arbeitsbereich, den du besitzt",
       "search-placeholder": "Personen nach Namen suchen",
       "no-results": "Keine Treffer gefunden.",
       "success": "Identitätsverknüpfung erstellt.",

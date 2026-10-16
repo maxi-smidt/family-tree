@@ -64,7 +64,9 @@ test("empty state and create: a new tree becomes active and persists", async ({
   try {
     await loginAs(page, secondUser);
 
-    await expect(page.getByText("No Trees Yet", { exact: true })).toBeVisible({
+    await expect(
+      page.getByText("No workspaces yet", { exact: true }),
+    ).toBeVisible({
       timeout: 15_000,
     });
     const createButton = page.getByRole("button", {
@@ -86,9 +88,9 @@ test("empty state and create: a new tree becomes active and persists", async ({
     expect(createResponse.status()).toBe(201);
     created = (await createResponse.json()) as TreeListItem;
 
-    await expect(page.getByText("No Trees Yet", { exact: true })).toHaveCount(
-      0,
-    );
+    await expect(
+      page.getByText("No workspaces yet", { exact: true }),
+    ).toHaveCount(0);
     await expect(page.locator('[data-testid="tree-selector"]')).toContainText(
       workspaceName,
       { timeout: 15_000 },
@@ -186,7 +188,7 @@ test("delete: the active tree disappears and another tree is selected", async ({
     await row.getByRole("button", { name: "More actions" }).click();
     await page.getByRole("menuitem", { name: "Delete", exact: true }).click();
 
-    const dialog = page.getByRole("dialog", { name: "Remove tree" });
+    const dialog = page.getByRole("dialog", { name: "Remove workspace" });
     await expect(dialog).toBeVisible();
     await dialog.locator("#databaseName").fill(removed.name);
 
@@ -329,7 +331,7 @@ test("merge: the wizard previews and creates the union of both workspaces", asyn
     await openTreeManagement(page);
     await page.getByRole("button", { name: "Merge", exact: true }).click();
 
-    const dialog = page.getByRole("dialog", { name: "Merge Trees" });
+    const dialog = page.getByRole("dialog", { name: "Merge workspaces" });
     await expect(dialog).toBeVisible();
     const sourceSelectors = dialog.getByRole("combobox");
 

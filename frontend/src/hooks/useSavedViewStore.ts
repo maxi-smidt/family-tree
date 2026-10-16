@@ -78,7 +78,7 @@ export const useSavedViewStore = create<SavedViewState>((set, get) => {
     // silently out of sync with the server (and the caller none the wiser).
     createSavedView: async (payload) => {
       const workspaceId = activeTreeId();
-      if (!workspaceId) throw new Error("No active tree");
+      if (!workspaceId) throw new Error("No active workspace");
       const view = await WorkspaceService.createSavedView(workspaceId, payload);
       if (isActiveTree(workspaceId)) {
         set((state) => ({ views: [...state.views, view], initialized: true }));
@@ -88,7 +88,7 @@ export const useSavedViewStore = create<SavedViewState>((set, get) => {
 
     updateSavedView: async (viewId, payload) => {
       const workspaceId = activeTreeId();
-      if (!workspaceId) throw new Error("No active tree");
+      if (!workspaceId) throw new Error("No active workspace");
       const view = await WorkspaceService.updateSavedView(
         workspaceId,
         viewId,

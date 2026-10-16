@@ -24,7 +24,11 @@ interface ActivityState {
   refreshActivity: (workspaceId?: string) => Promise<void>;
   setPage: (page: number, workspaceId?: string) => Promise<void>;
   setPageSize: (size: number, workspaceId?: string) => Promise<void>;
-  setFilter: (key: FilterKey, val: string, workspaceId?: string) => Promise<void>;
+  setFilter: (
+    key: FilterKey,
+    val: string,
+    workspaceId?: string,
+  ) => Promise<void>;
   clearFilters: (workspaceId?: string) => Promise<void>;
   retry: (workspaceId?: string) => Promise<void>;
   undo: (entryId: string, workspaceId?: string) => Promise<ActivityUndoDB>;
@@ -122,7 +126,7 @@ export const useActivityStore = create<ActivityState>((set, get) => {
     },
 
     undo: async (entryId, workspaceId = activeTreeId()) => {
-      if (!workspaceId) throw new Error("No active tree");
+      if (!workspaceId) throw new Error("No active workspace");
       const report = await WorkspaceService.undoActivity(workspaceId, entryId);
       // Content stores refresh themselves via the workspace.content_changed SSE
       // event the backend publishes; only the activity list itself needs an

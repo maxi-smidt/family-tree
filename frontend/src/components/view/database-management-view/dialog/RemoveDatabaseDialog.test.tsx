@@ -47,11 +47,7 @@ describe("RemoveDatabaseDialog", () => {
     useWorkspaceStore.setState({ loadTrees });
 
     render(
-      <RemoveDatabaseDialog
-        isOpen
-        onConfirm={onConfirm}
-        onCancel={vi.fn()}
-      />,
+      <RemoveDatabaseDialog isOpen onConfirm={onConfirm} onCancel={vi.fn()} />,
     );
 
     fireEvent.change(screen.getByLabelText("Name"), {
@@ -61,7 +57,7 @@ describe("RemoveDatabaseDialog", () => {
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(
-        "You no longer have permission to delete this tree.",
+        "You no longer have permission to delete this workspace.",
       );
     });
     expect(removeDatabaseMock).toHaveBeenCalledWith(TREE_A);

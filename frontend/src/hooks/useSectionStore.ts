@@ -70,7 +70,7 @@ export const useSectionStore = create<SectionState>((set, get) => {
 
     previewSection: (rootMemberId, direction) => {
       const workspaceId = activeTreeId();
-      if (!workspaceId) throw new Error("No active tree");
+      if (!workspaceId) throw new Error("No active workspace");
       return WorkspaceService.previewSection(
         workspaceId,
         rootMemberId,
@@ -80,7 +80,7 @@ export const useSectionStore = create<SectionState>((set, get) => {
 
     createSection: async (payload) => {
       const workspaceId = activeTreeId();
-      if (!workspaceId) throw new Error("No active tree");
+      if (!workspaceId) throw new Error("No active workspace");
       const section = await WorkspaceService.createSection(
         workspaceId,
         payload,
@@ -98,7 +98,7 @@ export const useSectionStore = create<SectionState>((set, get) => {
 
     getSectionDependents: (sectionId) => {
       const workspaceId = activeTreeId();
-      if (!workspaceId) throw new Error("No active tree");
+      if (!workspaceId) throw new Error("No active workspace");
       return WorkspaceService.getSectionDependents(workspaceId, sectionId);
     },
 
@@ -115,7 +115,7 @@ export const useSectionStore = create<SectionState>((set, get) => {
 
     getSectionMembers: (sectionId) => {
       const workspaceId = activeTreeId();
-      if (!workspaceId) throw new Error("No active tree");
+      if (!workspaceId) throw new Error("No active workspace");
       return WorkspaceService.getSectionMembers(workspaceId, sectionId);
     },
 
@@ -132,7 +132,7 @@ export const useSectionStore = create<SectionState>((set, get) => {
 
     getSectionSuggestions: (memberId) => {
       const workspaceId = activeTreeId();
-      if (!workspaceId) throw new Error("No active tree");
+      if (!workspaceId) throw new Error("No active workspace");
       return WorkspaceService.getSectionSuggestions(workspaceId, memberId);
     },
 
