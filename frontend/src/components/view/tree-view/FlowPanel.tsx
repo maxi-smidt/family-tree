@@ -68,6 +68,7 @@ import {
   readMemberSheetDeepLink,
 } from "@/utils/memberSheetState";
 import { getGenerationLineGap } from "@/utils/generationLineSpacing";
+import { buildMemberNodes } from "@/utils/memberNodes";
 
 const nodeTypes = { familyMember: FamilyNode, unionNode: UnionNode };
 const edgeTypes = { relation: RelationEdge };
@@ -1095,19 +1096,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
 
   function initializeFlow() {
     // Rebuilt on every `members` change (incl. drag-position persistence), so
-    // carry the current selection over — otherwise moving a selected member
-    // would clear the selection once its new position is saved.
-    setNodes((prevNodes) => {
-      const selectedIds = new Set(
-        prevNodes.filter((n) => n.selected).map((n) => n.id),
-      );
-      return members.map((member) => ({
-        id: member.id,
-        type: "familyMember",
-        position: member.position,
-        data: member,
-        selected: selectedIds.has(member.id),
-      }));
-    });
+    // carry the selection and measured sizes over — see buildMemberNodes.
+    setNodes((prevNodes) => buildMemberNodes(members, prevNodes));
   }
 };
