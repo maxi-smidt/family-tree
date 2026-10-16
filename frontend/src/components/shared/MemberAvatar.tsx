@@ -18,6 +18,22 @@ const TONE_CLASSES: Record<string, string> = {
 };
 const DEFAULT_TONE = "bg-gender-o-bg text-gender-o";
 
+// A photo covers the gender tint, so it gets a ring in the gender colour
+// instead, scaled so it stays visible on large avatars and light on tiny ones.
+const RING_WIDTH_CLASSES: Record<AvatarSize, string> = {
+  xs: "ring-[1.5px]",
+  sm: "ring-2",
+  md: "ring-2",
+  lg: "ring-[3px]",
+  xl: "ring-[3px]",
+};
+
+const RING_TONE_CLASSES: Record<string, string> = {
+  m: "ring-gender-m",
+  f: "ring-gender-f",
+};
+const DEFAULT_RING_TONE = "ring-gender-o";
+
 export function memberInitials(
   member: Pick<Member, "firstName" | "lastName">,
 ): string {
@@ -33,8 +49,8 @@ interface MemberAvatarProps {
 }
 
 /**
- * A person's avatar: their photo when one is set, otherwise their initials on
- * a muted tint for their gender. Decorative — the name is always rendered
+ * A person's avatar: their photo ringed in their gender's colour when one is
+ * set, otherwise their initials on a muted tint for their gender. Decorative — the name is always rendered
  * next to it, so it is hidden from assistive technology.
  */
 export const MemberAvatar = ({
@@ -60,7 +76,12 @@ export const MemberAvatar = ({
     <AuthenticatedImage
       src={member.imageData}
       alt=""
-      className={cn(base, "object-cover")}
+      className={cn(
+        base,
+        "object-cover",
+        RING_WIDTH_CLASSES[size],
+        RING_TONE_CLASSES[member.gender ?? ""] ?? DEFAULT_RING_TONE,
+      )}
       fallback={initials}
     />
   );
