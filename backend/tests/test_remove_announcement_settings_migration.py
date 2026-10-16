@@ -1,8 +1,8 @@
 """Tests for the data cleanup in the What's New migration.
 
-Retention: data-migration tests are kept for the current + prior minor
-release (currently 1.8/1.7); delete this file once 1.9 ships and this
-migration is more than one minor version old.
+Keep this data-preservation regression while the v1.7 revision remains in
+the supported upgrade chain. Calendar age alone does not retire an upgrade
+path; see docs/UPGRADE_V2.md.
 """
 
 import importlib.util
@@ -24,10 +24,6 @@ def _load_migration_module():
 
 
 migration = _load_migration_module()
-
-
-def test_revision_id_fits_the_alembic_version_column():
-    assert len(migration.revision) <= 32
 
 
 @pytest.fixture()

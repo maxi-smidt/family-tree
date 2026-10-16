@@ -2,8 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useStoryStore } from "./useStoryStore";
 import { useWorkspaceStore } from "./useWorkspaceStore";
 import { WorkspaceService } from "@/services/WorkspaceService";
-import { StoryDB } from "@/types/story";
+import { StoryDB, mapStoryFromDB } from "@/types/story";
 import { Workspace } from "@/types/workspace";
+
+import { testLinkedContentLifecycle } from "@/test/linkedContentStore";
 
 vi.mock("@/services/WorkspaceService");
 
@@ -21,22 +23,14 @@ const STORY_DB: StoryDB = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  useStoryStore.setState({ stories: [] });
-  useWorkspaceStore.setState({ selectedTree: undefined });
+  useStoryStore.getState().clear();
+  useWorkspaceStore.setState({ selectedTree: TREE });
+  vi.mocked(WorkspaceService.getStories).mockResolvedValue([]);
+  vi.mocked(WorkspaceService.getStoryMemberLinks).mockResolvedValue([]);
 });
 
 describe("useStoryStore — refreshStories", () => {
-  it("clears stories when no tree is selected", async () => {
-    useStoryStore.setState({ stories: [{ id: "stale" } as never] });
-
-    await useStoryStore.getState().refreshStories();
-
-    expect(useStoryStore.getState().stories).toHaveLength(0);
-    expect(WorkspaceService.getStories).not.toHaveBeenCalled();
-  });
-
   it("fetches and maps stories with member links", async () => {
-    useWorkspaceStore.setState({ selectedTree: TREE });
     vi.mocked(WorkspaceService.getStories).mockResolvedValue([STORY_DB]);
     vi.mocked(WorkspaceService.getStoryMemberLinks).mockResolvedValue([
       { story_id: "s1", member_id: "m1" },
@@ -54,10 +48,7 @@ describe("useStoryStore — refreshStories", () => {
 
 describe("useStoryStore — addStory", () => {
   it("calls WorkspaceService.addStory and WorkspaceService.setStoryLinks then refreshes", async () => {
-    useWorkspaceStore.setState({ selectedTree: TREE });
     vi.mocked(WorkspaceService.addStory).mockResolvedValue(undefined);
-    vi.mocked(WorkspaceService.getStories).mockResolvedValue([]);
-    vi.mocked(WorkspaceService.getStoryMemberLinks).mockResolvedValue([]);
 
     await useStoryStore
       .getState()
@@ -74,6 +65,7 @@ describe("useStoryStore — addStory", () => {
   });
 
   it("does nothing when no tree is selected", async () => {
+    useWorkspaceStore.setState({ selectedTree: undefined });
     await useStoryStore
       .getState()
       .addStory([], { title: "Orphan", content: "" });
@@ -84,12 +76,9 @@ describe("useStoryStore — addStory", () => {
 
 describe("useStoryStore — updateStory", () => {
   it("calls WorkspaceService.updateStory, setStoryLinks and setStoryDocuments then refreshes", async () => {
-    useWorkspaceStore.setState({ selectedTree: TREE });
     vi.mocked(WorkspaceService.updateStory).mockResolvedValue(undefined);
     vi.mocked(WorkspaceService.setStoryLinks).mockResolvedValue(undefined);
     vi.mocked(WorkspaceService.setStoryDocuments).mockResolvedValue(undefined);
-    vi.mocked(WorkspaceService.getStories).mockResolvedValue([]);
-    vi.mocked(WorkspaceService.getStoryMemberLinks).mockResolvedValue([]);
 
     await useStoryStore
       .getState()
@@ -109,51 +98,58 @@ describe("useStoryStore — updateStory", () => {
     expect(WorkspaceService.setStoryLinks).toHaveBeenCalledWith(TREE_ID, "s1", [
       "m2",
     ]);
-    expect(WorkspaceService.setStoryDocuments).toHaveBeenCalledWith(TREE_ID, "s1", [
-      "doc-1",
-    ]);
+    expect(WorkspaceService.setStoryDocuments).toHaveBeenCalledWith(
+      TREE_ID,
+      "s1",
+      ["doc-1"],
+    );
+    expect(WorkspaceService.getStories).toHaveBeenCalledWith(TREE_ID);
   });
 
-  it("leaves document links unchanged when document ids are omitted", async () => {
-    useWorkspaceStore.setState({ selectedTree: TREE });
-    vi.mocked(WorkspaceService.updateStory).mockResolvedValue(undefined);
-    vi.mocked(WorkspaceService.setStoryLinks).mockResolvedValue(undefined);
-    vi.mocked(WorkspaceService.getStories).mockResolvedValue([]);
-    vi.mocked(WorkspaceService.getStoryMemberLinks).mockResolvedValue([]);
-
+  it.each([
+    { label: "omitted", documentIds: undefined },
+    { label: "explicitly cleared", documentIds: [] },
+  ])("handles $label document links", async ({ documentIds }) => {
     await useStoryStore
       .getState()
-      .updateStory("s1", { title: "Updated Legend", content: "Revised…" }, [
-        "m2",
-      ]);
+      .updateStory(
+        "s1",
+        { title: "Updated Legend", content: "Revised…" },
+        ["m2"],
+        documentIds,
+      );
 
-    expect(WorkspaceService.setStoryDocuments).not.toHaveBeenCalled();
+    if (documentIds === undefined) {
+      expect(WorkspaceService.setStoryDocuments).not.toHaveBeenCalled();
+    } else {
+      expect(WorkspaceService.setStoryDocuments).toHaveBeenCalledWith(
+        TREE_ID,
+        "s1",
+        [],
+      );
+    }
+    expect(WorkspaceService.getStories).toHaveBeenCalledWith(TREE_ID);
   });
 });
 
 describe("useStoryStore — setStoryDocuments", () => {
   it("calls WorkspaceService.setStoryDocuments then refreshes", async () => {
-    useWorkspaceStore.setState({ selectedTree: TREE });
     vi.mocked(WorkspaceService.setStoryDocuments).mockResolvedValue(undefined);
-    vi.mocked(WorkspaceService.getStories).mockResolvedValue([]);
-    vi.mocked(WorkspaceService.getStoryMemberLinks).mockResolvedValue([]);
 
     await useStoryStore.getState().setStoryDocuments("s1", ["doc-1", "doc-2"]);
 
-    expect(WorkspaceService.setStoryDocuments).toHaveBeenCalledWith(TREE_ID, "s1", [
-      "doc-1",
-      "doc-2",
-    ]);
+    expect(WorkspaceService.setStoryDocuments).toHaveBeenCalledWith(
+      TREE_ID,
+      "s1",
+      ["doc-1", "doc-2"],
+    );
     expect(WorkspaceService.getStories).toHaveBeenCalled();
   });
 });
 
 describe("useStoryStore — removeStory", () => {
   it("calls WorkspaceService.removeStory then refreshes", async () => {
-    useWorkspaceStore.setState({ selectedTree: TREE });
     vi.mocked(WorkspaceService.removeStory).mockResolvedValue(undefined);
-    vi.mocked(WorkspaceService.getStories).mockResolvedValue([]);
-    vi.mocked(WorkspaceService.getStoryMemberLinks).mockResolvedValue([]);
 
     await useStoryStore.getState().removeStory("s1");
 
@@ -164,7 +160,6 @@ describe("useStoryStore — removeStory", () => {
 
 describe("useStoryStore — getStoriesByMember", () => {
   it("returns stories linked to the given member", async () => {
-    useWorkspaceStore.setState({ selectedTree: TREE });
     vi.mocked(WorkspaceService.getStories).mockResolvedValue([
       STORY_DB,
       { ...STORY_DB, id: "s2", title: "Other Story" },
@@ -182,69 +177,18 @@ describe("useStoryStore — getStoriesByMember", () => {
   });
 });
 
-describe("useStoryStore — stale-write guard", () => {
-  it("does not write fetched data when the tree changed mid-flight", async () => {
-    let resolve!: (v: StoryDB[]) => void;
-    const pending = new Promise<StoryDB[]>((r) => {
-      resolve = r;
-    });
-    vi.mocked(WorkspaceService.getStories).mockReturnValue(pending);
-    vi.mocked(WorkspaceService.getStoryMemberLinks).mockResolvedValue([]);
-    useWorkspaceStore.setState({ selectedTree: TREE });
-
-    const p = useStoryStore.getState().refreshStories(TREE_ID);
-    // user switches away before the fetch resolves
-    useWorkspaceStore.setState({
-      selectedTree: { id: "other", name: "Other", role: "owner" },
-    });
-    resolve([STORY_DB]);
-    await p;
-
-    expect(useStoryStore.getState().stories).toHaveLength(0); // stale data dropped
-  });
-
-  it("does not write fetched data after disconnect", async () => {
-    let resolve!: (v: StoryDB[]) => void;
-    const pending = new Promise<StoryDB[]>((r) => {
-      resolve = r;
-    });
-    vi.mocked(WorkspaceService.getStories).mockReturnValue(pending);
-    vi.mocked(WorkspaceService.getStoryMemberLinks).mockResolvedValue([]);
-    useWorkspaceStore.setState({ selectedTree: TREE });
-
-    const p = useStoryStore.getState().refreshStories(TREE_ID);
-    // user disconnects before the fetch resolves
-    useWorkspaceStore.setState({ selectedTree: undefined });
-    resolve([STORY_DB]);
-    await p;
-
-    expect(useStoryStore.getState().stories).toHaveLength(0); // stale data dropped
-  });
-
-  it("writes data when the explicit workspaceId is still active", async () => {
-    let resolve!: (v: StoryDB[]) => void;
-    const pending = new Promise<StoryDB[]>((r) => {
-      resolve = r;
-    });
-    vi.mocked(WorkspaceService.getStories).mockReturnValue(pending);
-    vi.mocked(WorkspaceService.getStoryMemberLinks).mockResolvedValue([
-      { story_id: "s1", member_id: "m1" },
-    ]);
-    useWorkspaceStore.setState({ selectedTree: TREE });
-
-    const p = useStoryStore.getState().refreshStories(TREE_ID);
-    resolve([STORY_DB]);
-    await p;
-
-    expect(useStoryStore.getState().stories).toHaveLength(1);
-    expect(useStoryStore.getState().stories[0].id).toBe("s1");
-  });
-
-  it("clear() empties the stories slice", () => {
-    useStoryStore.setState({ stories: [{ id: "s1" } as never] });
-
-    useStoryStore.getState().clear();
-
-    expect(useStoryStore.getState().stories).toHaveLength(0);
-  });
+testLinkedContentLifecycle({
+  name: "useStoryStore",
+  workspace: TREE,
+  row: STORY_DB,
+  fetchRows: vi.mocked(WorkspaceService.getStories),
+  refresh: (id) => useStoryStore.getState().refreshStories(id),
+  items: () => useStoryStore.getState().stories,
+  initialized: () => useStoryStore.getState().initialized,
+  seed: () =>
+    useStoryStore.setState({
+      stories: [mapStoryFromDB(STORY_DB, [])],
+      initialized: true,
+    }),
+  clear: () => useStoryStore.getState().clear(),
 });
