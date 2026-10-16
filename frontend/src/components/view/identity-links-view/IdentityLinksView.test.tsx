@@ -70,7 +70,7 @@ describe("IdentityLinksView", () => {
     });
 
     expect(
-      screen.getByRole("heading", { name: "Identity Links" }),
+      screen.getByRole("heading", { name: "Identity links" }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(IdentityLinkService.listIncomingClaims).toHaveBeenCalledOnce();
@@ -92,10 +92,6 @@ describe("IdentityLinksView", () => {
 
     await act(async () => {
       render(<IdentityLinksView />);
-    });
-    fireEvent.mouseDown(screen.getByRole("tab", { name: /Claims/ }), {
-      button: 0,
-      ctrlKey: false,
     });
     fireEvent.click(screen.getByRole("button", { name: "Choose my member" }));
     expect(screen.getByRole("dialog")).toBeInTheDocument();

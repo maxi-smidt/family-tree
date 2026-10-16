@@ -4,14 +4,10 @@ import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { pickFile, useWorkspaceManager } from "@/hooks/useWorkspaceManager";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Card } from "@/components/ui/card";
+import { WorkspaceMonogram } from "@/components/shared/WorkspaceMonogram";
+import { cn } from "@/lib/utils";
+import { formatDate } from "@/utils/dateUtils";
 import {
   Plus,
   Trash2,
@@ -24,7 +20,6 @@ import {
   Users,
   Copy,
   GitMerge,
-  Hash,
   FileUp,
   FileDown,
   MoreHorizontal,
@@ -37,11 +32,6 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { CreateDatabaseDialog } from "@/components/shared/dialog/CreateDatabaseDialog";
 import { RemoveDatabaseDialog } from "@/components/view/database-management-view/dialog/RemoveDatabaseDialog";
 import { ShareTreeDialog } from "@/components/view/database-management-view/dialog/ShareTreeDialog";
@@ -228,163 +218,181 @@ export const DatabaseManagementView = () => {
   const ownedDatabases = workspaces.filter((d) => d.role === "owner");
   const sharedDatabases = workspaces.filter((d) => d.role !== "owner");
 
-  const renderStatusCell = (database: Workspace) => {
-    if (database.role === "owner") {
-      if (database.shared_count && database.shared_count > 0) {
-        return (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Badge variant="secondary" className="gap-1">
-                <Users className="h-3 w-3" />
-                {database.shared_count}
-              </Badge>
-            </TooltipTrigger>
-            <TooltipContent>
+  const renderStatus = (database: Workspace, isSelected: boolean) => (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {isSelected && <Badge variant="success">{t("open-now")}</Badge>}
+      {database.role === "owner" ? (
+        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+          {database.shared_count && database.shared_count > 0 ? (
+            <>
+              <Users className="size-3.5" />
               {t("shared-with-count", { count: database.shared_count })}
-            </TooltipContent>
-          </Tooltip>
-        );
-      }
-      return (
-        <span className="text-muted-foreground text-sm">{t("not-shared")}</span>
-      );
-    }
-    return <Badge variant="outline">{t(`role-${database.role}`)}</Badge>;
+            </>
+          ) : (
+            t("not-shared")
+          )}
+        </span>
+      ) : (
+        <Badge variant="info">{t(`role-${database.role}`)}</Badge>
+      )}
+    </div>
+  );
+
+  const renderActionsMenu = (database: Workspace) => {
+    const isOwned = database.role === "owner";
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={t("row-actions-button")}
+          >
+            <MoreHorizontal />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {isOwned && (
+            <DropdownMenuItem onSelect={() => setShareTree(database)}>
+              <Share2 />
+              {t("share-button")}
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem onSelect={() => setDuplicateTree(database)}>
+            <Copy />
+            {t("duplicate-button")}
+          </DropdownMenuItem>
+          {database.role !== "viewer" && (
+            <DropdownMenuItem
+              disabled={editingDatabaseId !== null}
+              onSelect={() => handleStartRename(database)}
+            >
+              <Edit2 />
+              {t("rename-button")}
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem onSelect={() => void handleCopyId(database)}>
+            <Copy />
+            {t("copy-id-button")}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onSelect={() => void handleExportDatabase(database)}
+          >
+            <HardDriveUpload />
+            {t("export-button")}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => void handleExportGedcom(database)}>
+            <FileUp />
+            {t("export-gedcom-button")}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            variant="destructive"
+            disabled={!isOwned}
+            onSelect={() => void handleOpenRemoveDialog(database)}
+          >
+            <Trash2 />
+            {t("delete-button")}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
   };
 
-  const renderRow = (database: Workspace) => {
+  const renderCard = (database: Workspace) => {
     const isOwned = database.role === "owner";
     const isSelected = selectedTree?.id === database.id;
+    const isEditing = editingDatabaseId === database.id;
     return (
-      <TableRow
-        key={database.id}
-        onClick={() => handleSelectDatabase(database)}
-        className={`group cursor-pointer ${isSelected ? "bg-muted" : ""}`}
-      >
-        <TableCell
-          className={
+      <li key={database.id}>
+        <Card
+          data-slot="workspace-card"
+          aria-current={isSelected ? "true" : undefined}
+          className={cn(
+            "h-full gap-4 px-5 transition-colors",
             isSelected
-              ? "border-l-2 border-l-primary"
-              : "border-l-2 border-l-transparent"
-          }
-        >
-          <input
-            type="radio"
-            checked={isSelected}
-            onChange={() => handleSelectDatabase(database)}
-            className="cursor-pointer"
-            aria-label={t("select-tree")}
-          />
-        </TableCell>
-        <TableCell>
-          {editingDatabaseId === database.id ? (
-            <div
-              className="flex items-center gap-2"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Input
-                value={editingName}
-                onChange={(e) => setEditingName(e.target.value)}
-                className="h-8"
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    void handleSaveRename(database);
-                  } else if (e.key === "Escape") {
-                    handleCancelRename();
-                  }
-                }}
-              />
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleSaveRename(database)}
-              >
-                <Check className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="sm" onClick={handleCancelRename}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-0.5">
-              <span className="font-medium">{database.name}</span>
-              {isSelected && (
-                <button
-                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors w-fit font-mono"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    void handleCopyId(database);
-                  }}
-                  title={t("copy-id-button")}
-                  aria-label={t("copy-id-button")}
-                >
-                  <Hash className="size-3 shrink-0" />
-                  {database.id}
-                </button>
-              )}
-            </div>
+              ? "border-primary ring-1 ring-primary"
+              : "hover:border-input",
           )}
-        </TableCell>
-        <TableCell>{renderStatusCell(database)}</TableCell>
-        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-          <div className="flex justify-end">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-label={t("row-actions-button")}
-                >
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {isOwned && (
-                  <DropdownMenuItem onSelect={() => setShareTree(database)}>
-                    <Share2 className="h-4 w-4" />
-                    {t("share-button")}
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem onSelect={() => setDuplicateTree(database)}>
-                  <Copy className="h-4 w-4" />
-                  {t("duplicate-button")}
-                </DropdownMenuItem>
-                {database.role !== "viewer" && (
-                  <DropdownMenuItem
-                    disabled={editingDatabaseId !== null}
-                    onSelect={() => handleStartRename(database)}
+        >
+          <div className="flex items-start gap-3">
+            <WorkspaceMonogram
+              name={database.name}
+              size="lg"
+              muted={!isSelected}
+            />
+            <div className="min-w-0 flex-1">
+              {isEditing ? (
+                <div className="flex items-center gap-1">
+                  <Input
+                    size="sm"
+                    value={editingName}
+                    onChange={(e) => setEditingName(e.target.value)}
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        void handleSaveRename(database);
+                      } else if (e.key === "Escape") {
+                        handleCancelRename();
+                      }
+                    }}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={t("rename-save")}
+                    onClick={() => handleSaveRename(database)}
                   >
-                    <Edit2 className="h-4 w-4" />
-                    {t("rename-button")}
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem
-                  onSelect={() => void handleExportDatabase(database)}
-                >
-                  <HardDriveUpload className="h-4 w-4" />
-                  {t("export-button")}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={() => void handleExportGedcom(database)}
-                >
-                  <FileUp className="h-4 w-4" />
-                  {t("export-gedcom-button")}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  disabled={!isOwned}
-                  onSelect={() => void handleOpenRemoveDialog(database)}
-                  className="text-destructive focus:text-destructive"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  {t("delete-button")}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                    <Check />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={t("rename-cancel")}
+                    onClick={handleCancelRename}
+                  >
+                    <X />
+                  </Button>
+                </div>
+              ) : (
+                <h3 className="truncate text-base font-bold">
+                  {database.name}
+                </h3>
+              )}
+              <div className="mt-1">{renderStatus(database, isSelected)}</div>
+            </div>
+            {renderActionsMenu(database)}
           </div>
-        </TableCell>
-      </TableRow>
+          <div className="mt-auto flex items-center justify-between gap-3 border-t pt-3">
+            <span className="truncate text-xs text-muted-foreground">
+              {database.created_at
+                ? t("created-on", { date: formatDate(database.created_at) })
+                : ""}
+            </span>
+            {isSelected ? (
+              isOwned ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShareTree(database)}
+                >
+                  <Share2 />
+                  {t("share-button")}
+                </Button>
+              ) : null
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void handleSelectDatabase(database)}
+              >
+                {t("open-button")}
+              </Button>
+            )}
+          </div>
+        </Card>
+      </li>
     );
   };
 
@@ -392,128 +400,98 @@ export const DatabaseManagementView = () => {
     heading: string,
     rows: Workspace[],
     emptyLabel: string,
-    statusHeader: string,
+    trailing?: React.ReactNode,
   ) => (
-    <section className="flex min-h-0 flex-1 flex-col gap-2">
-      <h3 className="shrink-0 text-sm font-semibold">
-        {heading}{" "}
-        <span className="text-muted-foreground font-normal">
-          ({rows.length})
+    <section className="flex flex-col gap-3">
+      <h2 className="flex items-baseline gap-2">
+        <span className="text-lg font-bold tracking-tight">{heading}</span>
+        <span className="text-xs font-semibold text-muted-foreground">
+          {t("workspace-count", { count: rows.length })}
         </span>
-      </h3>
-      <div className="min-h-0 flex-1 overflow-auto rounded-lg border">
-        <Table containerClassName="overflow-visible">
-          <TableHeader className="sticky top-0 z-10 bg-background">
-            <TableRow>
-              <TableHead className="w-12"></TableHead>
-              <TableHead>{t("table-name")}</TableHead>
-              <TableHead>{statusHeader}</TableHead>
-              <TableHead className="text-right">{t("table-actions")}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={4}
-                  className="text-center text-muted-foreground"
-                >
-                  {emptyLabel}
-                </TableCell>
-              </TableRow>
-            ) : (
-              rows.map(renderRow)
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      </h2>
+      {rows.length === 0 && !trailing ? (
+        <p className="text-sm text-muted-foreground">{emptyLabel}</p>
+      ) : (
+        <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {rows.map(renderCard)}
+          {trailing}
+        </ul>
+      )}
     </section>
   );
 
   return (
     <ViewLayout
       title={t("title")}
-      contentClassName="flex min-h-0 flex-col overflow-hidden"
+      subtitle={t("subtitle")}
       action={
-        <div className="flex gap-2">
+        <>
+          <Button
+            variant="outline"
+            onClick={() => setIsMergeDialogOpen(true)}
+            disabled={workspaces.length < 2}
+          >
+            <GitMerge />
+            {t("merge-button")}
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" data-tutorial="new-tree">
-                <Plus className="h-4 w-4" />
-                {t("new-menu-button")}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onSelect={() => setIsCreateDatabaseDialogOpen(true)}
-              >
-                <Plus className="h-4 w-4" />
-                {t("create-button")}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" data-tutorial="import-menu">
-                <HardDriveDownload className="h-4 w-4" />
+              <Button variant="outline" data-tutorial="import-menu">
+                <HardDriveDownload />
                 {t("import-menu-button")}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onSelect={() => void handleImportDatabase()}>
-                <HardDriveDownload className="h-4 w-4" />
+                <HardDriveDownload />
                 {t("import-button")}
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => void handleImportGedcom()}>
-                <FileDown className="h-4 w-4" />
+                <FileDown />
                 {t("import-gedcom-button")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-
           <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsMergeDialogOpen(true)}
-            disabled={workspaces.length < 2}
+            data-tutorial="new-tree"
+            onClick={() => setIsCreateDatabaseDialogOpen(true)}
           >
-            <GitMerge className="h-4 w-4" />
-            {t("merge-button")}
+            <Plus />
+            {t("new-workspace")}
           </Button>
-        </div>
+        </>
       }
     >
-      <div className="flex min-h-0 flex-1 flex-col gap-6">
+      <div className="flex flex-col gap-8 pb-4">
         {isImporting && (
-          <div className="h-2 shrink-0 overflow-hidden rounded-full bg-muted">
+          <div className="h-1.5 shrink-0 overflow-hidden rounded-full bg-muted">
             <div
               className="h-full bg-primary transition-[width] duration-300 ease-in-out"
               style={{ width: `${importPct}%` }}
             />
           </div>
         )}
-        <div className="flex min-h-0 flex-1 flex-col gap-6">
-          {renderSection(
-            t("owned-section"),
-            ownedDatabases,
-            t("no-owned"),
-            t("table-sharing"),
-          )}
-          {renderSection(
-            t("shared-section"),
-            sharedDatabases,
-            t("no-shared"),
-            t("table-your-role"),
-          )}
-        </div>
-      </div>
-
-      <div className="shrink-0 text-sm text-muted-foreground">
-        {t("selected-label")}{" "}
-        <span className="font-medium">
-          {selectedTree?.name || t("none-selected")}
-        </span>
+        {renderSection(
+          t("owned-section"),
+          ownedDatabases,
+          t("no-owned"),
+          <li>
+            <button
+              type="button"
+              onClick={() => setIsCreateDatabaseDialogOpen(true)}
+              className="flex h-full min-h-40 w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-5 text-center text-muted-foreground transition-colors hover:border-primary hover:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            >
+              <span className="grid size-9 place-items-center rounded-full bg-muted">
+                <Plus className="size-4" />
+              </span>
+              <span className="text-sm font-semibold text-foreground">
+                {t("new-card-title")}
+              </span>
+              <span className="max-w-60 text-xs">{t("new-card-body")}</span>
+            </button>
+          </li>,
+        )}
+        {renderSection(t("shared-section"), sharedDatabases, t("no-shared"))}
       </div>
 
       <CreateDatabaseDialog

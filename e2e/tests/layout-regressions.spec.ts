@@ -2,7 +2,7 @@ import type { Locator, Page } from "@playwright/test";
 import { test, expect } from "../fixtures";
 import { createTree } from "../fixtures/seed";
 import { createTestUser, deleteTestUser } from "../fixtures/users";
-import { loginAs, selectTree } from "../fixtures/ui";
+import { loginAs, openView, selectTree } from "../fixtures/ui";
 
 async function expectWithinViewport(
   locator: Locator,
@@ -38,11 +38,9 @@ for (const viewport of [
       await selectTree(page, tree.name);
       // Open through the desktop management view, then exercise the same
       // dialog at both widths without depending on mobile navigation labels.
+      await openView(page, "Workspaces");
       await page
-        .getByRole("tab", { name: "Workspace Management", exact: true })
-        .click();
-      await page
-        .getByRole("row")
+        .locator('[data-slot="workspace-card"]')
         .filter({ hasText: tree.name })
         .getByRole("button", { name: "More actions" })
         .click();
@@ -127,7 +125,7 @@ test("tab content fills the viewport and long timelines scroll inside the view",
   try {
     await loginAs(page, secondUser);
     await selectTree(page, tree.name);
-    await page.getByRole("tab", { name: "Timeline", exact: true }).click();
+    await openView(page, "Timeline");
     const panel = page.getByRole("tabpanel");
     const empty = panel.getByText("No events found", { exact: true });
     await expect(empty).toBeVisible();

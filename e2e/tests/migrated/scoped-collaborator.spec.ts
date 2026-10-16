@@ -67,8 +67,9 @@ test.describe.serial("scoped collaborator visibility and widening", () => {
   }) => {
     await openView(page, /Migration review/i);
     await expect(
-      page.getByRole("heading", { name: "Migration Review" }),
+      page.getByRole("heading", { name: "Migration review", level: 1 }),
     ).toBeVisible();
+    await page.getByRole("tab", { name: /Sharing carried over/ }).click();
 
     const grantRow = page
       .locator("li")
