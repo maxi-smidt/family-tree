@@ -25,10 +25,6 @@ def _load_migration_module():
 migration = _load_migration_module()
 
 
-def test_revision_id_fits_the_alembic_version_column():
-    assert len(migration.revision) <= 32
-
-
 def test_removes_feature_settings_and_legacy_override_table():
     engine = sa.create_engine("sqlite://")
     metadata = sa.MetaData()

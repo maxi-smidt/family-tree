@@ -103,14 +103,18 @@ export const ShareTreeDialog = ({
   const transferOwnership = useWorkspaceSharingStore(
     (state) => state.transferOwnership,
   );
-  const revertTransfer = useWorkspaceSharingStore((state) => state.revertTransfer);
+  const revertTransfer = useWorkspaceSharingStore(
+    (state) => state.revertTransfer,
+  );
   const createInvitation = useWorkspaceSharingStore(
     (state) => state.createInvitation,
   );
   const revokeInvitation = useWorkspaceSharingStore(
     (state) => state.revokeInvitation,
   );
-  const setPublicAccess = useWorkspaceSharingStore((state) => state.setPublicAccess);
+  const setPublicAccess = useWorkspaceSharingStore(
+    (state) => state.setPublicAccess,
+  );
   const setPublicPassword = useWorkspaceSharingStore(
     (state) => state.setPublicPassword,
   );
@@ -454,7 +458,7 @@ export const ShareTreeDialog = ({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
-        className="max-h-[90vh] overflow-y-auto sm:min-w-[600px]"
+        className="grid-cols-1 max-h-[90vh] overflow-y-auto sm:min-w-[600px]"
         onInteractOutside={(e) => {
           // The public-access / transfer confirmations render as sibling
           // AlertDialog portals. Radix treats a pointer-down or focus change
@@ -891,6 +895,7 @@ export const ShareTreeDialog = ({
                 aria-label={t("transfer-select")}
               >
                 <SelectValue
+                  className="min-w-0"
                   placeholder={
                     transferTargets.length === 0
                       ? t("transfer-no-targets")

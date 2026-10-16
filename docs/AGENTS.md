@@ -342,9 +342,21 @@ The project uses **Vitest** for unit testing.
 3. **Layout Algorithms**: Tree layout calculations
 4. **Type Guards**: TypeScript type narrowing functions
 
+### Choosing the test boundary
+
+- Component tests should exercise rendered behavior, using the real production
+  logic rather than recreating it in the test. Mock unrelated heavy subtrees.
+- Use Playwright for responsive sizing, overflow, scrolling, and overlapping
+  controls; checking Tailwind class names in jsdom does not verify layout.
+- Share lifecycle contracts for similar stores while keeping each store's
+  payload and mapping assertions explicit.
+- Retain data-preservation migration tests while their revision remains in the
+  supported upgrade chain (see [UPGRADE_V2.md](./UPGRADE_V2.md#1-compatibility)),
+  rather than deleting them after a fixed number of minor releases. Shared
+  revision metadata checks belong in `backend/tests/test_migration_metadata.py`.
+
 ### What Not to Test
 
-- UI components (no React Testing Library tests currently)
 - Backend endpoints (covered separately on the Python side)
 - Third-party library integrations
 
