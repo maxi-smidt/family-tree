@@ -171,6 +171,15 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     activeTree ? generationLineGaps[activeTree.id] : undefined,
   );
   const [rfInstance, setRfInstance] = useState<ReactFlowInstance | null>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  /** The middle of the visible canvas, in flow coordinates. */
+  const canvasCenter = () => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    const screen = rect
+      ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+      : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    return rfInstance?.screenToFlowPosition(screen) ?? { x: 0, y: 0 };
+  };
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [membersToDelete, setMembersToDelete] = useState<Member[]>([]);
@@ -562,12 +571,12 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   };
 
   const addPersonFromHeader = () => {
-    const center = rfInstance?.screenToFlowPosition({
-      x: window.innerWidth / 2,
-      y: window.innerHeight / 2,
-    }) ?? { x: 0, y: 0 };
+    const center = canvasCenter();
     pending.createNew(
-      createMember({ x: center.x - NODE_WIDTH / 2, y: center.y }),
+      createMember({
+        x: center.x - NODE_WIDTH / 2,
+        y: center.y - NODE_HEIGHT / 2,
+      }),
     );
   };
 
@@ -675,13 +684,10 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
 
   const handleAddFirstMember = () => {
     if (!rfInstance) return;
-    const flowPoint = rfInstance.screenToFlowPosition({
-      x: window.innerWidth / 2,
-      y: window.innerHeight / 2,
-    });
+    const center = canvasCenter();
     pending.addFirstMember({
-      x: flowPoint.x - NODE_WIDTH / 2,
-      y: flowPoint.y,
+      x: center.x - NODE_WIDTH / 2,
+      y: center.y - NODE_HEIGHT / 2,
     });
   };
 
@@ -750,6 +756,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
           />
         ))}
       <div
+        ref={canvasRef}
         className="relative min-h-0 w-full flex-1 bg-canvas"
         aria-label={t("tree-view.canvas-label")}
       >
@@ -856,14 +863,6 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
             visible={generationLineGap !== null}
             gap={generationLineGap ?? undefined}
           />
-          {members.length === 0 && !isCanvasReadOnly && (
-            <Panel
-              position="top-center"
-              className="!left-1/2 !-translate-x-1/2 !top-1/2 !-translate-y-1/2"
-            >
-              <EmptyTreeState onAddFirstMember={handleAddFirstMember} />
-            </Panel>
-          )}
           <Panel
             position={isMobile ? "top-center" : "top-left"}
             className={isMobile ? "max-w-[calc(100vw-1.5rem)] pt-1" : "pt-2"}
@@ -995,6 +994,16 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
             />
           )}
         </ReactFlow>
+        {members.length === 0 && !publicView && canEditMembers && (
+          // A plain overlay rather than a React Flow <Panel>: panels centre
+          // themselves with their own transform and margin, which pushed this
+          // card off-centre.
+          <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center p-4">
+            <div className="pointer-events-auto">
+              <EmptyTreeState onAddFirstMember={handleAddFirstMember} />
+            </div>
+          </div>
+        )}
         {isMobile && !publicView && (
           // Phones: pinch to zoom, one fit button, and the pull-up card for
           // the tapped person.

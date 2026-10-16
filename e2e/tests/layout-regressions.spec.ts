@@ -257,3 +257,21 @@ test("phones navigate from the tab bar and open a person from the tree", async (
       .getByRole("button", { name: "Workspaces" }),
   ).toBeVisible();
 });
+
+test("the empty-workspace prompt sits in the middle of the canvas", async ({
+  adminPage: page,
+  seedTree,
+}) => {
+  const tree = await seedTree(`Empty-${crypto.randomUUID().slice(0, 8)}`);
+  await page.reload();
+  await selectTree(page, tree.name);
+  await openView(page, "Tree");
+
+  const canvas = page.getByLabel("Family tree canvas");
+  const prompt = canvas.locator('[data-slot="empty"]');
+  await expect(prompt).toContainText("Start your family tree");
+  const c = (await canvas.boundingBox())!;
+  const p = (await prompt.boundingBox())!;
+  expect(Math.abs(p.x + p.width / 2 - (c.x + c.width / 2))).toBeLessThan(2);
+  expect(Math.abs(p.y + p.height / 2 - (c.y + c.height / 2))).toBeLessThan(2);
+});
