@@ -12,8 +12,8 @@ import {
 
 describe("dateUtils", () => {
   it("formats date-only strings with the requested language locale", () => {
-    expect(formatDate("2026-06-07", { language: "de" })).toBe("07.06.2026");
-    expect(formatDate("2026-06-07", { language: "en" })).toBe("06/07/2026");
+    expect(formatDate("2026-06-07", { language: "de" })).toBe("7. Juni 2026");
+    expect(formatDate("2026-06-07", { language: "en" })).toBe("Jun 7, 2026");
   });
 
   it("formats date and time through the same locale-aware path", () => {

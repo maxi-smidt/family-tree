@@ -56,7 +56,7 @@ export function ContentCard({
           <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
         ))}
       <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-      <span className="truncate font-medium">{title}</span>
+      <span className="truncate font-semibold">{title}</span>
       {metadata}
     </>
   );
@@ -64,7 +64,7 @@ export function ContentCard({
   return (
     <div
       className={cn(
-        "rounded-lg border bg-card p-3 transition-colors hover:bg-accent/50",
+        "rounded-lg border bg-card p-3 text-sm transition-colors hover:bg-accent/50",
         className,
       )}
     >

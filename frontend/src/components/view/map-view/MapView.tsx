@@ -38,19 +38,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  CommandSeparator,
-} from "@/components/ui/command";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
+import { SearchInput } from "@/components/shared/SearchInput";
+import { MemberPicker } from "@/components/shared/member-sheet/MemberPicker";
 import {
   MapPin,
-  Check,
-  ChevronsUpDown,
+  CalendarRange,
+  UserRound,
   LocateFixed,
   X,
   Play,
@@ -66,7 +62,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { cn } from "@/lib/utils";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { useTranslation } from "react-i18next";
 import { formatDate, formatDateWithFallback } from "@/utils/dateUtils";
@@ -84,11 +79,7 @@ L.Icon.Default.mergeOptions({
 });
 
 type LocationType =
-  | "event"
-  | "birthplace"
-  | "hometown"
-  | "cemetery"
-  | "places-lived";
+  "event" | "birthplace" | "hometown" | "cemetery" | "places-lived";
 
 const LOCATION_COLORS: Record<LocationType, string> = {
   event: "var(--color-map-event)",
@@ -223,6 +214,17 @@ function createGroupIcon(
     iconSize: [PIN_SIZE, PIN_SIZE],
     iconAnchor: [PIN_SIZE / 2, PIN_SIZE / 2],
     popupAnchor: [0, -PIN_SIZE / 2],
+  });
+}
+
+// Clusters use one accent disc with the count, matching the app's badges
+// rather than Leaflet.markercluster's default green/yellow/orange bubbles.
+function createClusterIcon(cluster: { getChildCount: () => number }) {
+  const count = cluster.getChildCount();
+  return L.divIcon({
+    html: `<div class="ft-map-cluster">${count > 999 ? "999+" : count}</div>`,
+    className: "",
+    iconSize: [36, 36],
   });
 }
 
@@ -867,7 +869,7 @@ export const MapView = () => {
   const [selectedMemberId, setSelectedMemberId] = useState<string | "all">(
     "all",
   );
-  const [memberSelectOpen, setMemberSelectOpen] = useState(false);
+  const [placeQuery, setPlaceQuery] = useState("");
   const [dateFrom, setDateFrom] = useState<string | null>(null);
   const [dateTo, setDateTo] = useState<string | null>(null);
   const [visibleLocationTypes, setVisibleLocationTypes] =
@@ -1364,440 +1366,433 @@ export const MapView = () => {
   // until both have settled.
   const loading = !eventsInitialized || geocodePending;
 
+  const setMapFocus = useNavigationStore.getState().setMapFocus;
+
+  // Per-place type counts for the Places panel ("4 born · 5 grew up").
+  const placeRows = useMemo(() => {
+    const query = placeQuery.trim().toLowerCase();
+    return locationGroups
+      .map((group) => {
+        const counts = new Map<LocationType, number>();
+        for (const item of group.items)
+          counts.set(item.type, (counts.get(item.type) ?? 0) + 1);
+        return {
+          group,
+          name: group.location,
+          counts: TYPE_PRIORITY.filter((type) => counts.has(type)).map(
+            (type) => ({ type, n: counts.get(type)! }),
+          ),
+        };
+      })
+      .filter((row) => !query || row.name.toLowerCase().includes(query))
+      .sort(
+        (a, b) =>
+          b.group.items.length - a.group.items.length ||
+          a.name.localeCompare(b.name),
+      );
+  }, [locationGroups, placeQuery]);
+
+  const datesActive = dateFrom !== null || dateTo !== null;
+
   return (
-    <ViewLayout title={t("title")}>
-      <div className="flex min-h-0 flex-1 flex-col">
-        {/* Filters + legend row */}
-        <div className="flex gap-2 mb-4 p-1 pb-2 items-center flex-wrap">
-          <Popover open={memberSelectOpen} onOpenChange={setMemberSelectOpen}>
+    <ViewLayout
+      title={t("title")}
+      subtitle={
+        locationGroups.length > 0
+          ? minYear !== null
+            ? t("subtitle", { count: locationGroups.length, from: minYear })
+            : t("subtitle-places", { count: locationGroups.length })
+          : undefined
+      }
+      toolbar={
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="w-44">
+            <MemberPicker
+              members={members}
+              value={selectedMemberId === "all" ? null : selectedMemberId}
+              onChange={(id) => setSelectedMemberId(id ?? "all")}
+              placeholder={t("all-members")}
+              noResultsText={t("no-member")}
+              icon={<UserRound className="size-4 text-muted-foreground" />}
+            />
+          </div>
+          <Separator
+            orientation="vertical"
+            className="mx-1 hidden data-[orientation=vertical]:h-5 sm:block"
+          />
+          <ToggleGroup
+            type="multiple"
+            variant="filter"
+            size="sm"
+            spacing={2}
+            value={visibleLocationTypes}
+            onValueChange={(v) => setVisibleLocationTypes(v as LocationType[])}
+            aria-label={t("filter-location-types")}
+            className="flex-wrap"
+          >
+            {TYPE_PRIORITY.map((type) => (
+              <ToggleGroupItem key={type} value={type}>
+                <span
+                  aria-hidden="true"
+                  className="size-2 rounded-full"
+                  style={{ backgroundColor: LOCATION_COLORS[type] }}
+                />
+                {t(`legend-${type}`)}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+          <Popover>
             <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                role="combobox"
-                aria-expanded={memberSelectOpen}
-                className="w-44 shrink-0 justify-between"
-              >
-                {selectedMemberId === "all"
-                  ? t("all-members")
-                  : members.find((m) => m.id === selectedMemberId)
-                    ? getMemberLabel(
-                        members.find((m) => m.id === selectedMemberId)!,
-                      )
-                    : t("member-place-holder")}
-                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              <Button variant={datesActive ? "secondary" : "outline"} size="sm">
+                <CalendarRange />
+                {datesActive
+                  ? [
+                      dateFrom ? formatDate(dateFrom) : "…",
+                      dateTo ? formatDate(dateTo) : "…",
+                    ].join(" – ")
+                  : t("dates")}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-56 p-0">
-              <Command>
-                <CommandInput placeholder={t("member-search-placeholder")} />
-                <CommandList>
-                  <CommandEmpty>{t("no-member")}</CommandEmpty>
-                  <CommandGroup>
-                    <CommandItem
-                      value="all"
-                      onSelect={() => {
-                        setSelectedMemberId("all");
-                        setMemberSelectOpen(false);
-                      }}
-                    >
-                      <Check
-                        className={cn(
-                          "mr-2 h-4 w-4",
-                          selectedMemberId === "all"
-                            ? "opacity-100"
-                            : "opacity-0",
-                        )}
-                      />
-                      {t("all-members")}
-                    </CommandItem>
-                    <CommandSeparator />
-                    {members.map((member) => (
-                      <CommandItem
-                        key={member.id}
-                        value={getMemberLabel(member)}
-                        onSelect={() => {
-                          setSelectedMemberId(member.id);
-                          setMemberSelectOpen(false);
-                        }}
-                      >
-                        <Check
-                          className={cn(
-                            "mr-2 h-4 w-4",
-                            selectedMemberId === member.id
-                              ? "opacity-100"
-                              : "opacity-0",
-                          )}
-                        />
-                        {getMemberLabel(member)}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
+            <PopoverContent className="w-72 space-y-3" align="start">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">
+                  {t("date-from")}
+                </Label>
+                <PartialDatePicker
+                  value={dateFrom}
+                  onChange={setDateFrom}
+                  placeholder={t("date-from")}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">
+                  {t("date-to")}
+                </Label>
+                <PartialDatePicker
+                  value={dateTo}
+                  onChange={setDateTo}
+                  placeholder={t("date-to")}
+                />
+              </div>
             </PopoverContent>
           </Popover>
-
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">
-              {t("date-from")}
-            </span>
-            <PartialDatePicker
-              value={dateFrom}
-              onChange={setDateFrom}
-              placeholder={t("date-from")}
-              className="w-40"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">
-              {t("date-to")}
-            </span>
-            <PartialDatePicker
-              value={dateTo}
-              onChange={setDateTo}
-              placeholder={t("date-to")}
-              className="w-40"
-            />
-          </div>
-
-          <Button
-            variant="outline"
-            size="icon"
-            className="shrink-0"
-            disabled={locationGroups.length === 0}
-            onClick={() => setFitSignal((s) => s + 1)}
-            aria-label={t("fit-to-markers")}
-            title={t("fit-to-markers")}
-          >
-            <LocateFixed className="h-4 w-4" />
-          </Button>
-
           {hasActiveFilters && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="shrink-0"
-              onClick={clearFilters}
-              aria-label={t("clear-filters")}
-              title={t("clear-filters")}
-            >
-              <X className="h-4 w-4" />
+            <Button variant="ghost" size="sm" onClick={clearFilters}>
+              <X />
+              {t("clear-filters")}
             </Button>
           )}
-
-          {/* Compact location-type filter: a popover with one switch per
-              type (same pattern as the List view's customize popover). The
-              trigger previews the colors of the currently visible types. */}
-          <div className="ml-auto shrink-0">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button size="default"
-                  variant="outline"
-                  className="gap-2"
-                  aria-label={t("filter-location-types")}
+          <div className="hidden flex-1 lg:block" />
+          {selectedMemberId !== "all" && (
+            <label className="flex shrink-0 items-center gap-2">
+              <Switch
+                checked={showLifePath}
+                onCheckedChange={setShowLifePath}
+                aria-label={t("show-life-path")}
+              />
+              <span className="text-sm text-muted-foreground">
+                {t("show-life-path")}
+              </span>
+            </label>
+          )}
+        </div>
+      }
+    >
+      <div className="flex min-h-0 flex-1 gap-4">
+        <div className="relative flex min-h-[320px] min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border bg-card shadow-xs">
+          {locationGroups.length === 0 && loading && !noLocationTypesVisible ? (
+            <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3">
+              <Spinner className="size-6 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                {t("resolving-locations")}
+              </p>
+            </div>
+          ) : locationGroups.length === 0 ? (
+            <Empty className="min-h-0 flex-1">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <MapPin />
+                </EmptyMedia>
+                <EmptyTitle>
+                  {noLocationTypesVisible
+                    ? t("no-location-types-visible")
+                    : t("no-mappable-events")}
+                </EmptyTitle>
+                {noLocationTypesVisible ? (
+                  <EmptyDescription>
+                    {t("enable-location-type-hint")}
+                  </EmptyDescription>
+                ) : (
+                  unmappedCount === 0 && (
+                    <EmptyDescription>
+                      {t("add-location-hint")}
+                    </EmptyDescription>
+                  )
+                )}
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            // position+zIndex creates a stacking context so Leaflet's internal
+            // z-indices don't escape and cover Radix UI portals.
+            <div className="relative z-0 min-h-0 flex-1">
+              <MapContainer
+                center={[20, 0]}
+                zoom={2}
+                style={{ height: "100%", width: "100%" }}
+                scrollWheelZoom
+              >
+                <TileLayer
+                  url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  detectRetina
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                />
+                <FitBounds
+                  groups={locationGroups}
+                  fitSignal={fitSignal}
+                  suppress={pendingMapFocus !== null}
+                />
+                <MapFocus
+                  focus={pendingMapFocus}
+                  groups={locationGroups}
+                  coords={coords}
+                  markerRefs={markerRefsRef.current}
+                  onConsumed={clearMapFocus}
+                />
+                {showLifePath &&
+                  selectedMemberId !== "all" &&
+                  lifePathPoints.length >= 2 && (
+                    <Polyline
+                      positions={lifePathPoints}
+                      pathOptions={{
+                        color: lifePathColor,
+                        weight: 3,
+                        opacity: 0.7,
+                        dashArray: "6 6",
+                      }}
+                    />
+                  )}
+                <MarkerClusterGroup
+                  showCoverageOnHover={false}
+                  spiderfyOnMaxZoom
+                  maxClusterRadius={50}
+                  iconCreateFunction={createClusterIcon}
                 >
-                  <TypeSwatch types={visibleLocationTypes} />
-                  {t("filter-location-types")}
-                  <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-56 p-2" align="end">
-                <div className="space-y-1">
-                  {LOCATION_TYPES.map((type) => {
-                    const isVisible = visibleLocationTypeSet.has(type);
+                  {locationGroups.map((group) => {
+                    // Group items by location type (birthplace/hometown/etc.)
+                    // in TYPE_PRIORITY order, so the popup shows one header per
+                    // type present instead of an insertion-order list
+                    // interleaving types.
+                    const itemsByType = new Map<LocationType, LocationItem[]>();
+                    for (const item of group.items) {
+                      if (!itemsByType.has(item.type))
+                        itemsByType.set(item.type, []);
+                      itemsByType.get(item.type)!.push(item);
+                    }
+                    const presentTypes = TYPE_PRIORITY.filter((type) =>
+                      itemsByType.has(type),
+                    );
+
+                    // Same key format as `locationGroups`' `byCoord` map, so
+                    // `MapFocus` can look up this exact marker instance by
+                    // coordinate to open its popup after panning to it.
+                    const coordKey = `${group.coord.lat!.toFixed(5)},${group.coord.lon!.toFixed(5)}`;
+
                     return (
-                      <label
-                        key={type}
-                        className="flex items-center gap-2 rounded-md px-1 py-1 hover:bg-muted/50 cursor-pointer"
+                      <Marker
+                        key={`${group.coord.lat},${group.coord.lon}`}
+                        position={[group.coord.lat!, group.coord.lon!]}
+                        icon={createGroupIcon(
+                          group.types,
+                          group.items.length,
+                          // count first so the i18n checker sees the `count:`
+                          // param and treats this as a pluralized key (_one/_other).
+                          t("marker-aria-label", {
+                            count: group.items.length,
+                            location: group.coord.displayName || group.location,
+                          }),
+                        )}
+                        ref={(marker) => {
+                          if (marker)
+                            markerRefsRef.current.set(coordKey, marker);
+                          else markerRefsRef.current.delete(coordKey);
+                        }}
                       >
-                        <Switch
-                          checked={isVisible}
-                          onCheckedChange={(checked) =>
-                            setVisibleLocationTypes((prev) =>
-                              checked
-                                ? [...prev, type]
-                                : prev.filter((v) => v !== type),
-                            )
-                          }
-                          aria-label={t(`legend-${type}`)}
-                        />
-                        <span
-                          style={{
-                            display: "inline-block",
-                            width: 10,
-                            height: 10,
-                            borderRadius: "50%",
-                            border: `2px solid ${LOCATION_COLORS[type]}`,
-                            background: "transparent",
-                            flexShrink: 0,
-                          }}
-                        />
-                        <span className="text-sm">{t(`legend-${type}`)}</span>
-                      </label>
+                        <Popup maxWidth={300} maxHeight={280}>
+                          <div className="space-y-2 text-sm">
+                            {group.coord.displayName && (
+                              <p className="text-xs text-muted-foreground font-medium pb-1 border-b">
+                                {group.coord.displayName}
+                              </p>
+                            )}
+                            {presentTypes.map((type) => (
+                              <div key={type} className="space-y-1">
+                                <div className="flex items-center gap-1.5 font-medium">
+                                  <span
+                                    style={{
+                                      display: "inline-block",
+                                      width: 8,
+                                      height: 8,
+                                      borderRadius: "50%",
+                                      border: `2px solid ${LOCATION_COLORS[type]}`,
+                                      background: "transparent",
+                                      flexShrink: 0,
+                                    }}
+                                  />
+                                  {t(`legend-${type}`)}
+                                </div>
+                                <div className="space-y-1 ml-4">
+                                  {itemsByType
+                                    .get(type)!
+                                    .map((item, i) =>
+                                      item.type === "event" ? (
+                                        <EventPopupItem
+                                          key={i}
+                                          item={item}
+                                          t={t}
+                                          i18nT={i18n.t}
+                                          onShowMember={showMemberInTree}
+                                        />
+                                      ) : (
+                                        <MemberPopupItem
+                                          key={i}
+                                          item={item}
+                                          t={t}
+                                          onShowMember={showMemberInTree}
+                                        />
+                                      ),
+                                    )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </Popup>
+                      </Marker>
                     );
                   })}
-                </div>
-              </PopoverContent>
-            </Popover>
-          </div>
+                </MarkerClusterGroup>
+              </MapContainer>
+              <Button
+                variant="outline"
+                size="icon"
+                className="absolute top-3 right-3 z-[500] shadow-sm"
+                disabled={locationGroups.length === 0}
+                onClick={() => setFitSignal((s) => s + 1)}
+                aria-label={t("fit-to-markers")}
+                title={t("fit-to-markers")}
+              >
+                <LocateFixed />
+              </Button>
+            </div>
+          )}
+
+          {/* The time slider floats over the map and stays mounted even when
+              sliding back empties it, so the slider itself never disappears. */}
+          {timeSliderAvailable && asOfYear !== null && (
+            <div className="absolute inset-x-3 bottom-7 z-[500] flex items-center gap-3 rounded-xl border bg-card/95 px-2.5 py-2 shadow-md backdrop-blur">
+              <Button
+                size="icon-sm"
+                className="shrink-0"
+                onClick={togglePlay}
+                aria-label={
+                  isPlaying ? t("time-slider-pause") : t("time-slider-play")
+                }
+                title={
+                  isPlaying ? t("time-slider-pause") : t("time-slider-play")
+                }
+              >
+                {isPlaying ? <Pause /> : <Play />}
+              </Button>
+              <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                {minYear}
+              </span>
+              <input
+                type="range"
+                min={minYear!}
+                max={maxYear!}
+                step={1}
+                value={asOfYear}
+                onChange={(e) => {
+                  setSliderTouched(true);
+                  setAsOfYear(Number(e.target.value));
+                }}
+                aria-label={t("as-of-year", { year: asOfYear })}
+                className="min-w-0 flex-1 accent-primary"
+              />
+              <span className="w-20 shrink-0 text-right text-sm font-semibold tabular-nums">
+                {t("as-of-year", { year: asOfYear })}
+              </span>
+            </div>
+          )}
         </div>
 
-        {locationGroups.length === 0 && loading && !noLocationTypesVisible ? (
-          <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-border flex-1 min-h-0">
-            <Spinner className="size-6 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
+        <aside
+          aria-label={t("places-title")}
+          className="hidden w-72 shrink-0 flex-col overflow-hidden rounded-2xl border bg-card shadow-xs lg:flex"
+        >
+          <div className="space-y-3 border-b p-4">
+            <h2 className="text-[15px] font-bold">{t("places-title")}</h2>
+            <SearchInput
+              size="sm"
+              placeholder={t("places-filter")}
+              value={placeQuery}
+              onChange={(e) => setPlaceQuery(e.target.value)}
+              onClear={() => setPlaceQuery("")}
+            />
+          </div>
+          <ul className="min-h-0 flex-1 divide-y overflow-y-auto px-2">
+            {placeRows.map((row) => (
+              <li key={row.group.location}>
+                <button
+                  type="button"
+                  className="flex w-full items-start gap-3 rounded-lg px-2 py-2.5 text-left hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                  onClick={() => setMapFocus({ location: row.group.location })}
+                >
+                  <span className="mt-1">
+                    <TypeSwatch types={row.group.types} size={12} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold">
+                      {row.name}
+                    </span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {row.counts
+                        .map(({ type, n }) =>
+                          t(`place-count-${type}`, { count: n }),
+                        )
+                        .join(" · ")}
+                    </span>
+                  </span>
+                  <span className="text-xs font-semibold text-muted-foreground tabular-nums">
+                    {row.group.items.length}
+                  </span>
+                </button>
+              </li>
+            ))}
+            {placeRows.length === 0 && (
+              <li className="px-2 py-6 text-center text-sm text-muted-foreground">
+                {t("places-empty")}
+              </li>
+            )}
+          </ul>
+          {geocodePending && locationGroups.length > 0 && (
+            <p className="flex items-center gap-2 border-t px-4 py-2.5 text-sm text-muted-foreground">
+              <Spinner />
               {t("resolving-locations")}
             </p>
-          </div>
-        ) : locationGroups.length === 0 ? (
-          <Empty className="border flex-1 min-h-0">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <MapPin />
-              </EmptyMedia>
-              <EmptyTitle>
-                {noLocationTypesVisible
-                  ? t("no-location-types-visible")
-                  : t("no-mappable-events")}
-              </EmptyTitle>
-              {noLocationTypesVisible ? (
-                <EmptyDescription>
-                  {t("enable-location-type-hint")}
-                </EmptyDescription>
-              ) : (
-                unmappedCount === 0 && (
-                  <EmptyDescription>{t("add-location-hint")}</EmptyDescription>
-                )
-              )}
-            </EmptyHeader>
-          </Empty>
-        ) : (
-          // position+zIndex creates a stacking context so Leaflet's internal
-          // z-indices don't escape and cover Radix UI portals (e.g. the member picker)
-          <div
-            className="rounded-lg overflow-hidden border border-border flex-1 min-h-0"
-            style={{
-              position: "relative",
-              zIndex: 0,
-            }}
-          >
-            <MapContainer
-              center={[20, 0]}
-              zoom={2}
-              style={{ height: "100%", width: "100%" }}
-              scrollWheelZoom
-            >
-              <TileLayer
-                url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-                detectRetina
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              />
-              <FitBounds
-                groups={locationGroups}
-                fitSignal={fitSignal}
-                suppress={pendingMapFocus !== null}
-              />
-              <MapFocus
-                focus={pendingMapFocus}
-                groups={locationGroups}
-                coords={coords}
-                markerRefs={markerRefsRef.current}
-                onConsumed={clearMapFocus}
-              />
-              {showLifePath &&
-                selectedMemberId !== "all" &&
-                lifePathPoints.length >= 2 && (
-                  <Polyline
-                    positions={lifePathPoints}
-                    pathOptions={{
-                      color: lifePathColor,
-                      weight: 3,
-                      opacity: 0.7,
-                      dashArray: "6 6",
-                    }}
-                  />
-                )}
-              <MarkerClusterGroup
-                showCoverageOnHover={false}
-                spiderfyOnMaxZoom
-                maxClusterRadius={50}
-              >
-                {locationGroups.map((group) => {
-                  // Group items by location type (birthplace/hometown/etc.)
-                  // in TYPE_PRIORITY order, so the popup shows one header per
-                  // type present instead of an insertion-order list
-                  // interleaving types.
-                  const itemsByType = new Map<LocationType, LocationItem[]>();
-                  for (const item of group.items) {
-                    if (!itemsByType.has(item.type))
-                      itemsByType.set(item.type, []);
-                    itemsByType.get(item.type)!.push(item);
-                  }
-                  const presentTypes = TYPE_PRIORITY.filter((type) =>
-                    itemsByType.has(type),
-                  );
-
-                  // Same key format as `locationGroups`' `byCoord` map, so
-                  // `MapFocus` can look up this exact marker instance by
-                  // coordinate to open its popup after panning to it.
-                  const coordKey = `${group.coord.lat!.toFixed(5)},${group.coord.lon!.toFixed(5)}`;
-
-                  return (
-                    <Marker
-                      key={`${group.coord.lat},${group.coord.lon}`}
-                      position={[group.coord.lat!, group.coord.lon!]}
-                      icon={createGroupIcon(
-                        group.types,
-                        group.items.length,
-                        // count first so the i18n checker sees the `count:`
-                        // param and treats this as a pluralized key (_one/_other).
-                        t("marker-aria-label", {
-                          count: group.items.length,
-                          location: group.coord.displayName || group.location,
-                        }),
-                      )}
-                      ref={(marker) => {
-                        if (marker) markerRefsRef.current.set(coordKey, marker);
-                        else markerRefsRef.current.delete(coordKey);
-                      }}
-                    >
-                      <Popup maxWidth={300} maxHeight={280}>
-                        <div className="space-y-2 text-sm">
-                          {group.coord.displayName && (
-                            <p className="text-xs text-muted-foreground font-medium pb-1 border-b">
-                              {group.coord.displayName}
-                            </p>
-                          )}
-                          {presentTypes.map((type) => (
-                            <div key={type} className="space-y-1">
-                              <div className="flex items-center gap-1.5 font-medium">
-                                <span
-                                  style={{
-                                    display: "inline-block",
-                                    width: 8,
-                                    height: 8,
-                                    borderRadius: "50%",
-                                    border: `2px solid ${LOCATION_COLORS[type]}`,
-                                    background: "transparent",
-                                    flexShrink: 0,
-                                  }}
-                                />
-                                {t(`legend-${type}`)}
-                              </div>
-                              <div className="space-y-1 ml-4">
-                                {itemsByType
-                                  .get(type)!
-                                  .map((item, i) =>
-                                    item.type === "event" ? (
-                                      <EventPopupItem
-                                        key={i}
-                                        item={item}
-                                        t={t}
-                                        i18nT={i18n.t}
-                                        onShowMember={showMemberInTree}
-                                      />
-                                    ) : (
-                                      <MemberPopupItem
-                                        key={i}
-                                        item={item}
-                                        t={t}
-                                        onShowMember={showMemberInTree}
-                                      />
-                                    ),
-                                  )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </Popup>
-                    </Marker>
-                  );
-                })}
-              </MarkerClusterGroup>
-            </MapContainer>
-          </div>
-        )}
-
-        {/* Below-map controls: contextual toggles kept out of the top filter
-            bar so it doesn't get crowded. The time slider stretches full width
-            here. This bar stays mounted regardless of the map/empty/loading
-            state above, so sliding the year back to before any data (which
-            empties the map) never hides the slider itself. */}
-        {(selectedMemberId !== "all" || timeSliderAvailable) && (
-          <div className="flex items-center gap-x-4 gap-y-2 mt-3 px-1 flex-wrap shrink-0">
-            {selectedMemberId !== "all" && (
-              <label className="flex items-center gap-2 shrink-0">
-                <Switch
-                  checked={showLifePath}
-                  onCheckedChange={setShowLifePath}
-                  aria-label={t("show-life-path")}
-                />
-                <span className="text-sm text-muted-foreground">
-                  {t("show-life-path")}
-                </span>
-              </label>
-            )}
-
-            {timeSliderAvailable && asOfYear !== null && (
-              <div className="flex items-center gap-3 flex-1 min-w-[220px]">
-                <Button
-                  variant="outline"
-                  size="icon-sm"
-                  className="shrink-0"
-                  onClick={togglePlay}
-                  aria-label={
-                    isPlaying ? t("time-slider-pause") : t("time-slider-play")
-                  }
-                  title={
-                    isPlaying ? t("time-slider-pause") : t("time-slider-play")
-                  }
-                >
-                  {isPlaying ? (
-                    <Pause className="h-4 w-4" />
-                  ) : (
-                    <Play className="h-4 w-4" />
-                  )}
-                </Button>
-                <input
-                  type="range"
-                  min={minYear!}
-                  max={maxYear!}
-                  step={1}
-                  value={asOfYear}
-                  onChange={(e) => {
-                    setSliderTouched(true);
-                    setAsOfYear(Number(e.target.value));
-                  }}
-                  aria-label={t("as-of-year", { year: asOfYear })}
-                  className="flex-1 accent-primary"
-                />
-                <span className="text-sm text-muted-foreground tabular-nums w-24 shrink-0 text-right">
-                  {t("as-of-year", { year: asOfYear })}
-                </span>
-              </div>
-            )}
-          </div>
-        )}
+          )}
+        </aside>
       </div>
 
-      {geocodePending && locationGroups.length > 0 ? (
-        <p className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
-          <Spinner />
-          {t("resolving-locations")}
-        </p>
-      ) : (
-        !loading &&
-        unmappedCount > 0 && (
-          <UnresolvedLocationsPopover
-            unresolvedLocations={unresolvedLocations}
-            t={t}
-            i18nT={i18n.t}
-            onShowMember={showMemberInTree}
-            onRetry={(location) => retryLocations([location])}
-            searchLocations={searchLocations}
-            overrideLocation={overrideLocation}
-          />
-        )
+      {!loading && unmappedCount > 0 && (
+        <UnresolvedLocationsPopover
+          unresolvedLocations={unresolvedLocations}
+          t={t}
+          i18nT={i18n.t}
+          onShowMember={showMemberInTree}
+          onRetry={(location) => retryLocations([location])}
+          searchLocations={searchLocations}
+          overrideLocation={overrideLocation}
+        />
       )}
     </ViewLayout>
   );

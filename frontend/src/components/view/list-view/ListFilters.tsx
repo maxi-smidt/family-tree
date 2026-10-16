@@ -1,4 +1,4 @@
-import { Filter } from "lucide-react";
+import { ListFilter } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,10 +23,10 @@ export const DEFAULT_FILTERS: ListFilterState = {
   hasPhoto: false,
 };
 
+/** Filters set in the popover (status lives in the toolbar chips). */
 function countActiveFilters(filters: ListFilterState): number {
   let count = 0;
   if (filters.gender !== "all") count++;
-  if (filters.status !== "all") count++;
   if (filters.hasPhoto) count++;
   return count;
 }
@@ -43,14 +43,11 @@ export function ListFilters({ filters, onChange }: Props) {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-1.5">
-          <Filter className="w-3.5 h-3.5" />
+        <Button variant="outline" size="sm">
+          <ListFilter />
           {t("filters")}
           {activeCount > 0 && (
-            <Badge
-              variant="secondary"
-              className="ml-0.5 h-4 min-w-4 px-1 text-[10px]"
-            >
+            <Badge className="ml-0.5 h-4 min-w-4 px-1 text-[10px]">
               {activeCount}
             </Badge>
           )}
@@ -87,35 +84,6 @@ export function ListFilters({ filters, onChange }: Props) {
             </ToggleGroup>
           </div>
           <Separator />
-          <div>
-            <p className="text-xs font-medium text-muted-foreground mb-2">
-              {t("filter-status")}
-            </p>
-            <ToggleGroup
-              type="single"
-              value={filters.status}
-              onValueChange={(v) =>
-                v &&
-                onChange({
-                  ...filters,
-                  status: v as ListFilterState["status"],
-                })
-              }
-              size="sm"
-              className="flex-wrap justify-start gap-1"
-            >
-              <ToggleGroupItem value="all" className="px-2">
-                {t("filter-all")}
-              </ToggleGroupItem>
-              <ToggleGroupItem value="alive" className="px-2">
-                {t("status.alive")}
-              </ToggleGroupItem>
-              <ToggleGroupItem value="deceased" className="px-2">
-                {t("status.deceased")}
-              </ToggleGroupItem>
-            </ToggleGroup>
-          </div>
-          <Separator />
           <div className="flex items-center justify-between">
             <p className="text-xs font-medium text-muted-foreground">
               {t("filter-has-photo")}
@@ -132,7 +100,9 @@ export function ListFilters({ filters, onChange }: Props) {
                 variant="ghost"
                 size="sm"
                 className="w-full text-muted-foreground"
-                onClick={() => onChange(DEFAULT_FILTERS)}
+                onClick={() =>
+                  onChange({ ...DEFAULT_FILTERS, status: filters.status })
+                }
               >
                 {t("filter-reset")}
               </Button>

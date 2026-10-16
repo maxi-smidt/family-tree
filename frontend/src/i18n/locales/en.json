@@ -271,7 +271,7 @@
   "gallery-view": {
     "view": {
       "title": "Gallery",
-      "search-placeholder": "Search image...",
+      "search-placeholder": "Search photos…",
       "select-date-uploaded": "Date Uploaded",
       "select-date-taken": "Date Taken",
       "select-title": "Title",
@@ -308,7 +308,20 @@
         "summary-success_one": "{{count}} image uploaded successfully.",
         "summary-success_other": "{{count}} images uploaded successfully.",
         "summary-partial": "{{done}} uploaded, {{failed}} failed."
-      }
+      },
+      "upload-photos": "Upload photos",
+      "subtitle": "{{count}} photos",
+      "subtitle_one": "{{count}} photo",
+      "subtitle_other": "{{count}} photos",
+      "show-filter": "Which photos",
+      "chip-all": "All photos",
+      "chip-unlinked": "Not linked",
+      "unlinked-callout": "{{count}} photos aren’t linked to anyone yet — link people so they show up on each person’s profile.",
+      "unlinked-callout_one": "{{count}} photo isn’t linked to anyone yet — link people so it shows up on each person’s profile.",
+      "unlinked-callout_other": "{{count}} photos aren’t linked to anyone yet — link people so they show up on each person’s profile.",
+      "unlinked-show": "Show them",
+      "drop-photos": "Add or drop photos",
+      "no-matches": "No photos match."
     },
     "image-sheet": {
       "toast-success": "Image details saved",
@@ -379,15 +392,14 @@
       "unknown-member": "Unknown member",
       "unknown-person": "Unknown person",
       "unknown-face-tag": "Unknown person"
-    },
-    "upload-image-card": "Upload Image"
+    }
   },
   "documents-view": {
     "title": "Documents",
-    "add": "Add Document",
-    "search-placeholder": "Search documents...",
-    "filter-all": "All documents",
-    "filter-unlinked": "Unlinked only",
+    "add": "Add document",
+    "search-placeholder": "Search documents…",
+    "filter-all": "All",
+    "filter-unlinked": "Not linked",
     "empty-title": "No documents yet",
     "empty-description": "Add a document to build this tree's archive.",
     "no-results": "No documents match these filters.",
@@ -397,10 +409,8 @@
     "link-count_other": "{{count}} external links",
     "attachments": "Attachments",
     "external-links": "External links",
-    "linked-people-count_one": "{{count}} linked person",
-    "linked-people-count_other": "{{count}} linked people",
     "linked-people-heading": "Linked people",
-    "unlinked": "Unlinked",
+    "unlinked": "Not linked",
     "unknown-member": "Unknown person",
     "unknown-event": "Unknown event",
     "unknown-story": "Unknown story",
@@ -415,7 +425,12 @@
       "description": "Are you sure you want to delete this document? This action cannot be undone.",
       "cancel": "Cancel",
       "confirm": "Delete"
-    }
+    },
+    "filter-label": "Which documents",
+    "no-files": "No files yet",
+    "subtitle": "{{count}} records · {{people}} people covered",
+    "subtitle_one": "{{count}} record · {{people}} people covered",
+    "subtitle_other": "{{count}} records · {{people}} people covered"
   },
   "media-view": {
     "gallery": "Gallery",
@@ -492,16 +507,14 @@
   "list-view": {
     "view": {
       "title": "People",
-      "search-placeholder": "Search members...",
-      "selected-members_one": "member found",
-      "selected-members_other": "members found",
+      "search-placeholder": "Search people…",
       "table": {
         "first-name": "First Name",
         "last-name": "Last Name",
         "maiden-name": "Maiden Name",
         "gender": "Gender",
-        "dob": "Birth Date",
-        "dod": "Death Date",
+        "dob": "Born",
+        "dod": "Died",
         "no-members": "No members found.",
         "source-tree": "Source tree",
         "caption": "Family members",
@@ -511,7 +524,9 @@
         "age": "Age",
         "children": "Children",
         "status": "Status",
-        "photo": "Photo"
+        "photo": "Photo",
+        "name": "Name",
+        "lifespan": "Lifespan"
       },
       "menu": {
         "trigger": "Open menu",
@@ -521,11 +536,11 @@
         "delete": "Delete Member"
       },
       "status": {
-        "alive": "Alive",
+        "alive": "Living",
         "deceased": "Deceased"
       },
       "age-at-death": "Age at death",
-      "customize": "Customize",
+      "customize": "Columns",
       "customize-title": "Columns",
       "customize-reset": "Reset",
       "move-up": "Move up",
@@ -541,7 +556,7 @@
       "filter-reset": "Reset filters",
       "export-csv": "Export CSV",
       "inline-edit": {
-        "toggle": "Quick edit",
+        "toggle": "Edit in table",
         "toggle-on-hint": "Click a cell to edit. Enter saves, Esc cancels.",
         "save-error": "Could not save the change. Please try again.",
         "saving": "Saving",
@@ -551,7 +566,20 @@
         "showing": "Showing {{from}}–{{to}} of {{total}}",
         "prev": "Previous page",
         "next": "Next page"
-      }
+      },
+      "subtitle": "{{count}} people · {{living}} living",
+      "subtitle_one": "{{count}} person · {{living}} living",
+      "subtitle_other": "{{count}} people · {{living}} living",
+      "add-person": "Add person",
+      "chip": {
+        "all": "Everyone",
+        "alive": "Living",
+        "deceased": "Deceased"
+      },
+      "lifespan-age": "{{count}} y",
+      "lifespan-age_one": "{{count}} y",
+      "lifespan-age_other": "{{count}} y",
+      "lifespan-died": "† {{count}}"
     }
   },
   "sheet": {
@@ -1185,18 +1213,15 @@
     "view": {
       "member-fallback": "Unknown Member",
       "title": "Timeline",
-      "add-event": "Add Event",
-      "search-placeholder": "Search events...",
-      "all-members": "All Members",
-      "member-place-holder": "Select member...",
-      "member-search-placeholder": "Search members...",
+      "add-event": "Add event",
+      "search-placeholder": "Search the timeline…",
+      "all-members": "Everyone",
       "no-member": "No member found.",
       "no-events": "No events found",
       "adjust-filters": "Try adjusting your filters",
       "add-an-event": "Add an event to get started",
       "birth": "Birth",
       "death": "Death",
-      "show-vital-events": "Show births & deaths",
       "show-details": "Show details",
       "edit-event": "Edit event",
       "delete-event": "Delete event",
@@ -1214,7 +1239,35 @@
         "description": "Are you sure you want to delete this story? This action cannot be undone.",
         "cancel": "Cancel",
         "delete": "Delete"
-      }
+      },
+      "subtitle": "{{from}} – today · {{count}} entries",
+      "subtitle_one": "{{from}} – today · {{count}} entry",
+      "subtitle_other": "{{from}} – today · {{count}} entries",
+      "type-filter": "Entry type",
+      "chip": {
+        "all": "All",
+        "birth": "Births",
+        "death": "Deaths",
+        "event": "Events",
+        "story": "Stories"
+      },
+      "sort": "Sort order",
+      "sort-newest": "Newest first",
+      "sort-oldest": "Oldest first",
+      "decade": "{{year}}s",
+      "undated": "Undated",
+      "entries": "{{count}} entries",
+      "entries_one": "{{count}} entry",
+      "entries_other": "{{count}} entries",
+      "jump-to": "Jump to",
+      "vital-born": "{{name}} born",
+      "vital-died": "{{name}} died",
+      "aged": "aged {{count}}",
+      "aged_one": "aged {{count}}",
+      "aged_other": "aged {{count}}",
+      "linked-people": "{{count}} people",
+      "linked-people_one": "{{count}} person",
+      "linked-people_other": "{{count}} people"
     }
   },
   "merge-view": {
@@ -1512,7 +1565,9 @@
       "not-found": "Address not found — won't appear on map"
     },
     "clear-search": "Clear search",
-    "open-person": "Open {{name}}"
+    "open-person": "Open {{name}}",
+    "clear": "Clear",
+    "search-people": "Search people…"
   },
   "auth": {
     "session": {
@@ -1945,9 +2000,7 @@
     "view": {
       "title": "Map",
       "member-fallback": "Unknown Member",
-      "all-members": "All Members",
-      "member-place-holder": "Select member...",
-      "member-search-placeholder": "Search members...",
+      "all-members": "Everyone",
       "no-member": "No member found.",
       "date-from": "From",
       "date-to": "To",
@@ -1988,7 +2041,32 @@
       "fix-drop-pin-hint": "Click the map to place a pin at the correct location. Drag it to fine-tune the position.",
       "fix-selected-coords": "Selected: {{lat}}, {{lon}}",
       "fix-confirm": "Save correction",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "subtitle": "{{count}} places · {{from}} – today",
+      "subtitle_one": "{{count}} place · {{from}} – today",
+      "subtitle_other": "{{count}} places · {{from}} – today",
+      "subtitle-places": "{{count}} places",
+      "subtitle-places_one": "{{count}} place",
+      "subtitle-places_other": "{{count}} places",
+      "dates": "Dates",
+      "places-title": "Places",
+      "places-filter": "Filter places",
+      "places-empty": "No matching places",
+      "place-count-birthplace": "{{count}} born",
+      "place-count-birthplace_one": "{{count}} born",
+      "place-count-birthplace_other": "{{count}} born",
+      "place-count-hometown": "{{count}} grew up",
+      "place-count-hometown_one": "{{count}} grew up",
+      "place-count-hometown_other": "{{count}} grew up",
+      "place-count-places-lived": "{{count}} lived",
+      "place-count-places-lived_one": "{{count}} lived",
+      "place-count-places-lived_other": "{{count}} lived",
+      "place-count-cemetery": "{{count}} buried",
+      "place-count-cemetery_one": "{{count}} buried",
+      "place-count-cemetery_other": "{{count}} buried",
+      "place-count-event": "{{count}} events",
+      "place-count-event_one": "{{count}} event",
+      "place-count-event_other": "{{count}} events"
     }
   },
   "unsaved-changes": {

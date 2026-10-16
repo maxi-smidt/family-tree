@@ -399,7 +399,6 @@ export const ActivityView = () => {
           )}
         </div>
       }
-      toolbarClassName="mb-4"
       contentClassName="flex min-h-0 flex-col overflow-hidden"
     >
       <div className="flex min-h-0 flex-1 flex-col overflow-auto">

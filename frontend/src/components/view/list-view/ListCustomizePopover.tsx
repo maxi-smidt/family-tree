@@ -1,4 +1,4 @@
-import { SlidersHorizontal, ChevronUp, ChevronDown } from "lucide-react";
+import { Columns2, ChevronUp, ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,8 +20,8 @@ export function ListCustomizePopover() {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-1.5">
-          <SlidersHorizontal className="w-3.5 h-3.5" />
+        <Button variant="outline" size="sm">
+          <Columns2 />
           {t("customize")}
         </Button>
       </PopoverTrigger>
@@ -57,7 +57,7 @@ export function ListCustomizePopover() {
                 />
                 <label
                   htmlFor={`col-switch-${id}`}
-                  className="flex-1 text-xs cursor-pointer truncate"
+                  className="flex-1 cursor-pointer truncate text-sm"
                 >
                   {t(def.titleKey)}
                 </label>
@@ -65,7 +65,7 @@ export function ListCustomizePopover() {
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    
+
                     disabled={isFirst}
                     onClick={() => moveColumn(id, "up")}
                     aria-label={t("move-up")}
@@ -75,7 +75,7 @@ export function ListCustomizePopover() {
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    
+
                     disabled={isLast}
                     onClick={() => moveColumn(id, "down")}
                     aria-label={t("move-down")}

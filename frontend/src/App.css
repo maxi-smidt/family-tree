@@ -284,6 +284,50 @@
   border-radius: inherit;
 }
 
+/* Leaflet controls, popups and clusters in the app's own vocabulary. */
+.leaflet-container {
+  font-family: inherit;
+}
+.leaflet-bar {
+  border: 1px solid var(--border) !important;
+  border-radius: 10px !important;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgb(41 33 20 / 0.08) !important;
+}
+.leaflet-bar a {
+  width: 34px !important;
+  height: 34px !important;
+  line-height: 34px !important;
+  background: var(--card);
+  color: var(--foreground);
+  border-color: var(--border) !important;
+}
+.leaflet-bar a:hover {
+  background: var(--accent);
+}
+.leaflet-popup-content-wrapper {
+  border-radius: 14px;
+  box-shadow: 0 6px 20px rgb(41 33 20 / 0.16);
+}
+.leaflet-control-attribution {
+  border-top-left-radius: 6px;
+  font-size: 10.5px;
+}
+.ft-map-cluster {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 9999px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-weight: 700;
+  font-size: 13px;
+  box-shadow:
+    0 0 0 4px color-mix(in oklab, var(--primary) 22%, transparent),
+    0 2px 6px rgb(0 0 0 / 0.25);
+}
+
 /* Leaflet map (Map view) — dim OSM tiles in dark mode instead of leaving them
    bright white against the dark app chrome. The filter approach (rather than
    a dark tile server) keeps us on the same free OSM tile source in both modes. */

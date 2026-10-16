@@ -271,7 +271,7 @@
   "gallery-view": {
     "view": {
       "title": "Galerie",
-      "search-placeholder": "Suche Bild...",
+      "search-placeholder": "Fotos suchen…",
       "select-date-uploaded": "Datum Hochgeladen",
       "select-date-taken": "Datum Aufgenommen",
       "select-title": "Titel",
@@ -308,7 +308,20 @@
         "summary-success_one": "{{count}} Bild erfolgreich hochgeladen.",
         "summary-success_other": "{{count}} Bilder erfolgreich hochgeladen.",
         "summary-partial": "{{done}} hochgeladen, {{failed}} fehlgeschlagen."
-      }
+      },
+      "upload-photos": "Fotos hochladen",
+      "subtitle": "{{count}} Fotos",
+      "subtitle_one": "{{count}} Foto",
+      "subtitle_other": "{{count}} Fotos",
+      "show-filter": "Welche Fotos",
+      "chip-all": "Alle Fotos",
+      "chip-unlinked": "Nicht verknüpft",
+      "unlinked-callout": "{{count}} Fotos sind noch mit niemandem verknüpft — verknüpfe Personen, damit sie in deren Profil erscheinen.",
+      "unlinked-callout_one": "{{count}} Foto ist noch mit niemandem verknüpft — verknüpfe Personen, damit es in deren Profil erscheint.",
+      "unlinked-callout_other": "{{count}} Fotos sind noch mit niemandem verknüpft — verknüpfe Personen, damit sie in deren Profil erscheinen.",
+      "unlinked-show": "Anzeigen",
+      "drop-photos": "Fotos hinzufügen oder ablegen",
+      "no-matches": "Keine passenden Fotos."
     },
     "image-sheet": {
       "toast-success": "Details gespeichert",
@@ -379,15 +392,14 @@
       "unknown-member": "Unbekannte Person",
       "unknown-person": "Unbekannte Person",
       "unknown-face-tag": "Unbekannte Person"
-    },
-    "upload-image-card": "Bild hochladen"
+    }
   },
   "documents-view": {
     "title": "Dokumente",
     "add": "Dokument hinzufügen",
-    "search-placeholder": "Dokumente durchsuchen...",
-    "filter-all": "Alle Dokumente",
-    "filter-unlinked": "Nur nicht verknüpfte",
+    "search-placeholder": "Dokumente suchen…",
+    "filter-all": "Alle",
+    "filter-unlinked": "Nicht verknüpft",
     "empty-title": "Noch keine Dokumente",
     "empty-description": "Füge ein Dokument hinzu, um das Archiv dieses Stammbaums aufzubauen.",
     "no-results": "Keine Dokumente entsprechen diesen Filtern.",
@@ -397,8 +409,6 @@
     "link-count_other": "{{count}} externe Links",
     "attachments": "Anhänge",
     "external-links": "Externe Links",
-    "linked-people-count_one": "{{count}} verknüpfte Person",
-    "linked-people-count_other": "{{count}} verknüpfte Personen",
     "linked-people-heading": "Verknüpfte Personen",
     "unlinked": "Nicht verknüpft",
     "unknown-member": "Unbekannte Person",
@@ -415,7 +425,12 @@
       "description": "Möchtest du dieses Dokument wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
       "cancel": "Abbrechen",
       "confirm": "Löschen"
-    }
+    },
+    "filter-label": "Welche Dokumente",
+    "no-files": "Noch keine Dateien",
+    "subtitle": "{{count}} Dokumente · {{people}} Personen erfasst",
+    "subtitle_one": "{{count}} Dokument · {{people}} Personen erfasst",
+    "subtitle_other": "{{count}} Dokumente · {{people}} Personen erfasst"
   },
   "media-view": {
     "gallery": "Galerie",
@@ -492,16 +507,14 @@
   "list-view": {
     "view": {
       "title": "Personen",
-      "search-placeholder": "Suche Personen...",
-      "selected-members_one": "Person gefunden",
-      "selected-members_other": "Personen gefunden",
+      "search-placeholder": "Personen suchen…",
       "table": {
         "first-name": "Vorname",
         "last-name": "Nachname",
         "maiden-name": "Mädchenname",
         "gender": "Geschlecht",
-        "dob": "Geburtsdatum",
-        "dod": "Sterbedatum",
+        "dob": "Geboren",
+        "dod": "Gestorben",
         "no-members": "Keine Personen gefunden.",
         "source-tree": "Quellbaum",
         "caption": "Familienmitglieder",
@@ -511,7 +524,9 @@
         "age": "Alter",
         "children": "Kinder",
         "status": "Status",
-        "photo": "Foto"
+        "photo": "Foto",
+        "name": "Name",
+        "lifespan": "Lebensspanne"
       },
       "menu": {
         "trigger": "Menü öffnen",
@@ -525,7 +540,7 @@
         "deceased": "Verstorben"
       },
       "age-at-death": "Sterbealter",
-      "customize": "Anpassen",
+      "customize": "Spalten",
       "customize-title": "Spalten",
       "customize-reset": "Zurücksetzen",
       "move-up": "Nach oben",
@@ -541,7 +556,7 @@
       "filter-reset": "Filter zurücksetzen",
       "export-csv": "CSV exportieren",
       "inline-edit": {
-        "toggle": "Schnellbearbeitung",
+        "toggle": "In Tabelle bearbeiten",
         "toggle-on-hint": "Zelle anklicken zum Bearbeiten. Enter speichert, Esc bricht ab.",
         "save-error": "Änderung konnte nicht gespeichert werden. Bitte erneut versuchen.",
         "saving": "Wird gespeichert",
@@ -551,7 +566,20 @@
         "showing": "{{from}}–{{to}} von {{total}}",
         "prev": "Vorherige Seite",
         "next": "Nächste Seite"
-      }
+      },
+      "subtitle": "{{count}} Personen · {{living}} lebend",
+      "subtitle_one": "{{count}} Person · {{living}} lebend",
+      "subtitle_other": "{{count}} Personen · {{living}} lebend",
+      "add-person": "Person hinzufügen",
+      "chip": {
+        "all": "Alle",
+        "alive": "Lebend",
+        "deceased": "Verstorben"
+      },
+      "lifespan-age": "{{count}} J.",
+      "lifespan-age_one": "{{count}} J.",
+      "lifespan-age_other": "{{count}} J.",
+      "lifespan-died": "† {{count}}"
     }
   },
   "sheet": {
@@ -1185,18 +1213,15 @@
     "view": {
       "member-fallback": "Unbekannte Person",
       "title": "Zeitleiste",
-      "add-event": "Event hinzufügen",
-      "search-placeholder": "Ereignisse suchen...",
-      "all-members": "Alle Personen",
-      "member-place-holder": "Wähle Person...",
-      "member-search-placeholder": "Suche Person...",
+      "add-event": "Ereignis hinzufügen",
+      "search-placeholder": "Zeitleiste durchsuchen…",
+      "all-members": "Alle",
       "no-member": "Keine Personen gefunden.",
       "no-events": "Keine Ereignisse gefunden",
       "adjust-filters": "Versuche die Filterkriterien anzupassen",
       "add-an-event": "Füge ein Ereignis hinzu um zu beginnen",
       "birth": "Geburt",
       "death": "Tod",
-      "show-vital-events": "Geburten & Todesfälle anzeigen",
       "show-details": "Details anzeigen",
       "edit-event": "Ereignis bearbeiten",
       "delete-event": "Ereignis löschen",
@@ -1214,7 +1239,35 @@
         "description": "Bist du dir sicher, dass diese Geschichte gelöscht werden soll? Diese Aktion kann nicht rückgängig gemacht werden.",
         "cancel": "Abbrechen",
         "delete": "Löschen"
-      }
+      },
+      "subtitle": "{{from}} – heute · {{count}} Einträge",
+      "subtitle_one": "{{from}} – heute · {{count}} Eintrag",
+      "subtitle_other": "{{from}} – heute · {{count}} Einträge",
+      "type-filter": "Art des Eintrags",
+      "chip": {
+        "all": "Alle",
+        "birth": "Geburten",
+        "death": "Todesfälle",
+        "event": "Ereignisse",
+        "story": "Geschichten"
+      },
+      "sort": "Sortierung",
+      "sort-newest": "Neueste zuerst",
+      "sort-oldest": "Älteste zuerst",
+      "decade": "{{year}}er",
+      "undated": "Ohne Datum",
+      "entries": "{{count}} Einträge",
+      "entries_one": "{{count}} Eintrag",
+      "entries_other": "{{count}} Einträge",
+      "jump-to": "Springe zu",
+      "vital-born": "{{name}} geboren",
+      "vital-died": "{{name}} gestorben",
+      "aged": "im Alter von {{count}}",
+      "aged_one": "im Alter von {{count}}",
+      "aged_other": "im Alter von {{count}}",
+      "linked-people": "{{count}} Personen",
+      "linked-people_one": "{{count}} Person",
+      "linked-people_other": "{{count}} Personen"
     }
   },
   "merge-view": {
@@ -1512,7 +1565,9 @@
       "not-found": "Adresse nicht gefunden – erscheint nicht auf der Karte"
     },
     "clear-search": "Suche leeren",
-    "open-person": "{{name}} öffnen"
+    "open-person": "{{name}} öffnen",
+    "clear": "Leeren",
+    "search-people": "Personen suchen…"
   },
   "auth": {
     "session": {
@@ -1945,9 +2000,7 @@
     "view": {
       "title": "Karte",
       "member-fallback": "Unbekanntes Mitglied",
-      "all-members": "Alle Mitglieder",
-      "member-place-holder": "Mitglied auswählen...",
-      "member-search-placeholder": "Mitglieder suchen...",
+      "all-members": "Alle",
       "no-member": "Kein Mitglied gefunden.",
       "date-from": "Von",
       "date-to": "Bis",
@@ -1988,7 +2041,32 @@
       "fix-drop-pin-hint": "Klicken Sie auf die Karte, um eine Stecknadel am richtigen Ort zu setzen. Ziehen Sie sie, um die Position feinabzustimmen.",
       "fix-selected-coords": "Ausgewählt: {{lat}}, {{lon}}",
       "fix-confirm": "Korrektur speichern",
-      "cancel": "Abbrechen"
+      "cancel": "Abbrechen",
+      "subtitle": "{{count}} Orte · {{from}} – heute",
+      "subtitle_one": "{{count}} Ort · {{from}} – heute",
+      "subtitle_other": "{{count}} Orte · {{from}} – heute",
+      "subtitle-places": "{{count}} Orte",
+      "subtitle-places_one": "{{count}} Ort",
+      "subtitle-places_other": "{{count}} Orte",
+      "dates": "Zeitraum",
+      "places-title": "Orte",
+      "places-filter": "Orte filtern",
+      "places-empty": "Keine passenden Orte",
+      "place-count-birthplace": "{{count}} geboren",
+      "place-count-birthplace_one": "{{count}} geboren",
+      "place-count-birthplace_other": "{{count}} geboren",
+      "place-count-hometown": "{{count}} aufgewachsen",
+      "place-count-hometown_one": "{{count}} aufgewachsen",
+      "place-count-hometown_other": "{{count}} aufgewachsen",
+      "place-count-places-lived": "{{count}} gewohnt",
+      "place-count-places-lived_one": "{{count}} gewohnt",
+      "place-count-places-lived_other": "{{count}} gewohnt",
+      "place-count-cemetery": "{{count}} begraben",
+      "place-count-cemetery_one": "{{count}} begraben",
+      "place-count-cemetery_other": "{{count}} begraben",
+      "place-count-event": "{{count}} Ereignisse",
+      "place-count-event_one": "{{count}} Ereignis",
+      "place-count-event_other": "{{count}} Ereignisse"
     }
   },
   "unsaved-changes": {

@@ -31,8 +31,8 @@ export function ListPagination({
   const to = Math.min((page + 1) * pageSize, total);
 
   return (
-    <div className="flex items-center justify-between py-2 px-1 flex-wrap gap-2">
-      <span className="text-xs text-muted-foreground">
+    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 px-1">
+      <span className="text-[12.5px] text-muted-foreground tabular-nums">
         {t("pagination.showing", { from, to, total })}
       </span>
       <div className="flex items-center gap-2">
@@ -45,7 +45,7 @@ export function ListPagination({
           </SelectTrigger>
           <SelectContent>
             {PAGE_SIZES.map((s) => (
-              <SelectItem key={s} value={String(s)} className="text-xs">
+              <SelectItem key={s} value={String(s)}>
                 {s}
               </SelectItem>
             ))}
@@ -54,7 +54,7 @@ export function ListPagination({
         <Button
           variant="outline"
           size="icon-sm"
-          
+
           disabled={page === 0}
           onClick={() => onPageChange(page - 1)}
           aria-label={t("pagination.prev")}
@@ -64,7 +64,7 @@ export function ListPagination({
         <Button
           variant="outline"
           size="icon-sm"
-          
+
           disabled={to >= total}
           onClick={() => onPageChange(page + 1)}
           aria-label={t("pagination.next")}

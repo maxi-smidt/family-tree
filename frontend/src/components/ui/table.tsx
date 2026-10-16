@@ -1,4 +1,5 @@
 import * as React from "react";
+import { ChevronDownIcon, ChevronUpIcon, ChevronsUpDownIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -59,7 +60,7 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
     <tr
       data-slot="table-row"
       className={cn(
-        "hover:bg-muted/50 data-[state=selected]:bg-muted border-b transition-colors",
+        "hover:bg-muted/40 data-[state=selected]:bg-muted border-b transition-colors",
         className,
       )}
       {...props}
@@ -72,7 +73,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       data-slot="table-head"
       className={cn(
-        "text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
+        "text-muted-foreground h-11 px-3 text-left align-middle text-xs font-semibold whitespace-nowrap first:pl-5 last:pr-5 [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
         className,
       )}
       {...props}
@@ -85,7 +86,7 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
     <td
       data-slot="table-cell"
       className={cn(
-        "p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
+        "px-3 py-2.5 align-middle whitespace-nowrap first:pl-5 last:pr-5 [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
         className,
       )}
       {...props}
@@ -106,7 +107,46 @@ function TableCaption({
   );
 }
 
+/**
+ * Header-cell sort control: the column title plus a direction chevron. The
+ * active column reads in full ink; set `aria-sort` on the TableHead.
+ */
+function TableSortButton({
+  active,
+  direction,
+  className,
+  children,
+  ...props
+}: React.ComponentProps<"button"> & {
+  active: boolean;
+  direction: "asc" | "desc";
+}) {
+  const Icon = !active
+    ? ChevronsUpDownIcon
+    : direction === "asc"
+      ? ChevronUpIcon
+      : ChevronDownIcon;
+  return (
+    <button
+      type="button"
+      className={cn(
+        "-mx-1 inline-flex items-center gap-1 rounded-sm px-1 py-0.5 font-semibold hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+        active && "text-foreground",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+      <Icon
+        aria-hidden="true"
+        className={cn("size-3.5", !active && "opacity-50")}
+      />
+    </button>
+  );
+}
+
 export {
+  TableSortButton,
   Table,
   TableHeader,
   TableBody,
