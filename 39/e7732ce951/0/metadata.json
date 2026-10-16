@@ -1,0 +1,49 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "39e7732ce951",
+  "session_id": "f3b54c46-7e5d-4f97-883a-a3a056f0e27c",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-16T21:13:00.723907Z",
+  "branch": "feat/redesign-warm-heritage",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "frontend/src/utils/memberNodes.ts",
+    "frontend/src/components/view/tree-view/FlowPanel.tsx",
+    "frontend/src/utils/memberNodes.test.ts"
+  ],
+  "agent": "Claude Code",
+  "model": "",
+  "turn_id": "3a6108e2d78d",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 242,
+    "cache_creation_tokens": 184221,
+    "cache_read_tokens": 20607368,
+    "output_tokens": 49047,
+    "api_call_count": 121
+  },
+  "session_metrics": {
+    "turn_count": 2
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-10-16T21:13:00.511585Z",
+    "agent_lines": 73,
+    "agent_removed": 14,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 73,
+    "total_lines_changed": 87,
+    "agent_percentage": 100,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    }
+  ]
+}
