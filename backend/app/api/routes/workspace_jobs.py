@@ -11,7 +11,11 @@ from app.schemas.job import JobStarted
 from app.schemas.merge import WorkspaceMergePreview, WorkspaceMergePreviewRequest
 from app.schemas.workspace import WorkspaceMerge
 from app.services.system.job_service import ProgressCallback, create_job, run_job
-from app.services.workspaces.merge import compute_merge_preview, merge_trees
+from app.services.workspaces.merge import (
+    compute_merge_preview,
+    merge_trees,
+    require_merge_sources,
+)
 
 router = APIRouter(prefix="/workspaces", tags=["workspaces"])
 
@@ -35,6 +39,7 @@ def merge(
 ):
     if not payload.name.strip():
         raise HTTPException(status_code=400, detail="A name is required")
+    require_merge_sources(db, user, payload.source_a, payload.source_b)
     job = create_job(db, user.id, "merge")
     background_tasks.add_task(
         run_job,

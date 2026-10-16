@@ -285,6 +285,10 @@ def put_section_members(
     db: Session = Depends(get_db),
 ):
     section = _get_writable_section(db, tree, section_id, context)
+    # Validate against the current boundary before adding any memberships:
+    # membership itself confers visibility and edit access to the member.
+    for member_id in set(payload.member_ids):
+        context.require_read_member(db, member_id)
     with UnitOfWork(db) as uow:
         replace_section_members(db, tree, section, payload.member_ids)
         record_activity(

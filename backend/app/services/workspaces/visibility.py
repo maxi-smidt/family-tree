@@ -8,13 +8,10 @@ the only place a principal's grants are turned into a resolved boundary;
 every consumer below evaluates that same boundary rather than re-deriving
 one.
 
-Search, statistics, activity, export, media byte-serving, and SSE/presence
-do not consume this yet. Section-scoped grants have no HTTP route to create
-one (``app.services.workspaces.grants.create_section_grant`` is
-service-layer only, by design — see #993), so those read surfaces have
-nothing to leak until a follow-up wires grant management into the UI.
-Search already has its own tracking issue (#1024); the rest should get the
-same treatment before that UI ships.
+Whole-workspace operations such as export, copy, and activity history require
+workspace-wide access. Media serving checks the visibility of the referencing
+record. Migration creates scoped grants even without a grant-management UI,
+so these boundaries must also hold immediately after an upgrade.
 
 Two visibility rules feed every method here:
 
@@ -72,6 +69,11 @@ class WorkspaceAccessContext:
         if self.unrestricted:
             return None
         return self.scoped_section_ids
+
+    def require_full_workspace_read(self) -> None:
+        """Authorize an operation that cannot return a section-filtered result."""
+        if not self.unrestricted:
+            raise AccessDeniedError("Workspace-wide access is required")
 
     # -- read: sections/content -------------------------------------------
 
