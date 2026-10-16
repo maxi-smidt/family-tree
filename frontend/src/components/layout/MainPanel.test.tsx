@@ -20,6 +20,7 @@ import { type User } from "@/types/user";
 import { MainPanel } from "./MainPanel";
 import { AppNav } from "@/components/sidebar/AppNav";
 import { SidebarProvider } from "@/components/ui/sidebar";
+import { MobileTabBar } from "./MobileTabBar";
 
 vi.mock("@/components/view/tree-view/FlowPanel", () => ({
   FlowPanel: () => <div>Tree view</div>,
@@ -168,6 +169,39 @@ describe("MainPanel", () => {
     expect(
       within(nav).queryByRole("button", { name: "Gallery" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("gives phones a tab bar with the main views and everything else under More", async () => {
+    useWorkspaceStore.setState({
+      selectedTree: { id: "tree-1", role: "owner", restrictions: [] } as never,
+    });
+    stubMatchMedia();
+    render(
+      <SidebarProvider>
+        <MainPanel />
+        <MobileTabBar />
+      </SidebarProvider>,
+    );
+
+    const bar = screen.getByRole("navigation", { name: "Quick navigation" });
+    expect(
+      within(bar)
+        .getAllByRole("button")
+        .map((b) => b.textContent),
+    ).toEqual(["Tree", "People", "Timeline", "Gallery", "More"]);
+
+    fireEvent.click(within(bar).getByRole("button", { name: "Timeline" }));
+    await waitFor(() => {
+      expect(screen.getByText("Timeline view")).toBeInTheDocument();
+    });
+    expect(
+      within(bar).getByRole("button", { name: "Timeline" }),
+    ).toHaveAttribute("aria-current", "page");
+
+    const more = within(bar).getByRole("button", { name: "More" });
+    expect(more).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(more);
+    expect(more).toHaveAttribute("aria-expanded", "true");
   });
 
   it("opens Gallery and Documents straight from the navigation", async () => {

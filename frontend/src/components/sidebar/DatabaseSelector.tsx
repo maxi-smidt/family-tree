@@ -10,13 +10,22 @@ import {
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useUnsavedChangesStore } from "@/hooks/useUnsavedChangesStore";
 import { useTranslation } from "react-i18next";
-import { ChevronsUpDown } from "lucide-react";
+import { ChevronDown, ChevronsUpDown } from "lucide-react";
 import { WorkspaceMonogram } from "@/components/shared/WorkspaceMonogram";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import type { Workspace } from "@/types/workspace";
 import { toast } from "sonner";
 
-export const DatabaseSelector = () => {
+/**
+ * Switches the open workspace. `card` is the sidebar's switcher (name plus
+ * role and people count); `header` is the bare "Monogram Name ▾" button the
+ * phone tree shows in place of a page title. Both open the same list.
+ */
+export const DatabaseSelector = ({
+  variant = "card",
+}: {
+  variant?: "card" | "header";
+}) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "sidebar.database-selector",
   });
@@ -63,26 +72,44 @@ export const DatabaseSelector = () => {
 
   return (
     <Select onValueChange={handleDatabaseChange} value={selectedTree?.id ?? ""}>
-      <SelectTrigger
-        className="h-auto w-full gap-3 rounded-xl data-[size=default]:h-auto border-sidebar-border bg-card px-2.5 py-2.5 text-left shadow-xs hover:border-input dark:bg-card"
-        data-testid="tree-selector"
-        title={t("switch")}
-        icon={<ChevronsUpDown className="size-4 opacity-60" />}
-      >
-        <WorkspaceMonogram name={selectedTree?.name} />
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="truncate text-sm leading-5 font-semibold text-foreground">
+      {variant === "header" ? (
+        <SelectTrigger
+          className="h-11 max-w-full min-w-0 gap-2.5 border-0 bg-transparent px-1 text-left shadow-none data-[size=default]:h-11 hover:bg-accent dark:bg-transparent dark:hover:bg-accent"
+          data-testid="tree-selector-header"
+          aria-label={t("switch")}
+          icon={<ChevronDown className="size-4 opacity-60" />}
+        >
+          <WorkspaceMonogram name={selectedTree?.name} size="md" />
+          <span className="truncate text-base font-semibold text-foreground">
             {selectedTree?.name ?? t("placeholder")}
           </span>
-          <span className="truncate text-xs leading-4 text-muted-foreground">
-            {subtitle}
+        </SelectTrigger>
+      ) : (
+        <SelectTrigger
+          className="h-auto w-full gap-3 rounded-xl data-[size=default]:h-auto border-sidebar-border bg-card px-2.5 py-2.5 text-left shadow-xs hover:border-input dark:bg-card"
+          data-testid="tree-selector"
+          title={t("switch")}
+          icon={<ChevronsUpDown className="size-4 opacity-60" />}
+        >
+          <WorkspaceMonogram name={selectedTree?.name} />
+          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span className="truncate text-sm leading-5 font-semibold text-foreground">
+              {selectedTree?.name ?? t("placeholder")}
+            </span>
+            <span className="truncate text-xs leading-4 text-muted-foreground">
+              {subtitle}
+            </span>
           </span>
-        </span>
-      </SelectTrigger>
+        </SelectTrigger>
+      )}
       <SelectContent
         position="popper"
         sideOffset={6}
-        className="w-(--radix-select-trigger-width) min-w-64"
+        className={
+          variant === "header"
+            ? "min-w-72"
+            : "w-(--radix-select-trigger-width) min-w-64"
+        }
       >
         {ownedTrees.length > 0 && (
           <SelectGroup>

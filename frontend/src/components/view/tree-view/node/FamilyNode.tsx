@@ -220,7 +220,10 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
         ? "ring-2 ring-amber-500 ring-offset-2 ring-offset-canvas"
         : "";
 
-  const showActions = !isSelectionMode;
+  // Nothing to show when neither viewing nor editing is offered (phones,
+  // where a tap opens the pull-up card instead).
+  const showActions =
+    !isSelectionMode && (typeof data.onView === "function" || !data.isReadOnly);
   const indicators: ReactNode[] = [];
   if (isDiseaseMode && hasDiseases) {
     const label = `${t("disease-indicator", { count: data.diseases?.length || 0 })} · ${t(`disease-severity.${diseaseSeverity}`)}`;

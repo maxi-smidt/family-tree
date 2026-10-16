@@ -4,6 +4,7 @@ import { ApiError } from "@/services/api";
 import { authErrorToast } from "@/components/auth/loginError";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/shared/PasswordInput";
 import { FieldLabel } from "@/components/ui/field";
 import {
   Card,
@@ -189,9 +190,8 @@ export const LoginPage = () => {
             )}
             <div className="space-y-2">
               <FieldLabel htmlFor="password">{t("password")}</FieldLabel>
-              <Input
+              <PasswordInput
                 id="password"
-                type="password"
                 value={password}
                 autoComplete={
                   mode === "register" ? "new-password" : "current-password"
@@ -250,19 +250,42 @@ export const LoginPage = () => {
           )}
         </CardContent>
       </Card>
-      <button
-        type="button"
-        className="text-xs text-muted-foreground hover:text-foreground"
-        onClick={() => setLegalDocsOpen(true)}
-      >
-        {tLegal("legal-link-public")}
-      </button>
+      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        <button
+          type="button"
+          className="hover:text-foreground"
+          onClick={() => setLegalDocsOpen(true)}
+        >
+          {tLegal("legal-link-public")}
+        </button>
+        <span aria-hidden="true">·</span>
+        <LanguageSwitch />
+      </div>
       <LegalDocsDialog
         open={legalDocsOpen}
         onOpenChange={setLegalDocsOpen}
         showTerms={false}
       />
     </AuthShell>
+  );
+};
+
+/** Offers the other UI language, named in that language ("Deutsch"). */
+const LanguageSwitch = () => {
+  const { i18n } = useTranslation();
+  const current = i18n.resolvedLanguage === "de" ? "de" : "en";
+  const other = current === "de" ? "en" : "de";
+  return (
+    <button
+      type="button"
+      lang={other}
+      className="hover:text-foreground"
+      onClick={() => void i18n.changeLanguage(other)}
+    >
+      {i18n.t(other === "de" ? "common.german" : "common.english", {
+        lng: other,
+      })}
+    </button>
   );
 };
 

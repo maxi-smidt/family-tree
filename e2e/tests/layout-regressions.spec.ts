@@ -1,6 +1,6 @@
 import type { Locator, Page } from "@playwright/test";
 import { test, expect } from "../fixtures";
-import { createTree } from "../fixtures/seed";
+import { createMember, createTree } from "../fixtures/seed";
 import { createTestUser, deleteTestUser } from "../fixtures/users";
 import { loginAs, openView, selectTree } from "../fixtures/ui";
 
@@ -205,4 +205,55 @@ test("session warning clears the sidebar trigger and can be dismissed", async ({
   await trigger.click();
   await alert.getByRole("button", { name: "Dismiss" }).click();
   await expect(alert).not.toBeVisible();
+});
+
+test("phones navigate from the tab bar and open a person from the tree", async ({
+  adminPage: page,
+  adminApi,
+  seedTree,
+}) => {
+  const tree = await seedTree(`Phone-${crypto.randomUUID().slice(0, 8)}`);
+  const member = await createMember(adminApi, tree.id, {
+    firstName: "Phone",
+    lastName: "Person",
+  });
+  await page.reload();
+  // Pick the workspace with the desktop switcher, then continue on a phone.
+  await selectTree(page, tree.name);
+  await openView(page, "Tree");
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  const tabs = page.getByRole("navigation", { name: "Quick navigation" });
+  await expect(tabs).toBeVisible();
+  await expect(page.locator('[data-sidebar="trigger"]')).toHaveCount(0);
+  await expect(page.getByTestId("tree-selector-header")).toContainText(
+    tree.name,
+  );
+
+  // Tapping a person brings up the pull-up card; its profile is full screen.
+  await page.getByRole("button", { name: "Fit view" }).click();
+  await page.locator(`.react-flow__node[data-id="${member.id}"]`).click();
+  const card = page.getByRole("region", { name: "Phone Person" });
+  await expect(card).toBeVisible();
+  await expectWithinViewport(card, page);
+  await card.getByRole("button", { name: "View profile" }).click();
+  const profile = page.getByRole("dialog", { name: "Person" });
+  await expect(
+    profile.getByRole("heading", { name: "Phone Person" }),
+  ).toBeVisible();
+  await profile.getByRole("button", { name: "Back to tree" }).click();
+  await expect(profile).toBeHidden();
+  await expect(card).toBeVisible();
+
+  // The tab bar switches views; More opens everything else.
+  await tabs.getByRole("button", { name: "People" }).click();
+  await expect(
+    page.getByRole("heading", { name: "People", level: 1 }),
+  ).toBeVisible();
+  await tabs.getByRole("button", { name: "More" }).click();
+  await expect(
+    page
+      .getByRole("navigation", { name: "Main" })
+      .getByRole("button", { name: "Workspaces" }),
+  ).toBeVisible();
 });

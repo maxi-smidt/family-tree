@@ -489,7 +489,10 @@
       "workspace": "Workspace",
       "gallery": "Gallery",
       "documents": "Documents",
-      "manage": "Share, export & import"
+      "manage": "Share, export & import",
+      "tab-bar": "Quick navigation",
+      "more": "More",
+      "more-badge": "{{count}} waiting in More"
     },
     "search": {
       "open": "Search people, places and events",
@@ -682,7 +685,31 @@
       "family-partners": "Partner",
       "family-children": "Children",
       "family-siblings": "Siblings",
-      "details-heading": "Details"
+      "details-heading": "Details",
+      "relation": {
+        "parent": {
+          "male": "Father",
+          "female": "Mother",
+          "other": "Parent"
+        },
+        "child": {
+          "male": "Son",
+          "female": "Daughter",
+          "other": "Child"
+        },
+        "sibling": {
+          "male": "Brother",
+          "female": "Sister",
+          "other": "Sibling"
+        },
+        "spouse": {
+          "male": "Husband",
+          "female": "Wife",
+          "other": "Spouse"
+        },
+        "partner": "Partner",
+        "former-partner": "Former partner"
+      }
     },
     "member-sheet": {
       "loading-detail": "Loading details...",
@@ -903,7 +930,8 @@
       },
       "toggle-edit": "Edit",
       "toggle-view": "Done",
-      "close": "Close"
+      "close": "Close",
+      "back": "Back to tree"
     },
     "markdown-editor": {
       "toolbar-label": "Markdown formatting toolbar",
@@ -1167,6 +1195,18 @@
       "people_other": "{{count}} people",
       "title": "Family tree",
       "people": "{{count}} people"
+    },
+    "peek": {
+      "close": "Close",
+      "view-profile": "View profile",
+      "edit": "Edit",
+      "add-relative": "Add relative",
+      "add-parent": "Add parent",
+      "add-partner": "Add partner",
+      "add-child": "Add child"
+    },
+    "mobile": {
+      "add-person": "Add person"
     }
   },
   "activity-view": {
@@ -1590,7 +1630,25 @@
     "clear-search": "Clear search",
     "open-person": "Open {{name}}",
     "clear": "Clear",
-    "search-people": "Search people…"
+    "search-people": "Search people…",
+    "life": {
+      "born": "Born {{date}}",
+      "born-in": "Born {{date}} in {{place}}",
+      "born-place": "Born in {{place}}",
+      "living": "Living",
+      "living-years_one": "Living · {{count}} year",
+      "living-years_other": "Living · {{count}} years",
+      "deceased": "Deceased",
+      "died": "† {{date}}",
+      "died-aged_one": "† {{date}} · aged {{count}}",
+      "died-aged_other": "† {{date}} · aged {{count}}",
+      "aged_one": "aged {{count}}",
+      "aged_other": "aged {{count}}",
+      "years_one": "{{count}} year",
+      "years_other": "{{count}} years"
+    },
+    "show-password": "Show password",
+    "hide-password": "Hide password"
   },
   "auth": {
     "session": {

@@ -241,6 +241,10 @@ Pick the size with the `size` prop. Never override heights with `h-7`/`h-8`
 classes or shrink text with `text-xs` on a control — that is how mismatched
 rows crept in before. Icon-only buttons use `icon` / `icon-sm` to match.
 
+One exception: on phones, the main actions of a bottom card (the tree's
+pull-up person card) and the sign-in form use `lg` (40px) so they are easy to
+hit with a thumb.
+
 #### Shared building blocks
 
 Reach for these before hand-rolling markup (all in `components/shared/`
@@ -263,9 +267,27 @@ unless noted):
 | Read-only label/value pairs                      | `Item variant="field"`                                           |
 | Empty states                                     | `Empty` (`components/ui/empty`)                                  |
 | Sortable table header                            | `TableSortButton` (`components/ui/table`)                        |
+| Password field with show/hide                    | `PasswordInput`                                                  |
+| "Born 28 Feb 1976 in Wien" / "Living · 50 years" | `useMemberLife(member)` (`hooks/`)                               |
+| Age from birth/death years                       | `computeAge` (`utils/memberAge`)                                 |
 
 Cards are `Card` (rounded-2xl, 20px padding); content lists inside a card use
 `divide-y` rows with `px-5 py-3`.
+
+#### Phones (below 768px, `useIsMobile`)
+
+- Once a workspace is open, navigation is the bottom `MobileTabBar` (Tree,
+  People, Timeline, Gallery, More); More opens the sidebar sheet. `PageHeader`
+  drops its sidebar toggle then. Add views to the tab bar only by changing its
+  `PRIMARY_KEYS`; everything else belongs under More.
+- The tree's header is a `PageHeader` whose `heading` is the
+  `DatabaseSelector` in its `header` variant, with `inlineActions`. The canvas stays read-only for
+  layout (no drag/connect), but tapping a person opens `MemberPeekCard`, from
+  which the profile, editing and adding relatives work as on desktop.
+- `MemberSheet` becomes a full-screen profile (back, centred title, edit
+  icon); `ViewMode` swaps in `MemberProfileHero`, segmented tabs and
+  `MemberFamily layout="rows"`. Keep those switches inside the shared
+  components rather than forking phone-only copies.
 
 ### React Flow Integration
 

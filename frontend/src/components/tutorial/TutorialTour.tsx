@@ -300,14 +300,14 @@ export const TutorialTour = () => {
         },
       },
 
-      // View navigation (left sidebar; the menu button on phones). Next
+      // View navigation (left sidebar; the bottom tab bar on phones). Next
       // navigates to workspace management; Back re-opens the sidebar.
       {
         element: tabsSelector,
         popover: {
           title: t("switch-views.title"),
           description: t("switch-views.body"),
-          side: tabsSelector === DESKTOP_TABS_SELECTOR ? "right" : "bottom",
+          side: tabsSelector === DESKTOP_TABS_SELECTOR ? "right" : "top",
           align: "start",
           onPrevClick: (_, __, { driver: d }) => {
             go(

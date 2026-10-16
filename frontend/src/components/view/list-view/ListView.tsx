@@ -42,6 +42,7 @@ import { RemoveMemberDialog } from "@/components/shared/dialog/RemoveMemberDialo
 import { useTranslation } from "react-i18next";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { formatDate as formatLocaleDate, getYear } from "@/utils/dateUtils";
+import { computeAge } from "@/utils/memberAge";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useIsMobile } from "@/hooks/useMobile";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -62,16 +63,6 @@ type SortConfig = {
 };
 
 const SKELETON_ROWS = 6;
-
-function computeAge(member: Member): { age: number | null; atDeath: boolean } {
-  const birthYear = getYear(member.date.birth);
-  if (!birthYear) return { age: null, atDeath: false };
-  const deathYear = getYear(member.date.death);
-  if (deathYear !== null) return { age: deathYear - birthYear, atDeath: true };
-  if (!isDeceased(member))
-    return { age: new Date().getFullYear() - birthYear, atDeath: false };
-  return { age: null, atDeath: false };
-}
 
 export const ListView = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "list-view.view" });

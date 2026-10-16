@@ -489,7 +489,10 @@
       "workspace": "Arbeitsbereich",
       "gallery": "Galerie",
       "documents": "Dokumente",
-      "manage": "Teilen, Export & Import"
+      "manage": "Teilen, Export & Import",
+      "tab-bar": "Schnellnavigation",
+      "more": "Mehr",
+      "more-badge": "{{count}} offen unter Mehr"
     },
     "search": {
       "open": "Personen, Orte und Ereignisse suchen",
@@ -682,7 +685,31 @@
       "family-partners": "Partner",
       "family-children": "Kinder",
       "family-siblings": "Geschwister",
-      "details-heading": "Details"
+      "details-heading": "Details",
+      "relation": {
+        "parent": {
+          "male": "Vater",
+          "female": "Mutter",
+          "other": "Elternteil"
+        },
+        "child": {
+          "male": "Sohn",
+          "female": "Tochter",
+          "other": "Kind"
+        },
+        "sibling": {
+          "male": "Bruder",
+          "female": "Schwester",
+          "other": "Geschwister"
+        },
+        "spouse": {
+          "male": "Ehemann",
+          "female": "Ehefrau",
+          "other": "Ehepartner:in"
+        },
+        "partner": "Partner:in",
+        "former-partner": "Ehemalige:r Partner:in"
+      }
     },
     "member-sheet": {
       "loading-detail": "Details werden geladen...",
@@ -903,7 +930,8 @@
       },
       "toggle-edit": "Bearbeiten",
       "toggle-view": "Fertig",
-      "close": "Schließen"
+      "close": "Schließen",
+      "back": "Zurück zum Stammbaum"
     },
     "markdown-editor": {
       "toolbar-label": "Markdown-Formatierungsleiste",
@@ -1167,6 +1195,18 @@
       "people_other": "{{count}} Personen",
       "title": "Stammbaum",
       "people": "{{count}} Personen"
+    },
+    "peek": {
+      "close": "Schließen",
+      "view-profile": "Profil ansehen",
+      "edit": "Bearbeiten",
+      "add-relative": "Angehörige hinzufügen",
+      "add-parent": "Elternteil hinzufügen",
+      "add-partner": "Partner:in hinzufügen",
+      "add-child": "Kind hinzufügen"
+    },
+    "mobile": {
+      "add-person": "Person hinzufügen"
     }
   },
   "activity-view": {
@@ -1590,7 +1630,25 @@
     "clear-search": "Suche leeren",
     "open-person": "{{name}} öffnen",
     "clear": "Leeren",
-    "search-people": "Personen suchen…"
+    "search-people": "Personen suchen…",
+    "life": {
+      "born": "Geb. {{date}}",
+      "born-in": "Geb. {{date}} in {{place}}",
+      "born-place": "Geboren in {{place}}",
+      "living": "Lebt",
+      "living-years_one": "Lebt · {{count}} Jahr",
+      "living-years_other": "Lebt · {{count}} Jahre",
+      "deceased": "Verstorben",
+      "died": "† {{date}}",
+      "died-aged_one": "† {{date}} · mit {{count}} Jahr",
+      "died-aged_other": "† {{date}} · mit {{count}} Jahren",
+      "aged_one": "mit {{count}} Jahr",
+      "aged_other": "mit {{count}} Jahren",
+      "years_one": "{{count}} Jahr",
+      "years_other": "{{count}} Jahre"
+    },
+    "show-password": "Passwort anzeigen",
+    "hide-password": "Passwort verbergen"
   },
   "auth": {
     "session": {

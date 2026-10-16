@@ -37,6 +37,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MemberSheetTab } from "@/utils/memberSheetState";
+import { useIsMobile } from "@/hooks/useMobile";
+import { cn } from "@/lib/utils";
+import { MemberProfileHero } from "./MemberProfileHero";
 
 type Props = {
   member: Member;
@@ -74,6 +77,7 @@ export const ViewMode = ({
   const tasksEnabled = !restrictions.includes("tasks");
   const mapEnabled = !restrictions.includes("map");
   const biographyEnabled = !restrictions.includes("biography");
+  const isMobile = useIsMobile();
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [startIndex, setStartIndex] = useState(0);
 
@@ -129,15 +133,25 @@ export const ViewMode = ({
 
   return (
     <div className="w-full">
-      <div className="flex justify-center mb-4">
-        <FamilyNodeContent member={member} largeImage />
-      </div>
+      {isMobile ? (
+        <MemberProfileHero member={member} />
+      ) : (
+        <div className="flex justify-center mb-4">
+          <FamilyNodeContent member={member} largeImage />
+        </div>
+      )}
 
       <Tabs
         value={visibleTab}
         onValueChange={(tab) => onTabChange(tab as MemberSheetTab)}
       >
-        <TabsList variant="line" className="w-full justify-start mb-3">
+        <TabsList
+          variant={isMobile ? "default" : "line"}
+          className={cn(
+            "w-full",
+            isMobile ? "mb-5 h-10 rounded-xl" : "mb-3 justify-start",
+          )}
+        >
           <TabsTrigger value="identity">{t("tab-identity")}</TabsTrigger>
           {hasLifeContent && (
             <TabsTrigger value="life">{t("tab-life")}</TabsTrigger>
@@ -148,14 +162,28 @@ export const ViewMode = ({
         {/* Identity tab */}
         <TabsContent value="identity">
           {!isNew && (
-            <MemberFamily member={member} onOpenMember={onOpenMember} />
+            <MemberFamily
+              member={member}
+              onOpenMember={onOpenMember}
+              layout={isMobile ? "rows" : "chips"}
+            />
           )}
           <h3 className="mb-3 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
             {t("details-heading")}
           </h3>
-          <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+          <div
+            className={cn(
+              "grid gap-x-6 gap-y-4",
+              isMobile
+                ? "grid-cols-2 rounded-2xl border bg-card p-4"
+                : "grid-cols-1 sm:grid-cols-2",
+            )}
+          >
             {member.academicTitle && (
-              <Item variant="field" className="sm:col-span-2">
+              <Item
+                variant="field"
+                className={isMobile ? "col-span-2" : "sm:col-span-2"}
+              >
                 <ItemContent>
                   <ItemTitle>{t("academic-title-item")}</ItemTitle>
                   <ItemDescription>{member.academicTitle}</ItemDescription>
