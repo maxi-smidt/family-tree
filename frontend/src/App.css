@@ -1,3 +1,4 @@
+@import "@fontsource-variable/manrope";
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "@xyflow/react/dist/style.css";
@@ -74,50 +75,64 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-canvas: var(--canvas);
+  --color-canvas-dot: var(--canvas-dot);
+  --color-edge: var(--edge);
+  --color-primary-soft: var(--primary-soft);
+  --color-gender-m: var(--gender-m);
+  --color-gender-m-bg: var(--gender-m-bg);
+  --color-gender-f: var(--gender-f);
+  --color-gender-f-bg: var(--gender-f-bg);
+  --color-gender-o: var(--gender-o);
+  --color-gender-o-bg: var(--gender-o-bg);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --font-sans: "Manrope Variable", ui-sans-serif, system-ui, sans-serif;
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(0.985 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.52 0 0);
-  --overlay: oklch(0 0 0 / 50%);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.628 0.258 29.234);
-  --border: oklch(0.822 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --radius: 0.75rem;
+  --background: #faf8f4;
+  --foreground: #1f1d1a;
+  --card: #ffffff;
+  --card-foreground: #1f1d1a;
+  --popover: #ffffff;
+  --popover-foreground: #1f1d1a;
+  --primary: #2f5d50;
+  --primary-foreground: #ffffff;
+  --secondary: #f2eee6;
+  --secondary-foreground: #1f1d1a;
+  --muted: #f2eee6;
+  --muted-foreground: #6f685c;
+  --overlay: rgb(31 29 26 / 45%);
+  --accent: #ede8de;
+  --accent-foreground: #1f1d1a;
+  --destructive: #a8352b;
+  --border: #e5dfd4;
+  --input: #d5cdbf;
+  --ring: #2f5d50;
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: #f2eee6;
+  --sidebar-foreground: #1f1d1a;
+  --sidebar-primary: #2f5d50;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #ffffff;
+  --sidebar-accent-foreground: #1f1d1a;
+  --sidebar-border: #e5dfd4;
+  --sidebar-ring: #2f5d50;
 
   /* Statistics charts */
-  --chart-gender-male: oklch(0.585 0.203 277.1);
-  --chart-gender-female: oklch(0.657 0.214 354.3);
+  --chart-gender-male: #3a6fb0;
+  --chart-gender-female: #d06a86;
   --chart-gender-other: oklch(0.769 0.156 70.7);
   --chart-gender-unknown: oklch(0.711 0.035 256.8);
-  --chart-birth: oklch(0.585 0.203 277.1);
-  --chart-death: oklch(0.645 0.225 16.4);
+  --chart-birth: #168b6b;
+  --chart-death: #b8662a;
 
   /* Map marker types */
   --map-event: oklch(0.769 0.156 70.7);
@@ -141,50 +156,64 @@
   --connection-path: oklch(0.762 0.166 84.2);
 
   /* Success (buttons) */
-  --success: oklch(0.627 0.155 149.2);
-  --success-foreground: oklch(0.985 0 0);
+  --success: #2f7a55;
+  --success-foreground: #ffffff;
+
+  /* Warm heritage redesign — canvas, gender tints, soft accents */
+  --canvas: #f6f3ed;
+  --canvas-dot: #ddd6c9;
+  --edge: #b7ad9c;
+  --primary-soft: #e2ece7;
+  --gender-m: #3b5876;
+  --gender-m-bg: #e3e9f0;
+  --gender-f: #94465a;
+  --gender-f-bg: #f4e4e7;
+  --gender-o: #7d6328;
+  --gender-o-bg: #f1e9d8;
+  --warning: #9a5711;
+  --warning-soft: #f6e8d4;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.22 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.75 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.752 0.202 25.331);
-  --border: oklch(1 0 0 / 15%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --background: #151412;
+  --foreground: #f0ebe2;
+  --card: #1e1c19;
+  --card-foreground: #f0ebe2;
+  --popover: #1e1c19;
+  --popover-foreground: #f0ebe2;
+  --primary: #86bba8;
+  --primary-foreground: #0e1f19;
+  --secondary: #26231f;
+  --secondary-foreground: #f0ebe2;
+  --muted: #26231f;
+  --muted-foreground: #a39b8e;
+  --accent: #2a2723;
+  --accent-foreground: #f0ebe2;
+  --destructive: #ee8c80;
+  --border: #34302b;
+  --input: #3f3a34;
+  --ring: #86bba8;
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar: #11100e;
+  --sidebar-foreground: #f0ebe2;
+  --sidebar-primary: #86bba8;
+  --sidebar-primary-foreground: #0e1f19;
+  --sidebar-accent: #1e1c19;
+  --sidebar-accent-foreground: #f0ebe2;
+  --sidebar-border: #2c2925;
+  --sidebar-ring: #86bba8;
 
   /* Statistics charts */
-  --chart-gender-male: oklch(0.672 0.182 277.1);
-  --chart-gender-female: oklch(0.724 0.187 354.3);
+  --chart-gender-male: #5b8fd0;
+  --chart-gender-female: #cc6f8a;
   --chart-gender-other: oklch(0.828 0.155 78);
   --chart-gender-unknown: oklch(0.78 0.03 256.8);
-  --chart-birth: oklch(0.672 0.182 277.1);
-  --chart-death: oklch(0.712 0.196 16.4);
+  --chart-birth: #2fa07e;
+  --chart-death: #c97a3c;
 
   /* Map marker types */
   --map-event: oklch(0.828 0.155 78);
@@ -208,8 +237,21 @@
   --connection-path: oklch(0.83 0.16 86);
 
   /* Success (buttons) */
-  --success: oklch(0.696 0.16 149.2);
-  --success-foreground: oklch(0.205 0 0);
+  --success: #6fbf94;
+  --success-foreground: #0e1f19;
+
+  --canvas: #181715;
+  --canvas-dot: #2b2824;
+  --edge: #5a534a;
+  --primary-soft: #1f322b;
+  --gender-m: #a9beda;
+  --gender-m-bg: #24303d;
+  --gender-f: #e0a9b5;
+  --gender-f-bg: #3a262c;
+  --gender-o: #d8bf85;
+  --gender-o-bg: #352d1c;
+  --warning: #e3a55e;
+  --warning-soft: #3a2a16;
 }
 
 @layer base {
@@ -218,6 +260,10 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+  input[type="radio"],
+  input[type="checkbox"] {
+    accent-color: var(--primary);
   }
 }
 
@@ -274,4 +320,14 @@
 
 .dark .leaflet-popup-close-button {
   color: var(--muted-foreground);
+}
+
+/* Keep React Flow's attribution quiet on the warm canvas (both themes). */
+.ft-tree-canvas .react-flow__attribution {
+  background: transparent;
+  color: var(--muted-foreground);
+  opacity: 0.6;
+}
+.ft-tree-canvas .react-flow__attribution a {
+  color: inherit;
 }

@@ -25,24 +25,24 @@ export interface ResolvedRelationStyle extends WorkerEdgeStyle {
 }
 
 const DEFAULT_RELATION_STYLE: RelationDefaultStyle = {
-  stroke: "var(--muted-foreground)",
+  stroke: "var(--edge)",
   strokeDasharray: "5,5",
   strokeWidth: 2,
-  colorInput: "#858585",
+  colorInput: "#b7ad9c",
 };
 
 const BUILT_IN_RELATION_STYLES: Record<string, RelationDefaultStyle> = {
   parent: {
-    stroke: "var(--muted-foreground)",
+    stroke: "var(--edge)",
     strokeDasharray: "0",
-    strokeWidth: 1.5,
-    colorInput: "#858585",
+    strokeWidth: 1.6,
+    colorInput: "#b7ad9c",
   },
   married: {
-    stroke: "hsl(142 76% 36%)",
+    stroke: "var(--primary)",
     strokeDasharray: "0",
     strokeWidth: 2,
-    colorInput: "#16a34a",
+    colorInput: "#2f5d50",
   },
   divorced: {
     stroke: "var(--destructive)",
@@ -51,10 +51,10 @@ const BUILT_IN_RELATION_STYLES: Record<string, RelationDefaultStyle> = {
     colorInput: "#dc2626",
   },
   partner: {
-    stroke: "hsl(217 91% 60%)",
+    stroke: "var(--primary)",
     strokeDasharray: "2,4",
     strokeWidth: 2,
-    colorInput: "#3b82f6",
+    colorInput: "#2f5d50",
   },
   sibling: {
     stroke: "hsl(45 93% 47%)",

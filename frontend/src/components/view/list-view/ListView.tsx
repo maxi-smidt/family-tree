@@ -33,7 +33,7 @@ import {
   VenusAndMars,
 } from "lucide-react";
 import { EditableCell } from "./EditableCell";
-import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
+import { MemberAvatar } from "@/components/shared/MemberAvatar";
 import { MemberSheet } from "@/components/shared/member-sheet/MemberSheet";
 import { MemberDetailDialog } from "@/components/shared/dialog/MemberDetailDialog";
 import { RemoveMemberDialog } from "@/components/shared/dialog/RemoveMemberDialog";
@@ -284,36 +284,35 @@ export const ListView = () => {
     const ageResult = computeAge(member);
     switch (id) {
       case "photo":
-        return (
-          <div className="w-8 h-8 rounded-full overflow-hidden bg-muted flex-shrink-0 flex items-center justify-center">
-            {member.imageData ? (
-              <AuthenticatedImage
-                src={member.imageData}
-                alt={`${member.firstName} ${member.lastName}`}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <span className="text-[10px] font-medium text-muted-foreground">
-                {(member.firstName?.[0] ?? "").toUpperCase()}
-                {(member.lastName?.[0] ?? "").toUpperCase()}
-              </span>
-            )}
-          </div>
-        );
+        return <MemberAvatar member={member} size="sm" />;
       case "firstName":
-        return <span className="font-medium">{member.firstName}</span>;
+        return visibleColumns.includes("photo") ? (
+          <span className="font-semibold">{member.firstName}</span>
+        ) : (
+          <span className="flex items-center gap-3">
+            <MemberAvatar member={member} size="sm" />
+            <span className="font-semibold">{member.firstName}</span>
+          </span>
+        );
       case "lastName":
         return member.lastName;
       case "maidenName":
         return member.maidenName || "-";
       case "gender":
         return (
-          <>
-            <GenderIcon {...member} />
-            <span className="sr-only">
-              {tCommon(`gender.${member.gender}`)}
-            </span>
-          </>
+          <span className="inline-flex items-center gap-2 text-muted-foreground capitalize">
+            <span
+              aria-hidden="true"
+              className={`size-2 rounded-full ${
+                member.gender === "m"
+                  ? "bg-gender-m"
+                  : member.gender === "f"
+                    ? "bg-gender-f"
+                    : "bg-gender-o"
+              }`}
+            />
+            {tCommon(`gender.${member.gender}`)}
+          </span>
         );
       case "birth":
         return formatDate(member.date.birth);

@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import { ViewMode } from "./ViewMode";
 import { EditMode, SaveStatus } from "./EditMode";
 import { Button } from "@/components/ui/button";
-import { Check, CircleAlert, Eye, Pencil } from "lucide-react";
+import { Check, CircleAlert, Eye, Pencil, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
 import { useMemberStore } from "@/hooks/useMemberStore";
@@ -38,6 +38,8 @@ type Props = {
   isNewMember?: boolean;
   onDiscardNewMember?: () => Promise<void> | void;
   onSaveNewMember?: (data: Member) => Promise<void> | void;
+  /** Switch the panel to another member (family chips in view mode). */
+  onOpenMember?: (memberId: string) => void;
 };
 
 export const MemberSheet = ({
@@ -49,6 +51,7 @@ export const MemberSheet = ({
   isNewMember = false,
   onDiscardNewMember,
   onSaveNewMember,
+  onOpenMember,
 }: Props) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.member-sheet",
@@ -241,8 +244,9 @@ export const MemberSheet = ({
       }}
     >
       <SheetContent
-        className="w-full max-w-full sm:w-160 sm:max-w-none"
+        className="w-full max-w-full gap-0 sm:w-[30rem] sm:max-w-none"
         showCloseButton={false}
+        overlayClassName="bg-foreground/5"
         onOpenAutoFocus={(e) => {
           if (isViewingEditMode) {
             e.preventDefault();
@@ -252,18 +256,18 @@ export const MemberSheet = ({
           }
         }}
       >
-        <SheetHeader className="border-b">
-          <div className="pr-10">
-            <SheetTitle>
+        <SheetHeader className="flex-row items-center gap-2 border-b px-5 py-3">
+          <div className="min-w-0 flex-1">
+            <SheetTitle className="truncate text-sm font-semibold text-muted-foreground">
               {isViewingEditMode ? t("edit-title") : t("detail-title")}
             </SheetTitle>
-            <SheetDescription>
+            <SheetDescription className="sr-only">
               {isViewingEditMode
                 ? t("edit-description")
                 : t("detail-description")}
             </SheetDescription>
             {editors.length > 0 && (
-              <div className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-500">
+              <div className="mt-1 flex items-center gap-1.5 text-xs font-medium text-warning">
                 <Pencil className="size-3 shrink-0" />
                 <span className="truncate">
                   {t("presence-editing", {
@@ -274,16 +278,23 @@ export const MemberSheet = ({
             )}
           </div>
           {effectiveCanEdit && (
-            <div className="absolute top-4 right-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => void handleModeToggle()}
-              >
-                {isViewingEditMode ? <Eye /> : <Pencil />}
-              </Button>
-            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void handleModeToggle()}
+            >
+              {isViewingEditMode ? <Eye /> : <Pencil />}
+              {isViewingEditMode ? t("toggle-view") : t("toggle-edit")}
+            </Button>
           )}
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={t("close")}
+            onClick={() => void handleCloseRequest()}
+          >
+            <X />
+          </Button>
         </SheetHeader>
 
         <div className="relative flex-1 overflow-hidden flex flex-col">
@@ -321,6 +332,7 @@ export const MemberSheet = ({
                 activeTab={activeTab}
                 onTabChange={handleTabChange}
                 isNew={isNewMember}
+                onOpenMember={onOpenMember}
               />
             )}
           </div>

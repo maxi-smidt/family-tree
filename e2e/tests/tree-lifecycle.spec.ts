@@ -14,7 +14,7 @@ import type { ApiClient } from "../fixtures/api";
 import { createMember, createTree, deleteTree } from "../fixtures/seed";
 import type { TreeRecord } from "../fixtures/seed";
 import { createTestUser, deleteTestUser } from "../fixtures/users";
-import { loginAs, selectTree } from "../fixtures/ui";
+import { loginAs, openView, selectTree } from "../fixtures/ui";
 
 interface TreeListItem extends TreeRecord {
   role: string;
@@ -33,9 +33,9 @@ interface MemberName {
 }
 
 async function openTreeManagement(page: Page): Promise<void> {
-  await page.getByRole("tab", { name: "Workspace Management", exact: true }).click();
+  await openView(page, "Workspaces");
   await expect(
-    page.getByRole("heading", { name: "Workspace Management", exact: true }),
+    page.getByRole("heading", { name: "Workspaces", exact: true }),
   ).toBeVisible({ timeout: 15_000 });
 }
 
@@ -150,7 +150,9 @@ test("rename: the selector updates and the name survives reload", async ({
       { timeout: 15_000 },
     );
 
-    const persisted = await secondApi.get<TreeListItem>(`/workspaces/${tree.id}`);
+    const persisted = await secondApi.get<TreeListItem>(
+      `/workspaces/${tree.id}`,
+    );
     expect(persisted.name).toBe(renamed);
   } finally {
     await cleanupTrees(secondApi, [tree.id]);
@@ -187,7 +189,9 @@ test("delete: the active tree disappears and another tree is selected", async ({
     const deleteResponsePromise = page.waitForResponse(
       (response) =>
         response.request().method() === "DELETE" &&
-        new URL(response.url()).pathname.endsWith(`/api/workspaces/${removed.id}`),
+        new URL(response.url()).pathname.endsWith(
+          `/api/workspaces/${removed.id}`,
+        ),
     );
     await dialog.getByRole("button", { name: "Remove", exact: true }).click();
     expect((await deleteResponsePromise).status()).toBe(204);
@@ -232,7 +236,7 @@ test("switch: selecting another tree swaps the visible member dataset", async ({
     await loginAs(page, secondUser);
 
     await selectTree(page, treeA.name);
-    await page.getByRole("tab", { name: "List", exact: true }).click();
+    await openView(page, "People");
     await expect(
       page.getByRole("cell", { name: "LifecycleAlpha", exact: true }),
     ).toBeVisible({ timeout: 15_000 });
@@ -331,7 +335,9 @@ test("merge: the wizard previews and creates the union of both workspaces", asyn
     const previewResponsePromise = page.waitForResponse(
       (response) =>
         response.request().method() === "POST" &&
-        new URL(response.url()).pathname.endsWith("/api/workspaces/merge/preview"),
+        new URL(response.url()).pathname.endsWith(
+          "/api/workspaces/merge/preview",
+        ),
     );
     await sourceSelectors.nth(1).click();
     await page.getByRole("option").filter({ hasText: sourceB.name }).click();
@@ -414,13 +420,15 @@ test("transfer: a friend becomes owner and the original owner loses access", asy
       }),
     );
 
-    const recipientTrees = await recipientApi.get<TreeListItem[]>("/workspaces");
+    const recipientTrees =
+      await recipientApi.get<TreeListItem[]>("/workspaces");
     expect(recipientTrees.find((item) => item.id === tree.id)).toMatchObject({
       name: tree.name,
       role: "owner",
     });
 
-    const previousOwnerTrees = await secondApi.get<TreeListItem[]>("/workspaces");
+    const previousOwnerTrees =
+      await secondApi.get<TreeListItem[]>("/workspaces");
     expect(previousOwnerTrees.some((item) => item.id === tree.id)).toBe(false);
   } finally {
     if (recipientApi) await cleanupTrees(recipientApi, [tree.id]);

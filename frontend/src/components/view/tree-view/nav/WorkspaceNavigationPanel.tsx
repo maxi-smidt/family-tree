@@ -5,12 +5,10 @@ import {
   Bookmark,
   ChevronDown,
   ChevronRight,
-  Compass,
   Copy,
   FolderTree,
+  Layers,
   MoreHorizontal,
-  PanelLeft,
-  PanelLeftClose,
   Pencil,
   Plus,
 } from "lucide-react";
@@ -22,9 +20,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { useIsMobile } from "@/hooks/useMobile";
 import { useSectionStore } from "@/hooks/useSectionStore";
 import { useSavedViewStore } from "@/hooks/useSavedViewStore";
 import { useWorkspaceNavStore } from "@/hooks/useWorkspaceNavStore";
@@ -41,12 +42,11 @@ import { SectionDB } from "@/types/section";
 import { SavedViewDB } from "@/types/savedView";
 import { WorkspaceSearchHitDB } from "@/types/member";
 
-const COLLAPSE_STORAGE_KEY = "ft_workspace_nav_collapsed";
-
 interface WorkspaceNavigationPanelProps {
   workspaceId: string;
-  workspaceName: string;
   canWrite: boolean;
+  /** Rendered on a narrow canvas: the trigger shows only its icon. */
+  compact?: boolean;
 }
 
 /**
@@ -56,29 +56,17 @@ interface WorkspaceNavigationPanelProps {
  * unscoped workspace view. Selecting a saved view re-centers on its focus
  * person. Creating/editing/duplicating/deleting saved views (#1013) mirrors
  * the section actions below.
+ *
+ * Rendered as a "Whole family ▾" menu floating on the canvas rather than a
+ * second sidebar next to the app navigation.
  */
 export const WorkspaceNavigationPanel = ({
   workspaceId,
-  workspaceName,
   canWrite,
+  compact = false,
 }: WorkspaceNavigationPanelProps) => {
   const { t } = useTranslation(undefined, { keyPrefix: "workspace-nav" });
-  const isMobile = useIsMobile();
-
-  const [collapsed, setCollapsed] = useState(
-    () => localStorage.getItem(COLLAPSE_STORAGE_KEY) === "1",
-  );
-  const toggleCollapsed = () => {
-    setCollapsed((prev) => {
-      const next = !prev;
-      localStorage.setItem(COLLAPSE_STORAGE_KEY, next ? "1" : "0");
-      return next;
-    });
-  };
-  // On a narrow viewport there's no room to reserve for an inline panel at
-  // all (#988 follow-up) — it opens as a full overlay instead, closed by
-  // default, rather than eating most of the canvas the moment it mounts.
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const [sectionsOpen, setSectionsOpen] = useState(true);
   const [viewsOpen, setViewsOpen] = useState(true);
@@ -122,19 +110,24 @@ export const WorkspaceNavigationPanel = ({
   const focusMember = (memberId: string) => void setFocusRoot(memberId);
 
   const handleSelectExplore = () => {
+    setMenuOpen(false);
     selectExplore();
     void exitFocus();
   };
 
   const handleSelectSection = (sectionId: string) => {
+    setMenuOpen(false);
     selectSection(sectionId);
     void focusSection(sectionId);
   };
 
-  const handleSelectSearchHit = (hit: WorkspaceSearchHitDB) =>
+  const handleSelectSearchHit = (hit: WorkspaceSearchHitDB) => {
+    setMenuOpen(false);
     focusMember(hit.id);
+  };
 
   const handleSelectSavedView = (viewId: string) => {
+    setMenuOpen(false);
     selectSavedView(viewId);
     const view = views.find((v) => v.id === viewId);
     if (view?.focus_member_id) focusMember(view.focus_member_id);
@@ -187,8 +180,8 @@ export const WorkspaceNavigationPanel = ({
               "bg-accent font-medium text-accent-foreground",
           )}
         >
-          <Compass className="h-4 w-4" />
-          {t("explore")}
+          <Layers className="h-4 w-4" />
+          {t("whole-family")}
         </button>
 
         <div className="mt-2">
@@ -405,71 +398,41 @@ export const WorkspaceNavigationPanel = ({
     </>
   );
 
-  if (isMobile) {
-    return (
-      <>
-        <div className="flex h-full w-10 flex-none flex-col items-center border-r bg-background py-2">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => setMobileOpen(true)}
-            aria-label={t("expand")}
-          >
-            <PanelLeft className="h-4 w-4" />
-          </Button>
-        </div>
-        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-          <SheetContent
-            side="left"
-            className="w-72 gap-0 p-0"
-            aria-label={t("aria-label")}
-          >
-            <SheetTitle className="truncate border-b px-3 py-2 text-sm font-semibold">
-              {workspaceName}
-            </SheetTitle>
-            {listContent}
-          </SheetContent>
-        </Sheet>
-        {dialogs}
-      </>
-    );
-  }
-
-  if (collapsed) {
-    return (
-      <div className="flex h-full w-10 flex-none flex-col items-center border-r bg-background py-2">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={toggleCollapsed}
-          aria-label={t("expand")}
-        >
-          <PanelLeft className="h-4 w-4" />
-        </Button>
-      </div>
-    );
-  }
+  const currentLabel =
+    mode === "section"
+      ? (sections.find((x) => x.id === selectedSectionId)?.name ??
+        t("whole-family"))
+      : mode === "saved-view"
+        ? (views.find((v) => v.id === selectedSavedViewId)?.name ??
+          t("whole-family"))
+        : t("whole-family");
+  const CurrentIcon =
+    mode === "section" ? FolderTree : mode === "saved-view" ? Bookmark : Layers;
 
   return (
-    <div
-      className="flex h-full w-72 flex-none flex-col border-r bg-background"
-      aria-label={t("aria-label")}
-    >
-      <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
-        <span className="truncate text-sm font-semibold" title={workspaceName}>
-          {workspaceName}
-        </span>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={toggleCollapsed}
-          aria-label={t("collapse")}
+    <>
+      <Popover open={menuOpen} onOpenChange={setMenuOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            className="h-9 max-w-[16rem] gap-2 bg-card shadow-xs"
+            aria-label={t("open-menu", { name: currentLabel })}
+            title={currentLabel}
+          >
+            <CurrentIcon className="text-muted-foreground" />
+            {!compact && <span className="truncate">{currentLabel}</span>}
+            <ChevronDown className="text-muted-foreground" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="start"
+          className="flex max-h-[min(70vh,34rem)] w-80 flex-col gap-0 overflow-hidden p-0"
+          aria-label={t("aria-label")}
         >
-          <PanelLeftClose className="h-4 w-4" />
-        </Button>
-      </div>
-      {listContent}
+          {listContent}
+        </PopoverContent>
+      </Popover>
       {dialogs}
-    </div>
+    </>
   );
 };

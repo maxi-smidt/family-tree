@@ -18,6 +18,7 @@ import { useDocumentStore } from "@/hooks/useDocumentStore";
 import { useState } from "react";
 import { ImageLightbox } from "./ImageLightbox";
 import { IdentityLinksPanel } from "./IdentityLinksPanel";
+import { MemberFamily } from "./MemberFamily";
 import { LinkedDocumentList } from "./LinkedDocumentList";
 import { DocumentFileList } from "./DocumentFiles";
 import { useTranslation } from "react-i18next";
@@ -43,6 +44,8 @@ type Props = {
   activeTab: MemberSheetTab;
   onTabChange: (tab: MemberSheetTab) => void;
   isNew?: boolean;
+  /** Open another member in the panel (family chips). */
+  onOpenMember?: (memberId: string) => void;
 };
 
 export const ViewMode = ({
@@ -51,6 +54,7 @@ export const ViewMode = ({
   activeTab,
   onTabChange,
   isNew = false,
+  onOpenMember,
 }: Props) => {
   const { t, i18n } = useTranslation(undefined, {
     keyPrefix: "sheet.view-mode",
@@ -143,6 +147,9 @@ export const ViewMode = ({
 
         {/* Identity tab */}
         <TabsContent value="identity">
+          {!isNew && (
+            <MemberFamily member={member} onOpenMember={onOpenMember} />
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {member.academicTitle && (
               <Item variant="muted" className="sm:col-span-2">

@@ -45,11 +45,24 @@ export const UserMenu = () => {
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
-            size="sm"
-            className="w-full justify-start gap-2"
+            className="h-auto min-w-0 flex-1 justify-start gap-2.5 px-1.5 py-1.5"
           >
-            <AccountAvatar user={user} className="h-5 w-5 text-[9px]" />
-            <span className="truncate">{user.username}</span>
+            <AccountAvatar
+              user={user}
+              className="h-8 w-8 bg-primary-soft text-xs text-primary"
+            />
+            <span className="flex min-w-0 flex-col items-start text-left">
+              <span className="w-full truncate text-sm font-semibold">
+                {user.username}
+              </span>
+              <span className="w-full truncate text-xs font-normal text-muted-foreground">
+                {profileName !== user.username
+                  ? profileName
+                  : user.is_admin
+                    ? t("role-admin")
+                    : t("role-member")}
+              </span>
+            </span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-56">

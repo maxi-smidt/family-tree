@@ -12,7 +12,7 @@ import {
   createTree,
   deleteTree,
 } from "../fixtures/seed";
-import { loginAs } from "../fixtures/ui";
+import { loginAs, openWorkspaceMenu } from "../fixtures/ui";
 
 const test = base.extend<{ ownedTree: TreeRecord }>({
   ownedTree: async ({ secondApi }, use) => {
@@ -65,6 +65,7 @@ test("create, open, and edit a saved view", async ({
   // the focus-person picker only offers members already resident there.
   await expect(memberNode(page, carol.id)).toBeVisible();
 
+  await openWorkspaceMenu(page);
   await page.getByRole("button", { name: "Create saved view" }).click();
   const createDialog = page.getByRole("dialog", { name: "Create saved view" });
   await createDialog.locator("#saved-view-name").fill("Carol's View");
@@ -78,19 +79,26 @@ test("create, open, and edit a saved view", async ({
   // Creating it opens it immediately: the canvas narrows to Carol alone.
   await expect(memberNode(page, carol.id)).toBeVisible();
   await expect(memberNode(page, alice.id)).toHaveCount(0);
+  await openWorkspaceMenu(page);
   await expect(
     page.locator("li").filter({ hasText: "Carol's View" }),
   ).toBeVisible();
 
   // Navigate away, then re-open the saved view — it re-centers again.
-  await page.getByText("Explore", { exact: true }).click();
+  await openWorkspaceMenu(page);
+  await page
+    .getByRole("dialog", { name: "Workspace navigation" })
+    .getByRole("button", { name: "Whole family" })
+    .click();
   await expect(memberNode(page, alice.id)).toBeVisible();
 
+  await openWorkspaceMenu(page);
   await page.locator("li").filter({ hasText: "Carol's View" }).click();
   await expect(memberNode(page, carol.id)).toBeVisible();
   await expect(memberNode(page, alice.id)).toHaveCount(0);
 
   // Edit: rename it.
+  await openWorkspaceMenu(page);
   const row = page.locator("li").filter({ hasText: "Carol's View" });
   await row.hover();
   await row.getByRole("button", { name: "Actions for Carol's View" }).click();
@@ -103,6 +111,7 @@ test("create, open, and edit a saved view", async ({
   await editDialog.getByRole("button", { name: "Save", exact: true }).click();
   await expect(editDialog).not.toBeVisible();
 
+  await openWorkspaceMenu(page);
   await expect(
     page.locator("li").filter({ hasText: "Renamed View" }),
   ).toBeVisible();

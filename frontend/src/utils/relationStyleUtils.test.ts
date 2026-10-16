@@ -9,14 +9,14 @@ import {
 describe("relationStyleUtils", () => {
   it("resolves built-in relation defaults for picker display", () => {
     expect(resolveRelationStyle("married")).toMatchObject({
-      stroke: "hsl(142 76% 36%)",
+      stroke: "var(--primary)",
       strokeDasharray: "0",
       strokeWidth: 2,
-      colorInput: "#16a34a",
+      colorInput: "#2f5d50",
     });
     expect(resolveRelationStyle("partner")).toMatchObject({
       strokeDasharray: "2,4",
-      colorInput: "#3b82f6",
+      colorInput: "#2f5d50",
     });
   });
 

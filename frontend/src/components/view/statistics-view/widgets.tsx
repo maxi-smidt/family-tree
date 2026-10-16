@@ -6,9 +6,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
   Legend,
 } from "recharts";
 import { BookOpen, Cake, CalendarDays, Flower2 } from "lucide-react";
@@ -64,11 +61,7 @@ export interface StatisticsWidgetDefinition {
 const ON_THIS_DAY_WINDOW_DAYS = 7;
 
 export type OnThisDayItemKind =
-  | "birthday"
-  | "would-turn"
-  | "death-anniversary"
-  | "event"
-  | "story";
+  "birthday" | "would-turn" | "death-anniversary" | "event" | "story";
 
 export interface OnThisDayItem {
   id: string;
@@ -417,44 +410,43 @@ function GenderChart({ report, t }: StatisticsWidgetProps) {
 
   if (data.length === 0) return null;
 
+  const total = data.reduce((sum, d) => sum + d.value, 0);
+
+  // A single split bar with direct labels reads more precisely than the old
+  // donut (which also rendered as a broken arc in narrow cards).
   return (
-    <Card className="p-4">
-      <h2 className="text-sm font-medium mb-4">{t("gender-title")}</h2>
-      <ResponsiveContainer width="100%" height={220}>
-        <PieChart>
-          <Pie
-            data={data}
-            dataKey="value"
-            nameKey="name"
-            cx="50%"
-            cy="50%"
-            innerRadius={55}
-            outerRadius={85}
-            paddingAngle={3}
-          >
-            {data.map((entry) => (
-              <Cell key={entry.name} fill={entry.color} />
-            ))}
-          </Pie>
-          <Tooltip
-            content={({ active, label, payload }) => (
-              <ChartTooltipContent
-                active={active}
-                hideLabel
-                label={label}
-                payload={payload}
-              />
-            )}
+    <Card className="gap-5 p-4">
+      <h2 className="text-sm font-medium">{t("gender-title")}</h2>
+      <div
+        role="img"
+        aria-label={data.map((d) => `${d.name}: ${d.value}`).join(", ")}
+        className="flex h-3.5 w-full gap-0.5 overflow-hidden rounded-full"
+      >
+        {data.map((d) => (
+          <span
+            key={d.name}
+            style={{ flexGrow: d.value, backgroundColor: d.color }}
           />
-          <Legend
-            iconType="circle"
-            iconSize={8}
-            formatter={(value) => (
-              <span className="text-xs text-foreground">{value}</span>
-            )}
-          />
-        </PieChart>
-      </ResponsiveContainer>
+        ))}
+      </div>
+      <ul className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+        {data.map((d) => (
+          <li key={d.name} className="flex items-center gap-2 text-sm">
+            <span
+              aria-hidden="true"
+              className="size-2.5 shrink-0 rounded-sm"
+              style={{ backgroundColor: d.color }}
+            />
+            <span className="min-w-0 truncate">{d.name}</span>
+            <span className="ml-auto font-semibold tabular-nums">
+              {d.value}
+            </span>
+            <span className="w-11 text-right text-muted-foreground tabular-nums">
+              {Math.round((d.value / total) * 100)}%
+            </span>
+          </li>
+        ))}
+      </ul>
     </Card>
   );
 }

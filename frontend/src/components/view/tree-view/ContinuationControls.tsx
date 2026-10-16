@@ -28,12 +28,15 @@ export const ContinuationControls = ({
   onLoadMore,
   onReset,
 }: ContinuationControlsProps) => {
-  const { t } = useTranslation(undefined, { keyPrefix: "tree-view.continuation" });
+  const { t } = useTranslation(undefined, {
+    keyPrefix: "tree-view.continuation",
+  });
 
-  if (continuations.length === 0 && !canExpandGeneration && !atBudget) return null;
+  if (continuations.length === 0 && !canExpandGeneration && !atBudget)
+    return null;
 
   return (
-    <Panel position="bottom-center" className="pb-2">
+    <Panel position="bottom-center" className="!mb-20">
       <div className="flex flex-col items-center gap-1.5">
         {atBudget && (
           <div className="rounded-md border bg-background/90 px-3 py-1.5 text-xs text-muted-foreground shadow-md">

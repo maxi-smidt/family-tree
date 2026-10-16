@@ -63,11 +63,10 @@ describe("StorageUsagePanel", () => {
 
     // Section heading — t("title") == "Owner storage"
     expect(screen.getByText("Owner storage")).toBeInTheDocument();
-    // Row labels — t("tree") == "Workspace data", t("media") == "Media files", t("total") == "Total"
+    // Row labels — t("tree") == "Workspace data", t("media") == "Media files"
     expect(screen.getByText("Workspace data")).toBeInTheDocument();
     expect(screen.getByText("Media files")).toBeInTheDocument();
-    expect(screen.getByText("Total")).toBeInTheDocument();
-    // Total has no quota — it's just the formatted sum (1536 bytes == 1.5 KB).
+    // The summary line shows the total — the formatted sum (1536 bytes == 1.5 KB).
     expect(screen.getByText("1.5 KB")).toBeInTheDocument();
   });
 

@@ -12,6 +12,7 @@
  * depends on adminPage/adminApi.
  */
 
+import { openView } from "../fixtures/ui";
 import { test, expect } from "../fixtures";
 import { apiLogin, makeApiClient } from "../fixtures/api";
 import { getAdminToken } from "../fixtures/users";
@@ -50,7 +51,9 @@ test("adminPage fixture yields an authenticated session", async ({
   adminPage,
 }) => {
   // After the adminPage fixture we should be in the main app, not the login page
-  await expect(adminPage.locator("#username")).not.toBeVisible({ timeout: 5_000 });
+  await expect(adminPage.locator("#username")).not.toBeVisible({
+    timeout: 5_000,
+  });
   // The page URL should be the root (authenticated layout)
   expect(adminPage.url()).toMatch(/https?:\/\/[^/]+\/?$/);
 });
@@ -78,18 +81,19 @@ test("seed helper can create a tree and a member via API; UI reflects it after r
     // pre-selected. Wait for the tree selector to reflect our tree.
     // Use data-testid to target DatabaseSelector specifically — the sidebar
     // has ThemeSelector/LanguageSelector/EdgeTypeSelector above it in the DOM.
-    await expect(adminPage.locator('[data-testid="tree-selector"]')).toContainText(
-      "Smoke-Seed-Workspace",
-      { timeout: 15_000 },
-    );
+    await expect(
+      adminPage.locator('[data-testid="tree-selector"]'),
+    ).toContainText("Smoke-Seed-Workspace", { timeout: 15_000 });
 
     // Switch to list view for reliable text-based assertion (avoids React Flow)
-    await adminPage.getByRole("tab", { name: /list/i }).click();
+    await openView(adminPage, /people/i);
     // The canvas panel (which has a "SeedTest Member" card) stays in the DOM
     // but hidden. Target the table cell that only exists in list view.
-    await expect(adminPage.getByRole("cell", { name: "SeedTest" })).toBeVisible({
-      timeout: 15_000,
-    });
+    await expect(adminPage.getByRole("cell", { name: "SeedTest" })).toBeVisible(
+      {
+        timeout: 15_000,
+      },
+    );
   } finally {
     await deleteTree(adminApi, tree.id);
   }

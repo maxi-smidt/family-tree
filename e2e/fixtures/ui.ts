@@ -63,10 +63,38 @@ export async function searchWorkspaceAndSelect(
   query: string,
   name: string | RegExp,
 ): Promise<void> {
+  await openWorkspaceMenu(page);
   await page.getByPlaceholder("Search this workspace…").fill(query);
   await page
     .locator("li")
     .filter({ hasText: name })
     .getByRole("button")
+    .click();
+}
+
+/**
+ * Open the canvas's "Whole family ▾" menu — sections, saved views and the
+ * workspace search — unless it is already open. Selecting an entry (or
+ * opening one of its dialogs) closes it again, so call this before each
+ * interaction with its contents.
+ */
+export async function openWorkspaceMenu(page: Page): Promise<void> {
+  const menu = page.getByRole("dialog", { name: "Workspace navigation" });
+  if (await menu.isVisible()) return;
+  await page.getByRole("button", { name: /sections and saved views/ }).click();
+  await expect(menu).toBeVisible();
+}
+
+/**
+ * Open a main view from the left navigation (Tree, People, Timeline, …).
+ * Replaces the old top tab strip.
+ */
+export async function openView(
+  page: Page,
+  name: string | RegExp,
+): Promise<void> {
+  await page
+    .getByRole("navigation", { name: "Main" })
+    .getByRole("button", { name })
     .click();
 }

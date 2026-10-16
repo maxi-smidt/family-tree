@@ -15,6 +15,7 @@ import {
   expect,
   test,
 } from "../../fixtures/migrated";
+import { openView } from "../../fixtures/ui";
 import { API_URL } from "../../playwright.config";
 
 test.describe.serial("scoped collaborator visibility and widening", () => {
@@ -64,7 +65,7 @@ test.describe.serial("scoped collaborator visibility and widening", () => {
   test("owner widens the collaborator's Left-section grant to full workspace access", async ({
     owner1Page: page,
   }) => {
-    await page.getByRole("tab", { name: /Migration Review/ }).click();
+    await openView(page, /Migration review/i);
     await expect(
       page.getByRole("heading", { name: "Migration Review" }),
     ).toBeVisible();

@@ -63,13 +63,13 @@ export const FlowPanelControls = ({
   const { exportImage, isExporting } = useTreeExport();
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex items-center gap-1 [&>*:not(:first-child)]:border-l [&>*:not(:first-child)]:border-border [&>*:not(:first-child)]:pl-1">
       {!navigationOnly && (
-        <ButtonGroup orientation="vertical">
+        <ButtonGroup orientation="horizontal">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                variant="secondary"
+                variant="ghost"
                 size="icon"
                 onClick={() => undo()}
                 disabled={undoStack.length === 0}
@@ -78,12 +78,12 @@ export const FlowPanelControls = ({
                 <Undo2 />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="right">{t("undo")}</TooltipContent>
+            <TooltipContent side="top">{t("undo")}</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                variant="secondary"
+                variant="ghost"
                 size="icon"
                 onClick={() => redo()}
                 disabled={redoStack.length === 0}
@@ -92,16 +92,16 @@ export const FlowPanelControls = ({
                 <Redo2 />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="right">{t("redo")}</TooltipContent>
+            <TooltipContent side="top">{t("redo")}</TooltipContent>
           </Tooltip>
         </ButtonGroup>
       )}
 
-      <ButtonGroup orientation="vertical">
+      <ButtonGroup orientation="horizontal">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              variant="secondary"
+              variant="ghost"
               size="icon"
               onClick={() => reactFlow.zoomIn()}
               aria-label={t("zoom-in")}
@@ -109,12 +109,12 @@ export const FlowPanelControls = ({
               <Plus />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="right">{t("zoom-in")}</TooltipContent>
+          <TooltipContent side="top">{t("zoom-in")}</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              variant="secondary"
+              variant="ghost"
               size="icon"
               onClick={() => reactFlow.zoomOut()}
               aria-label={t("zoom-out")}
@@ -122,12 +122,12 @@ export const FlowPanelControls = ({
               <Minus />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="right">{t("zoom-out")}</TooltipContent>
+          <TooltipContent side="top">{t("zoom-out")}</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              variant="secondary"
+              variant="ghost"
               size="icon"
               onClick={() => fitViewToAllNodes(reactFlow)}
               aria-label={t("fit-view")}
@@ -135,15 +135,15 @@ export const FlowPanelControls = ({
               <Maximize />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="right">{t("fit-view")}</TooltipContent>
+          <TooltipContent side="top">{t("fit-view")}</TooltipContent>
         </Tooltip>
       </ButtonGroup>
 
-      <ButtonGroup orientation="vertical">
+      <ButtonGroup orientation="horizontal">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              variant={isConnectionMode ? "default" : "secondary"}
+              variant={isConnectionMode ? "default" : "ghost"}
               size="icon"
               onClick={onToggleConnectionMode}
               disabled={connectionDisabled || !onToggleConnectionMode}
@@ -156,7 +156,7 @@ export const FlowPanelControls = ({
               <Route />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="right">
+          <TooltipContent side="top">
             {isConnectionMode
               ? t("disable-connection-mode")
               : t("enable-connection-mode")}
@@ -166,7 +166,7 @@ export const FlowPanelControls = ({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                variant={isSelectionMode ? "default" : "secondary"}
+                variant={isSelectionMode ? "default" : "ghost"}
                 size="icon"
                 onClick={onToggleSelectionMode}
                 disabled={selectionDisabled || !onToggleSelectionMode}
@@ -179,7 +179,7 @@ export const FlowPanelControls = ({
                 <SquareDashedMousePointer />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="right">
+            <TooltipContent side="top">
               {isSelectionMode
                 ? t("disable-selection-mode")
                 : t("enable-selection-mode")}
@@ -188,7 +188,7 @@ export const FlowPanelControls = ({
         )}
       </ButtonGroup>
 
-      <PanelMoreMenu label={t("more-actions")} side="right">
+      <PanelMoreMenu label={t("more-actions")} side="top">
         {!navigationOnly && (
           <DropdownMenuCheckboxItem
             checked={isLockedScreen}

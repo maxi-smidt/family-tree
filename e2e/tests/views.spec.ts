@@ -6,7 +6,7 @@
 
 import { test, expect } from "../fixtures";
 import { seedMinimalFamily, createMember } from "../fixtures/seed";
-import { selectTree } from "../fixtures/ui";
+import { openView, selectTree } from "../fixtures/ui";
 import { randomUUID } from "crypto";
 
 // ---------------------------------------------------------------------------
@@ -14,7 +14,7 @@ import { randomUUID } from "crypto";
 // ---------------------------------------------------------------------------
 
 async function clickTab(page: import("@playwright/test").Page, label: RegExp) {
-  await page.getByRole("tab", { name: label }).click();
+  await openView(page, label);
   await page.waitForLoadState("networkidle");
 }
 
@@ -22,8 +22,8 @@ async function clickMediaSection(
   page: import("@playwright/test").Page,
   label: RegExp,
 ) {
-  await page.getByRole("tab", { name: /media/i }).click();
-  await page.getByRole("menuitem", { name: label }).click();
+  // Gallery and Documents are separate entries in the left navigation.
+  await openView(page, label);
   await page.waitForLoadState("networkidle");
 }
 
@@ -51,7 +51,7 @@ test("list view — members listed; search narrows results", async ({
 
   await adminPage.reload({ waitUntil: "networkidle" });
   await selectTree(adminPage, tree.name);
-  await clickTab(adminPage, /list/i);
+  await clickTab(adminPage, /people/i);
 
   await expect(adminPage.getByRole("cell", { name: "Alice" })).toBeVisible({
     timeout: 10_000,
@@ -298,7 +298,9 @@ test("tab preferences — hiding a tab removes it from the tab bar", async ({
       await adminPage.reload({ waitUntil: "networkidle" });
       await selectTree(adminPage, tree.name);
       await expect(
-        adminPage.getByRole("tab", { name: /statistics/i }),
+        adminPage
+          .getByRole("navigation", { name: "Main" })
+          .getByRole("button", { name: /statistics/i }),
       ).not.toBeVisible({ timeout: 5_000 });
     }
   } else {

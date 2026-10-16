@@ -14,7 +14,7 @@ import { MoreHorizontal } from "lucide-react";
 
 type Props = {
   label: string;
-  side: "left" | "right";
+  side: "top" | "bottom" | "left" | "right";
   children: ReactNode;
 };
 
@@ -30,7 +30,7 @@ export const PanelMoreMenu = ({ label, side, children }: Props) => (
     <Tooltip>
       <TooltipTrigger asChild>
         <DropdownMenuTrigger asChild>
-          <Button variant="secondary" size="icon" aria-label={label}>
+          <Button variant="ghost" size="icon" aria-label={label}>
             <MoreHorizontal />
           </Button>
         </DropdownMenuTrigger>

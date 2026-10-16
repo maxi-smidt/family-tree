@@ -11,9 +11,10 @@ import {
   expect,
   test,
 } from "../../fixtures/migrated";
+import { openView } from "../../fixtures/ui";
 
 async function openMigrationReview(page: import("@playwright/test").Page) {
-  await page.getByRole("tab", { name: /Migration Review/ }).click();
+  await openView(page, /Migration review/i);
   await expect(
     page.getByRole("heading", { name: "Migration Review" }),
   ).toBeVisible();

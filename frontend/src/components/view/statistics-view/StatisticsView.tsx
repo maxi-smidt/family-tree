@@ -26,14 +26,18 @@ interface StatCardProps {
 
 function StatCard({ icon, label, value }: StatCardProps) {
   return (
-    <Card className="items-center gap-3 p-4 text-center">
-      <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-        {icon}
+    <Card className="gap-2 rounded-2xl p-5">
+      <div className="flex items-center justify-between gap-2">
+        <p className="truncate text-sm font-semibold text-muted-foreground">
+          {label}
+        </p>
+        <span aria-hidden="true" className="opacity-70">
+          {icon}
+        </span>
       </div>
-      <div className="w-full min-w-0">
-        <p className="text-xs text-muted-foreground truncate">{label}</p>
-        <p className="text-xl font-semibold leading-tight">{value}</p>
-      </div>
+      <p className="text-3xl font-bold leading-tight tracking-tight tabular-nums">
+        {value}
+      </p>
     </Card>
   );
 }
@@ -129,22 +133,22 @@ export const StatisticsView = () => {
           {/* Overview cards — always shown */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <StatCard
-              icon={<Users className="w-5 h-5 text-muted-foreground" />}
+              icon={<Users className="size-4 text-muted-foreground" />}
               label={t("stat-total-members")}
               value={report.total_members}
             />
             <StatCard
-              icon={<CalendarDays className="w-5 h-5 text-muted-foreground" />}
+              icon={<CalendarDays className="size-4 text-muted-foreground" />}
               label={t("stat-with-birth")}
               value={`${report.members_with_birth_date} / ${report.total_members}`}
             />
             <StatCard
-              icon={<Skull className="w-5 h-5 text-muted-foreground" />}
+              icon={<Skull className="size-4 text-muted-foreground" />}
               label={t("stat-with-death")}
               value={`${report.members_with_death_date} / ${report.total_members}`}
             />
             <StatCard
-              icon={<Clock className="w-5 h-5 text-muted-foreground" />}
+              icon={<Clock className="size-4 text-muted-foreground" />}
               label={t("stat-avg-lifespan")}
               value={
                 report.average_lifespan !== null

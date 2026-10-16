@@ -59,6 +59,7 @@ import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import { NoDatabasePlaceholder } from "@/components/layout/NoDatabasePlaceholder";
 import { PresenceChips } from "@/components/layout/PresenceChips";
+import { PageHeader } from "@/components/layout/PageHeader";
 import {
   clearMemberSheetDeepLink,
   readMemberSheetDeepLink,
@@ -595,17 +596,21 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
 
   if (!isReady) return null;
 
+  const peopleCount = windowed
+    ? (totalMemberCount ?? members.length)
+    : members.length;
+
   return (
-    <div className="flex h-full w-full">
+    <div className="flex h-full w-full flex-col">
       {!publicView && (
-        <WorkspaceNavigationPanel
-          workspaceId={activeTree.id}
-          workspaceName={activeTree.name}
-          canWrite={canWrite}
+        <PageHeader
+          title={t("tree-view.header.title")}
+          subtitle={t("tree-view.header.people", { count: peopleCount })}
+          actions={<PresenceChips />}
         />
       )}
       <div
-        className="h-full min-w-0 flex-1"
+        className="min-h-0 w-full flex-1 bg-canvas"
         aria-label={t("tree-view.canvas-label")}
       >
         <ReactFlow
@@ -694,11 +699,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
           }}
         >
           <SelectionModeController active={inSelectionMode} />
-          <Background />
-          {/* pr-16 clears the notification bell fixed at top-4 right-4 in Layout. */}
-          <Panel position="top-right" className="pt-2 pr-16">
-            <PresenceChips />
-          </Panel>
+          <Background color="var(--canvas-dot)" gap={22} size={1.4} />
           <GenerationLines
             visible={generationLineGap !== null}
             gap={generationLineGap ?? undefined}
@@ -716,15 +717,24 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
             className={isMobile ? "w-[calc(100vw-1rem)] pt-2" : "pt-2"}
           >
             <div className="flex flex-col gap-1">
-              <CanvasSearch
-                members={members}
-                onLocate={locator.locateMember}
-                className={isMobile ? "w-full" : undefined}
-                windowed={windowed}
-                workspaceId={activeTree?.id}
-                onFocusRoot={setFocusRoot}
-                onOpenOtherTree={openTreeAndLocateMember}
-              />
+              <div className="flex items-start gap-2">
+                {!publicView && (
+                  <WorkspaceNavigationPanel
+                    workspaceId={activeTree.id}
+                    canWrite={canWrite}
+                    compact={isMobile}
+                  />
+                )}
+                <CanvasSearch
+                  members={members}
+                  onLocate={locator.locateMember}
+                  className={isMobile ? "min-w-0 flex-1" : undefined}
+                  windowed={windowed}
+                  workspaceId={activeTree?.id}
+                  onFocusRoot={setFocusRoot}
+                  onOpenOtherTree={openTreeAndLocateMember}
+                />
+              </div>
               {windowed && neighborhoodTruncated && (
                 <div className="rounded-md border bg-background/90 px-3 py-1.5 text-xs text-muted-foreground shadow-md">
                   {t("tree-view.windowed.banner", {
@@ -786,17 +796,36 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
               </div>
             </Panel>
           )}
-          <Panel position="bottom-left" className="pb-2 flex flex-col gap-2">
-            <FlowPanelControls
-              navigationOnly={isCanvasReadOnly}
-              isConnectionMode={connection.isConnectionMode}
-              connectionDisabled={members.length < 2}
-              onToggleConnectionMode={connection.toggleConnectionMode}
-              isSelectionMode={selection.isSelectionMode}
-              onToggleSelectionMode={selection.toggleSelectionMode}
-              selectionAvailable={!isCanvasReadOnly}
-              selectionDisabled={members.length < 1 || isLockedScreen}
-            />
+          <Panel
+            position="bottom-center"
+            className="!m-0 !mb-4 !w-max max-w-[calc(100vw-2rem)]"
+          >
+            <div
+              role="toolbar"
+              aria-label={t("tree-view.controls.toolbar")}
+              className="flex flex-wrap items-center justify-center gap-1 rounded-2xl border bg-card p-1 shadow-lg [&>*:not(:first-child)]:border-l [&>*:not(:first-child)]:border-border [&>*:not(:first-child)]:pl-1"
+            >
+              <FlowPanelControls
+                navigationOnly={isCanvasReadOnly}
+                isConnectionMode={connection.isConnectionMode}
+                connectionDisabled={members.length < 2}
+                onToggleConnectionMode={connection.toggleConnectionMode}
+                isSelectionMode={selection.isSelectionMode}
+                onToggleSelectionMode={selection.toggleSelectionMode}
+                selectionAvailable={!isCanvasReadOnly}
+                selectionDisabled={members.length < 1 || isLockedScreen}
+              />
+              {!isCanvasReadOnly && (
+                <MemberControls
+                  nodes={nodes}
+                  selectedNodes={selectedNodes}
+                  setMembersToDelete={setMembersToDelete}
+                  onEditMember={(member) => pending.editExisting(member)}
+                  onCreateNewMember={(member) => pending.createNew(member)}
+                  onRearrange={rearrangeNodes}
+                />
+              )}
+            </div>
           </Panel>
           {!publicView && windowed && (
             <ContinuationControls
@@ -807,18 +836,6 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
               onLoadMore={() => void loadMoreNeighborhood()}
               onReset={() => void resetNeighborhood()}
             />
-          )}
-          {!isCanvasReadOnly && (
-            <Panel position="bottom-right" className="pb-2">
-              <MemberControls
-                nodes={nodes}
-                selectedNodes={selectedNodes}
-                setMembersToDelete={setMembersToDelete}
-                onEditMember={(member) => pending.editExisting(member)}
-                onCreateNewMember={(member) => pending.createNew(member)}
-                onRearrange={rearrangeNodes}
-              />
-            </Panel>
           )}
         </ReactFlow>
         {/* The public read-only view is purely visual: no detail sheet or edit
@@ -840,6 +857,12 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
               isNewMember={pending.isNewMemberSession}
               onDiscardNewMember={pending.discardNewMember}
               onSaveNewMember={pending.saveNewMember}
+              onOpenMember={(memberId) => {
+                pending.setEditingMemberId(memberId);
+                pending.setIsEditMode(false);
+                const target = members.find((m) => m.id === memberId);
+                if (target) locator.locateMember(target);
+              }}
             />
             <AddRelationDialog
               isOpen={relation.isDialogOpen}

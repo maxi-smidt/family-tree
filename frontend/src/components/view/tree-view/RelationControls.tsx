@@ -34,16 +34,20 @@ export const RelationControls = () => {
       <Tooltip>
         <TooltipTrigger asChild>
           <DropdownMenuTrigger asChild>
-            <Button variant="secondary" size="icon" aria-label={t("select-relation")}>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={t("select-relation")}
+            >
               <Settings2 className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
         </TooltipTrigger>
-        <TooltipContent side="left">{t("select-relation")}</TooltipContent>
+        <TooltipContent side="top">{t("select-relation")}</TooltipContent>
       </Tooltip>
       <DropdownMenuContent
         className="w-56"
-        side="left"
+        side="top"
         onCloseAutoFocus={(e) => e.preventDefault()}
       >
         <DropdownMenuLabel>{t("select-relation")}</DropdownMenuLabel>

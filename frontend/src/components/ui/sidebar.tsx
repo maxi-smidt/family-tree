@@ -44,6 +44,11 @@ type SidebarContextProps = {
 
 const SidebarContext = React.createContext<SidebarContextProps | null>(null);
 
+/** Like useSidebar, but returns null outside a SidebarProvider. */
+function useOptionalSidebar() {
+  return React.useContext(SidebarContext);
+}
+
 function useSidebar() {
   const context = React.useContext(SidebarContext);
   if (!context) {
@@ -699,6 +704,7 @@ function SidebarMenuSubButton({
 }
 
 export {
+  useOptionalSidebar,
   Sidebar,
   SidebarContent,
   SidebarFooter,

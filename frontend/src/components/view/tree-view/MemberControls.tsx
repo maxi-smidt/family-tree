@@ -46,7 +46,6 @@ import { RelationControls } from "@/components/view/tree-view/RelationControls";
 import { PanelMoreMenu } from "@/components/view/tree-view/PanelMoreMenu";
 import { CreateSectionDialog } from "@/components/view/tree-view/nav/CreateSectionDialog";
 import { useTranslation } from "react-i18next";
-import { Separator } from "@/components/ui/separator";
 
 type Props = {
   nodes: Node[];
@@ -103,17 +102,15 @@ export const MemberControls = ({
   };
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex items-center gap-1 [&>*:not(:first-child)]:border-l [&>*:not(:first-child)]:border-border [&>*:not(:first-child)]:pl-1">
       {/* Relations — hidden in read-only (virtual view) mode */}
       {!readOnly && <RelationControls />}
-
-      {!readOnly && <Separator className="my-1" />}
 
       {/* View Modes */}
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
-            variant={isFastMode ? "default" : "secondary"}
+            variant={isFastMode ? "default" : "ghost"}
             size="icon"
             onClick={() => setIsFastMode(!isFastMode)}
             disabled={isLockedScreen}
@@ -124,19 +121,17 @@ export const MemberControls = ({
             <UserRoundPlus className={isFastMode ? "fill-current" : ""} />
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="left">
+        <TooltipContent side="top">
           {isFastMode ? t("disable-quick-add") : t("enable-quick-add")}
         </TooltipContent>
       </Tooltip>
 
-      <Separator className="my-1" />
-
       {/* Collapse/Expand Controls */}
-      <ButtonGroup orientation="vertical">
+      <ButtonGroup orientation="horizontal">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              variant="secondary"
+              variant="ghost"
               size="icon"
               onClick={onCollapseMembers}
               disabled={selectedNoExpandedMember()}
@@ -145,12 +140,12 @@ export const MemberControls = ({
               <ChevronsDownUp />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="left">{t("collapse-children")}</TooltipContent>
+          <TooltipContent side="top">{t("collapse-children")}</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              variant="secondary"
+              variant="ghost"
               size="icon"
               onClick={onExpandMembers}
               disabled={selectedNoCollapsedMember()}
@@ -159,12 +154,12 @@ export const MemberControls = ({
               <ChevronsUpDown />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="left">{t("expand-children")}</TooltipContent>
+          <TooltipContent side="top">{t("expand-children")}</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              variant="secondary"
+              variant="ghost"
               size="icon"
               onClick={onExpandAllMembers}
               disabled={noCollapsedMember()}
@@ -173,55 +168,49 @@ export const MemberControls = ({
               <ListChevronsUpDown />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="left">
-            {t("expand-all-children")}
-          </TooltipContent>
+          <TooltipContent side="top">{t("expand-all-children")}</TooltipContent>
         </Tooltip>
       </ButtonGroup>
 
-      {!readOnly && <Separator className="my-1" />}
-
       {/* Member Add/Remove — hidden in read-only (virtual view) mode */}
       {!readOnly && (
-        <ButtonGroup orientation="vertical">
+        <ButtonGroup orientation="horizontal">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                variant="secondary"
+                variant="ghost"
                 size="icon"
                 onClick={onAddMember}
                 disabled={isLockedScreen}
                 aria-label={t("add-person")}
-                className="text-green-600 hover:bg-green-50 hover:text-green-700"
+                className="text-primary hover:bg-primary-soft hover:text-primary"
                 data-tutorial="add-member"
               >
                 <UserPlus size={20} />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="left">{t("add-person")}</TooltipContent>
+            <TooltipContent side="top">{t("add-person")}</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                variant="secondary"
+                variant="ghost"
                 size="icon"
                 onClick={onRemoveMembers}
                 disabled={!selectedNodes.length || isLockedScreen}
                 aria-label={t("remove-person")}
-                className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
               >
                 <UserMinus />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="left">{t("remove-person")}</TooltipContent>
+            <TooltipContent side="top">{t("remove-person")}</TooltipContent>
           </Tooltip>
         </ButtonGroup>
       )}
 
-      <Separator className="my-1" />
-
       {/* Layout + situational actions */}
-      <PanelMoreMenu label={t("more-actions")} side="left">
+      <PanelMoreMenu label={t("more-actions")} side="top">
         <DropdownMenuItem
           inset
           onSelect={() => setIsArrangeDialogOpen(true)}

@@ -457,16 +457,16 @@ export const TimelineView = () => {
               {timelineItems.map((item) => {
                 const isStory = item.kind === "story";
                 const markerClass = isStory
-                  ? "bg-violet-500"
+                  ? "bg-gender-f"
                   : item.kind === "event"
                     ? "bg-primary"
-                    : "bg-muted-foreground";
+                    : "bg-edge";
 
                 return (
                   <div
                     key={item.data.id}
                     role="listitem"
-                    className="relative ml-16 mb-4"
+                    className="relative ml-16 mb-3"
                   >
                     <div
                       aria-hidden="true"
@@ -489,7 +489,7 @@ export const TimelineView = () => {
                         }
                         description={item.data.description}
                         expanded={showDetails}
-                        className="p-4 shadow-sm hover:shadow-md"
+                        className="rounded-2xl p-4 shadow-xs hover:shadow-md"
                         actions={
                           <>
                             <Button
@@ -527,7 +527,7 @@ export const TimelineView = () => {
                         }
                         description={item.data.content}
                         expanded={showDetails}
-                        className="p-4 shadow-sm hover:shadow-md"
+                        className="rounded-2xl p-4 shadow-xs hover:shadow-md"
                         actions={
                           <>
                             <Button
@@ -559,7 +559,7 @@ export const TimelineView = () => {
                           </span>
                         }
                         date={formatDateWithFallback(item.data.date, i18n.t)}
-                        className="p-4 shadow-sm hover:shadow-md"
+                        className="border-transparent bg-transparent px-4 py-2 shadow-none"
                       />
                     )}
                   </div>
