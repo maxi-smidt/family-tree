@@ -643,11 +643,21 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     setMembersToDelete([]);
   };
 
-  if (!activeTree) {
-    return availableTreeCount === 0 ? <NoDatabasePlaceholder /> : null;
+  if (!activeTree || !isReady) {
+    // Keep the header (sidebar toggle, bell) while there is no workspace yet
+    // or the canvas is still loading — otherwise phones lose the way back to
+    // the navigation.
+    return (
+      <div className="flex h-full w-full flex-col">
+        {!publicView && <PageHeader title={t("tree-view.header.title")} />}
+        {!activeTree && availableTreeCount === 0 && (
+          <div className="min-h-0 flex-1">
+            <NoDatabasePlaceholder />
+          </div>
+        )}
+      </div>
+    );
   }
-
-  if (!isReady) return null;
 
   const peopleCount = windowed
     ? (totalMemberCount ?? members.length)

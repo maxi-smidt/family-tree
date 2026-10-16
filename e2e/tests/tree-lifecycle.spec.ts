@@ -242,18 +242,18 @@ test("switch: selecting another tree swaps the visible member dataset", async ({
     await selectTree(page, treeA.name);
     await openView(page, "People");
     await expect(
-      page.getByRole("cell", { name: "LifecycleAlpha", exact: true }),
+      page.getByRole("cell", { name: /^LifecycleAlpha Only/ }),
     ).toBeVisible({ timeout: 15_000 });
     await expect(
-      page.getByRole("cell", { name: "LifecycleBravo", exact: true }),
+      page.getByRole("cell", { name: /^LifecycleBravo Only/ }),
     ).toHaveCount(0);
 
     await selectTree(page, treeB.name);
     await expect(
-      page.getByRole("cell", { name: "LifecycleBravo", exact: true }),
+      page.getByRole("cell", { name: /^LifecycleBravo Only/ }),
     ).toBeVisible({ timeout: 15_000 });
     await expect(
-      page.getByRole("cell", { name: "LifecycleAlpha", exact: true }),
+      page.getByRole("cell", { name: /^LifecycleAlpha Only/ }),
     ).toHaveCount(0);
   } finally {
     await cleanupTrees(secondApi, [treeA.id, treeB.id]);

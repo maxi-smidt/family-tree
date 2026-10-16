@@ -1,6 +1,6 @@
 import { test, expect } from "../fixtures";
 import { createMember, createRelation, createTree } from "../fixtures/seed";
-import { loginAs } from "../fixtures/ui";
+import { loginAs, openWorkspaceMenu } from "../fixtures/ui";
 
 // These assertions check the graph and the persisted scope, not just that a
 // dialog accepted settings or that the correct label appears in navigation.
@@ -44,6 +44,7 @@ test("saved views restore section, depth, partner settings and layout", async ({
       response.url().includes("/members/neighborhood") &&
       response.url().includes(`root=${alice.id}`),
   );
+  await openWorkspaceMenu(page);
   await page.locator("li").filter({ hasText: "Zero depth" }).click();
   const response = await graph;
   const graphBody = await response.json();
@@ -76,6 +77,7 @@ test("saved views restore section, depth, partner settings and layout", async ({
     },
   );
   await page.reload();
+  await openWorkspaceMenu(page);
   await page.locator("li").filter({ hasText: "Section without focus" }).click();
   await expect(
     page.locator(`.react-flow__node[data-id="${alice.id}"]`),
@@ -105,6 +107,7 @@ test("content created from a section keeps that section as its origin", async ({
   await expect(page.getByLabel("Family tree canvas")).toBeVisible({
     timeout: 15000,
   });
+  await openWorkspaceMenu(page);
   await page.locator("li").filter({ hasText: "Private section" }).click();
   const member = page.locator(`.react-flow__node[data-id="${alice.id}"]`);
   await member.getByRole("button", { name: "Edit member" }).click();

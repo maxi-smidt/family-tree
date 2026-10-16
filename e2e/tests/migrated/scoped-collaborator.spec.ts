@@ -15,7 +15,7 @@ import {
   expect,
   test,
 } from "../../fixtures/migrated";
-import { openView } from "../../fixtures/ui";
+import { openView, openWorkspaceMenu } from "../../fixtures/ui";
 import { API_URL } from "../../playwright.config";
 
 test.describe.serial("scoped collaborator visibility and widening", () => {
@@ -38,6 +38,7 @@ test.describe.serial("scoped collaborator visibility and widening", () => {
     extraSectionId = sections.find((s) => s.name === EXTRA_SECTION_NAME)!.id;
     expect(extraSectionId).toBeTruthy();
 
+    await openWorkspaceMenu(page);
     const nav = page.getByLabel("Workspace navigation");
     await expect(
       nav.locator("li").filter({ hasText: WORKSPACE_NAME }),
@@ -93,6 +94,7 @@ test.describe.serial("scoped collaborator visibility and widening", () => {
   test("collaborator now sees the Extra section too", async ({
     collabPage: page,
   }) => {
+    await openWorkspaceMenu(page);
     await expect(
       page
         .getByLabel("Workspace navigation")
