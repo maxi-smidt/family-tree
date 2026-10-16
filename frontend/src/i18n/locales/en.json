@@ -1258,6 +1258,9 @@
       "resolve-error": "Could not resolve map locations.",
       "override-error": "Could not save the location correction.",
       "search-error": "Could not search for locations."
+    },
+    "content-origin": {
+      "choose-section": "Select one section before creating content in a view that includes multiple sections."
     }
   },
   "quality-report-view": {

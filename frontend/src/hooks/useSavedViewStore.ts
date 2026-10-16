@@ -6,6 +6,8 @@ import {
 } from "@/types/savedView";
 import { WorkspaceService } from "@/services/WorkspaceService";
 import { activeTreeId, isActiveTree } from "@/hooks/useWorkspaceStore";
+import { useMemberStore } from "@/hooks/useMemberStore";
+import { useWorkspaceNavStore } from "@/hooks/useWorkspaceNavStore";
 
 interface SavedViewState {
   views: SavedViewDB[];
@@ -18,6 +20,7 @@ interface SavedViewState {
     payload: SavedViewUpdateInput,
   ) => Promise<SavedViewDB>;
   deleteSavedView: (viewId: string) => Promise<void>;
+  openSavedView: (viewId: string) => Promise<void>;
   /** Creates a new view from an existing one's configuration — the "save as"
    *  duplicate action never touches the source view. */
   duplicateSavedView: (view: SavedViewDB, name: string) => Promise<SavedViewDB>;
@@ -28,11 +31,29 @@ export const useSavedViewStore = create<SavedViewState>((set, get) => {
   // Guards against a slower, superseded refresh overwriting a newer one —
   // same pattern as useSectionStore.
   let requestId = 0;
+  let openRequestId = 0;
 
   return {
     views: [],
     initialized: false,
     loading: false,
+
+    openSavedView: async (viewId) => {
+      const reqId = ++openRequestId;
+      const workspaceId = activeTreeId();
+      if (!workspaceId) return;
+      const view = await WorkspaceService.getSavedView(workspaceId, viewId);
+      if (
+        !isActiveTree(workspaceId) ||
+        reqId !== openRequestId ||
+        useWorkspaceNavStore.getState().selectedSavedViewId !== viewId
+      )
+        return;
+      set((state) => ({
+        views: state.views.map((v) => (v.id === view.id ? view : v)),
+      }));
+      await useMemberStore.getState().applySavedView(view);
+    },
 
     refreshSavedViews: async (workspaceId = activeTreeId()) => {
       if (!workspaceId) {
@@ -105,6 +126,7 @@ export const useSavedViewStore = create<SavedViewState>((set, get) => {
 
     clear: () => {
       requestId++;
+      openRequestId++;
       set({ views: [], initialized: false, loading: false });
     },
   };

@@ -165,6 +165,19 @@ access; undo requires workspace-wide editor access. These operations can span
 several sections, so a section grant alone cannot authorize them. An owner
 can explicitly widen a migrated grant after reviewing the intended audience.
 
+Statistics and quality reports include only records readable through the caller's
+current grants. Quality dismissals require write access covering every affected
+member's sections. Section creation requires workspace-wide editor access;
+workspace branch previews require workspace-wide read access. Content-scope
+metadata and re-scoping remain owner/admin operations.
+
+Content created while a single section is selected inherits that section as its
+origin, including files whose upload completes after navigation changes. A saved
+view spanning several sections requires choosing one section before adding
+content. Opening a saved view restores its sections, generation depths, partner
+setting, supported member/relation filters, and position overlay; arrangement
+changes in that view do not overwrite the workspace's canonical positions.
+
 ## 8. If something goes wrong
 
 - **`recoverable`**: just restart the stack — the backend resumes from its

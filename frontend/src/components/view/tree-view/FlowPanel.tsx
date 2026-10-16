@@ -111,6 +111,9 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     updateLayout,
     windowed,
     focusRootId,
+    focusSectionIds,
+    focusPending,
+    activeSavedViewId,
     neighborhoodTruncated,
     totalMemberCount,
     setFocusRoot,
@@ -138,6 +141,18 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     setViewport,
     generationLineGaps,
   } = useFamilyTreeSettings();
+  const savedRelationTypes = useMemberStore(
+    (s) => s.savedViewFilters.visibleRelationTypes,
+  );
+  const effectiveRelationTypes = useMemo(
+    () =>
+      Array.isArray(savedRelationTypes)
+        ? savedRelationTypes.filter(
+            (value): value is string => typeof value === "string",
+          )
+        : visibleRelationTypes,
+    [savedRelationTypes, visibleRelationTypes],
+  );
   // Locking the canvas also disables per-node edit affordances (pencil,
   // quick-add, connect handles) and the member sheet's edit toggle, on top of
   // the role/mobile read-only gating. Drag/select/connect are gated
@@ -325,7 +340,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   // --- Unions, edges & visibility — computed off the main thread ---
   const { unions, baseEdges, hiddenNodeIds } = useDerivedFlowView(
     members,
-    visibleRelationTypes,
+    effectiveRelationTypes,
     edgeType,
   );
 
@@ -539,14 +554,52 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   // Re-center when the focus root changes in windowed mode — unless a
   // popstate restore is in flight, which applies the exact saved camera
   // instead (#989).
-  const prevFocusRootRef = useRef<string | null>(null);
+  const previousFocusRef = useRef<string | null>(null);
+  const focusKey = JSON.stringify([
+    focusRootId,
+    focusSectionIds,
+    activeSavedViewId,
+    neighborhoodUp,
+    neighborhoodDown,
+  ]);
   useEffect(() => {
-    if (!windowed || !rfInstance) return;
-    if (focusRootId === prevFocusRootRef.current) return;
-    prevFocusRootRef.current = focusRootId;
-    if (restoringRef.current) return;
-    requestAnimationFrame(() => fitViewToAllNodes(rfInstance, 0.2));
-  }, [windowed, focusRootId, rfInstance]);
+    if (!windowed) {
+      previousFocusRef.current = null;
+      return;
+    }
+    if (!rfInstance || focusPending || !isReady) return;
+    if (focusKey === previousFocusRef.current) return;
+    // Store focus changes before React Flow receives its replacement nodes.
+    // Fitting the old graph can leave a restored position overlay offscreen
+    // and culled from the DOM. Wait until the new graph has reached the canvas.
+    if (
+      !members.every((member) => {
+        const position = nodePositions.get(member.id);
+        return (
+          position?.x === member.position.x && position?.y === member.position.y
+        );
+      })
+    )
+      return;
+    if (restoringRef.current) {
+      previousFocusRef.current = focusKey;
+      return;
+    }
+    const frame = requestAnimationFrame(() => {
+      fitViewToAllNodes(rfInstance, 0.2);
+      previousFocusRef.current = focusKey;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [
+    windowed,
+    focusKey,
+    focusPending,
+    isReady,
+    members,
+    nodePositions,
+    rfInstance,
+    restoringRef,
+  ]);
 
   useEffect(() => {
     setSelectedNodes((prevSelected) => {

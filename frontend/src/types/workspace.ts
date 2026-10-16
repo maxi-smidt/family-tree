@@ -18,6 +18,7 @@ export interface Workspace {
   public_password_protected?: boolean;
   // Domains the current user may not see. Empty for owner/admin.
   restrictions?: string[];
+  can_create_sections?: boolean;
 }
 
 export interface WorkspaceInvitation {

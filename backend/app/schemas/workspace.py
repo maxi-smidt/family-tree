@@ -25,6 +25,7 @@ class WorkspaceOut(BaseModel):
     public_password_protected: bool = False
     # Domains the requesting member may not see. Empty for owner/admin.
     restrictions: list[str] = Field(default_factory=list)
+    can_create_sections: bool = False
 
 
 class WorkspaceMetadataOut(FamilyTreeBaseModel):

@@ -17,6 +17,7 @@ from app.models import (
     Member,
     Section,
     SectionMember,
+    User,
     WorkspaceSectionGrant,
 )
 from app.services.provenance import bind_origin_section
@@ -260,3 +261,94 @@ def test_scoped_editor_cannot_undo_another_sections_delete(
     assert response.status_code == 403, response.text
     db.expire_all()
     assert db.get(Event, "private-event") is None
+
+
+def test_scoped_statistics_never_reads_or_overwrites_workspace_cache(
+    client, db, tree, scoped, monkeypatch
+):
+    import app.db.redis as redis_module
+    from tests.test_stats_cache import FakeRedis
+
+    user, _, _ = scoped
+    db.get(Member, "private-member").first_name = "PrivateName"
+    db.commit()
+    cache = FakeRedis()
+    monkeypatch.setattr(redis_module, "get_redis", lambda: cache)
+    url = f"{API}/workspaces/{tree.id}/statistics"
+    assert (
+        client.get(url, headers=auth(db.get(User, tree.owner_id))).json()["total_members"]
+        == 2
+    )
+    reads, writes = len(cache.get_calls), len(cache.set_calls)
+    result = client.get(url, headers=auth(user))
+    assert result.status_code == 200
+    assert result.json()["total_members"] == 1
+    assert "PrivateName" not in result.text
+    assert (len(cache.get_calls), len(cache.set_calls)) == (reads, writes)
+
+
+def test_quality_report_and_dismissals_respect_member_visibility(
+    client, db, tree, scoped
+):
+    from app.services.workspaces.quality_checks import issue_id_for
+
+    user, _, _ = scoped
+    for member_id in ("shared-member", "private-member"):
+        member = db.get(Member, member_id)
+        member.date_of_birth = "2000"
+        member.date_of_death = "1900"
+    db.commit()
+    url = f"{API}/workspaces/{tree.id}/quality-report"
+    result = client.get(url, headers=auth(user))
+    assert result.status_code == 200
+    assert result.json()["total_members"] == 1
+    assert "private-member" not in result.text
+    hidden_issue = issue_id_for("birth_after_death", ["private-member"])
+    hidden_url = f"{url}/issues/{hidden_issue}/dismiss"
+    assert client.post(hidden_url, headers=auth(user)).status_code == 404
+    owner = db.get(User, tree.owner_id)
+    assert client.post(hidden_url, headers=auth(owner)).status_code == 204
+    assert client.delete(hidden_url, headers=auth(user)).status_code == 404
+    visible_issue = issue_id_for("birth_after_death", ["shared-member"])
+    visible_url = f"{url}/issues/{visible_issue}/dismiss"
+    assert client.post(visible_url, headers=auth(user)).status_code == 204
+    assert client.delete(visible_url, headers=auth(user)).status_code == 204
+
+
+@pytest.mark.parametrize("role", ["viewer", "editor"])
+@pytest.mark.parametrize("direction", ["direct_family", "partnership"])
+def test_scoped_readers_cannot_preview_workspace_branches(
+    client, db, tree, scoped, role, direction
+):
+    user, _, _ = scoped
+    grant = db.scalar(select(WorkspaceSectionGrant))
+    grant.role = role
+    db.commit()
+    result = client.get(
+        f"{API}/workspaces/{tree.id}/sections/preview",
+        headers=auth(user),
+        params={"root_member_id": "shared-member", "direction": direction},
+    )
+    assert result.status_code == 403
+
+
+def test_scoped_editor_cannot_create_sections_or_list_private_scope_metadata(
+    client, db, tree, scoped
+):
+    user, _, private = scoped
+    base = f"{API}/workspaces/{tree.id}"
+    assert client.get(base + "/content-scopes", headers=auth(user)).status_code == 403
+    result = client.post(
+        base + "/sections",
+        headers=auth(user),
+        json={"name": "Unauthorized", "root_member_id": "private-member"},
+    )
+    assert result.status_code == 403
+    assert db.scalar(select(Section).where(Section.name == "Unauthorized")) is None
+    assert client.get(base, headers=auth(user)).json()["can_create_sections"] is False
+    assert (
+        client.get(base, headers=auth(db.get(User, tree.owner_id))).json()[
+            "can_create_sections"
+        ]
+        is True
+    )

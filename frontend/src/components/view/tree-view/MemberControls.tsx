@@ -69,6 +69,10 @@ export const MemberControls = ({
   const { t } = useTranslation(undefined, { keyPrefix: "tree-view.controls" });
   const [isArrangeDialogOpen, setIsArrangeDialogOpen] = useState(false);
   const [isCreateSectionOpen, setIsCreateSectionOpen] = useState(false);
+  const canCreateSections = useWorkspaceStore(
+    (s) =>
+      s.selectedTree?.can_create_sections ?? s.selectedTree?.role === "owner",
+  );
   const {
     isLockedScreen,
     isFastMode,
@@ -278,7 +282,7 @@ export const MemberControls = ({
             {t("focus-here")}
           </DropdownMenuItem>
         )}
-        {!readOnly && selectedNodes.length === 1 && (
+        {!readOnly && canCreateSections && selectedNodes.length === 1 && (
           <DropdownMenuItem inset onSelect={() => setIsCreateSectionOpen(true)}>
             <FolderTree />
             {t("create-section-here")}

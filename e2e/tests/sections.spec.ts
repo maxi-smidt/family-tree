@@ -148,9 +148,9 @@ sectionsTest(
     const updateResponse = page.waitForResponse(
       (response) =>
         response.request().method() === "PATCH" &&
-        response
-          .url()
-          .endsWith(`/api/workspaces/${ownedTree.id}/members/${alice.id}`),
+        new URL(response.url()).pathname.endsWith(
+          `/api/workspaces/${ownedTree.id}/members/${alice.id}`,
+        ),
     );
     await sheet.locator("#firstName").fill("Alicia");
     await updateResponse;

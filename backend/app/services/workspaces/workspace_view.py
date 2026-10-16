@@ -7,6 +7,7 @@ from app.models import User, Workspace, WorkspaceMembership
 from app.schemas.workspace import WorkspaceOut
 from app.services.workspace_roles import role_for
 from app.services.workspaces.grants import best_grant
+from app.services.workspaces.visibility import resolve_access_context
 from app.services.workspaces.workspace_state import workspace_last_opened
 
 
@@ -39,6 +40,11 @@ def tree_out(
         grant = best_grant(db, tree.id, user.id)
         out.restrictions = list(grant.restrictions) if grant else []
     out.public_password_protected = tree.public_password_hash is not None
+    out.can_create_sections = (
+        user is not None
+        and out.role in ("owner", "editor")
+        and resolve_access_context(db, tree, user).can_write_scope(None)
+    )
     if isinstance(last_opened, _Unset):
         last_opened = (
             workspace_last_opened(db, tree.id, user.id) if user is not None else None
