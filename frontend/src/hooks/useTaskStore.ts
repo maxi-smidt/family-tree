@@ -1,3 +1,4 @@
+import { contentOriginArgs } from "@/hooks/contentOrigin";
 import { create } from "zustand";
 import { ResearchTask, ResearchTaskInput, mapTaskFromDB } from "@/types/task";
 import { WorkspaceService } from "@/services/WorkspaceService";
@@ -58,6 +59,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       task.notes || null,
       new Date().toISOString(),
       memberIds,
+      ...contentOriginArgs(workspaceId),
     );
 
     await get().refreshTasks(workspaceId);
@@ -124,5 +126,6 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 
 registerTaskStoreActions({
   clear: () => useTaskStore.getState().clear(),
-  refresh: (workspaceId) => void useTaskStore.getState().refreshTasks(workspaceId),
+  refresh: (workspaceId) =>
+    void useTaskStore.getState().refreshTasks(workspaceId),
 });

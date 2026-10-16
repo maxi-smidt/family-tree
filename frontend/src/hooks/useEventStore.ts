@@ -1,3 +1,4 @@
+import { contentOriginArgs } from "@/hooks/contentOrigin";
 import { create } from "zustand";
 import { Event, EventInput, mapEventFromDB } from "@/types/event";
 import { WorkspaceService } from "@/services/WorkspaceService";
@@ -13,6 +14,7 @@ interface EventState {
     memberIds: string[],
     event: EventInput,
     documentIds?: string[],
+    originArgs?: [] | [string],
   ) => Promise<void>;
   updateEvent: (
     id: string,
@@ -66,6 +68,7 @@ export const useEventStore = create<EventState>((set, get) => ({
     memberIds: string[],
     event: EventInput,
     documentIds: string[] = [],
+    originArgs?: [] | [string],
   ) => {
     const workspaceId = activeTreeId();
     if (!workspaceId) return;
@@ -73,7 +76,14 @@ export const useEventStore = create<EventState>((set, get) => ({
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
 
-    await WorkspaceService.addEvent(workspaceId, id, event, now, memberIds);
+    await WorkspaceService.addEvent(
+      workspaceId,
+      id,
+      event,
+      now,
+      memberIds,
+      ...(originArgs ?? contentOriginArgs(workspaceId)),
+    );
     if (documentIds.length > 0) {
       await WorkspaceService.setEventDocuments(workspaceId, id, documentIds);
     }

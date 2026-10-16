@@ -94,8 +94,10 @@ def list_content_scopes(
     section_id: str | None = None,
     pagination: Pagination = Depends(pagination_params),
     tree: Workspace = Depends(get_readable_workspace),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    _require_owner(tree, user)
     statement = select(ContentScope).where(ContentScope.workspace_id == tree.id)
     if content_type is not None:
         statement = statement.where(ContentScope.content_type == str(content_type))

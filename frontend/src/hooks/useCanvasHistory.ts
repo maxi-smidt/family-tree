@@ -1,5 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useMemberStore } from "@/hooks/useMemberStore";
+import { useSavedViewStore } from "@/hooks/useSavedViewStore";
+import { useWorkspaceNavStore } from "@/hooks/useWorkspaceNavStore";
 
 interface Viewport {
   x: number;
@@ -13,6 +15,7 @@ interface CanvasHistoryState {
   focusRootId: string | null;
   focusSectionIds: string[] | null;
   viewport: Viewport;
+  savedViewId?: string | null;
 }
 
 function isCanvasHistoryState(value: unknown): value is CanvasHistoryState {
@@ -33,11 +36,15 @@ function isCanvasHistoryState(value: unknown): value is CanvasHistoryState {
  */
 export function useCanvasHistory(
   workspaceId: string | undefined,
-  rfInstance: { setViewport: (vp: Viewport, opts?: { duration?: number }) => void } | null,
+  rfInstance: {
+    setViewport: (vp: Viewport, opts?: { duration?: number }) => void;
+  } | null,
 ) {
   const focusRootId = useMemberStore((s) => s.focusRootId);
   const focusSectionIds = useMemberStore((s) => s.focusSectionIds);
   const focusPending = useMemberStore((s) => s.focusPending);
+  const savedViewId = useMemberStore((s) => s.activeSavedViewId);
+  const openSavedView = useSavedViewStore((s) => s.openSavedView);
   const setFocusRoot = useMemberStore((s) => s.setFocusRoot);
   const focusSection = useMemberStore((s) => s.focusSection);
   const exitFocus = useMemberStore((s) => s.exitFocus);
@@ -62,6 +69,7 @@ export function useCanvasHistory(
       focusRootId,
       focusSectionIds,
       viewport: { x: 0, y: 0, zoom: 1 },
+      savedViewId,
     };
     // Nothing to go "back" to on the very first render of a workspace — seed
     // the *current* entry instead of leaving it unmarked, so a subsequent
@@ -78,7 +86,7 @@ export function useCanvasHistory(
     }
     window.history.pushState(state, "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workspaceId, focusRootId, focusSectionIds, focusPending]);
+  }, [workspaceId, focusRootId, focusSectionIds, focusPending, savedViewId]);
 
   useEffect(() => {
     function onPopState(event: PopStateEvent) {
@@ -92,26 +100,45 @@ export function useCanvasHistory(
       const target = event.state;
       suppressNextPushRef.current = true;
       restoringRef.current = true;
-      const restore = target.focusSectionIds?.length
-        ? focusSection(target.focusSectionIds[0])
-        : target.focusRootId
-          ? setFocusRoot(target.focusRootId)
-          : exitFocus();
-      void restore.finally(() => {
-        rfInstance?.setViewport(target.viewport, { duration: 0 });
-        restoringRef.current = false;
-      });
+      const navigation = useWorkspaceNavStore.getState();
+      if (target.savedViewId) navigation.selectSavedView(target.savedViewId);
+      else if (target.focusSectionIds?.length)
+        navigation.selectSection(target.focusSectionIds[0]);
+      else navigation.selectExplore();
+      const restore = target.savedViewId
+        ? openSavedView(target.savedViewId)
+        : target.focusSectionIds?.length
+          ? focusSection(target.focusSectionIds[0])
+          : target.focusRootId
+            ? setFocusRoot(target.focusRootId)
+            : exitFocus();
+      void restore
+        .catch(() => undefined)
+        .finally(() => {
+          requestAnimationFrame(() => {
+            rfInstance?.setViewport(target.viewport, { duration: 0 });
+            restoringRef.current = false;
+          });
+        });
     }
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
-  }, [workspaceId, rfInstance, setFocusRoot, focusSection, exitFocus]);
+  }, [
+    workspaceId,
+    rfInstance,
+    setFocusRoot,
+    focusSection,
+    exitFocus,
+    openSavedView,
+  ]);
 
   // Keep the most recent entry's stored camera current as the user pans, so
   // navigating back later restores where they actually left off rather than
   // wherever the viewport happened to be the instant focus changed.
   function updateHistoryViewport(viewport: Viewport) {
     const state = window.history.state as unknown;
-    if (!isCanvasHistoryState(state) || state.workspaceId !== workspaceId) return;
+    if (!isCanvasHistoryState(state) || state.workspaceId !== workspaceId)
+      return;
     window.history.replaceState({ ...state, viewport }, "");
   }
 

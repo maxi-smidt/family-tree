@@ -73,6 +73,10 @@ beforeEach(() => {
     focusSectionIds: null,
     neighborhoodUp: 3,
     neighborhoodDown: 3,
+    neighborhoodPartners: true,
+    activeSavedViewId: null,
+    savedViewPositions: [],
+    savedViewFilters: {},
     neighborhoodMemberRows: [],
     neighborhoodRelations: [],
     neighborhoodCursor: null,
@@ -252,7 +256,9 @@ describe("useMemberStore — inline expansion (#989)", () => {
 
   beforeEach(() => {
     selectTree();
-    vi.mocked(WorkspaceService.updateMemberPositions).mockResolvedValue(undefined);
+    vi.mocked(WorkspaceService.updateMemberPositions).mockResolvedValue(
+      undefined,
+    );
     useMemberStore.setState({
       windowed: true,
       windowedForTreeId: TREE_ID,
@@ -263,7 +269,9 @@ describe("useMemberStore — inline expansion (#989)", () => {
       neighborhoodMemberRows: [MEMBER_DB_ROW],
       neighborhoodRelations: [],
       neighborhoodCursor: "cursor-1",
-      continuations: [{ section_id: null, section_name: null, remaining_count: 1 }],
+      continuations: [
+        { section_id: null, section_name: null, remaining_count: 1 },
+      ],
     });
   });
 
@@ -417,9 +425,9 @@ describe("useMemberStore — inline expansion (#989)", () => {
     expect(state.members).toHaveLength(1_500);
     // Every already-accumulated row survives the cap; only the tail of the
     // newly-fetched page is dropped.
-    expect(existingRows.every((r) => state.neighborhoodMemberRows.includes(r))).toBe(
-      true,
-    );
+    expect(
+      existingRows.every((r) => state.neighborhoodMemberRows.includes(r)),
+    ).toBe(true);
   });
 
   it("resetNeighborhood clears the accumulated buffers and refetches a fresh baseline page", async () => {
@@ -622,7 +630,9 @@ describe("useMemberStore — removeMember", () => {
     mockServiceWithMember();
     await useMemberStore.getState().refreshMembers();
 
-    vi.mocked(WorkspaceService.removeMember).mockRejectedValue(new Error("offline"));
+    vi.mocked(WorkspaceService.removeMember).mockRejectedValue(
+      new Error("offline"),
+    );
 
     await useMemberStore.getState().removeMember("m1");
     await vi.advanceTimersByTimeAsync(8000);
@@ -1001,4 +1011,121 @@ describe("useMemberStore — fetchMemberDetail caching", () => {
 
     expect(useMemberStore.getState().detailLoadedIds.size).toBe(0);
   });
+});
+
+describe("saved view graph configuration", () => {
+  const view = {
+    id: "view",
+    workspace_id: TREE_ID,
+    owner_id: "owner",
+    name: "Scoped view",
+    focus_member_id: "m1",
+    section_ids: ["section"],
+    ancestor_depth: 0,
+    descendant_depth: 0,
+    include_partners: false,
+    filters: {},
+    config_version: 1,
+    version: 1,
+    created_at: "2026",
+    updated_at: "2026",
+    last_opened: null,
+    positions: [{ node_id: "m1", position_x: 123, position_y: 456 }],
+  };
+
+  it("applies sections, zero depths, partner exclusion and layout together", async () => {
+    selectTree();
+    vi.mocked(WorkspaceService.getNeighborhood).mockResolvedValue({
+      root_id: "m1",
+      members: [MEMBER_DB_ROW],
+      relations: [],
+      truncated: false,
+      total_member_count: 1,
+    });
+    await useMemberStore.getState().applySavedView(view);
+    expect(WorkspaceService.getNeighborhood).toHaveBeenCalledWith(
+      TREE_ID,
+      "m1",
+      0,
+      0,
+      false,
+      ["section"],
+    );
+    expect(useMemberStore.getState().members[0].position).toEqual({
+      x: 123,
+      y: 456,
+    });
+    expect(useMemberStore.getState().activeSavedViewId).toBe("view");
+    await useMemberStore
+      .getState()
+      .persistPositions([{ id: "m1", x: 400, y: 500 }]);
+    expect(WorkspaceService.updateSavedViewPositions).toHaveBeenCalledWith(
+      TREE_ID,
+      "view",
+      [{ node_id: "m1", position_x: 400, position_y: 500 }],
+    );
+    expect(WorkspaceService.updateMemberPositions).not.toHaveBeenCalled();
+  });
+
+  it("opens section-only views and resets configuration on Explore", async () => {
+    selectTree();
+    vi.mocked(WorkspaceService.getNeighborhood).mockResolvedValue({
+      root_id: "m1",
+      members: [MEMBER_DB_ROW],
+      relations: [],
+      truncated: false,
+      total_member_count: 1,
+    });
+    await useMemberStore
+      .getState()
+      .applySavedView({ ...view, focus_member_id: null });
+    expect(WorkspaceService.getNeighborhood).toHaveBeenCalledWith(
+      TREE_ID,
+      undefined,
+      0,
+      0,
+      false,
+      ["section"],
+    );
+    mockServiceWithMember();
+    await useMemberStore.getState().exitFocus();
+    expect(useMemberStore.getState()).toMatchObject({
+      activeSavedViewId: null,
+      savedViewPositions: [],
+      focusSectionIds: null,
+      neighborhoodUp: 3,
+      neighborhoodDown: 3,
+      neighborhoodPartners: true,
+    });
+  });
+
+  it("applies saved member filters before rendering", async () => {
+    selectTree();
+    vi.mocked(WorkspaceService.getNeighborhood).mockResolvedValue({
+      root_id: "m1",
+      members: [MEMBER_DB_ROW],
+      relations: [],
+      truncated: false,
+      total_member_count: 1,
+    });
+    await useMemberStore
+      .getState()
+      .applySavedView({ ...view, filters: { gender: "f" } });
+    expect(useMemberStore.getState().members).toEqual([]);
+  });
+});
+
+it("undoing a saved-view arrangement after leaving it does not move Explore nodes", async () => {
+  selectTree();
+  mockServiceWithMember();
+  await useMemberStore.getState().refreshMembers();
+  useMemberStore.setState({ activeSavedViewId: "view" });
+  await useMemberStore
+    .getState()
+    .persistPositions([{ id: "m1", x: 100, y: 200 }]);
+  await useMemberStore.getState().exitFocus();
+  const canonical = useMemberStore.getState().members[0].position;
+  await useMemberStore.getState().undo();
+  expect(useMemberStore.getState().members[0].position).toEqual(canonical);
+  expect(WorkspaceService.updateMemberPositions).not.toHaveBeenCalled();
 });

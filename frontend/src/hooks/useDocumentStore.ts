@@ -1,3 +1,4 @@
+import { contentOriginArgs } from "@/hooks/contentOrigin";
 import { create } from "zustand";
 import {
   Document,
@@ -67,6 +68,7 @@ async function stageAndBuildPayload(
   memberIds: string[],
   ops: DocumentFileOps,
   onFileProgress?: (uploaded: number, total: number) => void,
+  originArgs: [] | [string] = [],
 ): Promise<DocumentSavePayload> {
   const total = ops.addedFiles.length;
   if (total > 0) onFileProgress?.(0, total);
@@ -78,6 +80,7 @@ async function stageAndBuildPayload(
         workspaceId,
         f.file,
         f.filename,
+        ...originArgs,
       );
       attachedUploadIds.push(staged.id);
     } catch {
@@ -137,6 +140,8 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     const workspaceId = activeTreeId();
     if (!workspaceId) return null;
 
+    const originArgs = contentOriginArgs(workspaceId);
+
     // Stage the files, then create the document with its metadata, people
     // links and attachments in one atomic request. A client-generated id makes
     // a retried create upsert instead of duplicating; a failure leaves nothing
@@ -148,8 +153,14 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       memberIds,
       fileOps,
       onFileProgress,
+      originArgs,
     );
-    const row = await WorkspaceService.saveDocument(workspaceId, documentId, payload);
+    const row = await WorkspaceService.saveDocument(
+      workspaceId,
+      documentId,
+      payload,
+      ...originArgs,
+    );
 
     await get().refreshDocuments(workspaceId);
     if (touchesMedia(fileOps)) useStorageStore.getState().refreshStorageUsage();
@@ -167,6 +178,8 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     const workspaceId = activeTreeId();
     if (!workspaceId) return;
 
+    const originArgs = contentOriginArgs(workspaceId);
+
     // Stage new files first, then apply the metadata, member and file changes
     // in one atomic request; old files are removed only once it commits, so a
     // failed edit leaves the previous valid document untouched.
@@ -176,8 +189,14 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       memberIds,
       fileOps,
       onFileProgress,
+      originArgs,
     );
-    await WorkspaceService.saveDocument(workspaceId, id, payload);
+    await WorkspaceService.saveDocument(
+      workspaceId,
+      id,
+      payload,
+      ...originArgs,
+    );
 
     await get().refreshDocuments(workspaceId);
     if (touchesMedia(fileOps)) useStorageStore.getState().refreshStorageUsage();

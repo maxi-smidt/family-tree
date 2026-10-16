@@ -29,6 +29,7 @@ import { useSectionStore } from "@/hooks/useSectionStore";
 import { useSavedViewStore } from "@/hooks/useSavedViewStore";
 import { useWorkspaceNavStore } from "@/hooks/useWorkspaceNavStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { WorkspaceSearchBox } from "@/components/view/tree-view/nav/WorkspaceSearchBox";
 import { CreateSectionDialog } from "@/components/view/tree-view/nav/CreateSectionDialog";
@@ -103,6 +104,11 @@ export const WorkspaceNavigationPanel = ({
   const viewsInitialized = useSavedViewStore((s) => s.initialized);
   const refreshSavedViews = useSavedViewStore((s) => s.refreshSavedViews);
   const duplicateSavedView = useSavedViewStore((s) => s.duplicateSavedView);
+  const openSavedView = useSavedViewStore((s) => s.openSavedView);
+  const canCreateSections = useWorkspaceStore(
+    (s) =>
+      s.selectedTree?.can_create_sections ?? s.selectedTree?.role === "owner",
+  );
   useDeferredStoreLoad(viewsInitialized, refreshSavedViews);
 
   const mode = useWorkspaceNavStore((s) => s.mode);
@@ -115,6 +121,7 @@ export const WorkspaceNavigationPanel = ({
   const selectSavedView = useWorkspaceNavStore((s) => s.selectSavedView);
 
   const setFocusRoot = useMemberStore((s) => s.setFocusRoot);
+  const applySavedView = useMemberStore((s) => s.applySavedView);
   const focusSection = useMemberStore((s) => s.focusSection);
   const exitFocus = useMemberStore((s) => s.exitFocus);
   const focusRootId = useMemberStore((s) => s.focusRootId);
@@ -131,13 +138,16 @@ export const WorkspaceNavigationPanel = ({
     void focusSection(sectionId);
   };
 
-  const handleSelectSearchHit = (hit: WorkspaceSearchHitDB) =>
+  const handleSelectSearchHit = (hit: WorkspaceSearchHitDB) => {
+    selectExplore();
     focusMember(hit.id);
+  };
 
   const handleSelectSavedView = (viewId: string) => {
     selectSavedView(viewId);
-    const view = views.find((v) => v.id === viewId);
-    if (view?.focus_member_id) focusMember(view.focus_member_id);
+    void openSavedView(viewId).catch(() =>
+      toast.error(t("saved-view-form.edit-error")),
+    );
   };
 
   const handleSavedViewSaved = (saved: SavedViewDB, wasCreate: boolean) => {
@@ -150,7 +160,7 @@ export const WorkspaceNavigationPanel = ({
       (mode === "saved-view" && selectedSavedViewId === saved.id)
     ) {
       selectSavedView(saved.id);
-      if (saved.focus_member_id) focusMember(saved.focus_member_id);
+      void applySavedView(saved);
     }
   };
 
@@ -205,7 +215,7 @@ export const WorkspaceNavigationPanel = ({
               )}
               {t("sections")}
             </button>
-            {canWrite && (
+            {canWrite && canCreateSections && (
               <Button
                 variant="ghost"
                 size="icon-sm"

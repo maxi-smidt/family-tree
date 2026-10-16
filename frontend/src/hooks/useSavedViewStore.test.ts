@@ -4,6 +4,8 @@ import { useWorkspaceStore } from "./useWorkspaceStore";
 import { WorkspaceService } from "@/services/WorkspaceService";
 import { SavedViewDB } from "@/types/savedView";
 import { Workspace } from "@/types/workspace";
+import { useMemberStore } from "./useMemberStore";
+import { useWorkspaceNavStore } from "./useWorkspaceNavStore";
 
 vi.mock("@/services/WorkspaceService");
 
@@ -39,6 +41,25 @@ beforeEach(() => {
   vi.clearAllMocks();
   useSavedViewStore.setState({ views: [], initialized: false, loading: false });
   useWorkspaceStore.setState({ selectedTree: undefined });
+  useMemberStore.getState().clear();
+  useWorkspaceNavStore.getState().clear();
+});
+
+it("does not open a late saved-view response after navigating to Explore", async () => {
+  useWorkspaceStore.setState({ selectedTree: makeTree() });
+  useWorkspaceNavStore.getState().selectSavedView("v1");
+  let resolveView!: (view: SavedViewDB) => void;
+  vi.mocked(WorkspaceService.getSavedView).mockReturnValue(
+    new Promise((resolve) => {
+      resolveView = resolve;
+    }),
+  );
+  const opening = useSavedViewStore.getState().openSavedView("v1");
+  useWorkspaceNavStore.getState().selectExplore();
+  resolveView(makeView());
+  await opening;
+  expect(WorkspaceService.getNeighborhood).not.toHaveBeenCalled();
+  expect(useMemberStore.getState().activeSavedViewId).toBeNull();
 });
 
 describe("useSavedViewStore — refreshSavedViews", () => {

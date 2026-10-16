@@ -103,8 +103,10 @@ def preview_section(
     root_member_id: str,
     direction: Direction = "direct_family",
     tree: Workspace = Depends(get_readable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access),
     db: Session = Depends(get_db),
 ):
+    context.require_full_workspace_read()
     return compute_section_preview(db, tree, root_member_id, direction)
 
 
@@ -139,9 +141,13 @@ def get_section_suggestions(
 def post_section(
     payload: SectionCreate,
     tree: Workspace = Depends(get_writable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    # A new section is outside every existing section grant. Only an editor
+    # authorized for the whole workspace may create and seed it.
+    context.require_write_scope(None)
     try:
         with UnitOfWork(db) as uow:
             section = create_section(

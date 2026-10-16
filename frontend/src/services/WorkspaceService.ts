@@ -81,6 +81,17 @@ export interface NeighborhoodDB {
   continuations?: NeighborhoodContinuationDB[];
 }
 
+function contentPath(
+  workspaceId: string,
+  resource: string,
+  originSectionId?: string,
+): string {
+  const path = `${base(workspaceId)}/${resource}`;
+  return originSectionId
+    ? `${path}?origin_section_id=${encodeURIComponent(originSectionId)}`
+    : path;
+}
+
 export class WorkspaceService {
   // --- Relation types ------------------------------------------------------
   /** The relation type registry is instance-wide, not per tree. */
@@ -184,8 +195,15 @@ export class WorkspaceService {
     return api.get<RelationDB[]>(`${base(workspaceId)}/relations`);
   }
 
-  static addMember(workspaceId: string, member: Member) {
-    return api.post(`${base(workspaceId)}/members`, mapMemberToDB(member));
+  static addMember(
+    workspaceId: string,
+    member: Member,
+    originSectionId?: string,
+  ) {
+    return api.post(
+      contentPath(workspaceId, `members`, originSectionId),
+      mapMemberToDB(member),
+    );
   }
 
   static removeMember(workspaceId: string, memberId: string) {
@@ -196,9 +214,13 @@ export class WorkspaceService {
     workspaceId: string,
     id: string,
     changes: MemberUpdate,
+    originSectionId?: string,
   ): Promise<MemberDB | undefined> {
     if (Object.keys(changes).length === 0) return Promise.resolve(undefined);
-    return api.patch<MemberDB>(`${base(workspaceId)}/members/${id}`, changes);
+    return api.patch<MemberDB>(
+      contentPath(workspaceId, `members/${id}`, originSectionId),
+      changes,
+    );
   }
 
   static updateMemberPosition(
@@ -279,6 +301,7 @@ export class WorkspaceService {
       memberIds: string[];
     },
     now: string,
+    originSectionId?: string,
   ) {
     const formData = new FormData();
     formData.append("id", id);
@@ -292,7 +315,7 @@ export class WorkspaceService {
     for (const memberId of meta.memberIds)
       formData.append("member_ids", memberId);
     return api.postForm<GalleryImageDB>(
-      `${base(workspaceId)}/gallery/images`,
+      contentPath(workspaceId, `gallery/images`, originSectionId),
       formData,
     );
   }
@@ -417,8 +440,9 @@ export class WorkspaceService {
     event: EventInput,
     now: string,
     memberIds: string[] = [],
+    originSectionId?: string,
   ) {
-    return api.post(`${base(workspaceId)}/events`, {
+    return api.post(contentPath(workspaceId, `events`, originSectionId), {
       id,
       event_type: event.eventType,
       date: event.date,
@@ -503,8 +527,9 @@ export class WorkspaceService {
     story: StoryInput,
     now: string,
     memberIds: string[] = [],
+    originSectionId?: string,
   ) {
-    return api.post(`${base(workspaceId)}/stories`, {
+    return api.post(contentPath(workspaceId, `stories`, originSectionId), {
       id,
       title: story.title,
       content: story.content,
@@ -565,14 +590,18 @@ export class WorkspaceService {
     notes: string | null,
     createdAt: string,
     memberIds: string[] = [],
+    originSectionId?: string,
   ) {
-    return api.post<ResearchTaskDB>(`${base(workspaceId)}/tasks`, {
-      id,
-      title,
-      notes,
-      created_at: createdAt,
-      member_ids: memberIds,
-    });
+    return api.post<ResearchTaskDB>(
+      contentPath(workspaceId, `tasks`, originSectionId),
+      {
+        id,
+        title,
+        notes,
+        created_at: createdAt,
+        member_ids: memberIds,
+      },
+    );
   }
 
   static setTaskLinks(
@@ -614,13 +643,17 @@ export class WorkspaceService {
     workspaceId: string,
     input: DocumentInput,
     memberIds: string[],
+    originSectionId?: string,
   ) {
-    return api.post<DocumentDB>(`${base(workspaceId)}/documents`, {
-      title: input.title,
-      description: input.description || null,
-      document_date: input.documentDate || null,
-      member_ids: memberIds,
-    });
+    return api.post<DocumentDB>(
+      contentPath(workspaceId, `documents`, originSectionId),
+      {
+        title: input.title,
+        description: input.description || null,
+        document_date: input.documentDate || null,
+        member_ids: memberIds,
+      },
+    );
   }
 
   static updateDocument(workspaceId: string, id: string, input: DocumentInput) {
@@ -637,12 +670,13 @@ export class WorkspaceService {
     workspaceId: string,
     file: File,
     filename: string,
+    originSectionId?: string,
   ) {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("filename", filename);
     return api.postForm<DocumentUploadDB>(
-      `${base(workspaceId)}/documents/uploads`,
+      contentPath(workspaceId, `documents/uploads`, originSectionId),
       formData,
       UPLOAD_STAGE_TIMEOUT_MS,
     );
@@ -655,9 +689,10 @@ export class WorkspaceService {
     workspaceId: string,
     documentId: string,
     payload: DocumentSavePayload,
+    originSectionId?: string,
   ) {
     return api.put<DocumentDB>(
-      `${base(workspaceId)}/documents/${documentId}`,
+      contentPath(workspaceId, `documents/${documentId}`, originSectionId),
       payload,
     );
   }
@@ -735,8 +770,9 @@ export class WorkspaceService {
     id: string,
     memberId: string,
     disease: DiseaseInput,
+    originSectionId?: string,
   ) {
-    return api.post(`${base(workspaceId)}/diseases`, {
+    return api.post(contentPath(workspaceId, `diseases`, originSectionId), {
       id,
       member_id: memberId,
       ...mapDiseaseInputToDB(disease),
@@ -922,6 +958,21 @@ export class WorkspaceService {
   // --- Saved views (#986, #1013) ---------------------------------------
   static getSavedViews(workspaceId: string) {
     return api.get<SavedViewDB[]>(`${base(workspaceId)}/saved-views`);
+  }
+
+  static getSavedView(workspaceId: string, viewId: string) {
+    return api.get<SavedViewDB>(`${base(workspaceId)}/saved-views/${viewId}`);
+  }
+
+  static updateSavedViewPositions(
+    workspaceId: string,
+    viewId: string,
+    positions: SavedViewDB["positions"],
+  ) {
+    return api.patch<void>(
+      `${base(workspaceId)}/saved-views/${viewId}/positions`,
+      positions,
+    );
   }
 
   static createSavedView(workspaceId: string, payload: SavedViewCreateInput) {
