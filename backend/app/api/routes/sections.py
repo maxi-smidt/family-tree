@@ -103,8 +103,10 @@ def preview_section(
     root_member_id: str,
     direction: Direction = "direct_family",
     tree: Workspace = Depends(get_readable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access),
     db: Session = Depends(get_db),
 ):
+    context.require_full_workspace_read()
     return compute_section_preview(db, tree, root_member_id, direction)
 
 
@@ -139,9 +141,13 @@ def get_section_suggestions(
 def post_section(
     payload: SectionCreate,
     tree: Workspace = Depends(get_writable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    # A new section is outside every existing section grant. Only an editor
+    # authorized for the whole workspace may create and seed it.
+    context.require_write_scope(None)
     try:
         with UnitOfWork(db) as uow:
             section = create_section(
@@ -285,6 +291,10 @@ def put_section_members(
     db: Session = Depends(get_db),
 ):
     section = _get_writable_section(db, tree, section_id, context)
+    # Validate against the current boundary before adding any memberships:
+    # membership itself confers visibility and edit access to the member.
+    for member_id in set(payload.member_ids):
+        context.require_read_member(db, member_id)
     with UnitOfWork(db) as uow:
         replace_section_members(db, tree, section, payload.member_ids)
         record_activity(

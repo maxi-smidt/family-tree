@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { RefreshCw, Users, Clock, CalendarDays, Skull } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -10,13 +10,7 @@ import { useStoryStore } from "@/hooks/useStoryStore";
 import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
-import {
-  useStatisticsSettings,
-  normalizeOrder,
-} from "@/hooks/useStatisticsSettings";
-import { WIDGET_MAP } from "./widgets";
-import { CustomizePopover } from "./CustomizePopover";
-import { CustomWidgetRenderer } from "./CustomWidgetRenderer";
+import { STATISTICS_WIDGETS } from "./widgets";
 
 interface StatCardProps {
   icon: React.ReactNode;
@@ -70,7 +64,6 @@ function EmptyState({ t }: { t: (k: string) => string }) {
 export const StatisticsView = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "statistics-view" });
   const { report, isLoading, refreshStatistics } = useStatisticsStore();
-  const { order, hidden, customWidgets } = useStatisticsSettings();
   const members = useMemberStore((s) => s.members);
   const events = useEventStore((s) => s.events);
   const eventsInitialized = useEventStore((s) => s.initialized);
@@ -90,20 +83,6 @@ export const StatisticsView = () => {
     }
   }, [report, refreshStatistics]);
 
-  const { customById, visibleIds } = useMemo(() => {
-    const byId = Object.fromEntries(
-      customWidgets.map((widget) => [widget.id, widget]),
-    );
-    const customIds = customWidgets.map((widget) => widget.id);
-    const ids = normalizeOrder(order, customIds).filter(
-      (id) => !hidden.includes(id),
-    );
-    return {
-      customById: byId,
-      visibleIds: ids,
-    };
-  }, [customWidgets, hidden, order]);
-
   const handleOpenMember = useCallback(
     (memberId: string) => {
       if (!selectedTreeId) return;
@@ -116,14 +95,8 @@ export const StatisticsView = () => {
     [selectedTreeId, setOpenSheet],
   );
 
-  const actions = (
-    <div className="flex items-center gap-2">
-      <CustomizePopover />
-    </div>
-  );
-
   return (
-    <ViewLayout title={t("title")} action={actions}>
+    <ViewLayout title={t("title")}>
       {isLoading && !report ? (
         <LoadingState t={t} />
       ) : !report || report.total_members === 0 ? (
@@ -160,41 +133,19 @@ export const StatisticsView = () => {
             />
           </div>
 
-          {visibleIds.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">
-              {t("all-hidden")}
-            </p>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              {visibleIds.map((id) => {
-                const customWidget = customById[id];
-                if (customWidget) {
-                  return (
-                    <CustomWidgetRenderer
-                      key={id}
-                      widget={customWidget}
-                      members={members}
-                      t={t}
-                    />
-                  );
-                }
-                const Widget =
-                  WIDGET_MAP[id as keyof typeof WIDGET_MAP]?.Component;
-                if (!Widget) return null;
-                return (
-                  <Widget
-                    key={id}
-                    report={report}
-                    t={t}
-                    members={members}
-                    events={events}
-                    stories={stories}
-                    onOpenMember={handleOpenMember}
-                  />
-                );
-              })}
-            </div>
-          )}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {STATISTICS_WIDGETS.map(({ id, Component }) => (
+              <Component
+                key={id}
+                report={report}
+                t={t}
+                members={members}
+                events={events}
+                stories={stories}
+                onOpenMember={handleOpenMember}
+              />
+            ))}
+          </div>
         </div>
       )}
     </ViewLayout>

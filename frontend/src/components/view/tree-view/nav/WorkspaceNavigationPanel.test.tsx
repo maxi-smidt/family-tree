@@ -49,6 +49,7 @@ describe("WorkspaceNavigationPanel — saved view create/edit focus", () => {
       focusRootId: null,
       focusSectionIds: null,
       setFocusRoot: vi.fn().mockResolvedValue(undefined),
+      applySavedView: vi.fn().mockResolvedValue(undefined),
       focusSection: vi.fn().mockResolvedValue(undefined),
       exitFocus: vi.fn().mockResolvedValue(undefined),
     });
@@ -76,8 +77,8 @@ describe("WorkspaceNavigationPanel — saved view create/edit focus", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
 
     await waitFor(() =>
-      expect(useMemberStore.getState().setFocusRoot).toHaveBeenCalledWith(
-        "new-focus",
+      expect(useMemberStore.getState().applySavedView).toHaveBeenCalledWith(
+        created,
       ),
     );
     expect(useWorkspaceNavStore.getState().selectedSavedViewId).toBe("v2");

@@ -1,3 +1,6 @@
+import { filterSavedViewMembers } from "@/utils/savedViewProjection";
+import { SavedViewDB, SavedViewPositionDB } from "@/types/savedView";
+import { contentOriginArgs } from "@/hooks/contentOrigin";
 import { create } from "zustand";
 import {
   Member,
@@ -42,13 +45,19 @@ export const EXPANSION_NODE_BUDGET = 1_500;
 // dataset, keyed by identity so repeated/overlapping pages (a retried
 // request, an overlapping cursor page) never duplicate a member or relation.
 // The freshest copy of a row wins.
-function mergeMemberRows(existing: MemberDB[], incoming: MemberDB[]): MemberDB[] {
+function mergeMemberRows(
+  existing: MemberDB[],
+  incoming: MemberDB[],
+): MemberDB[] {
   const byId = new Map(existing.map((m) => [m.id, m]));
   for (const m of incoming) byId.set(m.id, m);
   return [...byId.values()];
 }
 
-function mergeRelations(existing: RelationDB[], incoming: RelationDB[]): RelationDB[] {
+function mergeRelations(
+  existing: RelationDB[],
+  incoming: RelationDB[],
+): RelationDB[] {
   const key = (r: RelationDB) =>
     `${r.from_member_id}␟${r.to_member_id}␟${r.relation_type}`;
   const byKey = new Map(existing.map((r) => [key(r), r]));
@@ -90,6 +99,7 @@ async function syncVitalEventAfterCreate(
   eventType: "birth" | "death",
   date: string,
   location: string | null,
+  originArgs: [] | [string],
 ) {
   const { events, addEvent, updateEvent } = useEventStore.getState();
   const existing = events.find(
@@ -97,7 +107,7 @@ async function syncVitalEventAfterCreate(
       event.eventType === eventType && event.linkedMemberIds.includes(memberId),
   );
   if (!existing) {
-    await addEvent([memberId], { eventType, date, location });
+    await addEvent([memberId], { eventType, date, location }, [], originArgs);
   } else if (existing.date !== date) {
     await updateEvent(
       existing.id,
@@ -193,7 +203,10 @@ async function commitPendingMemberDeletion(key: string) {
 }
 
 // Drop any member with a pending optimistic deletion for this tree.
-function filterPendingDeletions(members: Member[], workspaceId: string): Member[] {
+function filterPendingDeletions(
+  members: Member[],
+  workspaceId: string,
+): Member[] {
   return members.filter(
     (member) =>
       !pendingMemberDeletions.has(pendingDeletionKey(workspaceId, member.id)),
@@ -268,6 +281,10 @@ interface MemberState {
   windowedForTreeId: string | null;
   neighborhoodUp: number;
   neighborhoodDown: number;
+  neighborhoodPartners: boolean;
+  activeSavedViewId: string | null;
+  savedViewPositions: SavedViewPositionDB[];
+  savedViewFilters: Record<string, unknown>;
   neighborhoodTruncated: boolean;
   totalMemberCount: number;
   // Raw rows/relations accumulated across inline expansion pages (#989) for
@@ -309,6 +326,7 @@ interface MemberState {
   ) => Promise<WorkspaceSearchResultDB>;
   refreshMembers: (workspaceId?: string) => Promise<void>;
   setFocusRoot: (rootId: string) => Promise<void>;
+  applySavedView: (view: SavedViewDB) => Promise<void>;
   setNeighborhoodDepth: (up: number, down: number) => Promise<void>;
   // Restrict the windowed neighborhood to one section (#989); pass null to
   // return to the whole-workspace default (same as `exitFocus`, kept
@@ -383,6 +401,10 @@ export const useMemberStore = create<MemberState>((set, get) => ({
   windowedForTreeId: null,
   neighborhoodUp: 3,
   neighborhoodDown: 3,
+  neighborhoodPartners: true,
+  activeSavedViewId: null,
+  savedViewPositions: [],
+  savedViewFilters: {},
   neighborhoodMemberRows: [],
   neighborhoodRelations: [],
   neighborhoodCursor: null,
@@ -408,7 +430,12 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     WorkspaceService.searchMembers(workspaceId, query, limit),
 
   searchOtherTrees: (query, excludeWorkspaceId, perTreeLimit, limit) =>
-    WorkspaceService.searchOtherTrees(query, excludeWorkspaceId, perTreeLimit, limit),
+    WorkspaceService.searchOtherTrees(
+      query,
+      excludeWorkspaceId,
+      perTreeLimit,
+      limit,
+    ),
 
   searchWorkspace: (workspaceId, query, limit, cursor) =>
     WorkspaceService.searchWorkspace(workspaceId, query, limit, cursor),
@@ -445,7 +472,8 @@ export const useMemberStore = create<MemberState>((set, get) => ({
 
   refreshMembers: async (workspaceId = activeTreeId()) => {
     const version = ++memberRefreshVersion;
-    const stale = () => !isActiveTree(workspaceId) || version !== memberRefreshVersion;
+    const stale = () =>
+      !isActiveTree(workspaceId) || version !== memberRefreshVersion;
 
     if (!workspaceId) {
       set({
@@ -464,6 +492,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       windowedForTreeId,
       neighborhoodUp,
       neighborhoodDown,
+      neighborhoodPartners,
     } = get();
 
     // Windowed state is scoped to the tree it was created for. When switching
@@ -478,7 +507,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
           focusRootId ?? undefined,
           neighborhoodUp,
           neighborhoodDown,
-          true,
+          neighborhoodPartners,
           focusSectionIds ?? undefined,
         );
         if (stale()) return;
@@ -486,7 +515,17 @@ export const useMemberStore = create<MemberState>((set, get) => ({
         // over rather than merging, so nodes revoked or moved out of scope
         // since the last fetch don't linger from an earlier merge.
         set({
-          members: buildAppMembers(nb.members, nb.relations, workspaceId),
+          members: applyPositionState(
+            filterSavedViewMembers(
+              buildAppMembers(nb.members, nb.relations, workspaceId),
+              get().savedViewFilters,
+            ),
+            get().savedViewPositions.map((p) => ({
+              id: p.node_id,
+              x: p.position_x,
+              y: p.position_y,
+            })),
+          ),
           neighborhoodMemberRows: nb.members,
           neighborhoodRelations: nb.relations,
           neighborhoodCursor: nb.next_cursor ?? null,
@@ -531,7 +570,17 @@ export const useMemberStore = create<MemberState>((set, get) => ({
         set({
           windowed: true,
           windowedForTreeId: workspaceId,
-          members: buildAppMembers(nb.members, nb.relations, workspaceId),
+          members: applyPositionState(
+            filterSavedViewMembers(
+              buildAppMembers(nb.members, nb.relations, workspaceId),
+              get().savedViewFilters,
+            ),
+            get().savedViewPositions.map((p) => ({
+              id: p.node_id,
+              x: p.position_x,
+              y: p.position_y,
+            })),
+          ),
           neighborhoodMemberRows: nb.members,
           neighborhoodRelations: nb.relations,
           neighborhoodCursor: nb.next_cursor ?? null,
@@ -588,9 +637,35 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     });
   },
 
+  applySavedView: async (view) => {
+    const workspaceId = activeTreeId();
+    if (workspaceId !== view.workspace_id) return;
+    set({
+      focusPending: true,
+      windowed: true,
+      windowedForTreeId: workspaceId,
+      focusRootId: view.focus_member_id,
+      focusSectionIds: view.section_ids.length ? view.section_ids : null,
+      neighborhoodUp: view.ancestor_depth,
+      neighborhoodDown: view.descendant_depth,
+      neighborhoodPartners: view.include_partners,
+      activeSavedViewId: view.id,
+      savedViewPositions: view.positions,
+      savedViewFilters: view.filters,
+    });
+    await get().refreshMembers(workspaceId);
+    set({ focusPending: false });
+  },
+
   setFocusRoot: async (rootId: string) => {
     const workspaceId = activeTreeId();
     set({
+      activeSavedViewId: null,
+      savedViewPositions: [],
+      savedViewFilters: {},
+      neighborhoodUp: 3,
+      neighborhoodDown: 3,
+      neighborhoodPartners: true,
       focusPending: true,
       windowed: true,
       focusRootId: rootId,
@@ -604,6 +679,12 @@ export const useMemberStore = create<MemberState>((set, get) => ({
   focusSection: async (sectionId: string | null) => {
     const workspaceId = activeTreeId();
     set({
+      activeSavedViewId: null,
+      savedViewPositions: [],
+      savedViewFilters: {},
+      neighborhoodUp: 3,
+      neighborhoodDown: 3,
+      neighborhoodPartners: true,
       focusPending: true,
       windowed: true,
       // The default root within the section is resolved by the fetch below
@@ -619,6 +700,12 @@ export const useMemberStore = create<MemberState>((set, get) => ({
 
   exitFocus: async () => {
     set({
+      activeSavedViewId: null,
+      savedViewPositions: [],
+      savedViewFilters: {},
+      neighborhoodUp: 3,
+      neighborhoodDown: 3,
+      neighborhoodPartners: true,
       focusPending: true,
       windowed: false,
       focusRootId: null,
@@ -644,6 +731,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     const {
       neighborhoodUp,
       neighborhoodDown,
+      neighborhoodPartners,
       focusRootId,
       focusSectionIds,
       neighborhoodMemberRows,
@@ -654,7 +742,8 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     const nextUp = Math.min(neighborhoodUp + 1, 20);
     const nextDown = Math.min(neighborhoodDown + 1, 20);
     const version = ++memberRefreshVersion;
-    const stale = () => !isActiveTree(workspaceId) || version !== memberRefreshVersion;
+    const stale = () =>
+      !isActiveTree(workspaceId) || version !== memberRefreshVersion;
 
     try {
       const nb = await WorkspaceService.getNeighborhood(
@@ -662,21 +751,25 @@ export const useMemberStore = create<MemberState>((set, get) => ({
         focusRootId ?? undefined,
         nextUp,
         nextDown,
-        true,
+        neighborhoodPartners,
         focusSectionIds ?? undefined,
       );
       if (stale()) return;
-      const { rows: mergedRows, relations: mergedRelations } = capNeighborhoodBuffer(
-        mergeMemberRows(neighborhoodMemberRows, nb.members),
-        mergeRelations(neighborhoodRelations, nb.relations),
-        EXPANSION_NODE_BUDGET,
-      );
+      const { rows: mergedRows, relations: mergedRelations } =
+        capNeighborhoodBuffer(
+          mergeMemberRows(neighborhoodMemberRows, nb.members),
+          mergeRelations(neighborhoodRelations, nb.relations),
+          EXPANSION_NODE_BUDGET,
+        );
       set({
         neighborhoodUp: nextUp,
         neighborhoodDown: nextDown,
         neighborhoodMemberRows: mergedRows,
         neighborhoodRelations: mergedRelations,
-        members: buildAppMembers(mergedRows, mergedRelations, workspaceId),
+        members: filterSavedViewMembers(
+          buildAppMembers(mergedRows, mergedRelations, workspaceId),
+          get().savedViewFilters,
+        ),
         neighborhoodTruncated: nb.truncated,
         totalMemberCount: nb.total_member_count,
         neighborhoodCursor: nb.next_cursor ?? null,
@@ -698,12 +791,14 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       focusSectionIds,
       neighborhoodUp,
       neighborhoodDown,
+      neighborhoodPartners,
     } = get();
     if (!workspaceId || !neighborhoodCursor) return;
     if (neighborhoodMemberRows.length >= EXPANSION_NODE_BUDGET) return;
 
     const version = ++memberRefreshVersion;
-    const stale = () => !isActiveTree(workspaceId) || version !== memberRefreshVersion;
+    const stale = () =>
+      !isActiveTree(workspaceId) || version !== memberRefreshVersion;
 
     try {
       const nb = await WorkspaceService.getNeighborhood(
@@ -711,21 +806,25 @@ export const useMemberStore = create<MemberState>((set, get) => ({
         focusRootId ?? undefined,
         neighborhoodUp,
         neighborhoodDown,
-        true,
+        neighborhoodPartners,
         focusSectionIds ?? undefined,
         undefined,
         neighborhoodCursor,
       );
       if (stale()) return;
-      const { rows: mergedRows, relations: mergedRelations } = capNeighborhoodBuffer(
-        mergeMemberRows(neighborhoodMemberRows, nb.members),
-        mergeRelations(neighborhoodRelations, nb.relations),
-        EXPANSION_NODE_BUDGET,
-      );
+      const { rows: mergedRows, relations: mergedRelations } =
+        capNeighborhoodBuffer(
+          mergeMemberRows(neighborhoodMemberRows, nb.members),
+          mergeRelations(neighborhoodRelations, nb.relations),
+          EXPANSION_NODE_BUDGET,
+        );
       set({
         neighborhoodMemberRows: mergedRows,
         neighborhoodRelations: mergedRelations,
-        members: buildAppMembers(mergedRows, mergedRelations, workspaceId),
+        members: filterSavedViewMembers(
+          buildAppMembers(mergedRows, mergedRelations, workspaceId),
+          get().savedViewFilters,
+        ),
         totalMemberCount: nb.total_member_count,
         neighborhoodCursor: nb.next_cursor ?? null,
         continuations: nb.continuations ?? [],
@@ -821,6 +920,12 @@ export const useMemberStore = create<MemberState>((set, get) => ({
 
   clear: () =>
     set({
+      activeSavedViewId: null,
+      savedViewPositions: [],
+      savedViewFilters: {},
+      neighborhoodUp: 3,
+      neighborhoodDown: 3,
+      neighborhoodPartners: true,
       members: [],
       detailLoadedIds: new Set<string>(),
       windowed: false,
@@ -842,8 +947,9 @@ export const useMemberStore = create<MemberState>((set, get) => ({
   addMember: async (newMember: Member) => {
     const workspaceId = activeTreeId();
     if (!workspaceId) return;
+    const originArgs = contentOriginArgs(workspaceId);
 
-    await WorkspaceService.addMember(workspaceId, newMember);
+    await WorkspaceService.addMember(workspaceId, newMember, ...originArgs);
 
     if (newMember.parents.paternalParent) {
       await WorkspaceService.addRelation(
@@ -889,6 +995,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
         "birth",
         newMember.date.birth,
         newMember.birthplace,
+        originArgs,
       );
     }
     if (newMember.date.death) {
@@ -897,6 +1004,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
         "death",
         newMember.date.death,
         newMember.cemetery,
+        originArgs,
       );
     }
 
@@ -907,7 +1015,11 @@ export const useMemberStore = create<MemberState>((set, get) => ({
         await get().refreshMembers(workspaceId);
       },
       redo: async () => {
-        await WorkspaceService.addMember(workspaceId, captured);
+        await WorkspaceService.addMember(
+          workspaceId,
+          captured,
+          ...contentOriginArgs(workspaceId),
+        );
         if (captured.parents.paternalParent) {
           await WorkspaceService.addRelation(
             workspaceId,
@@ -991,7 +1103,12 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     if (!workspaceId) return;
 
     const currentMember = get().members.find((m) => m.id === id);
-    await WorkspaceService.updateMember(workspaceId, id, changes);
+    await WorkspaceService.updateMember(
+      workspaceId,
+      id,
+      changes,
+      ...contentOriginArgs(workspaceId),
+    );
 
     await get().refreshMembers(workspaceId);
     if (isActiveTree(workspaceId)) invalidateDerivedViews();
@@ -1033,7 +1150,12 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     }
 
     const restore = async (update: MemberUpdate) => {
-      await WorkspaceService.updateMember(workspaceId, id, update);
+      await WorkspaceService.updateMember(
+        workspaceId,
+        id,
+        update,
+        ...contentOriginArgs(workspaceId),
+      );
       await get().refreshMembers(workspaceId);
       if (isActiveTree(workspaceId)) invalidateDerivedViews();
     };
@@ -1075,16 +1197,46 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     const workspaceId = activeTreeId();
     if (!workspaceId || positions.length === 0) return;
 
+    const savedViewId = get().activeSavedViewId;
+    const isCurrentView = () =>
+      isActiveTree(workspaceId) && get().activeSavedViewId === savedViewId;
+    const persist = async (updates: { id: string; x: number; y: number }[]) => {
+      if (savedViewId) {
+        await WorkspaceService.updateSavedViewPositions(
+          workspaceId,
+          savedViewId,
+          updates.map((p) => ({
+            node_id: p.id,
+            position_x: p.x,
+            position_y: p.y,
+          })),
+        );
+        if (
+          isActiveTree(workspaceId) &&
+          get().activeSavedViewId === savedViewId
+        ) {
+          const byId = new Map(
+            get().savedViewPositions.map((p) => [p.node_id, p]),
+          );
+          for (const p of updates)
+            byId.set(p.id, { node_id: p.id, position_x: p.x, position_y: p.y });
+          set({ savedViewPositions: [...byId.values()] });
+        }
+      } else {
+        await WorkspaceService.updateMemberPositions(
+          workspaceId,
+          updates.map((p) => ({ id: p.id, positionX: p.x, positionY: p.y })),
+        );
+      }
+    };
+
     const oldPositions = capturePositions(get().members, positions);
     set({ members: applyPositionState(get().members, positions) });
 
     try {
-      await WorkspaceService.updateMemberPositions(
-        workspaceId,
-        positions.map((p) => ({ id: p.id, positionX: p.x, positionY: p.y })),
-      );
+      await persist(positions);
     } catch (error) {
-      if (isActiveTree(workspaceId)) {
+      if (isCurrentView()) {
         set({ members: applyPositionState(get().members, oldPositions) });
         toast.error(i18n.t("tree-view.persistence.positions-error"));
         await refreshAfterOptimisticFailure(get().refreshMembers, workspaceId);
@@ -1094,41 +1246,35 @@ export const useMemberStore = create<MemberState>((set, get) => ({
 
     get()._pushHistory({
       undo: async () => {
-        set({ members: applyPositionState(get().members, oldPositions) });
+        if (isCurrentView())
+          set({ members: applyPositionState(get().members, oldPositions) });
         try {
-          await WorkspaceService.updateMemberPositions(
-            workspaceId,
-            oldPositions.map((p) => ({
-              id: p.id,
-              positionX: p.x,
-              positionY: p.y,
-            })),
-          );
+          await persist(oldPositions);
         } catch (error) {
-          if (isActiveTree(workspaceId)) {
+          if (isCurrentView()) {
             set({ members: applyPositionState(get().members, positions) });
             toast.error(i18n.t("tree-view.persistence.positions-error"));
-            await refreshAfterOptimisticFailure(get().refreshMembers, workspaceId);
+            await refreshAfterOptimisticFailure(
+              get().refreshMembers,
+              workspaceId,
+            );
           }
           throw error;
         }
       },
       redo: async () => {
-        set({ members: applyPositionState(get().members, positions) });
+        if (isCurrentView())
+          set({ members: applyPositionState(get().members, positions) });
         try {
-          await WorkspaceService.updateMemberPositions(
-            workspaceId,
-            positions.map((p) => ({
-              id: p.id,
-              positionX: p.x,
-              positionY: p.y,
-            })),
-          );
+          await persist(positions);
         } catch (error) {
-          if (isActiveTree(workspaceId)) {
+          if (isCurrentView()) {
             set({ members: applyPositionState(get().members, oldPositions) });
             toast.error(i18n.t("tree-view.persistence.positions-error"));
-            await refreshAfterOptimisticFailure(get().refreshMembers, workspaceId);
+            await refreshAfterOptimisticFailure(
+              get().refreshMembers,
+              workspaceId,
+            );
           }
           throw error;
         }
@@ -1265,7 +1411,13 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     const workspaceId = activeTreeId();
     if (!workspaceId) return;
     const id = crypto.randomUUID();
-    await WorkspaceService.addDisease(workspaceId, id, memberId, disease);
+    await WorkspaceService.addDisease(
+      workspaceId,
+      id,
+      memberId,
+      disease,
+      ...contentOriginArgs(workspaceId),
+    );
     await get().fetchMemberDetail(memberId, true);
     invalidateDerivedViews();
   },

@@ -60,6 +60,7 @@ from app.services.workspaces.merge_copy import (
     copy_stories,
     copy_tasks,
 )
+from app.services.workspaces.visibility import resolve_access_context
 from app.services.workspaces.workspace_state import mark_workspace_opened
 
 MemberIdMap = dict[str, str]
@@ -69,7 +70,20 @@ def _require_readable(db: Session, user: User, workspace_id: str) -> Workspace:
     tree = db.get(Workspace, workspace_id)
     if tree is None or role_for(db, tree, user) is None:
         raise NotFoundError("Source tree not found")
+    resolve_access_context(db, tree, user).require_full_workspace_read()
     return tree
+
+
+def require_merge_sources(
+    db: Session, user: User, source_a_id: str, source_b_id: str | None
+) -> None:
+    """Reject an unauthorized copy before scheduling any background work.
+
+    The worker repeats authorization through ``_require_readable`` in case
+    the caller's permissions change while the job is queued.
+    """
+    for workspace_id in {source_a_id, source_b_id} - {None}:
+        _require_readable(db, user, workspace_id)
 
 
 # ---------------------------------------------------------------------------

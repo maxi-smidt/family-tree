@@ -1,3 +1,4 @@
+import { contentOriginArgs } from "@/hooks/contentOrigin";
 import { create } from "zustand";
 import {
   GalleryImage,
@@ -157,6 +158,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
         memberIds: image.linkedMemberIds ?? [],
       },
       now,
+      ...contentOriginArgs(workspaceId),
     );
 
     if (opts?.refresh !== false) {
@@ -238,7 +240,11 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
     const workspaceId = activeTreeId();
     if (!workspaceId) return;
 
-    await WorkspaceService.updateGalleryUnknownFace(workspaceId, faceId, region);
+    await WorkspaceService.updateGalleryUnknownFace(
+      workspaceId,
+      faceId,
+      region,
+    );
 
     await get().refreshGalleryImages(workspaceId);
     invalidateActivityView();
@@ -248,7 +254,11 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
     const workspaceId = activeTreeId();
     if (!workspaceId) return;
 
-    await WorkspaceService.resolveGalleryUnknownFace(workspaceId, faceId, memberId);
+    await WorkspaceService.resolveGalleryUnknownFace(
+      workspaceId,
+      faceId,
+      memberId,
+    );
 
     await get().refreshGalleryImages(workspaceId);
     refreshTaskStore(workspaceId);

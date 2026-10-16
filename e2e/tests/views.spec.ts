@@ -214,13 +214,51 @@ test("activity view — adding a member creates an activity entry", async ({
 // Statistics view
 // ---------------------------------------------------------------------------
 
-test("statistics view — member count matches seeded data", async ({
+test("statistics view — fixed widgets ignore saved customization", async ({
   adminPage,
   adminApi,
   seedTree,
 }) => {
   const tree = await seedTree("E2E-StatisticsView");
-  await seedMinimalFamily(adminApi, tree.id); // 3 members
+  const { bob } = await seedMinimalFamily(adminApi, tree.id); // 3 members
+  await adminApi.patch(`/workspaces/${tree.id}/members/${bob.id}`, {
+    deceased: true,
+    dateOfDeath: "2020-06-15",
+  });
+
+  // A returning user may have hidden/reordered built-ins and saved custom
+  // widgets before upgrading. None of these preferences should affect the view.
+  await adminPage.evaluate(() => {
+    localStorage.setItem(
+      "app-statistics-settings",
+      JSON.stringify({
+        version: 3,
+        state: {
+          order: [
+            "custom:legacy",
+            "last-names",
+            "first-names",
+            "lifespan",
+            "timeline",
+            "gender",
+            "on-this-day",
+          ],
+          hidden: ["gender", "lifespan"],
+          customWidgets: [
+            {
+              id: "custom:legacy",
+              kind: "custom",
+              title: "Legacy custom widget",
+              chartType: "bar",
+              dimensionId: "gender",
+              measureId: "count",
+              color: "#123456",
+            },
+          ],
+        },
+      }),
+    );
+  });
 
   await adminPage.reload({ waitUntil: "networkidle" });
   await selectTree(adminPage, tree.name);
@@ -235,6 +273,23 @@ test("statistics view — member count matches seeded data", async ({
   await expect(totalMembersCard.getByText("3", { exact: true })).toBeVisible({
     timeout: 10_000,
   });
+  await expect(adminPage.locator("h2")).toHaveText([
+    "On this day",
+    "Gender Distribution",
+    "Births & Deaths by Decade",
+    "Lifespan Distribution (years at death)",
+    "Most Common First Names",
+    "Most Common Last Names",
+  ]);
+  await expect(adminPage.getByText("Legacy custom widget")).toHaveCount(0);
+  await expect(
+    adminPage.getByRole("button", {
+      name: /customize|create widget|move up|move down/i,
+    }),
+  ).toHaveCount(0);
+  await adminPage.evaluate(() =>
+    localStorage.removeItem("app-statistics-settings"),
+  );
 });
 
 // ---------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, renderHook } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { useCanvasHistory } from "./useCanvasHistory";
 import { useMemberStore } from "./useMemberStore";
 import { useWorkspaceStore } from "./useWorkspaceStore";
@@ -16,7 +16,11 @@ const TREE_ID = "tree-abc";
 beforeEach(() => {
   vi.clearAllMocks();
   useWorkspaceStore.setState({
-    selectedTree: { id: TREE_ID, name: "Test Workspace", role: "owner" } as Workspace,
+    selectedTree: {
+      id: TREE_ID,
+      name: "Test Workspace",
+      role: "owner",
+    } as Workspace,
   });
   useMemberStore.setState({
     windowed: true,
@@ -167,9 +171,11 @@ describe("useCanvasHistory", () => {
       true,
       undefined,
     );
-    expect(setViewport).toHaveBeenCalledWith(
-      { x: 1, y: 2, zoom: 3 },
-      { duration: 0 },
+    await waitFor(() =>
+      expect(setViewport).toHaveBeenCalledWith(
+        { x: 1, y: 2, zoom: 3 },
+        { duration: 0 },
+      ),
     );
   });
 

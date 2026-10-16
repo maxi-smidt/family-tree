@@ -3,7 +3,7 @@
 The v2.0.0 cutover is a **one-time, in-place data conversion**, not just a
 schema migration: it consolidates every user's separate trees into shared
 workspaces with sections. This is the pre-upgrade planning runbook — what to
-check and do *before* and *during* the upgrade window. For what the backend
+check and do _before_ and _during_ the upgrade window. For what the backend
 does automatically on startup, how to read a stuck/failed run, and the
 restore commands, see ["Upgrading from v1.x to
 v2.0.0"](OPERATIONS.md#upgrading-from-v1x-to-v200) in the Operations Guide;
@@ -33,13 +33,13 @@ this document doesn't repeat that material.
   path once `alembic upgrade head` has renamed `trees` to `workspaces`, and a
   v1.x application image cannot run against a partially- or fully-converted
   v2 schema either. The only supported way back is restoring a backup taken
-  *before* you started (see [§6](#6-if-something-goes-wrong)).
+  _before_ you started (see [§6](#6-if-something-goes-wrong)).
 
 ## 2. Stop and prove every v1 writer
 
 The conversion runs once, under an exclusive advisory lock, the first time a
 v2.0.0 backend starts against a v1-shaped database — but that lock only
-fences *other v2 backend processes* against each other (see
+fences _other v2 backend processes_ against each other (see
 `MIGRATION_LOCK_KEY` in `app.services.migration.orchestrator`). It does
 **not** know about an old v1.x process still pointed at the same database: a
 rolling deploy that leaves a v1.x replica running while a v2.0.0 replica
@@ -49,7 +49,7 @@ idea `trees` was just renamed to `workspaces` mid-write).
 Before starting the v2.0.0 image:
 
 1. **Scale every v1.x backend replica to zero** (`docker compose stop
-   backend`, or your orchestrator's equivalent) — don't rely on a rolling
+backend`, or your orchestrator's equivalent) — don't rely on a rolling
    update to hand off traffic.
 2. **Confirm no v1 process still holds a connection.** On the Postgres side:
    ```sql
@@ -90,7 +90,7 @@ exact same, already-tested binary — no surprise re-pull mid-migration.
 
 The automated `pre_migration` backup (see
 [OPERATIONS.md](OPERATIONS.md#upgrading-from-v1x-to-v200)) protects against
-the *conversion* failing — it does not protect against the host itself being
+the _conversion_ failing — it does not protect against the host itself being
 lost, and it lives on the same volumes as everything else. Before upgrading:
 
 1. Take a database dump + `${DATA_PATH}` archive using the procedure in
@@ -112,7 +112,7 @@ relying on that check under time pressure, confirm it yourself:
   full copy of your current media + database size (the pre-migration backup
   duplicates both).
 - `SECRET_KEY` in `.env` is the same unique value your v1.x instance already
-  uses — changing it at upgrade time makes any *existing* encrypted backup
+  uses — changing it at upgrade time makes any _existing_ encrypted backup
   unreadable, independent of the migration itself.
 
 ## 6. Monitor the migration
@@ -157,6 +157,26 @@ done:
 
 Finalizing does not delete the `pre_migration` backup or any report/conflict
 row; those remain for audit regardless.
+
+Collaborators whose grants cover individual sections retain access to those
+sections and their visible media. Whole-workspace exports (native and GEDCOM),
+duplicate/merge operations, and activity history require workspace-wide read
+access; undo requires workspace-wide editor access. These operations can span
+several sections, so a section grant alone cannot authorize them. An owner
+can explicitly widen a migrated grant after reviewing the intended audience.
+
+Statistics and quality reports include only records readable through the caller's
+current grants. Quality dismissals require write access covering every affected
+member's sections. Section creation requires workspace-wide editor access;
+workspace branch previews require workspace-wide read access. Content-scope
+metadata and re-scoping remain owner/admin operations.
+
+Content created while a single section is selected inherits that section as its
+origin, including files whose upload completes after navigation changes. A saved
+view spanning several sections requires choosing one section before adding
+content. Opening a saved view restores its sections, generation depths, partner
+setting, supported member/relation filters, and position overlay; arrangement
+changes in that view do not overwrite the workspace's canonical positions.
 
 ## 8. If something goes wrong
 

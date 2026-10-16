@@ -12,10 +12,12 @@ from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_readable_workspace_public
+from app.api.deps import get_readable_workspace_public, get_workspace_access
 from app.core.config import settings
 from app.db.session import get_db
 from app.models import DocumentFile, Workspace
+from app.services.media.visibility import require_read_media
+from app.services.workspaces.visibility import WorkspaceAccessContext
 
 router = APIRouter(tags=["media"])
 
@@ -45,6 +47,7 @@ def serve_media(
     filename: str,
     download: bool = False,
     tree: Workspace = Depends(get_readable_workspace_public),
+    context: WorkspaceAccessContext = Depends(get_workspace_access),
     db: Session = Depends(get_db),
 ) -> FileResponse:
     # Reject any attempt to escape the tree directory via path components.
@@ -62,6 +65,9 @@ def serve_media(
     if not path.is_file():
         raise HTTPException(status_code=404, detail="Not found")
 
+    media_url = f"{settings.API_PREFIX}/media/{tree.id}/{filename}"
+    require_read_media(db, context, media_url)
+
     ext = path.suffix.lstrip(".").lower()
     mime = _MIME.get(ext, "application/octet-stream")
 
@@ -71,7 +77,6 @@ def serve_media(
     # sets Content-Disposition and RFC 5987-encodes non-ASCII names for them.
     original_name = None
     if download:
-        media_url = f"{settings.API_PREFIX}/media/{tree.id}/{filename}"
         original_name = db.scalar(
             select(DocumentFile.filename).where(
                 DocumentFile.workspace_id == tree.id,

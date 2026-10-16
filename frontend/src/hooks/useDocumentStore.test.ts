@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DocumentUploadError, useDocumentStore } from "./useDocumentStore";
 import { useWorkspaceStore } from "./useWorkspaceStore";
 import { WorkspaceService } from "@/services/WorkspaceService";
+import { useMemberStore } from "@/hooks/useMemberStore";
 import { DocumentDB } from "@/types/document";
 import { Workspace } from "@/types/workspace";
 
@@ -338,4 +339,41 @@ describe("useDocumentStore — clear", () => {
     expect(useDocumentStore.getState().documents).toHaveLength(0);
     expect(useDocumentStore.getState().initialized).toBe(false);
   });
+});
+
+it("keeps the captured origin when the selected section changes during an upload", async () => {
+  useWorkspaceStore.setState({ selectedTree: TREE });
+  useMemberStore.setState({ focusSectionIds: ["private-section"] });
+  vi.mocked(WorkspaceService.stageDocumentUpload).mockImplementation(
+    async () => {
+      useMemberStore.setState({ focusSectionIds: ["other-section"] });
+      return {
+        id: "upload",
+        filename: "scan.pdf",
+        mime_type: "application/pdf",
+        size: 4,
+      };
+    },
+  );
+  vi.mocked(WorkspaceService.saveDocument).mockResolvedValue(DOC_DB);
+  vi.mocked(WorkspaceService.getDocuments).mockResolvedValue([DOC_DB]);
+  await useDocumentStore.getState().addDocument(INPUT, ["m1"], {
+    addedFiles: [{ filename: "scan.pdf", file: FILE }],
+    addedLinks: [],
+    removedIds: [],
+    renamed: [],
+  });
+  expect(WorkspaceService.stageDocumentUpload).toHaveBeenCalledWith(
+    TREE_ID,
+    FILE,
+    "scan.pdf",
+    "private-section",
+  );
+  expect(WorkspaceService.saveDocument).toHaveBeenCalledWith(
+    TREE_ID,
+    expect.any(String),
+    expect.any(Object),
+    "private-section",
+  );
+  useMemberStore.getState().clear();
 });

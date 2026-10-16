@@ -37,9 +37,8 @@ export const CompleteIdentityLinkClaimDialog = ({
   const { t } = useTranslation(undefined, {
     keyPrefix: "identity-links-view.complete-dialog",
   });
-  const ownedWorkspaces = useWorkspaceStore((s) =>
-    s.workspaces.filter((w) => w.role === "owner"),
-  );
+  const workspaces = useWorkspaceStore((s) => s.workspaces);
+  const ownedWorkspaces = workspaces.filter((w) => w.role === "owner");
   const completeClaim = useIdentityLinkStore((s) => s.completeClaim);
   const searchMembers = useMemberStore((s) => s.searchMembers);
 

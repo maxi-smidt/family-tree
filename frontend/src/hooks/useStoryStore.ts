@@ -1,3 +1,4 @@
+import { contentOriginArgs } from "@/hooks/contentOrigin";
 import { create } from "zustand";
 import { Story, StoryInput, mapStoryFromDB } from "@/types/story";
 import { WorkspaceService } from "@/services/WorkspaceService";
@@ -73,7 +74,14 @@ export const useStoryStore = create<StoryState>((set, get) => ({
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
 
-    await WorkspaceService.addStory(workspaceId, id, story, now, memberIds);
+    await WorkspaceService.addStory(
+      workspaceId,
+      id,
+      story,
+      now,
+      memberIds,
+      ...contentOriginArgs(workspaceId),
+    );
     if (documentIds.length > 0) {
       await WorkspaceService.setStoryDocuments(workspaceId, id, documentIds);
     }
