@@ -27,7 +27,11 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_readable_workspace
+from app.api.deps import (
+    get_current_user,
+    get_readable_workspace,
+    get_workspace_access_authenticated,
+)
 from app.core.config import settings
 from app.db.base import utcnow_iso
 from app.db.session import get_db
@@ -80,6 +84,7 @@ from app.services.interchange.gedcom import gedcom
 from app.services.interchange.gedcom.tree_gedcom_import import do_import_gedcom
 from app.services.media.storage import media_url_to_data_url
 from app.services.system.job_service import create_job, run_job
+from app.services.workspaces.visibility import WorkspaceAccessContext
 
 router = APIRouter(prefix="/workspaces", tags=["export"])
 
@@ -101,8 +106,10 @@ def export_tree(
     payload: WorkspaceExportRequest,
     tree: Workspace = Depends(get_readable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_authenticated),
     db: Session = Depends(get_db),
 ):
+    context.require_full_workspace_read()
     members: list[BundleMemberRow] = _rows(db, Member, tree.id)
     for m in members:
         m["image_data"] = media_url_to_data_url(m.get("image_data"))
@@ -336,9 +343,11 @@ async def import_tree(
 )
 def export_tree_gedcom(
     tree: Workspace = Depends(get_readable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_authenticated),
     db: Session = Depends(get_db),
 ) -> Response:
     """Export the tree as a plain-text GEDCOM 5.5.1 file."""
+    context.require_full_workspace_read()
     members_ged: list[BundleMemberRow] = _rows(db, Member, tree.id)
     relations_ged: list[BundleRelationRow] = _rows(db, Relation, tree.id)
     documents_ged: list[BundleDocumentRow] = _rows(db, Document, tree.id)

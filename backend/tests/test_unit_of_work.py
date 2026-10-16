@@ -285,7 +285,11 @@ def test_create_member_commit_failure_leaves_no_row_and_publishes_nothing(
     with patch("app.api.routes.members.publish_workspace_event") as published:
         with pytest.raises(RuntimeError):
             create_member(
-                MemberCreate(id="m1", first_name="A"), tree=tree, user=owner, db=db
+                MemberCreate(id="m1", first_name="A"),
+                tree=tree,
+                user=owner,
+                context=_owner_context(tree, owner),
+                db=db,
             )
     published.assert_not_called()
 

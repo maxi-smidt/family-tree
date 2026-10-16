@@ -11,6 +11,8 @@ from app.api.activity_query import activity_page, hidden_activity_target_types
 from app.api.deps import (
     get_current_user,
     get_readable_workspace,
+    get_workspace_access_authenticated,
+    get_workspace_access_write,
     get_writable_workspace,
 )
 from app.db.session import get_db
@@ -23,6 +25,7 @@ from app.services.cache import invalidate_stats
 from app.services.event_bus import publish_workspace_event
 from app.services.media.storage import untrash_media
 from app.services.unit_of_work import UnitOfWork
+from app.services.workspaces.visibility import WorkspaceAccessContext
 
 router = APIRouter(
     prefix="/workspaces/{workspace_id}",
@@ -34,6 +37,7 @@ router = APIRouter(
 def list_activity(
     tree: Workspace = Depends(get_readable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_authenticated),
     limit: int = Query(default=25, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     actor: str | None = Query(default=None),
@@ -43,8 +47,11 @@ def list_activity(
 ) -> ActivityPageOut:
     """Return an offset-based page of newest-first activity for a tree.
 
-    Accessible to anyone with at least read access (owner, editor, viewer).
+    Snapshots can contain data from several sections, including deleted
+    records with no remaining membership. Require workspace-wide visibility
+    until the audit trail supports filtering those historical scopes.
     """
+    context.require_full_workspace_read()
     return activity_page(
         db,
         [tree.id],
@@ -66,6 +73,7 @@ def undo_activity(
     entry_id: str,
     tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ) -> ActivityUndoOut:
     """Undo a single logged delete by restoring its pre-image snapshot.
@@ -75,6 +83,9 @@ def undo_activity(
     validates against the tree's current state, skipping (and reporting) the
     rest rather than failing outright — see app.services.activity.activity_undo.
     """
+    # A restore can recreate multiple rows and references across sections.
+    # Read access plus an editor grant in one section is not sufficient.
+    context.require_write_scope(None)
     entry = db.get(ActivityLog, entry_id)
     if entry is None or entry.workspace_id != tree.id:
         raise HTTPException(status_code=404, detail="Activity entry not found")

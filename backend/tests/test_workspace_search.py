@@ -192,7 +192,11 @@ def test_tampered_cursor_is_rejected(db, client):
 
     r = _search(client, tree, user, q="anna", limit=1)
     cursor = r.json()["next_cursor"]
-    tampered = cursor[:-1] + ("a" if cursor[-1] != "a" else "b")
+    header, payload, signature = cursor.split(".")
+    # The final base64 character has unused bits: changing only those can
+    # preserve the signature bytes. Change its first character instead.
+    signature = ("a" if signature[0] != "a" else "b") + signature[1:]
+    tampered = ".".join((header, payload, signature))
 
     r2 = _search(client, tree, user, q="anna", limit=1, cursor=tampered)
     assert r2.status_code == 400

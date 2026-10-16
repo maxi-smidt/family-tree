@@ -31,6 +31,7 @@ from app.services.media.storage import (
     process_image_field,
 )
 from app.services.media.storage_usage import check_media_quota
+from app.services.media.visibility import require_read_media
 from app.services.members.member_access import get_member
 from app.services.members.member_vitals import (
     event_updates_allowed,
@@ -39,6 +40,7 @@ from app.services.members.member_vitals import (
 )
 from app.services.system.settings_service import get_media_limits
 from app.services.unit_of_work import UnitOfWork
+from app.services.workspaces.visibility import resolve_access_context
 
 # Positional/internal fields excluded from the before/after activity diff.
 _DIFF_SKIP_FIELDS = {"position_x", "position_y", "is_collapsed", "image_data"}
@@ -66,6 +68,9 @@ def update_member(
     maternal_parent_id = changes.pop("maternal_parent_id", None)
     new_image_url: str | None = None
     if "image_data" in changes:
+        image_url = changes["image_data"]
+        if image_url and image_url.startswith(f"{MEDIA_URL_PREFIX}/{tree.id}/"):
+            require_read_media(db, resolve_access_context(db, tree, user), image_url)
         try:
             new_url = process_image_field(
                 tree.id,

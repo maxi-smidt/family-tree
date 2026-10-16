@@ -28,7 +28,7 @@ from app.core.exceptions import QuotaExceeded
 from app.core.rate_limit import neighborhood_rate_limiter, search_rate_limiter
 from app.core.request_ip import client_ip
 from app.db.session import get_db
-from app.models import Event, EventMemberLink, Member, Workspace
+from app.models import Event, EventMemberLink, Member, SectionMember, Workspace
 from app.models.user import User
 from app.schemas.family import (
     MemberCollapsedUpdate,
@@ -56,6 +56,7 @@ from app.services.media.storage import (
     process_image_field,
 )
 from app.services.media.storage_usage import check_media_quota, check_workspace_quota
+from app.services.media.visibility import require_read_media
 from app.services.members.member_access import (
     PUBLIC_MEMBER_COLUMNS,
     public_member_payloads,
@@ -74,6 +75,7 @@ from app.services.members.member_search import (
 )
 from app.services.members.member_update import update_member as update_member_service
 from app.services.members.member_vitals import event_updates_allowed, sync_vital_event
+from app.services.provenance import origin_section
 from app.services.saved_views.saved_views import degrade_saved_views_for_member
 from app.services.system.settings_service import get_media_limits
 from app.services.unit_of_work import UnitOfWork
@@ -137,9 +139,13 @@ def create_member(
     payload: MemberCreate,
     tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
     data = payload.model_dump()
+    image_url = data.get("image_data")
+    if image_url and image_url.startswith(f"{MEDIA_URL_PREFIX}/{tree.id}/"):
+        require_read_media(db, context, image_url)
     new_image_url: str | None = None
     try:
         new_image_url_candidate = process_image_field(
@@ -176,6 +182,11 @@ def create_member(
     with UnitOfWork(db) as uow:
         member = Member(workspace_id=tree.id, **data)
         db.add(member)
+        if not context.can_write_scope(None):
+            # Keep a scoped editor's new member inside their authorized
+            # origin, so subsequent section edits need no visibility bypass.
+            db.flush()
+            db.add(SectionMember(section_id=origin_section(db), member_id=member.id))
         label = (
             " ".join(filter(None, [data.get("first_name"), data.get("last_name")]))
             or None
