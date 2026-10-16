@@ -264,23 +264,19 @@ test("statistics view — fixed widgets ignore saved customization", async ({
   await selectTree(adminPage, tree.name);
   await clickTab(adminPage, /statistics/i);
 
-  await expect(adminPage.getByText(/total members/i)).toBeVisible({
-    timeout: 10_000,
-  });
-  const totalMembersCard = adminPage
+  const peopleTile = adminPage
     .locator('[data-slot="card"]')
-    .filter({ hasText: /total members/i });
-  await expect(totalMembersCard.getByText("3", { exact: true })).toBeVisible({
+    .filter({ has: adminPage.getByText("People", { exact: true }) });
+  await expect(peopleTile.getByText("3", { exact: true })).toBeVisible({
     timeout: 10_000,
   });
-  await expect(adminPage.locator("h2")).toHaveText([
-    "On this day",
-    "Gender Distribution",
-    "Births & Deaths by Decade",
-    "Lifespan Distribution (years at death)",
-    "Most Common First Names",
-    "Most Common Last Names",
-  ]);
+  // The overview is a fixed layout: saved order/hidden widgets don't apply.
+  await expect(
+    adminPage.getByRole("heading", { name: "Gender", exact: true }),
+  ).toBeVisible();
+  await expect(
+    adminPage.getByRole("heading", { name: "Coming up", exact: true }),
+  ).toBeVisible();
   await expect(adminPage.getByText("Legacy custom widget")).toHaveCount(0);
   await expect(
     adminPage.getByRole("button", {

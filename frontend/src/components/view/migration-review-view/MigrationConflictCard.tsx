@@ -165,7 +165,7 @@ export const MigrationConflictCard = ({ conflict }: Props) => {
                             setFieldChoice(field, v as MergeFieldChoice)
                           }
                         >
-                          <SelectTrigger className="h-7 text-xs">
+                          <SelectTrigger size="sm" >
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -198,7 +198,7 @@ export const MigrationConflictCard = ({ conflict }: Props) => {
                           setFieldChoice("image_data", v as MergeFieldChoice)
                         }
                       >
-                        <SelectTrigger className="h-7 text-xs">
+                        <SelectTrigger size="sm" >
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -226,7 +226,7 @@ export const MigrationConflictCard = ({ conflict }: Props) => {
                 value={action}
                 onValueChange={(v) => setAction(v as MigrationConflictAction)}
               >
-                <SelectTrigger className="h-8 w-36 text-xs">
+                <SelectTrigger size="sm" className="w-36">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

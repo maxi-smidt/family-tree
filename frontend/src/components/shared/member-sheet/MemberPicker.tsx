@@ -70,7 +70,7 @@ export const MemberPicker = ({
             aria-expanded={open}
             className={cn(
               "w-full justify-between shadow-none font-normal",
-              size === "default" ? "h-9 text-sm" : "h-7 text-xs",
+              size === "default" ? "h-9" : "h-8",
             )}
           >
             <span className={cn(!label && "text-muted-foreground truncate")}>

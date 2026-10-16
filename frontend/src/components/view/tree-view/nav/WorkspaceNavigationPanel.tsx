@@ -422,9 +422,9 @@ export const WorkspaceNavigationPanel = ({
     <>
       <Popover open={menuOpen} onOpenChange={setMenuOpen}>
         <PopoverTrigger asChild>
-          <Button
+          <Button size="default"
             variant="outline"
-            className="h-9 max-w-[16rem] gap-2 bg-card shadow-xs"
+            className="max-w-[16rem] gap-2 bg-card shadow-xs"
             aria-label={t("open-menu", { name: currentLabel })}
             title={currentLabel}
           >

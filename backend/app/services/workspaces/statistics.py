@@ -12,11 +12,16 @@ from app.schemas.statistics import (
     AgeGroup,
     DecadeCount,
     GenderDistribution,
+    LifeSpan,
+    MemberYear,
     NameCount,
     StatisticsReport,
 )
 
 _YEAR_RE = re.compile(r"\b(\d{4})\b")
+
+TOP_BIRTHPLACES = 6
+LONGEST_LIVES = 8
 
 AGE_BUCKETS = [
     (0, 9, "0–9"),
@@ -55,6 +60,11 @@ def compute_statistics(members: list[Member], workspace_id: str) -> StatisticsRe
     lifespans: list[int] = []
     first_name_counter: Counter[str] = Counter()
     last_name_counter: Counter[str] = Counter()
+    birthplace_counter: Counter[str] = Counter()
+    lives: list[LifeSpan] = []
+    earliest: MemberYear | None = None
+    living = 0
+    with_photo = 0
 
     for m in members:
         # Gender
@@ -64,8 +74,30 @@ def compute_statistics(members: list[Member], workspace_id: str) -> StatisticsRe
         else:
             gender_counts["unknown"] += 1
 
-        birth_year = extract_year(m.date_of_birth)
-        death_year = extract_year(m.date_of_death)
+        # Sort keys hold the normalised ISO date when free-text dates were
+        # imported (e.g. GEDCOM "ABT 1920"); fall back to the display value.
+        birth_year = extract_year(m.date_of_birth_sort) or extract_year(
+            m.date_of_birth
+        )
+        death_year = extract_year(m.date_of_death_sort) or extract_year(
+            m.date_of_death
+        )
+
+        if not death_year and not m.deceased:
+            living += 1
+        if m.image_data:
+            with_photo += 1
+        place = (m.birthplace or "").strip()
+        if place:
+            birthplace_counter[place] += 1
+        if birth_year and (earliest is None or birth_year < earliest.year):
+            earliest = MemberYear(
+                member_id=m.id,
+                first_name=m.first_name,
+                last_name=m.last_name,
+                year=birth_year,
+                place=place or None,
+            )
 
         if birth_year:
             birth_years.append(birth_year)
@@ -73,6 +105,17 @@ def compute_statistics(members: list[Member], workspace_id: str) -> StatisticsRe
             death_years.append(death_year)
         if birth_year and death_year and death_year >= birth_year:
             lifespans.append(death_year - birth_year)
+            lives.append(
+                LifeSpan(
+                    member_id=m.id,
+                    first_name=m.first_name,
+                    last_name=m.last_name,
+                    gender=m.gender,
+                    birth_year=birth_year,
+                    death_year=death_year,
+                    age=death_year - birth_year,
+                )
+            )
 
         if m.first_name and m.first_name.strip():
             first_name_counter[m.first_name.strip()] += 1
@@ -132,5 +175,17 @@ def compute_statistics(members: list[Member], workspace_id: str) -> StatisticsRe
         ],
         top_last_names=[
             NameCount(name=n, count=c) for n, c in last_name_counter.most_common(10)
+        ],
+        living_count=living,
+        members_with_birthplace=sum(birthplace_counter.values()),
+        members_with_photo=with_photo,
+        earliest_birth=earliest,
+        top_birthplaces=[
+            NameCount(name=n, count=c)
+            for n, c in birthplace_counter.most_common(TOP_BIRTHPLACES)
+        ],
+        # Longest first; ties broken by earliest birth so the order is stable.
+        longest_lives=sorted(lives, key=lambda life: (-life.age, life.birth_year))[
+            :LONGEST_LIVES
         ],
     )

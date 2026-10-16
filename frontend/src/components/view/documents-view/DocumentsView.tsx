@@ -313,7 +313,7 @@ function DocumentCard({
       type="button"
       variant="outline"
       size="sm"
-      className="h-7 max-w-60 gap-1 px-2"
+      className="max-w-60 gap-1 px-2"
       onClick={() => openFile(file)}
     >
       {file.kind === "file" ? (
@@ -467,7 +467,7 @@ function DocumentCard({
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="h-7 max-w-48 gap-1 px-2"
+                          className="max-w-48 gap-1 px-2"
                           onClick={() => openMember(memberId)}
                         >
                           <UserRound className="h-3.5 w-3.5 shrink-0" />
@@ -492,7 +492,7 @@ function DocumentCard({
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="h-7 max-w-60 gap-1 px-2"
+                        className="max-w-60 gap-1 px-2"
                         disabled={!canNavigateTimeline}
                         onClick={() => navigateTo("timeline-view")}
                       >
@@ -509,7 +509,7 @@ function DocumentCard({
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="h-7 max-w-60 gap-1 px-2"
+                        className="max-w-60 gap-1 px-2"
                         disabled={!canNavigateTimeline}
                         onClick={() => navigateTo("timeline-view")}
                       >

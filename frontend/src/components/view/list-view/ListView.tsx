@@ -388,7 +388,7 @@ export const ListView = () => {
             <Button
               variant={inlineEdit ? "default" : "outline"}
               size="sm"
-              className="h-8 gap-1.5 text-xs"
+              className="gap-1.5"
               aria-pressed={inlineEdit}
               onClick={() => setInlineEdit((v) => !v)}
             >
@@ -399,7 +399,7 @@ export const ListView = () => {
           <Button
             variant="outline"
             size="sm"
-            className="h-8 gap-1.5 text-xs"
+            className="gap-1.5"
             onClick={handleExportCsv}
             disabled={sortedMembers.length === 0}
           >

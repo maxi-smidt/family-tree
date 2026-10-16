@@ -10,7 +10,10 @@ import {
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useUnsavedChangesStore } from "@/hooks/useUnsavedChangesStore";
 import { useTranslation } from "react-i18next";
-import { Crown, Users } from "lucide-react";
+import { ChevronsUpDown } from "lucide-react";
+import { WorkspaceMonogram } from "@/components/shared/WorkspaceMonogram";
+import { useMemberStore } from "@/hooks/useMemberStore";
+import type { Workspace } from "@/types/workspace";
 import { toast } from "sonner";
 
 export const DatabaseSelector = () => {
@@ -21,6 +24,7 @@ export const DatabaseSelector = () => {
   const selectedTree = useWorkspaceStore((s) => s.selectedTree);
   const selectTree = useWorkspaceStore((s) => s.selectTree);
   const guardNavigate = useUnsavedChangesStore((s) => s.guardNavigate);
+  const totalMemberCount = useMemberStore((s) => s.totalMemberCount);
 
   const ownedTrees = workspaces.filter((db) => db.role === "owner");
   const sharedTrees = workspaces.filter((db) => db.role !== "owner");
@@ -40,48 +44,50 @@ export const DatabaseSelector = () => {
   const roleLabel = selectedTree?.role
     ? t(`role-${selectedTree.role}`)
     : t("none");
-  const monogram = selectedTree?.name?.trim().charAt(0).toUpperCase() || "·";
+  const subtitle =
+    selectedTree && totalMemberCount > 0
+      ? `${roleLabel} · ${t("people", { count: totalMemberCount })}`
+      : roleLabel;
+
+  const renderItem = (db: Workspace) => (
+    <SelectItem key={db.id} value={db.id} className="py-2 pl-2">
+      <WorkspaceMonogram name={db.name} size="sm" muted />
+      <span className="min-w-0 flex-1 truncate">{db.name}</span>
+      {db.role && db.role !== "owner" && (
+        <span className="text-xs text-muted-foreground">
+          {t(`role-${db.role}`)}
+        </span>
+      )}
+    </SelectItem>
+  );
 
   return (
     <Select onValueChange={handleDatabaseChange} value={selectedTree?.id ?? ""}>
       <SelectTrigger
-        className="h-auto w-full gap-2.5 rounded-xl border-sidebar-border bg-card p-2 text-left shadow-xs hover:border-input dark:bg-card"
+        className="h-auto w-full gap-3 rounded-xl data-[size=default]:h-auto border-sidebar-border bg-card px-2.5 py-2.5 text-left shadow-xs hover:border-input dark:bg-card"
         data-testid="tree-selector"
         title={t("switch")}
+        icon={<ChevronsUpDown className="size-4 opacity-60" />}
       >
-        <span
-          aria-hidden="true"
-          className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary text-base font-bold text-primary-foreground"
-        >
-          {monogram}
-        </span>
-        <span className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate text-sm font-semibold text-foreground">
+        <WorkspaceMonogram name={selectedTree?.name} />
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="truncate text-sm leading-5 font-semibold text-foreground">
             {selectedTree?.name ?? t("placeholder")}
           </span>
-          <span className="truncate text-xs text-muted-foreground">
-            {roleLabel}
+          <span className="truncate text-xs leading-4 text-muted-foreground">
+            {subtitle}
           </span>
         </span>
       </SelectTrigger>
       <SelectContent
         position="popper"
-        className="w-(--radix-select-trigger-width)"
+        sideOffset={6}
+        className="w-(--radix-select-trigger-width) min-w-64"
       >
         {ownedTrees.length > 0 && (
           <SelectGroup>
             <SelectLabel>{t("your-workspaces-group")}</SelectLabel>
-            {ownedTrees.map((db) => (
-              <SelectItem key={db.id} value={db.id}>
-                <span className="flex items-center gap-2">
-                  <Crown
-                    className="h-3.5 w-3.5 text-muted-foreground"
-                    aria-label={t("owned")}
-                  />
-                  {db.name}
-                </span>
-              </SelectItem>
-            ))}
+            {ownedTrees.map(renderItem)}
           </SelectGroup>
         )}
         {sharedTrees.length > 0 && (
@@ -89,17 +95,7 @@ export const DatabaseSelector = () => {
             {ownedTrees.length > 0 && <SelectSeparator />}
             <SelectGroup>
               <SelectLabel>{t("shared-workspaces-group")}</SelectLabel>
-              {sharedTrees.map((db) => (
-                <SelectItem key={db.id} value={db.id}>
-                  <span className="flex items-center gap-2">
-                    <Users
-                      className="h-3.5 w-3.5 text-muted-foreground"
-                      aria-label={t("shared")}
-                    />
-                    {db.name}
-                  </span>
-                </SelectItem>
-              ))}
+              {sharedTrees.map(renderItem)}
             </SelectGroup>
           </>
         )}

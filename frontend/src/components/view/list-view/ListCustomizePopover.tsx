@@ -20,7 +20,7 @@ export function ListCustomizePopover() {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+        <Button variant="outline" size="sm" className="gap-1.5">
           <SlidersHorizontal className="w-3.5 h-3.5" />
           {t("customize")}
         </Button>
@@ -31,7 +31,7 @@ export function ListCustomizePopover() {
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 px-2 text-xs text-muted-foreground"
+            className="px-2 text-muted-foreground"
             onClick={reset}
           >
             {t("customize-reset")}
@@ -64,8 +64,8 @@ export function ListCustomizePopover() {
                 <div className="flex gap-0.5 shrink-0">
                   <Button
                     variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
+                    size="icon-sm"
+                    
                     disabled={isFirst}
                     onClick={() => moveColumn(id, "up")}
                     aria-label={t("move-up")}
@@ -74,8 +74,8 @@ export function ListCustomizePopover() {
                   </Button>
                   <Button
                     variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
+                    size="icon-sm"
+                    
                     disabled={isLast}
                     onClick={() => moveColumn(id, "down")}
                     aria-label={t("move-down")}

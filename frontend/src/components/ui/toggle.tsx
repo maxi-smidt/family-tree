@@ -12,6 +12,9 @@ const toggleVariants = cva(
         default: "bg-transparent",
         outline:
           "border border-input bg-transparent shadow-xs hover:bg-accent hover:text-accent-foreground",
+        // Pill-shaped filter chip (e.g. Everyone / Living / Deceased). Use in
+        // a ToggleGroup with spacing so each chip keeps its own rounding.
+        chip: "rounded-full border border-border bg-card px-3 text-muted-foreground hover:border-input hover:bg-card hover:text-foreground data-[state=on]:border-foreground data-[state=on]:bg-foreground data-[state=on]:text-background",
       },
       size: {
         default: "h-9 px-2 min-w-9",

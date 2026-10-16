@@ -494,8 +494,8 @@ export const DocumentDialog = ({
                       <Button
                         type="button"
                         variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
+                        size="icon-sm"
+                        
                         title={t("files.remove")}
                         onClick={() =>
                           setExisting((prev) =>
@@ -554,8 +554,8 @@ export const DocumentDialog = ({
                       <Button
                         type="button"
                         variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
+                        size="icon-sm"
+                        
                         title={t("files.remove")}
                         disabled={submitting}
                         onClick={() =>
@@ -583,8 +583,8 @@ export const DocumentDialog = ({
                       <Button
                         type="button"
                         variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
+                        size="icon-sm"
+                        
                         title={t("files.remove")}
                         onClick={() =>
                           setAddedLinks((prev) =>

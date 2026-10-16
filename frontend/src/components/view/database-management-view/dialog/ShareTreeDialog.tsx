@@ -541,7 +541,7 @@ export const ShareTreeDialog = ({
                     value={a.role}
                     onValueChange={(v) => handleRoleChange(a, v as ShareRole)}
                   >
-                    <SelectTrigger className="h-8 w-28">
+                    <SelectTrigger size="sm" className="w-28">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -640,7 +640,7 @@ export const ShareTreeDialog = ({
                         setStagedRole(s.user_id, v as ShareRole)
                       }
                     >
-                      <SelectTrigger className="h-8 w-28">
+                      <SelectTrigger size="sm" className="w-28">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>

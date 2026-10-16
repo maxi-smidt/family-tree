@@ -49,7 +49,7 @@ export function UploadQueuePanel({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 px-2 text-xs"
+                className="px-2"
                 onClick={onClearCompleted}
               >
                 {t("clear-completed")}

@@ -273,9 +273,9 @@ export function EditableCell({ member, columnId }: EditableCellProps) {
       );
     }
     return (
-      <Input
+      <Input size="sm"
         autoFocus
-        className="h-7 text-xs px-1"
+        className="px-1"
         value={textDraft}
         onChange={(e) => setTextDraft(e.target.value)}
         onBlur={() => void commitText()}
@@ -353,21 +353,21 @@ export function EditableCell({ member, columnId }: EditableCellProps) {
         <ToggleGroupItem
           value="m"
           aria-label={tCommon("gender.m")}
-          className="h-7 min-w-7 text-xs"
+          
         >
           <Mars />
         </ToggleGroupItem>
         <ToggleGroupItem
           value="f"
           aria-label={tCommon("gender.f")}
-          className="h-7 min-w-7 text-xs"
+          
         >
           <Venus />
         </ToggleGroupItem>
         <ToggleGroupItem
           value="o"
           aria-label={tCommon("gender.o")}
-          className="h-7 min-w-7 text-xs"
+          
         >
           <VenusAndMars />
         </ToggleGroupItem>

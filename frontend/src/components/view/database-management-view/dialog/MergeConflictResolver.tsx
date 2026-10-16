@@ -100,7 +100,7 @@ function FieldRow({
             value={fieldChoice ?? "a"}
             onValueChange={(v) => onChoiceChange(v as MergeFieldChoice)}
           >
-            <SelectTrigger className="h-7 text-xs">
+            <SelectTrigger size="sm" >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -180,7 +180,7 @@ export const MergeConflictResolver = ({
                 handleActionChange(v as "merge" | "keep_both")
               }
             >
-              <SelectTrigger className="h-7 w-28 text-xs">
+              <SelectTrigger size="sm" className="w-28">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

@@ -771,7 +771,7 @@ function UnresolvedLocationsPopover({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-7 gap-1"
+                    className="gap-1"
                     onClick={() => setFixLocation(location)}
                     aria-label={t("fix-location")}
                     title={t("fix-location")}
@@ -782,7 +782,7 @@ function UnresolvedLocationsPopover({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-7 gap-1"
+                    className="gap-1"
                     onClick={() => onRetry(location)}
                     aria-label={t("retry-location", { location })}
                     title={t("retry-location", { location })}
@@ -1445,7 +1445,7 @@ export const MapView = () => {
               value={dateFrom}
               onChange={setDateFrom}
               placeholder={t("date-from")}
-              className="w-40 h-9"
+              className="w-40"
             />
           </div>
           <div className="flex items-center gap-2">
@@ -1456,14 +1456,14 @@ export const MapView = () => {
               value={dateTo}
               onChange={setDateTo}
               placeholder={t("date-to")}
-              className="w-40 h-9"
+              className="w-40"
             />
           </div>
 
           <Button
             variant="outline"
             size="icon"
-            className="h-9 w-9 shrink-0"
+            className="shrink-0"
             disabled={locationGroups.length === 0}
             onClick={() => setFitSignal((s) => s + 1)}
             aria-label={t("fit-to-markers")}
@@ -1476,7 +1476,7 @@ export const MapView = () => {
             <Button
               variant="ghost"
               size="icon"
-              className="h-9 w-9 shrink-0"
+              className="shrink-0"
               onClick={clearFilters}
               aria-label={t("clear-filters")}
               title={t("clear-filters")}
@@ -1491,9 +1491,9 @@ export const MapView = () => {
           <div className="ml-auto shrink-0">
             <Popover>
               <PopoverTrigger asChild>
-                <Button
+                <Button size="default"
                   variant="outline"
-                  className="h-9 gap-2"
+                  className="gap-2"
                   aria-label={t("filter-location-types")}
                 >
                   <TypeSwatch types={visibleLocationTypes} />
@@ -1742,8 +1742,8 @@ export const MapView = () => {
               <div className="flex items-center gap-3 flex-1 min-w-[220px]">
                 <Button
                   variant="outline"
-                  size="icon"
-                  className="h-8 w-8 shrink-0"
+                  size="icon-sm"
+                  className="shrink-0"
                   onClick={togglePlay}
                   aria-label={
                     isPlaying ? t("time-slider-pause") : t("time-slider-play")

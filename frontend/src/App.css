@@ -88,6 +88,7 @@
   --color-gender-o-bg: var(--gender-o-bg);
   --color-warning: var(--warning);
   --color-warning-soft: var(--warning-soft);
+  --color-destructive-soft: var(--destructive-soft);
   --font-sans: "Manrope Variable", ui-sans-serif, system-ui, sans-serif;
 }
 
@@ -172,6 +173,7 @@
   --gender-o-bg: #f1e9d8;
   --warning: #9a5711;
   --warning-soft: #f6e8d4;
+  --destructive-soft: #f6e0dc;
 }
 
 .dark {
@@ -252,6 +254,7 @@
   --gender-o-bg: #352d1c;
   --warning: #e3a55e;
   --warning-soft: #3a2a16;
+  --destructive-soft: #3d1f1b;
 }
 
 @layer base {

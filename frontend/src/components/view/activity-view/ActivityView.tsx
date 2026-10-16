@@ -226,7 +226,7 @@ function ActivityItem({ item }: { item: Activity }) {
         <Button
           variant="outline"
           size="sm"
-          className="h-7 flex-shrink-0 gap-1 text-xs"
+          className="flex-shrink-0 gap-1"
           disabled={undoing}
           onClick={(e) => {
             e.stopPropagation();
@@ -324,7 +324,7 @@ export const ActivityView = () => {
               void setFilter("filterActor", v === "__all__" ? "" : v)
             }
           >
-            <SelectTrigger className="h-8 w-40 text-xs">
+            <SelectTrigger size="sm" className="w-40">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -342,7 +342,7 @@ export const ActivityView = () => {
             <Button
               variant={filterAction === "" ? "default" : "outline"}
               size="sm"
-              className="h-8 text-xs px-3"
+              className="px-3"
               onClick={() => void setFilter("filterAction", "")}
             >
               {t("filter-all-actions")}
@@ -352,7 +352,7 @@ export const ActivityView = () => {
                 key={action}
                 variant={filterAction === action ? "default" : "outline"}
                 size="sm"
-                className="h-8 text-xs px-3"
+                className="px-3"
                 onClick={() =>
                   void setFilter(
                     "filterAction",
@@ -372,7 +372,7 @@ export const ActivityView = () => {
               void setFilter("filterTargetType", v === "__all__" ? "" : v)
             }
           >
-            <SelectTrigger className="h-8 w-36 text-xs">
+            <SelectTrigger size="sm" className="w-36">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -390,7 +390,7 @@ export const ActivityView = () => {
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 text-xs gap-1"
+              className="gap-1"
               onClick={() => void clearFilters()}
             >
               <X className="w-3 h-3" />

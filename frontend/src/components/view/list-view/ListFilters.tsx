@@ -43,7 +43,7 @@ export function ListFilters({ filters, onChange }: Props) {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+        <Button variant="outline" size="sm" className="gap-1.5">
           <Filter className="w-3.5 h-3.5" />
           {t("filters")}
           {activeCount > 0 && (
@@ -69,18 +69,19 @@ export function ListFilters({ filters, onChange }: Props) {
                 v &&
                 onChange({ ...filters, gender: v as ListFilterState["gender"] })
               }
+              size="sm"
               className="flex-wrap justify-start gap-1"
             >
-              <ToggleGroupItem value="all" className="h-7 px-2 text-xs">
+              <ToggleGroupItem value="all" className="px-2">
                 {t("filter-all")}
               </ToggleGroupItem>
-              <ToggleGroupItem value="m" className="h-7 px-2 text-xs">
+              <ToggleGroupItem value="m" className="px-2">
                 {t("filter-male")}
               </ToggleGroupItem>
-              <ToggleGroupItem value="f" className="h-7 px-2 text-xs">
+              <ToggleGroupItem value="f" className="px-2">
                 {t("filter-female")}
               </ToggleGroupItem>
-              <ToggleGroupItem value="o" className="h-7 px-2 text-xs">
+              <ToggleGroupItem value="o" className="px-2">
                 {t("filter-other")}
               </ToggleGroupItem>
             </ToggleGroup>
@@ -100,15 +101,16 @@ export function ListFilters({ filters, onChange }: Props) {
                   status: v as ListFilterState["status"],
                 })
               }
+              size="sm"
               className="flex-wrap justify-start gap-1"
             >
-              <ToggleGroupItem value="all" className="h-7 px-2 text-xs">
+              <ToggleGroupItem value="all" className="px-2">
                 {t("filter-all")}
               </ToggleGroupItem>
-              <ToggleGroupItem value="alive" className="h-7 px-2 text-xs">
+              <ToggleGroupItem value="alive" className="px-2">
                 {t("status.alive")}
               </ToggleGroupItem>
-              <ToggleGroupItem value="deceased" className="h-7 px-2 text-xs">
+              <ToggleGroupItem value="deceased" className="px-2">
                 {t("status.deceased")}
               </ToggleGroupItem>
             </ToggleGroup>
@@ -129,7 +131,7 @@ export function ListFilters({ filters, onChange }: Props) {
               <Button
                 variant="ghost"
                 size="sm"
-                className="w-full h-7 text-xs text-muted-foreground"
+                className="w-full text-muted-foreground"
                 onClick={() => onChange(DEFAULT_FILTERS)}
               >
                 {t("filter-reset")}

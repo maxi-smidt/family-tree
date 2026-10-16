@@ -1,22 +1,10 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { MemberAvatar } from "@/components/shared/MemberAvatar";
+import { MemberChip } from "@/components/shared/MemberChip";
 import { useMemberStore } from "@/hooks/useMemberStore";
-import { Member, isDeceased } from "@/types/member";
+import type { Member } from "@/types/member";
 
 const PARTNER_TYPES = new Set(["partner", "married", "divorced"]);
-
-const yearOf = (value: string | null | undefined) =>
-  value ? (/^\d{4}/.exec(value)?.[0] ?? null) : null;
-
-function shortLife(member: Member): string {
-  const born = yearOf(member.date.birth);
-  const died = yearOf(member.date.death);
-  if (born && died) return `${born}–${died.slice(2)}`;
-  if (died) return `† ${died}`;
-  if (born) return isDeceased(member) ? `${born} †` : born;
-  return "";
-}
 
 type Group = { key: string; label: string; people: Member[] };
 
@@ -120,39 +108,13 @@ export const MemberFamily = ({
               {group.label}
             </dt>
             <dd className="m-0 flex flex-wrap gap-1.5">
-              {group.people.map((person) => {
-                const name = `${person.firstName} ${person.lastName}`.trim();
-                const life = shortLife(person);
-                const content = (
-                  <>
-                    <MemberAvatar member={person} size="xs" />
-                    <span className="font-medium">{person.firstName}</span>
-                    {life && (
-                      <span className="text-xs text-muted-foreground tabular-nums">
-                        {life}
-                      </span>
-                    )}
-                  </>
-                );
-                const chipClass =
-                  "inline-flex h-8 items-center gap-1.5 rounded-full border bg-card py-0 pr-3 pl-1 text-[13px]";
-                return onOpenMember ? (
-                  <button
-                    key={person.id}
-                    type="button"
-                    title={name}
-                    aria-label={t("family-open", { name })}
-                    className={`${chipClass} cursor-pointer transition-colors hover:border-input hover:bg-accent`}
-                    onClick={() => onOpenMember(person.id)}
-                  >
-                    {content}
-                  </button>
-                ) : (
-                  <span key={person.id} title={name} className={chipClass}>
-                    {content}
-                  </span>
-                );
-              })}
+              {group.people.map((person) => (
+                <MemberChip
+                  key={person.id}
+                  member={person}
+                  onOpen={onOpenMember}
+                />
+              ))}
             </dd>
           </div>
         ))}

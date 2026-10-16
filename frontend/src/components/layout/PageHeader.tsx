@@ -35,7 +35,7 @@ export const PageHeader = ({
     >
       {hasSidebar && (
         <SidebarTrigger
-          className="text-muted-foreground"
+          className="size-9 text-muted-foreground"
           data-tutorial="views-tabs-mobile"
         />
       )}

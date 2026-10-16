@@ -208,7 +208,7 @@ export const DeleteAccountDialog = ({ isOpen, onClose }: Props) => {
                               if (open) void loadTargets(tree.id);
                             }}
                           >
-                            <SelectTrigger className="h-8 min-w-0 flex-1 text-xs">
+                            <SelectTrigger size="sm" className="min-w-0 flex-1">
                               <SelectValue
                                 placeholder={t("transfer-select")}
                               />
@@ -237,7 +237,7 @@ export const DeleteAccountDialog = ({ isOpen, onClose }: Props) => {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="h-8 shrink-0"
+                            className="shrink-0"
                             disabled={!state.selected || state.transferring}
                             onClick={() => void handleTransfer(tree.id)}
                           >

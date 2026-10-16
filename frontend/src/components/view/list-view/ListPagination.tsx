@@ -40,7 +40,7 @@ export function ListPagination({
           value={String(pageSize)}
           onValueChange={(v) => onPageSizeChange(Number(v))}
         >
-          <SelectTrigger className="h-7 w-16 text-xs">
+          <SelectTrigger size="sm" className="w-16">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -53,8 +53,8 @@ export function ListPagination({
         </Select>
         <Button
           variant="outline"
-          size="icon"
-          className="h-7 w-7"
+          size="icon-sm"
+          
           disabled={page === 0}
           onClick={() => onPageChange(page - 1)}
           aria-label={t("pagination.prev")}
@@ -63,8 +63,8 @@ export function ListPagination({
         </Button>
         <Button
           variant="outline"
-          size="icon"
-          className="h-7 w-7"
+          size="icon-sm"
+          
           disabled={to >= total}
           onClick={() => onPageChange(page + 1)}
           aria-label={t("pagination.next")}
