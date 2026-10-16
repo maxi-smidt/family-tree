@@ -43,11 +43,7 @@ import {
 import { GeocodeCandidate, GeocodeDB } from "@/types/geocode";
 import { ActivityPageDB, ActivityUndoDB } from "@/types/activity";
 import { QualityReport } from "@/types/quality";
-import {
-  CustomWidgetAggregateResponse,
-  CustomWidgetAggregationConfig,
-  StatisticsReport,
-} from "@/types/statistics";
+import { StatisticsReport } from "@/types/statistics";
 import { WorkspaceStorageUsageDB } from "@/types/storage";
 import { PresenceRosterDB } from "@/types/presence";
 import {
@@ -827,26 +823,6 @@ export class WorkspaceService {
   // --- Statistics -----------------------------------------------------------
   static getStatistics(workspaceId: string) {
     return api.get<StatisticsReport>(`${base(workspaceId)}/statistics`);
-  }
-
-  static getCustomWidgetAggregations(
-    workspaceId: string,
-    widgets: CustomWidgetAggregationConfig[],
-  ) {
-    return api.post<CustomWidgetAggregateResponse>(
-      `${base(workspaceId)}/statistics/widgets/aggregate`,
-      {
-        widgets: widgets.map(
-          ({ id, chartType, dimensionId, measureId, breakdownId }) => ({
-            id,
-            chartType,
-            dimensionId,
-            measureId,
-            breakdownId,
-          }),
-        ),
-      },
-    );
   }
 
   // --- Storage usage -------------------------------------------------------
