@@ -211,7 +211,6 @@ async function findMissingKeys() {
       const argsPart = declarationMatch[2];
 
       let tVarName = "t";
-      let i18nVarName = null;
 
       // Check for t variable (possibly renamed)
       const tVarRegex = /\bt\s*:\s*(\w+)/;
@@ -219,16 +218,10 @@ async function findMissingKeys() {
       if (tVarMatch) {
         tVarName = tVarMatch[1];
       } else if (!/\bt\b/.test(destructuredPart)) {
-        // If 't' is not destructured, check if i18n is
-        const i18nRegex = /\bi18n\b/;
-        if (!i18nRegex.test(destructuredPart)) {
-          continue;
-        }
-      }
-
-      // Check if i18n is also destructured
-      if (/\bi18n\b/.test(destructuredPart)) {
-        i18nVarName = "i18n";
+        // No t here (e.g. `const { i18n } = useTranslation()`): its i18n.t()
+        // calls are handled above, and scanning for t() would wrongly apply
+        // this declaration's (empty) keyPrefix to another t in the file.
+        continue;
       }
 
       let keyPrefix = "";
