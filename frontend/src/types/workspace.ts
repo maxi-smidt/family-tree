@@ -77,6 +77,9 @@ export interface WorkspaceAccess {
   username: string;
   role: "owner" | "editor" | "viewer";
   restrictions: string[];
+  /** Null for a workspace-wide grant; otherwise the one section this grant
+   *  covers. A user can have several rows, one per grant. */
+  section_id: string | null;
 }
 
 /** A user a tree can still be shared with (returned by the candidates endpoint). */

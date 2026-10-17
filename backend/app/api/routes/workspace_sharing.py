@@ -1,12 +1,18 @@
 """Sharing a tree with other users: access grants, restrictions, batch ops."""
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import exists, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_readable_workspace
 from app.db.session import get_db
-from app.models import User, Workspace, WorkspaceMembership
+from app.models import (
+    Section,
+    User,
+    Workspace,
+    WorkspaceMembership,
+    WorkspaceSectionGrant,
+)
 from app.schemas.notification import WorkspaceSharedPayload, WorkspaceUnsharedPayload
 from app.schemas.workspace import (
     MemberRestrictionsUpdate,
@@ -20,6 +26,10 @@ from app.services.activity.activity import record_activity
 from app.services.collaboration import friendships, notification_service
 from app.services.event_bus import publish_workspace_event
 from app.services.unit_of_work import UnitOfWork
+from app.services.workspaces.grants import (
+    create_section_grant,
+    update_section_grant,
+)
 from app.services.workspaces.restrictions import (
     DEFAULT_RESTRICTIONS,
     RESTRICTABLE_DOMAINS,
@@ -29,6 +39,44 @@ from app.services.workspaces.workspace_access import list_tree_access
 router = APIRouter(prefix="/workspaces", tags=["workspaces"])
 
 _BATCH_TREE_IDS_MAX = 100
+
+
+def _has_any_grant(db: Session, workspace_id: str, user_id: str) -> bool:
+    """Whether the user still holds a workspace-wide or section-scoped grant."""
+    if db.get(WorkspaceMembership, (workspace_id, user_id)) is not None:
+        return True
+    return db.scalar(
+        select(
+            exists().where(
+                WorkspaceSectionGrant.workspace_id == workspace_id,
+                WorkspaceSectionGrant.user_id == user_id,
+            )
+        )
+    )
+
+
+def _section_grant(
+    db: Session, workspace_id: str, user_id: str, section_id: str
+) -> WorkspaceSectionGrant | None:
+    return db.scalar(
+        select(WorkspaceSectionGrant).where(
+            WorkspaceSectionGrant.workspace_id == workspace_id,
+            WorkspaceSectionGrant.user_id == user_id,
+            WorkspaceSectionGrant.section_id == section_id,
+        )
+    )
+
+
+def _require_sections(db: Session, workspace_id: str, section_ids: list[str]) -> None:
+    found = set(
+        db.scalars(
+            select(Section.id).where(
+                Section.workspace_id == workspace_id, Section.id.in_(section_ids)
+            )
+        )
+    )
+    if found != set(section_ids):
+        raise HTTPException(status_code=404, detail="Section not found")
 
 
 @router.get("/{workspace_id}/access", response_model=list[WorkspaceMemberOut])
@@ -92,19 +140,42 @@ def share_tree(
     if not user.is_admin and not friendships.are_friends(db, tree.owner_id, target.id):
         raise HTTPException(status_code=403, detail="You can only share with friends")
 
-    membership = db.get(WorkspaceMembership, (tree.id, target.id))
-    is_new_grant = membership is None
-    if membership is None:
-        db.add(
-            WorkspaceMembership(
-                workspace_id=tree.id,
-                user_id=target.id,
-                role=payload.role,
-                restrictions=DEFAULT_RESTRICTIONS,
-            )
-        )
+    had_access = _has_any_grant(db, tree.id, target.id)
+    if payload.section_ids:
+        section_ids = list(dict.fromkeys(payload.section_ids))
+        _require_sections(db, tree.id, section_ids)
+        new_section_ids: list[str] = []
+        for section_id in section_ids:
+            grant = _section_grant(db, tree.id, target.id, section_id)
+            if grant is None:
+                create_section_grant(
+                    db,
+                    workspace_id=tree.id,
+                    section_id=section_id,
+                    user_id=target.id,
+                    role=payload.role,
+                    restrictions=DEFAULT_RESTRICTIONS,
+                )
+                new_section_ids.append(section_id)
+            elif grant.role != payload.role:
+                update_section_grant(grant, role=payload.role)
+        is_new_grant = bool(new_section_ids)
+        activity_details = {"role": payload.role, "section_ids": new_section_ids}
     else:
-        membership.role = payload.role
+        membership = db.get(WorkspaceMembership, (tree.id, target.id))
+        is_new_grant = membership is None
+        if membership is None:
+            db.add(
+                WorkspaceMembership(
+                    workspace_id=tree.id,
+                    user_id=target.id,
+                    role=payload.role,
+                    restrictions=DEFAULT_RESTRICTIONS,
+                )
+            )
+        else:
+            membership.role = payload.role
+        activity_details = {"role": payload.role}
     if is_new_grant:
         record_activity(
             db,
@@ -114,8 +185,9 @@ def share_tree(
             target_type="share",
             target_id=target.id,
             target_label=target.username,
-            details={"role": payload.role},
+            details=activity_details,
         )
+    notify_shared = not had_access
     with UnitOfWork(db) as uow:
         uow.after_commit(
             lambda: publish_workspace_event(
@@ -132,6 +204,7 @@ def share_tree(
                     db, tree, "activity.entry_added", {"workspace_id": tree.id}
                 )
             )
+        if notify_shared:
             uow.after_commit(
                 lambda: notification_service.create_notification(
                     db,
@@ -151,16 +224,24 @@ def share_tree(
 @router.delete("/{workspace_id}/access/{user_id}", status_code=204)
 def revoke_access(
     user_id: str,
+    section_id: str | None = Query(default=None),
     tree: Workspace = Depends(get_readable_workspace),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Revoke the workspace-wide grant, or with ``section_id`` only that
+    section's grant. Other grants the user holds are left in place."""
     if tree.owner_id != user.id and not user.is_admin:
         raise HTTPException(status_code=403, detail="Only the owner can manage sharing")
-    membership = db.get(WorkspaceMembership, (tree.id, user_id))
-    if membership is not None:
+    if section_id is None:
+        grant = db.get(WorkspaceMembership, (tree.id, user_id))
+    else:
+        grant = _section_grant(db, tree.id, user_id, section_id)
+    if grant is not None:
         revoked_user = db.get(User, user_id)
-        db.delete(membership)
+        db.delete(grant)
+        db.flush()
+        lost_all_access = not _has_any_grant(db, tree.id, user_id)
         record_activity(
             db,
             workspace_id=tree.id,
@@ -169,6 +250,7 @@ def revoke_access(
             target_type="share",
             target_id=user_id,
             target_label=revoked_user.username if revoked_user else None,
+            details={"section_id": section_id} if section_id else None,
         )
         with UnitOfWork(db) as uow:
             uow.after_commit(
@@ -185,16 +267,17 @@ def revoke_access(
                     db, tree, "activity.entry_added", {"workspace_id": tree.id}
                 )
             )
-            uow.after_commit(
-                lambda: notification_service.create_notification(
-                    db,
-                    user_id,
-                    "tree_unshared",
-                    WorkspaceUnsharedPayload(
-                        workspace_id=tree.id, workspace_name=tree.name
-                    ),
+            if lost_all_access:
+                uow.after_commit(
+                    lambda: notification_service.create_notification(
+                        db,
+                        user_id,
+                        "tree_unshared",
+                        WorkspaceUnsharedPayload(
+                            workspace_id=tree.id, workspace_name=tree.name
+                        ),
+                    )
                 )
-            )
 
 
 @router.post("/{workspace_id}/access/batch", response_model=list[WorkspaceMemberOut])
@@ -368,6 +451,7 @@ def revoke_access_batch(
 def update_member_restrictions(
     user_id: str,
     payload: MemberRestrictionsUpdate,
+    section_id: str | None = Query(default=None),
     tree: Workspace = Depends(get_readable_workspace),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -379,12 +463,18 @@ def update_member_restrictions(
     invalid = set(payload.restrictions) - RESTRICTABLE_DOMAINS
     if invalid:
         raise HTTPException(status_code=400, detail=f"Invalid domains: {sorted(invalid)}")
-    membership = db.get(WorkspaceMembership, (tree.id, user_id))
-    if membership is None:
+    if section_id is None:
+        grant = db.get(WorkspaceMembership, (tree.id, user_id))
+    else:
+        grant = _section_grant(db, tree.id, user_id, section_id)
+    if grant is None:
         raise HTTPException(status_code=404, detail="Membership not found")
-    before_restrictions = list(membership.restrictions or [])
-    membership.restrictions = payload.restrictions or None
-    after_restrictions = list(membership.restrictions or [])
+    before_restrictions = list(grant.restrictions or [])
+    if section_id is None:
+        grant.restrictions = payload.restrictions or None
+    else:
+        update_section_grant(grant, restrictions=payload.restrictions)
+    after_restrictions = list(grant.restrictions or [])
     target_user = db.get(User, user_id)
     logged = before_restrictions != after_restrictions
     if logged:
@@ -399,6 +489,7 @@ def update_member_restrictions(
             details={
                 "before": {"restrictions": before_restrictions},
                 "after": {"restrictions": after_restrictions},
+                **({"section_id": section_id} if section_id else {}),
             },
         )
     with UnitOfWork(db) as uow:

@@ -46,6 +46,9 @@ class WorkspaceUpdate(BaseModel):
 class WorkspaceShare(BaseModel):
     username: str
     role: str = "editor"  # "viewer" or "editor"
+    # None = workspace-wide (the default). Otherwise one section-scoped grant
+    # is created or updated per section (#1100).
+    section_ids: list[str] | None = None
 
 
 class WorkspaceTransfer(BaseModel):

@@ -18,8 +18,19 @@ vi.mock("@/services/WorkspaceSharingService", () => ({
   },
 }));
 
+vi.mock("@/services/WorkspaceService", () => ({
+  WorkspaceService: {
+    getSections: vi.fn().mockResolvedValue([]),
+  },
+}));
+
 import { WorkspaceSharingService } from "@/services/WorkspaceSharingService";
-import type { Workspace, WorkspaceAccess, WorkspaceInvitation, WorkspaceTransferResult } from "@/types/workspace";
+import type {
+  Workspace,
+  WorkspaceAccess,
+  WorkspaceInvitation,
+  WorkspaceTransferResult,
+} from "@/types/workspace";
 import { useWorkspaceSharingStore } from "./useWorkspaceSharingStore";
 
 describe("useWorkspaceSharingStore", () => {
@@ -51,6 +62,7 @@ describe("useWorkspaceSharingStore", () => {
             username: "new-tree-user",
             role: "viewer",
             restrictions: [],
+            section_id: null,
           },
         ],
         candidates: [],
@@ -82,6 +94,7 @@ describe("useWorkspaceSharingStore", () => {
           username: "previous-tree-user",
           role: "editor",
           restrictions: [],
+          section_id: null,
         },
       ],
     });
@@ -113,48 +126,58 @@ describe("useWorkspaceSharingStore — action wrappers", () => {
 
   it("grantAccess forwards to WorkspaceSharingService.grantAccess", async () => {
     const access: WorkspaceAccess[] = [
-      { user_id: "user-2", username: "bob", role: "editor", restrictions: [] },
+      {
+        user_id: "user-2",
+        username: "bob",
+        role: "editor",
+        restrictions: [],
+        section_id: null,
+      },
     ];
     vi.mocked(WorkspaceSharingService.grantAccess).mockResolvedValue(access);
 
     const result = await useWorkspaceSharingStore
       .getState()
-      .grantAccess("tree-1", "bob", "editor");
+      .grantAccess("tree-1", "bob", "editor", ["section-1"]);
 
     expect(WorkspaceSharingService.grantAccess).toHaveBeenCalledWith(
       "tree-1",
       "bob",
       "editor",
+      ["section-1"],
     );
     expect(result).toBe(access);
   });
 
   it("revokeAccess forwards to WorkspaceSharingService.revokeAccess", async () => {
-    vi.mocked(WorkspaceSharingService.revokeAccess).mockResolvedValue(undefined);
+    vi.mocked(WorkspaceSharingService.revokeAccess).mockResolvedValue(
+      undefined,
+    );
 
-    await useWorkspaceSharingStore.getState().revokeAccess("tree-1", "user-2");
+    await useWorkspaceSharingStore
+      .getState()
+      .revokeAccess("tree-1", "user-2", "section-1");
 
     expect(WorkspaceSharingService.revokeAccess).toHaveBeenCalledWith(
       "tree-1",
       "user-2",
+      "section-1",
     );
   });
 
   it("updateMemberRestrictions forwards to WorkspaceSharingService.updateMemberRestrictions", async () => {
     const access: WorkspaceAccess[] = [];
-    vi.mocked(WorkspaceSharingService.updateMemberRestrictions).mockResolvedValue(
-      access,
-    );
+    vi.mocked(
+      WorkspaceSharingService.updateMemberRestrictions,
+    ).mockResolvedValue(access);
 
     const result = await useWorkspaceSharingStore
       .getState()
       .updateMemberRestrictions("tree-1", "user-2", ["no-photos"]);
 
-    expect(WorkspaceSharingService.updateMemberRestrictions).toHaveBeenCalledWith(
-      "tree-1",
-      "user-2",
-      ["no-photos"],
-    );
+    expect(
+      WorkspaceSharingService.updateMemberRestrictions,
+    ).toHaveBeenCalledWith("tree-1", "user-2", ["no-photos"], undefined);
     expect(result).toBe(access);
   });
 
@@ -184,11 +207,17 @@ describe("useWorkspaceSharingStore — action wrappers", () => {
       access: [],
       undo_available_until: null,
     };
-    vi.mocked(WorkspaceSharingService.revertTransfer).mockResolvedValue(transfer);
+    vi.mocked(WorkspaceSharingService.revertTransfer).mockResolvedValue(
+      transfer,
+    );
 
-    const result = await useWorkspaceSharingStore.getState().revertTransfer("tree-1");
+    const result = await useWorkspaceSharingStore
+      .getState()
+      .revertTransfer("tree-1");
 
-    expect(WorkspaceSharingService.revertTransfer).toHaveBeenCalledWith("tree-1");
+    expect(WorkspaceSharingService.revertTransfer).toHaveBeenCalledWith(
+      "tree-1",
+    );
     expect(result).toBe(transfer);
   });
 
@@ -225,7 +254,9 @@ describe("useWorkspaceSharingStore — action wrappers", () => {
       undefined,
     );
 
-    await useWorkspaceSharingStore.getState().revokeInvitation("tree-1", "inv-1");
+    await useWorkspaceSharingStore
+      .getState()
+      .revokeInvitation("tree-1", "inv-1");
 
     expect(WorkspaceSharingService.revokeInvitation).toHaveBeenCalledWith(
       "tree-1",
@@ -234,7 +265,11 @@ describe("useWorkspaceSharingStore — action wrappers", () => {
   });
 
   it("setPublicAccess forwards to WorkspaceSharingService.setPublicAccess", async () => {
-    const tree = { id: "tree-1", name: "Workspace", role: "owner" } as Workspace;
+    const tree = {
+      id: "tree-1",
+      name: "Workspace",
+      role: "owner",
+    } as Workspace;
     vi.mocked(WorkspaceSharingService.setPublicAccess).mockResolvedValue(tree);
 
     const result = await useWorkspaceSharingStore
@@ -249,8 +284,14 @@ describe("useWorkspaceSharingStore — action wrappers", () => {
   });
 
   it("setPublicPassword forwards to WorkspaceSharingService.setPublicPassword", async () => {
-    const tree = { id: "tree-1", name: "Workspace", role: "owner" } as Workspace;
-    vi.mocked(WorkspaceSharingService.setPublicPassword).mockResolvedValue(tree);
+    const tree = {
+      id: "tree-1",
+      name: "Workspace",
+      role: "owner",
+    } as Workspace;
+    vi.mocked(WorkspaceSharingService.setPublicPassword).mockResolvedValue(
+      tree,
+    );
 
     const result = await useWorkspaceSharingStore
       .getState()
@@ -265,7 +306,9 @@ describe("useWorkspaceSharingStore — action wrappers", () => {
 
   it("grantAccessBatch forwards to WorkspaceSharingService.grantAccessBatch", async () => {
     const access: WorkspaceAccess[] = [];
-    vi.mocked(WorkspaceSharingService.grantAccessBatch).mockResolvedValue(access);
+    vi.mocked(WorkspaceSharingService.grantAccessBatch).mockResolvedValue(
+      access,
+    );
 
     const result = await useWorkspaceSharingStore
       .getState()

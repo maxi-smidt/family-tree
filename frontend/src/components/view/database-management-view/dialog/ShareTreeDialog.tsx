@@ -73,7 +73,13 @@ type Props = {
   onTreeUpdated?: (tree: Workspace) => void;
 };
 
-type StagedUser = ShareCandidate & { role: ShareRole };
+/** ``sectionId`` null = share the whole workspace (#1100). */
+type StagedUser = ShareCandidate & {
+  role: ShareRole;
+  sectionId: string | null;
+};
+
+const WHOLE_WORKSPACE = "__workspace__";
 
 export const ShareTreeDialog = ({
   tree,
@@ -93,6 +99,7 @@ export const ShareTreeDialog = ({
 
   const access = useWorkspaceSharingStore((state) => state.access);
   const candidates = useWorkspaceSharingStore((state) => state.candidates);
+  const sections = useWorkspaceSharingStore((state) => state.sections);
   const invitations = useWorkspaceSharingStore((state) => state.invitations);
   const loadSharing = useWorkspaceSharingStore((state) => state.load);
   const grantAccess = useWorkspaceSharingStore((state) => state.grantAccess);
@@ -194,7 +201,7 @@ export const ShareTreeDialog = ({
     setStaged((prev) =>
       prev.some((s) => s.user_id === candidate.user_id)
         ? prev.filter((s) => s.user_id !== candidate.user_id)
-        : [...prev, { ...candidate, role: "editor" }],
+        : [...prev, { ...candidate, role: "editor", sectionId: null }],
     );
   };
 
@@ -204,10 +211,25 @@ export const ShareTreeDialog = ({
     );
   };
 
+  const setStagedSection = (userId: string, sectionId: string | null) => {
+    setStaged((prev) =>
+      prev.map((s) => (s.user_id === userId ? { ...s, sectionId } : s)),
+    );
+  };
+
+  const sectionName = (sectionId: string) =>
+    sections.find((section) => section.id === sectionId)?.name ??
+    t("scope-unknown-section");
+
   const handleShare = async () => {
     try {
       for (const s of staged) {
-        await grantAccess(tree.id, s.username, s.role);
+        await grantAccess(
+          tree.id,
+          s.username,
+          s.role,
+          s.sectionId ? [s.sectionId] : undefined,
+        );
       }
       setStaged([]);
       await reload();
@@ -220,7 +242,12 @@ export const ShareTreeDialog = ({
 
   const handleRoleChange = async (member: WorkspaceAccess, role: ShareRole) => {
     try {
-      const updated = await grantAccess(tree.id, member.username, role);
+      const updated = await grantAccess(
+        tree.id,
+        member.username,
+        role,
+        member.section_id ? [member.section_id] : undefined,
+      );
       useWorkspaceSharingStore.setState({ access: updated });
     } catch (err) {
       console.error(err);
@@ -242,6 +269,7 @@ export const ShareTreeDialog = ({
         tree.id,
         member.user_id,
         next,
+        member.section_id,
       );
       useWorkspaceSharingStore.setState({ access: updated });
     } catch (err) {
@@ -250,9 +278,9 @@ export const ShareTreeDialog = ({
     }
   };
 
-  const handleRevoke = async (userId: string) => {
+  const handleRevoke = async (member: WorkspaceAccess) => {
     try {
-      await revokeAccess(tree.id, userId);
+      await revokeAccess(tree.id, member.user_id, member.section_id);
       await reload();
     } catch (err) {
       console.error(err);
@@ -483,12 +511,20 @@ export const ShareTreeDialog = ({
           <p className="text-sm font-medium">{t("current-access")}</p>
           {access.map((a) => (
             <div
-              key={a.user_id}
+              key={`${a.user_id}:${a.section_id ?? ""}`}
               className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-2"
             >
-              <span className="min-w-0 truncate text-sm font-medium">
-                {a.username}
-              </span>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium">{a.username}</p>
+                {a.role !== "owner" &&
+                  (sections.length > 0 || a.section_id) && (
+                    <p className="truncate text-xs text-muted-foreground">
+                      {a.section_id
+                        ? sectionName(a.section_id)
+                        : t("scope-workspace")}
+                    </p>
+                  )}
+              </div>
               {a.role === "owner" ? (
                 <Badge variant="secondary">{t("role-owner")}</Badge>
               ) : (
@@ -552,7 +588,7 @@ export const ShareTreeDialog = ({
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => handleRevoke(a.user_id)}
+                    onClick={() => handleRevoke(a)}
                     title={t("revoke")}
                   >
                     <X className="h-4 w-4" />
@@ -634,6 +670,35 @@ export const ShareTreeDialog = ({
                     {s.username}
                   </span>
                   <div className="flex items-center gap-2">
+                    {sections.length > 0 && (
+                      <Select
+                        value={s.sectionId ?? WHOLE_WORKSPACE}
+                        onValueChange={(v) =>
+                          setStagedSection(
+                            s.user_id,
+                            v === WHOLE_WORKSPACE ? null : v,
+                          )
+                        }
+                      >
+                        <SelectTrigger
+                          size="sm"
+                          className="w-40"
+                          aria-label={t("scope-label")}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={WHOLE_WORKSPACE}>
+                            {t("scope-workspace")}
+                          </SelectItem>
+                          {sections.map((section) => (
+                            <SelectItem key={section.id} value={section.id}>
+                              {section.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                     <Select
                       value={s.role}
                       onValueChange={(v) =>

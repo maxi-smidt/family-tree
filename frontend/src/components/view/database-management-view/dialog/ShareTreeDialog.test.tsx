@@ -37,12 +37,14 @@ const OWNER_ACCESS: WorkspaceAccess = {
   username: "owner",
   role: "owner",
   restrictions: [],
+  section_id: null,
 };
 const OTHER_ACCESS: WorkspaceAccess = {
   user_id: OTHER_USER.user_id,
   username: OTHER_USER.username,
   role: "editor",
   restrictions: [],
+  section_id: null,
 };
 
 describe("ShareTreeDialog", () => {
@@ -56,6 +58,7 @@ describe("ShareTreeDialog", () => {
       workspaceId: null,
       access: [OWNER_ACCESS, OTHER_ACCESS],
       candidates: [],
+      sections: [],
       invitations: [],
       loading: false,
       error: null,
@@ -72,6 +75,41 @@ describe("ShareTreeDialog", () => {
       grantAccessBatch: vi.fn(),
       revokeAccessBatch: vi.fn(),
     });
+  });
+
+  it("labels a section-scoped grant and revokes only that section", async () => {
+    const revokeAccess = vi.fn().mockResolvedValue(undefined);
+    useWorkspaceSharingStore.setState({
+      access: [
+        OWNER_ACCESS,
+        { ...OTHER_ACCESS, role: "viewer", section_id: "section-1" },
+      ],
+      sections: [
+        {
+          id: "section-1",
+          workspace_id: TREE.id,
+          name: "Smith branch",
+          position: 0,
+          created_at: "2026-01-01T00:00:00Z",
+          member_count: 3,
+          can_write: true,
+        },
+      ],
+      revokeAccess,
+    });
+
+    render(<ShareTreeDialog tree={TREE} isOpen onClose={vi.fn()} />);
+
+    expect(await screen.findByText("Smith branch")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Remove access" }));
+
+    await waitFor(() =>
+      expect(revokeAccess).toHaveBeenCalledWith(
+        TREE.id,
+        OTHER_USER.user_id,
+        "section-1",
+      ),
+    );
   });
 
   it("keeps the share dialog open and shows the link after enabling public access", async () => {

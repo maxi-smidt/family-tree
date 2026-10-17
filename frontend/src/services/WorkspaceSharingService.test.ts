@@ -7,6 +7,7 @@ vi.mock("@/services/api", () => ({
     get: vi.fn(),
     post: vi.fn(),
     del: vi.fn(),
+    patch: vi.fn(),
   },
 }));
 
@@ -26,7 +27,9 @@ describe("WorkspaceSharingService", () => {
       .mockResolvedValueOnce(access)
       .mockResolvedValueOnce(candidates);
 
-    await expect(WorkspaceSharingService.getSharingData("tree-1")).resolves.toEqual({
+    await expect(
+      WorkspaceSharingService.getSharingData("tree-1"),
+    ).resolves.toEqual({
       access,
       candidates,
     });
@@ -48,11 +51,42 @@ describe("WorkspaceSharingService", () => {
     expect(api.post).toHaveBeenNthCalledWith(1, "/workspaces/tree-1/access", {
       username: "ada",
       role: "editor",
+      section_ids: null,
     });
     expect(api.del).toHaveBeenCalledWith("/workspaces/tree-1/access/user-2");
     expect(api.post).toHaveBeenNthCalledWith(2, "/workspaces/tree-1/transfer", {
       username: "grace",
       retain_role: null,
     });
+  });
+
+  it("scopes grants, revokes, and restrictions to a section", async () => {
+    vi.mocked(api.post).mockResolvedValue([]);
+    vi.mocked(api.del).mockResolvedValue(undefined);
+    vi.mocked(api.patch).mockResolvedValue([]);
+
+    await WorkspaceSharingService.grantAccess("tree-1", "ada", "viewer", [
+      "section-1",
+    ]);
+    await WorkspaceSharingService.revokeAccess("tree-1", "user-2", "section-1");
+    await WorkspaceSharingService.updateMemberRestrictions(
+      "tree-1",
+      "user-2",
+      ["gallery"],
+      "section-1",
+    );
+
+    expect(api.post).toHaveBeenCalledWith("/workspaces/tree-1/access", {
+      username: "ada",
+      role: "viewer",
+      section_ids: ["section-1"],
+    });
+    expect(api.del).toHaveBeenCalledWith(
+      "/workspaces/tree-1/access/user-2?section_id=section-1",
+    );
+    expect(api.patch).toHaveBeenCalledWith(
+      "/workspaces/tree-1/access/user-2/restrictions?section_id=section-1",
+      { restrictions: ["gallery"] },
+    );
   });
 });
