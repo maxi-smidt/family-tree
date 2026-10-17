@@ -48,7 +48,7 @@ type LinkFilter = "all" | "unlinked";
 
 function DocumentsSkeleton() {
   return (
-    <div className="overflow-hidden rounded-2xl border bg-card">
+    <div className="shrink-0 overflow-hidden rounded-2xl border bg-card">
       {Array.from({ length: 5 }).map((_, index) => (
         <div
           key={index}
@@ -249,7 +249,7 @@ export const DocumentsView = () => {
         </p>
       ) : (
         <>
-          <ul className="divide-y overflow-hidden rounded-2xl border bg-card shadow-xs">
+          <ul className="shrink-0 divide-y overflow-hidden rounded-2xl border bg-card shadow-xs">
             {pagedDocuments.map((document) => (
               <DocumentRow
                 key={document.id}
