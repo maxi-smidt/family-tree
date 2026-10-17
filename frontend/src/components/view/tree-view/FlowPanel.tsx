@@ -621,22 +621,20 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     initializeFlow();
   }, [members, isReady]);
 
-  // Re-center when the focus root changes in windowed mode — unless a
-  // popstate restore is in flight, which applies the exact saved camera
-  // instead (#989).
+  // Re-center when the focus root changes in windowed mode, and once when
+  // leaving it for the whole family — unless a popstate restore is in flight,
+  // which applies the exact saved camera instead (#989).
   const previousFocusRef = useRef<string | null>(null);
-  const focusKey = JSON.stringify([
-    focusRootId,
-    focusSectionIds,
-    activeSavedViewId,
-    neighborhoodUp,
-    neighborhoodDown,
-  ]);
+  const focusKey = windowed
+    ? JSON.stringify([
+        focusRootId,
+        focusSectionIds,
+        activeSavedViewId,
+        neighborhoodUp,
+        neighborhoodDown,
+      ])
+    : null;
   useEffect(() => {
-    if (!windowed) {
-      previousFocusRef.current = null;
-      return;
-    }
     if (!rfInstance || focusPending || !isReady) return;
     if (focusKey === previousFocusRef.current) return;
     // Store focus changes before React Flow receives its replacement nodes.
@@ -661,7 +659,6 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     });
     return () => cancelAnimationFrame(frame);
   }, [
-    windowed,
     focusKey,
     focusPending,
     isReady,
