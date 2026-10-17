@@ -498,7 +498,7 @@
       "open": "Personen, Orte und Ereignisse suchen",
       "placeholder": "Personen, Orte, Ereignisse suchen",
       "title": "Suche",
-      "description": "Finde eine Person, einen Ort oder ein Ereignis in diesem Arbeitsbereich oder springe zu einer Seite.",
+      "description": "Finde eine Person, einen Ort, ein Ereignis, einen Bereich oder eine gespeicherte Ansicht in diesem Arbeitsbereich, wechsle in einen anderen Arbeitsbereich oder springe zu einer Seite.",
       "empty": "Nichts gefunden.",
       "people": "Personen",
       "places": "Orte",
@@ -506,7 +506,14 @@
       "go-to": "Gehe zu",
       "people-count": "{{count}} Personen",
       "people-count_one": "{{count}} Person",
-      "people-count_other": "{{count}} Personen"
+      "people-count_other": "{{count}} Personen",
+      "sections": "Bereiche",
+      "saved-views": "Gespeicherte Ansichten",
+      "workspaces": "Arbeitsbereiche",
+      "role-editor": "Bearbeiter",
+      "role-viewer": "Betrachter",
+      "open-view-error": "Diese gespeicherte Ansicht konnte nicht geöffnet werden.",
+      "open-workspace-error": "Dieser Arbeitsbereich konnte nicht geöffnet werden."
     }
   },
   "list-view": {

@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { CalendarDays, MapPin, Search } from "lucide-react";
+import { toast } from "sonner";
+import {
+  Bookmark,
+  CalendarDays,
+  FolderTree,
+  MapPin,
+  Search,
+} from "lucide-react";
 import {
   Command,
   CommandEmpty,
@@ -16,6 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { WorkspaceMonogram } from "@/components/shared/WorkspaceMonogram";
 import { MemberAvatar } from "@/components/shared/MemberAvatar";
 import { shortLifeSpan } from "@/components/shared/MemberChip";
 import { useMemberStore } from "@/hooks/useMemberStore";
@@ -24,6 +32,13 @@ import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useNavEntries } from "@/hooks/useNavEntries";
+import { useSectionStore } from "@/hooks/useSectionStore";
+import { useSavedViewStore } from "@/hooks/useSavedViewStore";
+import { useWorkspaceNavStore } from "@/hooks/useWorkspaceNavStore";
+import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
+import { useUnsavedChangesStore } from "@/hooks/useUnsavedChangesStore";
+import { useVisibleViews } from "@/hooks/useVisibleViews";
+import type { Workspace } from "@/types/workspace";
 import { getEventTypeLabel } from "@/types/eventTypes";
 import { memberMatchesSearch } from "@/utils/memberUtils";
 import { formatDate } from "@/utils/dateUtils";
@@ -32,15 +47,20 @@ import { cn } from "@/lib/utils";
 const MAX_PEOPLE = 8;
 const MAX_PLACES = 5;
 const MAX_EVENTS = 5;
+const MAX_SECTIONS = 5;
+const MAX_SAVED_VIEWS = 5;
+const MAX_WORKSPACES = 5;
 
 const isMac =
   typeof navigator !== "undefined" &&
   /Mac|iPhone|iPad/.test(navigator.platform);
 
 /**
- * The header's search: one palette (⌘K / Ctrl K) for people, places and
- * events in the open workspace, plus every view to jump to. Picking a person
- * opens their panel; a place opens the map on it; an event opens the timeline.
+ * The header's search: one palette (⌘K / Ctrl K) for people, places, events,
+ * sections and saved views in the open workspace, the other workspaces the
+ * user can open, plus every view to jump to. Picking a person opens their
+ * panel; a place opens the map on it; an event opens the timeline; a section
+ * or saved view opens it on the tree; a workspace switches to it.
  */
 export function GlobalSearch({ className }: { className?: string }) {
   const { t, i18n } = useTranslation(undefined, {
@@ -58,6 +78,23 @@ export function GlobalSearch({ className }: { className?: string }) {
   const setMapFocus = useNavigationStore((s) => s.setMapFocus);
   const navigateTo = useNavigationStore((s) => s.navigateTo);
   const { groups, open: openEntry } = useNavEntries(() => setOpen(false));
+  const workspaces = useWorkspaceStore((s) => s.workspaces);
+  const selectTree = useWorkspaceStore((s) => s.selectTree);
+  const guardNavigate = useUnsavedChangesStore((s) => s.guardNavigate);
+  const treeVisible = useVisibleViews().visible.includes("tree-view");
+
+  const sections = useSectionStore((s) => s.sections);
+  const sectionsInitialized = useSectionStore((s) => s.initialized);
+  const refreshSections = useSectionStore((s) => s.refreshSections);
+  useDeferredStoreLoad(sectionsInitialized || !treeVisible, refreshSections);
+  const savedViews = useSavedViewStore((s) => s.views);
+  const viewsInitialized = useSavedViewStore((s) => s.initialized);
+  const refreshSavedViews = useSavedViewStore((s) => s.refreshSavedViews);
+  const openSavedView = useSavedViewStore((s) => s.openSavedView);
+  useDeferredStoreLoad(viewsInitialized || !treeVisible, refreshSavedViews);
+  const selectSection = useWorkspaceNavStore((s) => s.selectSection);
+  const selectSavedView = useWorkspaceNavStore((s) => s.selectSavedView);
+  const focusSection = useMemberStore((s) => s.focusSection);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -128,6 +165,41 @@ export function GlobalSearch({ className }: { className?: string }) {
     [events, q, i18n.t],
   );
 
+  const matchingSections = useMemo(
+    () =>
+      q && treeVisible
+        ? sections
+            .filter((s) => s.name.toLowerCase().includes(q))
+            .slice(0, MAX_SECTIONS)
+        : [],
+    [sections, q, treeVisible],
+  );
+
+  const matchingSavedViews = useMemo(
+    () =>
+      q && treeVisible
+        ? savedViews
+            .filter((v) => v.name.toLowerCase().includes(q))
+            .slice(0, MAX_SAVED_VIEWS)
+        : [],
+    [savedViews, q, treeVisible],
+  );
+
+  // Every workspace the user can open (owned or shared) — the store's list
+  // is already limited to those. The open one is left out: there is nothing
+  // to switch to.
+  const matchingWorkspaces = useMemo(
+    () =>
+      q
+        ? workspaces
+            .filter(
+              (w) => w.id !== workspaceId && w.name.toLowerCase().includes(q),
+            )
+            .slice(0, MAX_WORKSPACES)
+        : [],
+    [workspaces, workspaceId, q],
+  );
+
   const destinations = useMemo(
     () =>
       groups
@@ -153,6 +225,35 @@ export function GlobalSearch({ className }: { className?: string }) {
   const openTimeline = () => {
     setOpen(false);
     navigateTo("timeline-view");
+  };
+
+  // Sections and saved views open on the tree, the same as picking them from
+  // the canvas's "Whole family" menu.
+  const openSection = (sectionId: string) => {
+    guardNavigate(() => {
+      setOpen(false);
+      selectSection(sectionId);
+      void focusSection(sectionId);
+      navigateTo("tree-view");
+    });
+  };
+
+  const openView = (viewId: string) => {
+    guardNavigate(() => {
+      setOpen(false);
+      selectSavedView(viewId);
+      void openSavedView(viewId).catch(() => toast.error(t("open-view-error")));
+      navigateTo("tree-view");
+    });
+  };
+
+  const openWorkspace = (workspace: Workspace) => {
+    guardNavigate(() => {
+      setOpen(false);
+      void selectTree(workspace).catch(() =>
+        toast.error(t("open-workspace-error")),
+      );
+    });
   };
 
   const shortcut = isMac ? "⌘K" : "Ctrl K";
@@ -256,6 +357,68 @@ export function GlobalSearch({ className }: { className?: string }) {
                       <span className="text-xs text-muted-foreground tabular-nums">
                         {formatDate(e.date)}
                       </span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
+              {matchingSections.length > 0 && (
+                <CommandGroup heading={t("sections")}>
+                  {matchingSections.map((s) => (
+                    <CommandItem
+                      key={s.id}
+                      value={`section-${s.id}`}
+                      onSelect={() => openSection(s.id)}
+                    >
+                      <span className="grid size-8 place-items-center rounded-full bg-muted text-muted-foreground">
+                        <FolderTree className="size-4" />
+                      </span>
+                      <span className="min-w-0 flex-1 truncate font-medium">
+                        {s.name}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {t("people-count", { count: s.member_count })}
+                      </span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
+              {matchingSavedViews.length > 0 && (
+                <CommandGroup heading={t("saved-views")}>
+                  {matchingSavedViews.map((v) => (
+                    <CommandItem
+                      key={v.id}
+                      value={`saved-view-${v.id}`}
+                      onSelect={() => openView(v.id)}
+                    >
+                      <span className="grid size-8 place-items-center rounded-full bg-muted text-muted-foreground">
+                        <Bookmark className="size-4" />
+                      </span>
+                      <span className="min-w-0 flex-1 truncate font-medium">
+                        {v.name}
+                      </span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
+              {matchingWorkspaces.length > 0 && (
+                <CommandGroup heading={t("workspaces")}>
+                  {matchingWorkspaces.map((w) => (
+                    <CommandItem
+                      key={w.id}
+                      value={`workspace-${w.id}`}
+                      onSelect={() => openWorkspace(w)}
+                    >
+                      <WorkspaceMonogram name={w.name} size="sm" muted />
+                      <span className="min-w-0 flex-1 truncate font-medium">
+                        {w.name}
+                      </span>
+                      {w.role && w.role !== "owner" && (
+                        <span className="text-xs text-muted-foreground">
+                          {w.role === "editor"
+                            ? t("role-editor")
+                            : t("role-viewer")}
+                        </span>
+                      )}
                     </CommandItem>
                   ))}
                 </CommandGroup>
