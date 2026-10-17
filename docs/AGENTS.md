@@ -414,8 +414,9 @@ The project uses **Vitest** for unit testing.
 - Share lifecycle contracts for similar stores while keeping each store's
   payload and mapping assertions explicit.
 - Retain data-preservation migration tests while their revision remains in the
-  supported upgrade chain (see [UPGRADE_V2.md](./UPGRADE_V2.md#1-compatibility)),
-  rather than deleting them after a fixed number of minor releases. Shared
+  supported upgrade chain (databases at v2.0.0 or later; v1.x databases must
+  upgrade through v2.0.2 first), rather than deleting them after a fixed
+  number of minor releases. Shared
   revision metadata checks belong in `backend/tests/test_migration_metadata.py`.
 
 ### What Not to Test

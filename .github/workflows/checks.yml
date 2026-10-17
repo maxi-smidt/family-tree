@@ -128,7 +128,7 @@ jobs:
         run: uv run pytest -n auto
 
   backend-postgres:
-    name: "Backend (real-Postgres migration suite)"
+    name: "Backend (real-Postgres Alembic suite)"
     needs: changes
     if: ${{ inputs.run-all || github.event_name != 'pull_request' || needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-latest
@@ -136,10 +136,10 @@ jobs:
     defaults:
       run:
         working-directory: backend
-    # tests/test_migration_postgres.py (#998) needs a real Postgres — the
-    # rest of the suite runs on SQLite (see the "backend" job above) and
-    # never exercises the real `alembic upgrade head` path or a real
-    # advisory lock. Throwaway credentials, matching docker-compose.dev.yml.
+    # tests/test_alembic_postgres.py needs a real Postgres — the rest of the
+    # suite runs on SQLite (see the "backend" job above) and never exercises
+    # the real `alembic upgrade head` path. Throwaway credentials, matching
+    # docker-compose.dev.yml.
     services:
       postgres:
         image: postgres:18-alpine
@@ -167,14 +167,14 @@ jobs:
       - name: "Install dependencies"
         run: uv sync --frozen
 
-      - name: "Real-Postgres migration & recovery suite (#998)"
+      - name: "Real-Postgres Alembic suite"
         env:
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5432
           POSTGRES_USER: familytree
           POSTGRES_PASSWORD: familytree
           POSTGRES_DB: familytree
-        run: uv run pytest tests/test_migration_postgres.py -v
+        run: uv run pytest tests/test_alembic_postgres.py -v
 
   compose-config:
     name: "Compose backend env propagation"
