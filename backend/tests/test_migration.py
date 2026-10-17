@@ -657,11 +657,13 @@ def test_widen_grant_change_promotes_a_section_grant_to_workspace_wide(
         "section_id": section.id,
         "role": "editor",
         "restrictions": ["gallery"],
+        "read_only": [],
     }
     assert result["after"] == {
         "scope": "workspace",
         "role": "editor",
         "restrictions": ["gallery"],
+        "read_only": [],
     }
     assert (
         db.query(WorkspaceSectionGrant)

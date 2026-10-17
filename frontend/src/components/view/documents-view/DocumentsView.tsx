@@ -1,4 +1,5 @@
 import { type MouseEvent, useEffect, useMemo, useState } from "react";
+import { canEditArea } from "@/utils/accessLevels";
 import { useTranslation } from "react-i18next";
 import {
   BookOpen,
@@ -150,8 +151,7 @@ export const DocumentsView = () => {
     activePage * pageSize,
     (activePage + 1) * pageSize,
   );
-  const canWrite =
-    selectedTree?.role === "owner" || selectedTree?.role === "editor";
+  const canWrite = !!selectedTree && canEditArea(selectedTree, "sources");
 
   const handleDelete = async () => {
     if (!documentToDelete) return;

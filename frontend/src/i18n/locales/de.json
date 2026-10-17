@@ -163,12 +163,36 @@
       "role-owner": "Eigentümer",
       "role-editor": "Bearbeiter",
       "role-viewer": "Betrachter",
+      "access": {
+        "button": "Zugriff: {{preset}}",
+        "error": "Zugriff konnte nicht geändert werden.",
+        "presets-title": "Vorlagen",
+        "areas-title": "Einzeln festlegen",
+        "presets": {
+          "tree-only": "Nur Stammbaum",
+          "viewer": "Betrachter",
+          "contributor": "Mitwirkende",
+          "editor": "Bearbeiter",
+          "custom": "Benutzerdefiniert"
+        },
+        "areas": {
+          "tree": "Stammbaum",
+          "gallery": "Fotos",
+          "sources": "Dokumente",
+          "stories": "Geschichten",
+          "events": "Ereignisse",
+          "diseases": "Gesundheit",
+          "tasks": "Recherche-Aufgaben"
+        },
+        "levels": {
+          "hidden": "Ausgeblendet",
+          "view": "Ansehen",
+          "edit": "Bearbeiten"
+        }
+      },
       "scope-label": "Zugriff auf",
       "scope-workspace": "Gesamter Arbeitsbereich",
       "scope-unknown-section": "Unbekannter Bereich",
-      "restrictions-title": "Inhaltszugriff",
-      "restrictions-button": "Inhaltszugriff",
-      "restrictions-error": "Inhaltszugriff konnte nicht aktualisiert werden.",
       "domains": {
         "tree": "Stammbaum",
         "gallery": "Galerie",

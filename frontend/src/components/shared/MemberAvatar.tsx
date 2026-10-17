@@ -1,4 +1,5 @@
 import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { cn } from "@/lib/utils";
 import type { Member } from "@/types/member";
 
@@ -58,6 +59,10 @@ export const MemberAvatar = ({
   size = "md",
   className,
 }: MemberAvatarProps) => {
+  // Portraits belong to the Photos area; a share that hides it shows initials.
+  const photosHidden = useWorkspaceStore(
+    (s) => s.selectedTree?.restrictions?.includes("gallery") ?? false,
+  );
   const base = cn(
     "inline-grid shrink-0 place-items-center overflow-hidden rounded-full font-semibold tracking-wide select-none",
     SIZE_CLASSES[size],
@@ -70,7 +75,7 @@ export const MemberAvatar = ({
     </span>
   );
 
-  if (!member.imageData) return initials;
+  if (!member.imageData || photosHidden) return initials;
 
   return (
     <AuthenticatedImage

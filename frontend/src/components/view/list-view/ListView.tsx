@@ -1,4 +1,5 @@
 import { useMemberStore } from "@/hooks/useMemberStore";
+import { canEditArea } from "@/utils/accessLevels";
 import { useState, useMemo, useEffect } from "react";
 import { Member, isDeceased } from "@/types/member";
 import { Button } from "@/components/ui/button";
@@ -71,7 +72,7 @@ export const ListView = () => {
   const { members, removeMember } = useMemberStore();
   const activeTree = useWorkspaceStore((s) => s.selectedTree);
   const isReady = useWorkspaceStore((s) => s.isReady);
-  const canWrite = activeTree?.role !== "viewer";
+  const canWrite = canEditArea(activeTree, "tree");
   const isMobile = useIsMobile();
 
   const { order, hidden, pageSize, setPageSize } = useListSettings();

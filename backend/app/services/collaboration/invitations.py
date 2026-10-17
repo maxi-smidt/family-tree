@@ -12,6 +12,7 @@ from app.models import (
     WorkspaceSectionGrant,
 )
 from app.services.unit_of_work import UnitOfWork
+from app.services.workspaces.restrictions import DEFAULT_RESTRICTIONS
 
 _ROLE_RANK = {"viewer": 0, "editor": 1, "owner": 2}
 
@@ -64,6 +65,7 @@ def accept_invitation(
                         user_id=user.id,
                         section_id=inv.section_id,
                         role=inv.role,
+                        restrictions=DEFAULT_RESTRICTIONS,
                     )
                     db.add(grant)
             elif invite_rank > _ROLE_RANK.get(grant.role, 0):
@@ -76,7 +78,10 @@ def accept_invitation(
                 if tree is None or tree.owner_id != user.id:
                     # Don't add a membership if the user owns the tree.
                     membership = WorkspaceMembership(
-                        workspace_id=inv.workspace_id, user_id=user.id, role=inv.role
+                        workspace_id=inv.workspace_id,
+                        user_id=user.id,
+                        role=inv.role,
+                        restrictions=DEFAULT_RESTRICTIONS,
                     )
                     db.add(membership)
             elif invite_rank > _ROLE_RANK.get(membership.role, 0):

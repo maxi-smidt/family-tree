@@ -16,8 +16,10 @@ export interface Workspace {
   public_role?: "viewer" | null;
   // True when the public tree requires a password (the hash is never sent).
   public_password_protected?: boolean;
-  // Domains the current user may not see. Empty for owner/admin.
+  // Areas the current user may not see. Empty for owner/admin.
   restrictions?: string[];
+  // Areas the current editor may see but not change (#1101).
+  read_only?: string[];
   can_create_sections?: boolean;
 }
 
@@ -49,34 +51,38 @@ export interface InvitationAcceptResult {
 
 export type ShareRole = "viewer" | "editor";
 
-export type RestrictableDomain =
+/** The areas a share sets a level for (#1101), in display order. "tree"
+ *  (people, relationships, sections) can be read-only but never hidden. */
+export type ShareArea =
   | "tree"
   | "gallery"
-  | "events"
-  | "map"
-  | "stories"
   | "sources"
+  | "stories"
+  | "events"
   | "diseases"
-  | "biography"
   | "tasks";
 
-export const RESTRICTABLE_DOMAINS: RestrictableDomain[] = [
+export const SHARE_AREAS: ShareArea[] = [
   "tree",
   "gallery",
-  "events",
-  "map",
-  "stories",
   "sources",
+  "stories",
+  "events",
   "diseases",
-  "biography",
   "tasks",
 ];
+
+export type AccessLevel = "hidden" | "view" | "edit";
+
+export type AccessLevels = Record<ShareArea, AccessLevel>;
 
 export interface WorkspaceAccess {
   user_id: string;
   username: string;
   role: "owner" | "editor" | "viewer";
   restrictions: string[];
+  /** Areas this editor grant may see but not change (#1101). */
+  read_only: string[];
   /** Null for a workspace-wide grant; otherwise the one section this grant
    *  covers. A user can have several rows, one per grant. */
   section_id: string | null;

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { canEditArea } from "@/utils/accessLevels";
 import { useTranslation } from "react-i18next";
 import { Check, CheckCircle2, GitMerge, Plus, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -258,7 +259,12 @@ export const QualityReportView = () => {
   const { report, isLoading, showDismissed, refreshReport, setShowDismissed } =
     useQualityReportStore();
   const tasks = useTaskStore((s) => s.tasks);
-  const canWrite = useWorkspaceStore((s) => s.selectedTree?.role !== "viewer");
+  const canWrite = useWorkspaceStore((s) =>
+    canEditArea(s.selectedTree, "tree"),
+  );
+  const canWriteTasks = useWorkspaceStore((s) =>
+    canEditArea(s.selectedTree, "tasks"),
+  );
   const restrictions = useWorkspaceStore((s) => s.selectedTree?.restrictions);
   const tasksEnabled = !restrictions?.includes("tasks");
 
@@ -373,7 +379,7 @@ export const QualityReportView = () => {
 
         {tasksEnabled && (
           <div className="md:pt-7">
-            <ResearchTasksCard canWrite={canWrite} />
+            <ResearchTasksCard canWrite={canWriteTasks} />
           </div>
         )}
       </div>

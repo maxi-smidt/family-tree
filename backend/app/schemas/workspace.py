@@ -25,6 +25,8 @@ class WorkspaceOut(BaseModel):
     public_password_protected: bool = False
     # Domains the requesting member may not see. Empty for owner/admin.
     restrictions: list[str] = Field(default_factory=list)
+    # Areas the requesting editor may see but not change (#1101).
+    read_only: list[str] = Field(default_factory=list)
     can_create_sections: bool = False
 
 
@@ -87,12 +89,20 @@ class WorkspaceMemberOut(BaseModel):
     username: str
     role: str  # "owner", "editor" or "viewer"
     restrictions: list[str] = Field(default_factory=list)
+    # Areas this editor grant may see but not change (#1101).
+    read_only: list[str] = Field(default_factory=list)
     # None = workspace-wide grant (every row before #993).
     section_id: str | None = None
 
 
 class MemberRestrictionsUpdate(BaseModel):
     restrictions: list[str] = Field(default_factory=list)
+
+
+class MemberAccessLevelsUpdate(BaseModel):
+    """A level ("hidden" | "view" | "edit") for every share area (#1101)."""
+
+    levels: dict[str, str]
 
 
 class ShareCandidate(BaseModel):

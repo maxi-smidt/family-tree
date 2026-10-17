@@ -37,6 +37,7 @@ const OWNER_ACCESS: WorkspaceAccess = {
   username: "owner",
   role: "owner",
   restrictions: [],
+  read_only: [],
   section_id: null,
 };
 const OTHER_ACCESS: WorkspaceAccess = {
@@ -44,6 +45,7 @@ const OTHER_ACCESS: WorkspaceAccess = {
   username: OTHER_USER.username,
   role: "editor",
   restrictions: [],
+  read_only: [],
   section_id: null,
 };
 
@@ -66,6 +68,7 @@ describe("ShareTreeDialog", () => {
       grantAccess: vi.fn(),
       revokeAccess: vi.fn(),
       updateMemberRestrictions: vi.fn(),
+      updateMemberLevels: vi.fn(),
       transferOwnership: vi.fn(),
       revertTransfer: vi.fn(),
       createInvitation: vi.fn(),
@@ -75,6 +78,37 @@ describe("ShareTreeDialog", () => {
       grantAccessBatch: vi.fn(),
       revokeAccessBatch: vi.fn(),
     });
+  });
+
+  it("applies a preset to a person's access", async () => {
+    const updateMemberLevels = vi
+      .fn()
+      .mockResolvedValue([OWNER_ACCESS, OTHER_ACCESS]);
+    useWorkspaceSharingStore.setState({ updateMemberLevels });
+
+    render(<ShareTreeDialog tree={TREE} isOpen onClose={vi.fn()} />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Access: Custom" }),
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "Tree only" }));
+
+    await waitFor(() =>
+      expect(updateMemberLevels).toHaveBeenCalledWith(
+        TREE.id,
+        OTHER_USER.user_id,
+        {
+          tree: "view",
+          gallery: "hidden",
+          sources: "hidden",
+          stories: "hidden",
+          events: "hidden",
+          diseases: "hidden",
+          tasks: "hidden",
+        },
+        null,
+      ),
+    );
   });
 
   it("labels a section-scoped grant and revokes only that section", async () => {

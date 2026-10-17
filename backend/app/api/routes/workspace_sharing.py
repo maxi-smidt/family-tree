@@ -15,6 +15,7 @@ from app.models import (
 )
 from app.schemas.notification import WorkspaceSharedPayload, WorkspaceUnsharedPayload
 from app.schemas.workspace import (
+    MemberAccessLevelsUpdate,
     MemberRestrictionsUpdate,
     ShareCandidate,
     WorkspaceAccessBatchRevoke,
@@ -33,6 +34,8 @@ from app.services.workspaces.grants import (
 from app.services.workspaces.restrictions import (
     DEFAULT_RESTRICTIONS,
     RESTRICTABLE_DOMAINS,
+    grant_fields_from_levels,
+    levels_of,
 )
 from app.services.workspaces.workspace_access import list_tree_access
 
@@ -489,6 +492,79 @@ def update_member_restrictions(
             details={
                 "before": {"restrictions": before_restrictions},
                 "after": {"restrictions": after_restrictions},
+                **({"section_id": section_id} if section_id else {}),
+            },
+        )
+    with UnitOfWork(db) as uow:
+        uow.after_commit(
+            lambda: publish_workspace_event(
+                db,
+                tree,
+                "workspace.access_changed",
+                {"workspace_id": tree.id},
+                extra_user_ids=[user_id],
+            )
+        )
+        if logged:
+            uow.after_commit(
+                lambda: publish_workspace_event(
+                    db, tree, "activity.entry_added", {"workspace_id": tree.id}
+                )
+            )
+    return list_access(tree=tree, db=db)
+
+
+@router.put(
+    "/{workspace_id}/access/{user_id}/levels",
+    response_model=list[WorkspaceMemberOut],
+)
+def update_member_levels(
+    user_id: str,
+    payload: MemberAccessLevelsUpdate,
+    section_id: str | None = Query(default=None),
+    tree: Workspace = Depends(get_readable_workspace),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Set a level per area on one grant (#1101): the workspace-wide one, or
+    with ``section_id`` that section's grant."""
+    if tree.owner_id != user.id and not user.is_admin:
+        raise HTTPException(status_code=403, detail="Only the owner can manage access")
+    try:
+        role, restrictions, read_only = grant_fields_from_levels(payload.levels)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if section_id is None:
+        grant = db.get(WorkspaceMembership, (tree.id, user_id))
+    else:
+        grant = _section_grant(db, tree.id, user_id, section_id)
+    if grant is None:
+        raise HTTPException(status_code=404, detail="Membership not found")
+
+    before = levels_of(grant.role, grant.restrictions, grant.read_only)
+    if section_id is None:
+        grant.role = role
+        grant.restrictions = restrictions
+        grant.read_only = read_only
+    else:
+        update_section_grant(
+            grant, role=role, restrictions=restrictions, read_only=read_only
+        )
+    after = levels_of(grant.role, grant.restrictions, grant.read_only)
+    logged = before != after
+    if logged:
+        target_user = db.get(User, user_id)
+        record_activity(
+            db,
+            workspace_id=tree.id,
+            actor=user,
+            action="update",
+            target_type="share",
+            target_id=user_id,
+            target_label=target_user.username if target_user else None,
+            details={
+                "before": {"levels": before},
+                "after": {"levels": after},
                 **({"section_id": section_id} if section_id else {}),
             },
         )

@@ -75,8 +75,9 @@ export const ViewMode = ({
   const documentsEnabled = !restrictions.includes("sources");
   const diseasesEnabled = !restrictions.includes("diseases");
   const tasksEnabled = !restrictions.includes("tasks");
-  const mapEnabled = !restrictions.includes("map");
-  const biographyEnabled = !restrictions.includes("biography");
+  // The map follows events, and the notes follow stories (#1101).
+  const mapEnabled = eventsEnabled;
+  const biographyEnabled = storiesEnabled;
   const isMobile = useIsMobile();
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [startIndex, setStartIndex] = useState(0);
