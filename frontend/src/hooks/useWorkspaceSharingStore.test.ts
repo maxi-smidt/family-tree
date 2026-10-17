@@ -62,6 +62,7 @@ describe("useWorkspaceSharingStore", () => {
             username: "new-tree-user",
             role: "viewer",
             restrictions: [],
+            read_only: [],
             section_id: null,
           },
         ],
@@ -94,6 +95,7 @@ describe("useWorkspaceSharingStore", () => {
           username: "previous-tree-user",
           role: "editor",
           restrictions: [],
+          read_only: [],
           section_id: null,
         },
       ],
@@ -131,6 +133,7 @@ describe("useWorkspaceSharingStore — action wrappers", () => {
         username: "bob",
         role: "editor",
         restrictions: [],
+        read_only: [],
         section_id: null,
       },
     ];

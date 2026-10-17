@@ -8,6 +8,7 @@ vi.mock("@/services/api", () => ({
     post: vi.fn(),
     del: vi.fn(),
     patch: vi.fn(),
+    put: vi.fn(),
   },
 }));
 
@@ -87,6 +88,31 @@ describe("WorkspaceSharingService", () => {
     expect(api.patch).toHaveBeenCalledWith(
       "/workspaces/tree-1/access/user-2/restrictions?section_id=section-1",
       { restrictions: ["gallery"] },
+    );
+  });
+
+  it("sets a grant's area levels", async () => {
+    vi.mocked(api.put).mockResolvedValue([]);
+    const levels = {
+      tree: "edit",
+      gallery: "view",
+      sources: "view",
+      stories: "edit",
+      events: "view",
+      diseases: "hidden",
+      tasks: "view",
+    } as const;
+
+    await WorkspaceSharingService.updateMemberLevels(
+      "tree-1",
+      "user-2",
+      levels,
+      "section-1",
+    );
+
+    expect(api.put).toHaveBeenCalledWith(
+      "/workspaces/tree-1/access/user-2/levels?section_id=section-1",
+      { levels },
     );
   });
 });

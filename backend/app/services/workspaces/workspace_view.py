@@ -39,11 +39,12 @@ def tree_out(
         # one grant's role with another's restrictions.
         grant = best_grant(db, tree.id, user.id)
         out.restrictions = list(grant.restrictions) if grant else []
+        out.read_only = list(grant.read_only) if grant else []
     out.public_password_protected = tree.public_password_hash is not None
     out.can_create_sections = (
         user is not None
         and out.role in ("owner", "editor")
-        and resolve_access_context(db, tree, user).can_write_scope(None)
+        and resolve_access_context(db, tree, user).can_write_scope(None, domain="tree")
     )
     if isinstance(last_opened, _Unset):
         last_opened = (

@@ -24,14 +24,17 @@ def require_read_media(
     ):
         return
 
-    members = select(Member.id).where(
-        Member.workspace_id == context.workspace_id, Member.image_data == media_url
-    )
-    member_filter = context.member_filter()
-    if member_filter is not None:
-        members = members.where(member_filter)
-    if db.scalar(members.limit(1)) is not None:
-        return
+    # Portraits belong to the Photos area (#1101): hiding the gallery hides
+    # them too, per the grant that reaches each member.
+    if not all("gallery" in g.restrictions for g in context.grants):
+        members = select(Member.id).where(
+            Member.workspace_id == context.workspace_id, Member.image_data == media_url
+        )
+        member_filter = context.member_filter(domain="gallery")
+        if member_filter is not None:
+            members = members.where(member_filter)
+        if db.scalar(members.limit(1)) is not None:
+            return
 
     gallery = select(GalleryImage.id).where(
         GalleryImage.workspace_id == context.workspace_id,

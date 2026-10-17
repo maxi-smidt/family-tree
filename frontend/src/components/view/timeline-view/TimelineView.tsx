@@ -1,4 +1,5 @@
 import { useMemberStore } from "@/hooks/useMemberStore";
+import { canEditArea } from "@/utils/accessLevels";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
 import { useMemo, useRef, useState } from "react";
@@ -118,7 +119,9 @@ export const TimelineView = () => {
     initialized: storiesInitialized,
   } = useStoryStore();
   const isReady = useWorkspaceStore((state) => state.isReady);
-  const canWrite = useWorkspaceStore((s) => s.selectedTree?.role !== "viewer");
+  const canWrite = useWorkspaceStore((s) =>
+    canEditArea(s.selectedTree, "events"),
+  );
   const setMapFocus = useNavigationStore((s) => s.setMapFocus);
   const navigateTo = useNavigationStore((s) => s.navigateTo);
 

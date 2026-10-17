@@ -3,6 +3,7 @@ import { WorkspaceSharingService } from "@/services/WorkspaceSharingService";
 import { WorkspaceService } from "@/services/WorkspaceService";
 import { SectionDB } from "@/types/section";
 import {
+  AccessLevels,
   ShareRole,
   Workspace,
   WorkspaceAccess,
@@ -38,6 +39,12 @@ interface WorkspaceSharingState {
     workspaceId: string,
     userId: string,
     restrictions: string[],
+    sectionId?: string | null,
+  ) => Promise<WorkspaceAccess[]>;
+  updateMemberLevels: (
+    workspaceId: string,
+    userId: string,
+    levels: AccessLevels,
     sectionId?: string | null,
   ) => Promise<WorkspaceAccess[]>;
   transferOwnership: (
@@ -156,6 +163,15 @@ export const useWorkspaceSharingStore = create<WorkspaceSharingState>(
             workspaceId,
             userId,
             restrictions,
+            sectionId,
+          ),
+        ),
+      updateMemberLevels: (workspaceId, userId, levels, sectionId) =>
+        run(workspaceId, () =>
+          WorkspaceSharingService.updateMemberLevels(
+            workspaceId,
+            userId,
+            levels,
             sectionId,
           ),
         ),

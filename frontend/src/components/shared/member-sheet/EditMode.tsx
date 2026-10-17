@@ -1,4 +1,5 @@
 import { Input } from "@/components/ui/input";
+import { canEditArea } from "@/utils/accessLevels";
 import { LocationInput } from "@/components/shared/LocationInput";
 import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
 import { ApiError } from "@/services/api";
@@ -113,14 +114,19 @@ export const EditMode = ({
     (s) => s.selectedTree?.restrictions ?? [],
   );
   const currentTreeId = useWorkspaceStore((s) => s.selectedTree?.id);
+  // Portraits belong to the Photos area (#1101).
+  const canEditPhotos = useWorkspaceStore((s) =>
+    canEditArea(s.selectedTree, "gallery"),
+  );
   const eventsEnabled = !restrictions.includes("events");
   const storiesEnabled = !restrictions.includes("stories");
   const documentsEnabled = !restrictions.includes("sources");
   const galleryEnabled = !restrictions.includes("gallery");
   const tasksEnabled = !restrictions.includes("tasks");
   const diseasesEnabled = !restrictions.includes("diseases");
-  const mapEnabled = !restrictions.includes("map");
-  const biographyEnabled = !restrictions.includes("biography");
+  // The map follows events, and the notes follow stories (#1101).
+  const mapEnabled = eventsEnabled;
+  const biographyEnabled = storiesEnabled;
 
   const [formData, setFormData] = useState<Member>(member);
   const [initialData, setInitialData] = useState<Member>(member);
@@ -511,22 +517,23 @@ export const EditMode = ({
     useCallback(() => save(), [save]),
   );
 
-  const avatarImage = formData.imageData ? (
-    <AuthenticatedImage
-      src={formData.imageData}
-      className="size-24 rounded-full object-cover mx-auto bg-gray-100"
-      alt="Profile"
-      fallback={
-        <div className="size-24 flex justify-center items-center rounded-full mx-auto bg-muted text-2xl font-bold text-muted-foreground">
-          <User size={48} />
-        </div>
-      }
-    />
-  ) : (
-    <div className="size-24 flex justify-center items-center rounded-full mx-auto bg-muted text-2xl font-bold text-muted-foreground">
-      <User size={48} />
-    </div>
-  );
+  const avatarImage =
+    formData.imageData && galleryEnabled ? (
+      <AuthenticatedImage
+        src={formData.imageData}
+        className="size-24 rounded-full object-cover mx-auto bg-gray-100"
+        alt="Profile"
+        fallback={
+          <div className="size-24 flex justify-center items-center rounded-full mx-auto bg-muted text-2xl font-bold text-muted-foreground">
+            <User size={48} />
+          </div>
+        }
+      />
+    ) : (
+      <div className="size-24 flex justify-center items-center rounded-full mx-auto bg-muted text-2xl font-bold text-muted-foreground">
+        <User size={48} />
+      </div>
+    );
   const avatarOverlayClassName =
     "absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer";
   const showGalleryPicker =
@@ -537,7 +544,7 @@ export const EditMode = ({
       <div className="nodrag">
         <div className="relative mb-4 w-fit mx-auto group">
           {avatarImage}
-          {showGalleryPicker ? (
+          {!canEditPhotos ? null : showGalleryPicker ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button

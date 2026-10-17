@@ -143,7 +143,11 @@ def create_member(
     db: Session = Depends(get_db),
 ):
     data = payload.model_dump()
+    context.require_write_scope(origin_section(db), domain="tree")
     image_url = data.get("image_data")
+    if image_url:
+        # Portraits belong to the Photos area (#1101).
+        context.require_write_scope(origin_section(db), domain="gallery")
     if image_url and image_url.startswith(f"{MEDIA_URL_PREFIX}/{tree.id}/"):
         require_read_media(db, context, image_url)
     new_image_url: str | None = None
@@ -730,6 +734,14 @@ def update_member(
     db: Session = Depends(get_db),
 ):
     context.require_write_member(db, member_id, mode="edit")
+    if "image_data" in payload.model_fields_set:
+        # Changing the portrait needs Photos edit access (#1101); the editor
+        # resends an unchanged portrait with every save, which is fine.
+        current = db.get(Member, member_id)
+        if current is None or payload.image_data != current.image_data:
+            context.require_write_member(
+                db, member_id, mode="edit", domain="gallery"
+            )
     result = update_member_service(
         db, tree=tree, user=user, member_id=member_id, payload=payload
     )

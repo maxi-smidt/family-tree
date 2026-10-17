@@ -80,7 +80,7 @@ def _get_writable_section(
     """Load a section for a write: 404 if unreadable, 403 if readable but
     this context's grant on it isn't an editor grant."""
     section = _get_readable_section(db, tree, section_id, context)
-    context.require_write_scope(section.id)
+    context.require_write_scope(section.id, domain="tree")
     return section
 
 
@@ -92,7 +92,7 @@ def get_sections(
 ):
     sections = list_sections(db, tree)
     return [
-        s.model_copy(update={"can_write": context.can_write_scope(s.id)})
+        s.model_copy(update={"can_write": context.can_write_scope(s.id, domain="tree")})
         for s in sections
         if context.can_read_scope(s.id)
     ]
@@ -129,7 +129,7 @@ def get_section_suggestions(
     return [
         SectionSuggestion(
             section=section_out(section, counts.get(section.id, 0)).model_copy(
-                update={"can_write": context.can_write_scope(section.id)}
+                update={"can_write": context.can_write_scope(section.id, domain="tree")}
             ),
             matched_via_member_ids=via,
         )
@@ -147,7 +147,7 @@ def post_section(
 ):
     # A new section is outside every existing section grant. Only an editor
     # authorized for the whole workspace may create and seed it.
-    context.require_write_scope(None)
+    context.require_write_scope(None, domain="tree")
     try:
         with UnitOfWork(db) as uow:
             section = create_section(
@@ -185,7 +185,8 @@ def get_section_by_id(
 ):
     section = _get_readable_section(db, tree, section_id, context)
     out = section_out(section, len(section.members))
-    return out.model_copy(update={"can_write": context.can_write_scope(section.id)})
+    can_write = context.can_write_scope(section.id, domain="tree")
+    return out.model_copy(update={"can_write": can_write})
 
 
 @router.patch("/{section_id}", response_model=SectionOut)

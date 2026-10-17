@@ -26,7 +26,7 @@ from app.services.media.geocoding import (
 router = APIRouter(
     prefix="/workspaces/{workspace_id}/geocode",
     tags=["geocode"],
-    dependencies=[Depends(require_domain("map"))],
+    dependencies=[Depends(require_domain("events"))],
 )
 
 

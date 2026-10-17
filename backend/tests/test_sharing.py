@@ -69,11 +69,12 @@ def test_share_candidates_are_friends_minus_members(client, db):
     assert {c["username"] for c in res.json()} == {"carol"}
 
 
-def test_shared_editor_has_no_default_restrictions(client, db):
+def test_shared_editor_only_hides_health_by_default(client, db):
     """A directly-shared editor must be able to edit stories, events, etc.
 
     Regression: DEFAULT_RESTRICTIONS previously included every content domain,
     making freshly-shared editors unable to access anything beyond the tree.
+    Since #1101 only health data is hidden by default.
     """
     owner = make_user(db, "owner")
     bob = make_user(db, "bob")
@@ -87,7 +88,7 @@ def test_shared_editor_has_no_default_restrictions(client, db):
     )
     assert res.status_code == 200
     bob_entry = next(m for m in res.json() if m["username"] == "bob")
-    assert bob_entry["restrictions"] == []
+    assert bob_entry["restrictions"] == ["diseases"]
 
     # Editor must be able to create a story without a 404 from require_domain.
     story_res = client.post(

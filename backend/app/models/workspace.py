@@ -61,6 +61,8 @@ class WorkspaceMembership(Base):
     role: Mapped[str] = mapped_column(String(20), default="editor")
     # List of domain keys the member may NOT see. None / [] = full access.
     restrictions: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # Areas an editor may see but not change (#1101). None / [] = all editable.
+    read_only: Mapped[list | None] = mapped_column(JSON, nullable=True)
 
     workspace: Mapped["Workspace"] = relationship(back_populates="memberships")
 
@@ -171,6 +173,8 @@ class WorkspaceSectionGrant(Base):
     # List of domain keys this grant does NOT see. None / [] = full access
     # within its scope.
     restrictions: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # Areas an editor grant may see but not change (#1101).
+    read_only: Mapped[list | None] = mapped_column(JSON, nullable=True)
     # Bumped on every role/restriction change so anything keyed to a grant's
     # identity (e.g. a future cached decision) can detect it changed.
     access_version: Mapped[int] = mapped_column(Integer, default=0)

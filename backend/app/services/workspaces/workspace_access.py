@@ -22,6 +22,7 @@ def list_tree_access(db: Session, tree: Workspace) -> list[WorkspaceMemberOut]:
                     username=member_user.username,
                     role=m.role,
                     restrictions=list(m.restrictions or []),
+                    read_only=list(m.read_only or []),
                 )
             )
     # Section-scoped grants (#993): listed as their own rows, one per grant,
@@ -39,6 +40,7 @@ def list_tree_access(db: Session, tree: Workspace) -> list[WorkspaceMemberOut]:
                     username=grant_user.username,
                     role=g.role,
                     restrictions=list(g.restrictions or []),
+                    read_only=list(g.read_only or []),
                     section_id=g.section_id,
                 )
             )

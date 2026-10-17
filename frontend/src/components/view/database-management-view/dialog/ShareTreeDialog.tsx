@@ -47,16 +47,17 @@ import {
   ChevronsUpDown,
   Copy,
   Crown,
-  EyeOff,
   Globe,
   Link,
   UserPlus,
   X,
 } from "lucide-react";
 import { useWorkspaceSharingStore } from "@/hooks/useWorkspaceSharingStore";
+import { ACCESS_PRESETS, levelsOf } from "@/utils/accessLevels";
+import { AccessLevelsPicker } from "./AccessLevelsPicker";
 import { cn } from "@/lib/utils";
 import {
-  RESTRICTABLE_DOMAINS,
+  AccessLevels,
   ShareCandidate,
   ShareRole,
   Workspace,
@@ -75,7 +76,7 @@ type Props = {
 
 /** ``sectionId`` null = share the whole workspace (#1100). */
 type StagedUser = ShareCandidate & {
-  role: ShareRole;
+  levels: AccessLevels;
   sectionId: string | null;
 };
 
@@ -104,8 +105,8 @@ export const ShareTreeDialog = ({
   const loadSharing = useWorkspaceSharingStore((state) => state.load);
   const grantAccess = useWorkspaceSharingStore((state) => state.grantAccess);
   const revokeAccess = useWorkspaceSharingStore((state) => state.revokeAccess);
-  const updateMemberRestrictions = useWorkspaceSharingStore(
-    (state) => state.updateMemberRestrictions,
+  const updateMemberLevels = useWorkspaceSharingStore(
+    (state) => state.updateMemberLevels,
   );
   const transferOwnership = useWorkspaceSharingStore(
     (state) => state.transferOwnership,
@@ -201,13 +202,16 @@ export const ShareTreeDialog = ({
     setStaged((prev) =>
       prev.some((s) => s.user_id === candidate.user_id)
         ? prev.filter((s) => s.user_id !== candidate.user_id)
-        : [...prev, { ...candidate, role: "editor", sectionId: null }],
+        : [
+            ...prev,
+            { ...candidate, levels: ACCESS_PRESETS.editor, sectionId: null },
+          ],
     );
   };
 
-  const setStagedRole = (userId: string, role: ShareRole) => {
+  const setStagedLevels = (userId: string, levels: AccessLevels) => {
     setStaged((prev) =>
-      prev.map((s) => (s.user_id === userId ? { ...s, role } : s)),
+      prev.map((s) => (s.user_id === userId ? { ...s, levels } : s)),
     );
   };
 
@@ -224,12 +228,17 @@ export const ShareTreeDialog = ({
   const handleShare = async () => {
     try {
       for (const s of staged) {
+        // Share first (creating the grant), then set its levels (#1101).
+        const role = Object.values(s.levels).includes("edit")
+          ? "editor"
+          : "viewer";
         await grantAccess(
           tree.id,
           s.username,
-          s.role,
+          role,
           s.sectionId ? [s.sectionId] : undefined,
         );
+        await updateMemberLevels(tree.id, s.user_id, s.levels, s.sectionId);
       }
       setStaged([]);
       await reload();
@@ -240,41 +249,21 @@ export const ShareTreeDialog = ({
     }
   };
 
-  const handleRoleChange = async (member: WorkspaceAccess, role: ShareRole) => {
-    try {
-      const updated = await grantAccess(
-        tree.id,
-        member.username,
-        role,
-        member.section_id ? [member.section_id] : undefined,
-      );
-      useWorkspaceSharingStore.setState({ access: updated });
-    } catch (err) {
-      console.error(err);
-      toast.error(t("share-error"));
-    }
-  };
-
-  const handleRestrictionToggle = async (
+  const handleLevelsChange = async (
     member: WorkspaceAccess,
-    domain: string,
-    accessible: boolean,
+    levels: AccessLevels,
   ) => {
-    const current = member.restrictions ?? [];
-    const next = accessible
-      ? current.filter((d) => d !== domain)
-      : [...new Set([...current, domain])];
     try {
-      const updated = await updateMemberRestrictions(
+      const updated = await updateMemberLevels(
         tree.id,
         member.user_id,
-        next,
+        levels,
         member.section_id,
       );
       useWorkspaceSharingStore.setState({ access: updated });
     } catch (err) {
       console.error(err);
-      toast.error(t("restrictions-error"));
+      toast.error(t("access.error"));
     }
   };
 
@@ -529,62 +518,11 @@ export const ShareTreeDialog = ({
                 <Badge variant="secondary">{t("role-owner")}</Badge>
               ) : (
                 <div className="flex items-center gap-2">
-                  {isOwner && (
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          title={t("restrictions-button")}
-                        >
-                          <EyeOff className="h-4 w-4" />
-                          {(a.restrictions?.length ?? 0) > 0 && (
-                            <Badge
-                              variant="secondary"
-                              className="ml-1 h-4 px-1 text-xs"
-                            >
-                              {a.restrictions!.length}
-                            </Badge>
-                          )}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-48 p-2" align="end">
-                        <p className="mb-2 text-xs font-medium text-muted-foreground">
-                          {t("restrictions-title")}
-                        </p>
-                        {RESTRICTABLE_DOMAINS.map((domain) => (
-                          <div
-                            key={domain}
-                            className="flex items-center justify-between py-1"
-                          >
-                            <span className="text-sm">
-                              {t(`domains.${domain}`)}
-                            </span>
-                            <Switch
-                              checked={
-                                !(a.restrictions?.includes(domain) ?? false)
-                              }
-                              onCheckedChange={(checked) =>
-                                handleRestrictionToggle(a, domain, checked)
-                              }
-                            />
-                          </div>
-                        ))}
-                      </PopoverContent>
-                    </Popover>
-                  )}
-                  <Select
-                    value={a.role}
-                    onValueChange={(v) => handleRoleChange(a, v as ShareRole)}
-                  >
-                    <SelectTrigger size="sm" className="w-28">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="editor">{t("role-editor")}</SelectItem>
-                      <SelectItem value="viewer">{t("role-viewer")}</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <AccessLevelsPicker
+                    levels={levelsOf(a)}
+                    onChange={(levels) => handleLevelsChange(a, levels)}
+                    disabled={!isOwner}
+                  />
                   <Button
                     variant="ghost"
                     size="sm"
@@ -699,24 +637,10 @@ export const ShareTreeDialog = ({
                         </SelectContent>
                       </Select>
                     )}
-                    <Select
-                      value={s.role}
-                      onValueChange={(v) =>
-                        setStagedRole(s.user_id, v as ShareRole)
-                      }
-                    >
-                      <SelectTrigger size="sm" className="w-28">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="editor">
-                          {t("role-editor")}
-                        </SelectItem>
-                        <SelectItem value="viewer">
-                          {t("role-viewer")}
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <AccessLevelsPicker
+                      levels={s.levels}
+                      onChange={(levels) => setStagedLevels(s.user_id, levels)}
+                    />
                     <Button
                       variant="ghost"
                       size="sm"

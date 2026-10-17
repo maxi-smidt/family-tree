@@ -9,6 +9,7 @@ import {
   ReactFlowInstance,
   SelectionMode,
 } from "@xyflow/react";
+import { canEditArea } from "@/utils/accessLevels";
 import { RemoveMemberDialog } from "@/components/shared/dialog/RemoveMemberDialog";
 import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -138,7 +139,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     loadMoreNeighborhood,
     resetNeighborhood,
   } = useMemberStore();
-  const canWrite = activeTree?.role !== "viewer";
+  const canWrite = canEditArea(activeTree, "tree");
   const isCanvasReadOnly = isMobile || !canWrite;
   const canDragLayout = !isMobile && canWrite;
   useUndoRedo(!isCanvasReadOnly);

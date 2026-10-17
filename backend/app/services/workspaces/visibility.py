@@ -165,16 +165,32 @@ class WorkspaceAccessContext:
 
     # -- read: members -------------------------------------------------------
 
-    def member_filter(self) -> ColumnElement | None:
-        """A WHERE clause selecting only visible members. ``None`` = no filter."""
-        if self.unrestricted:
-            return None
-        if not self.scoped_section_ids:
+    def member_filter(self, *, domain: str | None = None) -> ColumnElement | None:
+        """A WHERE clause selecting only visible members. ``None`` = no filter.
+
+        ``domain``, when given, keeps only members reached through a grant
+        that doesn't hide it — e.g. ``"gallery"`` for whose portraits may be
+        shown (#1101).
+        """
+        if domain is None or self.is_owner_or_admin:
+            if self.unrestricted:
+                return None
+            sections = self.scoped_section_ids
+        else:
+            grants = list(self.grants)
+            workspace_grant = resolve_grant(grants, None)
+            if workspace_grant is not None and domain not in workspace_grant.restrictions:
+                return None
+            sections = frozenset(
+                sid
+                for sid in self.scoped_section_ids
+                if (g := resolve_grant(grants, sid)) is not None
+                and domain not in g.restrictions
+            )
+        if not sections:
             return Member.id.in_(())
         return Member.id.in_(
-            select(SectionMember.member_id).where(
-                SectionMember.section_id.in_(self.scoped_section_ids)
-            )
+            select(SectionMember.member_id).where(SectionMember.section_id.in_(sections))
         )
 
     def member_section_ids(self, db: Session, member_id: str) -> set[str]:
@@ -208,9 +224,7 @@ class WorkspaceAccessContext:
         if self.is_owner_or_admin:
             return True
         grant = self.grant_for(section_id)
-        if grant is None or grant.role != "editor":
-            return False
-        return domain is None or domain not in grant.restrictions
+        return grant is not None and grant.can_edit(domain)
 
     def require_write_scope(
         self, section_id: str | None, *, domain: str | None = None
@@ -235,7 +249,12 @@ class WorkspaceAccessContext:
         return scope
 
     def can_write_member(
-        self, db: Session, member_id: str, *, mode: Literal["edit", "delete"] = "edit"
+        self,
+        db: Session,
+        member_id: str,
+        *,
+        mode: Literal["edit", "delete"] = "edit",
+        domain: str = "tree",
     ) -> bool:
         """Whether this context may change ``member_id``.
 
@@ -245,21 +264,26 @@ class WorkspaceAccessContext:
         record from every section at once, so it requires an editor grant
         (or ownership) covering *all* of them.
         """
-        if self.is_owner_or_admin or self.can_write_scope(None):
+        if self.is_owner_or_admin or self.can_write_scope(None, domain=domain):
             return True
         sections = self.member_section_ids(db, member_id)
         if not sections:
             return False
         if mode == "edit":
-            return any(self.can_write_scope(sid) for sid in sections)
-        return all(self.can_write_scope(sid) for sid in sections)
+            return any(self.can_write_scope(sid, domain=domain) for sid in sections)
+        return all(self.can_write_scope(sid, domain=domain) for sid in sections)
 
     def require_write_member(
-        self, db: Session, member_id: str, *, mode: Literal["edit", "delete"] = "edit"
+        self,
+        db: Session,
+        member_id: str,
+        *,
+        mode: Literal["edit", "delete"] = "edit",
+        domain: str = "tree",
     ) -> None:
         if not self.can_read_member(db, member_id):
             raise NotFoundError("Member not found")
-        if not self.can_write_member(db, member_id, mode=mode):
+        if not self.can_write_member(db, member_id, mode=mode, domain=domain):
             raise AccessDeniedError("Read-only access to this member's scope")
 
     # -- fingerprint ------------------------------------------------------
@@ -271,7 +295,13 @@ class WorkspaceAccessContext:
             self.is_owner_or_admin,
             tuple(
                 sorted(
-                    (g.id, g.section_id or "", g.role, ",".join(g.restrictions))
+                    (
+                        g.id,
+                        g.section_id or "",
+                        g.role,
+                        ",".join(g.restrictions),
+                        ",".join(g.read_only),
+                    )
                     for g in self.grants
                 )
             ),

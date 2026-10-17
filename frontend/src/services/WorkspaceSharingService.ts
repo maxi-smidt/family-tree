@@ -1,5 +1,6 @@
 import { api } from "@/services/api";
 import {
+  AccessLevels,
   InvitationAcceptResult,
   InvitationPreview,
   ShareCandidate,
@@ -78,6 +79,18 @@ export const WorkspaceSharingService = {
     return api.patch<WorkspaceAccess[]>(
       `/workspaces/${workspaceId}/access/${userId}/restrictions${sectionQuery(sectionId)}`,
       { restrictions },
+    );
+  },
+
+  updateMemberLevels(
+    workspaceId: string,
+    userId: string,
+    levels: AccessLevels,
+    sectionId?: string | null,
+  ): Promise<WorkspaceAccess[]> {
+    return api.put<WorkspaceAccess[]>(
+      `/workspaces/${workspaceId}/access/${userId}/levels${sectionQuery(sectionId)}`,
+      { levels },
     );
   },
 

@@ -4,6 +4,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { canEditArea } from "@/utils/accessLevels";
 import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -108,8 +109,7 @@ export const ImageSheet = ({
     galleryImages.find((candidate) => candidate.id === image.id)
       ?.unknownFaces ?? image.unknownFaces;
   const selectedTree = useWorkspaceStore((state) => state.selectedTree);
-  const treeRole = selectedTree?.role;
-  const canWrite = treeRole !== "viewer";
+  const canWrite = canEditArea(selectedTree, "gallery");
   const researchTasksEnabled = !selectedTree?.restrictions?.includes("tasks");
   const [formData, setFormData] = useState<Partial<GalleryImage>>(image);
   const [tagMode, setTagMode] = useState(false);

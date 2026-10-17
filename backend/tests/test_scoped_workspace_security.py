@@ -149,7 +149,10 @@ def test_media_follows_record_visibility(
     assert denied.status_code == 404
 
 
-@pytest.mark.parametrize("kind,domain", [("gallery", "gallery"), ("document", "sources")])
+@pytest.mark.parametrize(
+    "kind,domain",
+    [("gallery", "gallery"), ("document", "sources"), ("member", "gallery")],
+)
 def test_media_honors_domain_restrictions(
     client, db, tree, scoped, tmp_path, monkeypatch, kind, domain
 ):

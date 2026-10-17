@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session
 
 from app.core.exceptions import InvalidInputError, NotFoundError
 from app.models import WorkspaceMembership, WorkspaceSectionGrant
+from app.services.workspaces.restrictions import SHARE_AREAS, normalize_restrictions
 
 _ROLE_RANK = {"viewer": 0, "editor": 1}
 VALID_ROLES = frozenset(_ROLE_RANK)
@@ -45,6 +46,17 @@ class Grant:
     section_id: str | None
     role: str
     restrictions: tuple[str, ...] = field(default_factory=tuple)
+    # Areas an editor grant may see but not change (#1101).
+    read_only: tuple[str, ...] = field(default_factory=tuple)
+
+    def can_edit(self, domain: str | None) -> bool:
+        """Whether this grant may change content in ``domain`` (``None`` = any
+        write that belongs to no single area)."""
+        if self.role != "editor":
+            return False
+        return domain is None or (
+            domain not in self.restrictions and domain not in self.read_only
+        )
 
 
 def user_grants(db: Session, workspace_id: str, user_id: str) -> list[Grant]:
@@ -63,6 +75,7 @@ def user_grants(db: Session, workspace_id: str, user_id: str) -> list[Grant]:
                 section_id=None,
                 role=membership.role,
                 restrictions=tuple(sorted(membership.restrictions or ())),
+                read_only=tuple(sorted(membership.read_only or ())),
             )
         )
     section_grants = db.scalars(
@@ -77,6 +90,7 @@ def user_grants(db: Session, workspace_id: str, user_id: str) -> list[Grant]:
             section_id=g.section_id,
             role=g.role,
             restrictions=tuple(sorted(g.restrictions or ())),
+            read_only=tuple(sorted(g.read_only or ())),
         )
         for g in section_grants
     )
@@ -207,6 +221,7 @@ def create_section_grant(
     user_id: str,
     role: str,
     restrictions: list[str] | None = None,
+    read_only: list[str] | None = None,
 ) -> WorkspaceSectionGrant:
     if role not in VALID_ROLES:
         raise InvalidInputError(f"Invalid role: {role}")
@@ -215,7 +230,8 @@ def create_section_grant(
         section_id=section_id,
         user_id=user_id,
         role=role,
-        restrictions=restrictions or None,
+        restrictions=normalize_restrictions(restrictions),
+        read_only=read_only or None,
         access_version=0,
     )
     db.add(grant)
@@ -227,11 +243,12 @@ def update_section_grant(
     *,
     role: str | None = None,
     restrictions: list[str] | None = _UNSET,
+    read_only: list[str] | None = _UNSET,
 ) -> WorkspaceSectionGrant:
-    """Change a grant's role and/or restrictions.
+    """Change a grant's role, restrictions, and/or read-only areas.
 
-    ``restrictions`` defaults to a sentinel (leave unchanged) so a caller can
-    explicitly pass ``None``/``[]`` to clear it.
+    ``restrictions`` and ``read_only`` default to a sentinel (leave unchanged)
+    so a caller can explicitly pass ``None``/``[]`` to clear them.
     """
     if role is not None:
         if role not in VALID_ROLES:
@@ -239,6 +256,8 @@ def update_section_grant(
         grant.role = role
     if restrictions is not _UNSET:
         grant.restrictions = restrictions or None
+    if read_only is not _UNSET:
+        grant.read_only = read_only or None
     grant.access_version += 1
     return grant
 
@@ -276,6 +295,7 @@ def widen_grant_to_workspace(
         "section_id": section_id,
         "role": grant.role,
         "restrictions": list(grant.restrictions or []),
+        "read_only": list(grant.read_only or []),
     }
 
     membership = db.get(WorkspaceMembership, (workspace_id, user_id))
@@ -285,9 +305,20 @@ def widen_grant_to_workspace(
             user_id=user_id,
             role=grant.role,
             restrictions=grant.restrictions,
+            read_only=grant.read_only,
         )
         db.add(membership)
     else:
+        # Never narrower than either side: an area editable on either side
+        # stays editable, and an area visible on either side stays visible.
+        def _editable(role: str, read_only: list | None) -> set[str]:
+            if role != "editor":
+                return set()
+            return set(SHARE_AREAS) - set(read_only or ())
+
+        editable = _editable(membership.role, membership.read_only) | _editable(
+            grant.role, grant.read_only
+        )
         if _ROLE_RANK.get(grant.role, 0) > _ROLE_RANK.get(membership.role, 0):
             membership.role = grant.role
         if membership.restrictions:
@@ -295,6 +326,12 @@ def widen_grant_to_workspace(
                 set(membership.restrictions) & set(grant.restrictions or ())
             )
             membership.restrictions = merged or None
+        hidden = set(membership.restrictions or ())
+        membership.read_only = (
+            sorted(set(SHARE_AREAS) - editable - hidden) or None
+            if membership.role == "editor"
+            else None
+        )
 
     db.delete(grant)
 
@@ -304,5 +341,6 @@ def widen_grant_to_workspace(
             "scope": "workspace",
             "role": membership.role,
             "restrictions": list(membership.restrictions or []),
+            "read_only": list(membership.read_only or []),
         },
     }
