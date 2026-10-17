@@ -194,7 +194,10 @@ export function buildEdges(
           target: cId,
           sourceHandle: "bottom",
           targetHandle: "top",
-          type: edgeType,
+          // Drawn in the chosen line style, with the bend centered between
+          // the parents' row and the child's (see UnionChildEdge).
+          type: "unionChild",
+          data: { lineType: edgeType },
           baseStyle,
           _highlightPairs: highlightPairs,
         });

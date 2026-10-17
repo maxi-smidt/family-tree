@@ -100,7 +100,9 @@ describe("treeProcessor worker edge styles", () => {
       stroke: "#af0c91",
       strokeDasharray: "5,5",
       strokeWidth: 11,
-    });
+    }); // Drawn by UnionChildEdge in the user's chosen line style.
+    expect(childEdge?.type).toBe("unionChild");
+    expect(childEdge?.data).toEqual({ lineType: "step" });
   });
 
   it("applies relation type style overrides to ordinary relation edges", () => {
