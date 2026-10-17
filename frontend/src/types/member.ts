@@ -1,4 +1,5 @@
 import { Disease } from "./disease";
+import { snapToGrid } from "@/utils/gridUtils";
 
 export type Gender = "m" | "f" | "o";
 
@@ -248,10 +249,7 @@ export function mapMemberFromDB(
     cemetery: row.cemetery ?? null,
     placesLived: parsePlacesLived(row.placesLived),
     isCollapsed: !!row.isCollapsed,
-    position: {
-      x: row.positionX,
-      y: row.positionY,
-    },
+    position: snapToGrid({ x: row.positionX, y: row.positionY }),
     relations: relations.map((r) => ({
       fromMemberId: r.from_member_id,
       toMemberId: r.to_member_id,
@@ -315,6 +313,6 @@ export function createMember(position: { x: number; y: number }): Member {
     cemetery: null,
     placesLived: [],
     isCollapsed: false,
-    position: position,
+    position: snapToGrid(position),
   };
 }

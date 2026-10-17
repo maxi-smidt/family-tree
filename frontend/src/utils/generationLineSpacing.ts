@@ -1,6 +1,6 @@
 import { GRID_SIZE } from "@/constants";
 
-// Generation-line spacing must remain a multiple of the 50px layout snap grid
+// Generation-line spacing must remain a multiple of the layout snap grid
 // so the NODE_HEIGHT / 2 phase in GenerationLines keeps node centers on rules.
 export const GENERATION_LINE_GAP_STEP = GRID_SIZE;
 export const DEFAULT_GENERATION_LINE_GAP = 500;
