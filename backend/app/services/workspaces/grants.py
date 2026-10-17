@@ -25,9 +25,9 @@ from dataclasses import dataclass, field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import InvalidInputError, NotFoundError
+from app.core.exceptions import InvalidInputError
 from app.models import WorkspaceMembership, WorkspaceSectionGrant
-from app.services.workspaces.restrictions import SHARE_AREAS, normalize_restrictions
+from app.services.workspaces.restrictions import normalize_restrictions
 
 _ROLE_RANK = {"viewer": 0, "editor": 1}
 VALID_ROLES = frozenset(_ROLE_RANK)
@@ -207,9 +207,7 @@ def restricts_domain(db: Session, workspace_id: str, user_id: str, domain: str) 
 
 
 # ---------------------------------------------------------------------------
-# Section-grant management (used directly by migration/tests; the only
-# owner-facing route today is the narrow migration-report widen action below
-# (#991) — richer, general section-sharing UX is a follow-up per #993/#980).
+# Section-grant management (used by the workspace sharing routes and tests).
 # ---------------------------------------------------------------------------
 
 
@@ -260,83 +258,3 @@ def update_section_grant(
         grant.read_only = read_only or None
     grant.access_version += 1
     return grant
-
-
-def widen_grant_to_workspace(
-    db: Session, *, workspace_id: str, section_id: str, user_id: str
-) -> dict:
-    """Replace a section-scoped grant with workspace-wide access — the
-    inverse of the narrowing #997's migration performs when a same-owner
-    tree is consolidated into a section (see ``_scope_legacy_access`` in
-    ``app.services.migration.converter``).
-
-    An explicit, one-click owner action (#991), never automatic: merged into
-    any existing workspace-wide membership by taking the higher role and the
-    intersection of restrictions, so the result is never narrower than
-    either side held before. Does not commit — the caller wraps this with
-    its own audit-log write in one transaction.
-    """
-    grant = db.scalar(
-        select(WorkspaceSectionGrant).where(
-            WorkspaceSectionGrant.workspace_id == workspace_id,
-            WorkspaceSectionGrant.section_id == section_id,
-            WorkspaceSectionGrant.user_id == user_id,
-        )
-    )
-    if grant is None:
-        raise NotFoundError("Section grant not found")
-
-    before = {
-        "scope": "section",
-        "section_id": section_id,
-        "role": grant.role,
-        "restrictions": list(grant.restrictions or []),
-        "read_only": list(grant.read_only or []),
-    }
-
-    membership = db.get(WorkspaceMembership, (workspace_id, user_id))
-    if membership is None:
-        membership = WorkspaceMembership(
-            workspace_id=workspace_id,
-            user_id=user_id,
-            role=grant.role,
-            restrictions=grant.restrictions,
-            read_only=grant.read_only,
-        )
-        db.add(membership)
-    else:
-        # Never narrower than either side: an area editable on either side
-        # stays editable, and an area visible on either side stays visible.
-        def _editable(role: str, read_only: list | None) -> set[str]:
-            if role != "editor":
-                return set()
-            return set(SHARE_AREAS) - set(read_only or ())
-
-        editable = _editable(membership.role, membership.read_only) | _editable(
-            grant.role, grant.read_only
-        )
-        if _ROLE_RANK.get(grant.role, 0) > _ROLE_RANK.get(membership.role, 0):
-            membership.role = grant.role
-        if membership.restrictions:
-            merged = sorted(
-                set(membership.restrictions) & set(grant.restrictions or ())
-            )
-            membership.restrictions = merged or None
-        hidden = set(membership.restrictions or ())
-        membership.read_only = (
-            sorted(set(SHARE_AREAS) - editable - hidden) or None
-            if membership.role == "editor"
-            else None
-        )
-
-    db.delete(grant)
-
-    return {
-        "before": before,
-        "after": {
-            "scope": "workspace",
-            "role": membership.role,
-            "restrictions": list(membership.restrictions or []),
-            "read_only": list(membership.read_only or []),
-        },
-    }

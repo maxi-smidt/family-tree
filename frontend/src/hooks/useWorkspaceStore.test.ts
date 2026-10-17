@@ -7,7 +7,10 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { resetTreeStoreForSession, useWorkspaceStore } from "./useWorkspaceStore";
+import {
+  resetTreeStoreForSession,
+  useWorkspaceStore,
+} from "./useWorkspaceStore";
 import { useMemberStore } from "./useMemberStore";
 import { useEventStore } from "./useEventStore";
 import { useStoryStore } from "./useStoryStore";
@@ -43,7 +46,11 @@ vi.mock("@/services/WorkspaceService");
 
 const TREE_A: Workspace = { id: "tree-a", name: "Workspace A", role: "owner" };
 const TREE_B: Workspace = { id: "tree-b", name: "Workspace B", role: "editor" };
-const TREE_VIEWER: Workspace = { id: "tree-v", name: "Workspace V", role: "viewer" };
+const TREE_VIEWER: Workspace = {
+  id: "tree-v",
+  name: "Workspace V",
+  role: "viewer",
+};
 
 function mockEmptySubStores() {
   vi.mocked(WorkspaceService.getMembers).mockResolvedValue([]);
@@ -68,7 +75,8 @@ function mockEmptySubStores() {
 /** Set up api.get to return `treeResponse` for the given tree id and {} for metadata. */
 function mockApiGetForConnect(workspaceId: string, treeResponse: Workspace) {
   vi.mocked(api.get).mockImplementation((path: string) => {
-    if (path === `/workspaces/${workspaceId}`) return Promise.resolve(treeResponse);
+    if (path === `/workspaces/${workspaceId}`)
+      return Promise.resolve(treeResponse);
     if (path.includes("/metadata")) return Promise.resolve({});
     return Promise.resolve([]);
   });
@@ -240,92 +248,13 @@ describe("useWorkspaceStore — connect / selectTree", () => {
     expect(useWorkspaceStore.getState().selectedTree?.id).toBe(TREE_A.id);
   });
 
-  it("falls back to the migration-mapped id when the requested tree is a stale (404) v1 id", async () => {
-    mockEmptySubStores();
-    const oldId = "old-tree";
-    vi.mocked(api.get).mockImplementation((path: string) => {
-      if (path === `/workspaces/${oldId}`) {
-        return Promise.reject(new ApiError(404, "Not found"));
-      }
-      if (path === `/workspaces/${TREE_A.id}`) return Promise.resolve(TREE_A);
-      if (path.includes("/metadata")) return Promise.resolve({});
-      return Promise.resolve([]);
-    });
-    vi.mocked(WorkspaceService.resolveLegacyWorkspaceId).mockResolvedValue(
-      TREE_A.id,
-    );
-
-    const tree = await useWorkspaceStore.getState().openTreeById(oldId);
-
-    expect(tree).toEqual(TREE_A);
-    expect(WorkspaceService.resolveLegacyWorkspaceId).toHaveBeenCalledWith(
-      oldId,
-    );
-    expect(useWorkspaceStore.getState().selectedTree?.id).toBe(TREE_A.id);
-  });
-
-  it("rethrows the original error when a missing tree has no migration mapping", async () => {
-    mockEmptySubStores();
-    const oldId = "never-migrated";
-    const notFound = new ApiError(404, "Not found");
-    vi.mocked(api.get).mockImplementation((path: string) => {
-      if (path === `/workspaces/${oldId}`) return Promise.reject(notFound);
-      return Promise.resolve([]);
-    });
-    vi.mocked(WorkspaceService.resolveLegacyWorkspaceId).mockResolvedValue(
-      null,
-    );
-
-    await expect(
-      useWorkspaceStore.getState().openTreeById(oldId),
-    ).rejects.toBe(notFound);
-  });
-
-  it("unlocks a password-protected tree under its migration-mapped id when the given id is stale (404)", async () => {
-    mockEmptySubStores();
-    const oldId = "old-tree";
-    vi.mocked(api.post).mockImplementation((path: string) => {
-      if (path === `/workspaces/${oldId}/public/unlock`) {
-        return Promise.reject(new ApiError(404, "Not found"));
-      }
-      if (path === `/workspaces/${TREE_A.id}/public/unlock`) {
-        return Promise.resolve({ token: "unlock-token" });
-      }
-      return Promise.reject(new Error(`unexpected path ${path}`));
-    });
-    vi.mocked(api.get).mockImplementation((path: string) => {
-      if (path === `/workspaces/${TREE_A.id}`) return Promise.resolve(TREE_A);
-      if (path.includes("/metadata")) return Promise.resolve({});
-      return Promise.resolve([]);
-    });
-    vi.mocked(WorkspaceService.resolveLegacyWorkspaceId).mockResolvedValue(
-      TREE_A.id,
-    );
-
-    const tree = await useWorkspaceStore
-      .getState()
-      .unlockPublicTree(oldId, "secret");
-
-    expect(tree).toEqual(TREE_A);
-    expect(api.post).toHaveBeenCalledWith(
-      `/workspaces/${oldId}/public/unlock`,
-      { password: "secret" },
-    );
-    expect(api.post).toHaveBeenCalledWith(
-      `/workspaces/${TREE_A.id}/public/unlock`,
-      { password: "secret" },
-    );
-    expect(useWorkspaceStore.getState().selectedTree?.id).toBe(TREE_A.id);
-  });
-
-  it("surfaces a wrong-password 401 without attempting legacy-id resolution", async () => {
+  it("surfaces a wrong-password 401", async () => {
     const unauthorized = new ApiError(401, "invalid_public_password");
     vi.mocked(api.post).mockRejectedValue(unauthorized);
 
     await expect(
       useWorkspaceStore.getState().unlockPublicTree(TREE_A.id, "wrong"),
     ).rejects.toBe(unauthorized);
-    expect(WorkspaceService.resolveLegacyWorkspaceId).not.toHaveBeenCalled();
   });
 
   it("inserts the tree into the list when reopening one that's missing from it", async () => {
@@ -375,7 +304,9 @@ describe("useWorkspaceStore — connect / selectTree", () => {
       return Promise.resolve([]);
     });
 
-    await expect(useWorkspaceStore.getState().connect(TREE_A)).rejects.toThrow();
+    await expect(
+      useWorkspaceStore.getState().connect(TREE_A),
+    ).rejects.toThrow();
 
     // Must not be left half-connected to a tree it can't actually read —
     // a stale selectedTree here is what made the DB selector show a blank
@@ -399,7 +330,9 @@ describe("useWorkspaceStore — connect / selectTree", () => {
       return Promise.resolve([]);
     });
 
-    await expect(useWorkspaceStore.getState().connect(TREE_A)).rejects.toThrow();
+    await expect(
+      useWorkspaceStore.getState().connect(TREE_A),
+    ).rejects.toThrow();
 
     // The concurrent disconnect is not undone — no stale tree is restored.
     expect(useWorkspaceStore.getState().selectedTree).toBeUndefined();
@@ -419,7 +352,9 @@ describe("useWorkspaceStore — connect / selectTree", () => {
       return Promise.resolve([]);
     });
 
-    await expect(useWorkspaceStore.getState().connect(TREE_A)).rejects.toThrow();
+    await expect(
+      useWorkspaceStore.getState().connect(TREE_A),
+    ).rejects.toThrow();
 
     // The stale tree is never restored — the caller (e.g. the notification
     // bell) still gets its rejection to show a toast against. But
@@ -443,7 +378,9 @@ describe("useWorkspaceStore — connect / selectTree", () => {
       return Promise.resolve([]);
     });
 
-    await expect(useWorkspaceStore.getState().selectTree(TREE_A)).rejects.toThrow();
+    await expect(
+      useWorkspaceStore.getState().selectTree(TREE_A),
+    ).rejects.toThrow();
 
     expect(useWorkspaceStore.getState().selectedTree).toBeUndefined();
   });
@@ -603,7 +540,6 @@ describe("useWorkspaceStore — connect / selectTree", () => {
     expect(WorkspaceService.getStories).not.toHaveBeenCalled();
     expect(WorkspaceService.getActivity).not.toHaveBeenCalled();
   });
-
 });
 
 // ---------------------------------------------------------------------------
@@ -742,13 +678,19 @@ describe("useWorkspaceStore — loadTrees", () => {
 
 describe("useWorkspaceStore — createTree", () => {
   it("calls api.post and auto-selects the new tree", async () => {
-    const newTree: Workspace = { id: "new-t", name: "New Workspace", role: "owner" };
+    const newTree: Workspace = {
+      id: "new-t",
+      name: "New Workspace",
+      role: "owner",
+    };
     vi.mocked(api.post).mockResolvedValueOnce(newTree);
     mockEmptySubStores();
     // selectTree → connect will call api.get for the new tree
     mockApiGetForConnect(newTree.id, newTree);
 
-    const result = await useWorkspaceStore.getState().createTree("New Workspace");
+    const result = await useWorkspaceStore
+      .getState()
+      .createTree("New Workspace");
 
     expect(api.post).toHaveBeenCalledWith(
       "/workspaces",

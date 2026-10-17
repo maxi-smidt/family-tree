@@ -12,8 +12,8 @@ from fastapi import FastAPI, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from sqlalchemy import select, text
-from sqlalchemy.exc import OperationalError, ProgrammingError
+from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -29,15 +29,13 @@ from app.core.schema_epoch import (
 )
 from app.db.init_db import init_db
 from app.db.redis import close_redis, ping_redis
-from app.db.session import SessionLocal, engine
-from app.models.migration import MigrationRun
+from app.db.session import engine
 from app.services.collaboration import presence_service
 from app.services.media.storage import (
     InvalidImageURL,
     cleanup_document_upload_temps,
     cleanup_image_upload_temps,
 )
-from app.services.migration.status import public_migration_status
 from app.services.system.authentik import init_oauth
 from app.services.system.backups.backup_scheduler import backup_schedule_loop
 from app.services.system.deletion_sweeper import deletion_sweep_loop
@@ -62,12 +60,12 @@ def _init_db_with_retry(retries: int = 10, delay: float = 3.0) -> None:
     init_db()  # final attempt: let the error surface
 
 
-async def _run_startup_migration_or_die() -> bool:
-    """Runs the startup migration off the event loop; returns True on
-    success.
+async def _run_startup_or_die() -> bool:
+    """Runs database startup (Alembic upgrade + seeding) off the event loop;
+    returns True on success.
 
-    On an unrecoverable failure (preflight, or ``_init_db_with_retry``
-    exhausting its retries), sends this process SIGTERM instead of letting
+    On an unrecoverable failure (e.g. ``_init_db_with_retry`` exhausting its
+    retries, or a database still on v1.x), sends this process SIGTERM instead of letting
     the exception vanish inside a background task nothing awaits before
     shutdown — otherwise the process would stay alive forever with
     ``runtime.is_startup_complete()`` stuck False and every ordinary route
@@ -79,7 +77,7 @@ async def _run_startup_migration_or_die() -> bool:
         return True
     except Exception:
         logger.exception(
-            "Startup migration failed unrecoverably; sending SIGTERM so the "
+            "Database startup failed unrecoverably; sending SIGTERM so the "
             "container restarts instead of serving 503 forever."
         )
         os.kill(os.getpid(), signal.SIGTERM)
@@ -117,11 +115,10 @@ async def lifespan(app: FastAPI):
         cleanup_document_upload_temps()
         cleanup_image_upload_temps()
         # Off the event loop and thread, so it doesn't block ASGI request
-        # handling: a v1->v2 conversion (app.services.migration.orchestrator)
-        # can run for minutes, and /api/health + /api/health/migration must
+        # handling: Alembic upgrades can take a while, and /api/health must
         # stay reachable throughout (#1020). StartupGateMiddleware below
         # keeps every other route unavailable until this completes.
-        if not await _run_startup_migration_or_die():
+        if not await _run_startup_or_die():
             return  # already logged + signaled; nothing more to start
         sweeper = asyncio.create_task(deletion_sweep_loop())
         backup_scheduler = asyncio.create_task(backup_schedule_loop())
@@ -141,9 +138,9 @@ async def lifespan(app: FastAPI):
         # A cancel here can't actually stop `_init_db_with_retry` mid-flight
         # (it's a plain sync call in a worker thread, and Python threads
         # aren't preemptible) — it only stops `_startup` from proceeding past
-        # its next `await` once the thread call returns. That's fine: the
-        # migration holds its own advisory lock and commits its own progress,
-        # so letting it finish (or fail) on its own is safe either way.
+        # its next `await` once the thread call returns. That's fine: Alembic
+        # commits its own progress, so letting it finish (or fail) on its own
+        # is safe either way.
         startup_task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await startup_task
@@ -211,10 +208,10 @@ _STARTUP_GATE_EXEMPT_PREFIXES = (f"{settings.API_PREFIX}/health",)
 
 
 class StartupGateMiddleware(BaseHTTPMiddleware):
-    """Keeps ordinary routes unavailable until the startup migration
-    finishes (#1020) — reading Workspace/Member rows mid-v1->v2-conversion
-    would see a torn state. Only /health* stays reachable throughout, so a
-    maintenance screen can poll progress while this gate is up."""
+    """Keeps ordinary routes unavailable until database startup finishes
+    (#1020) — reading rows mid-upgrade would see a torn schema. Only /health*
+    stays reachable throughout, so a maintenance screen can poll while this
+    gate is up."""
 
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
@@ -282,10 +279,9 @@ def _check_db() -> bool:
 
 @app.get(f"{settings.API_PREFIX}/health/ready", tags=["health"])
 async def health_ready():
-    # Readiness is false for as long as the startup migration is running —
-    # see /health/migration for what it's doing. Checked before the DB probe
-    # below: a v1->v2 conversion holds its own connection/lock, and probing
-    # the pool concurrently adds nothing useful while it's in progress.
+    # Readiness is false for as long as database startup is running. Checked
+    # before the DB probe below: probing the pool concurrently adds nothing
+    # useful while an upgrade is in progress.
     if not runtime.is_startup_complete():
         return JSONResponse(
             status_code=503, content={"status": "starting", "db": "unknown"}
@@ -316,36 +312,3 @@ async def health_ready():
         return JSONResponse(status_code=503, content=body)
     return body
 
-
-def _latest_migration_run() -> MigrationRun | None:
-    """Blocking read. Run in a threadpool — never on the loop.
-
-    Uses its own short-lived session rather than a ``get_db`` dependency: this
-    route must answer even before the startup migration (and thus
-    ``migration_runs`` itself, on a first v1->v2 upgrade) exists. Only that
-    specific, expected case (a missing table — ``ProgrammingError``) is
-    treated as "no run yet"; anything else (e.g. the database itself being
-    unreachable) propagates instead of masquerading as a legitimate
-    ``preflight`` state.
-    """
-    with SessionLocal() as db:
-        try:
-            return db.scalars(
-                select(MigrationRun).order_by(MigrationRun.started_at.desc()).limit(1)
-            ).first()
-        except ProgrammingError:
-            db.rollback()  # allowlisted-rollback: recover from the failed probe
-            return None
-
-
-@app.get(f"{settings.API_PREFIX}/health/migration", tags=["health"])
-async def health_migration():
-    """Non-sensitive v2 migration status (#1020): safe to poll from an
-    unauthenticated maintenance screen while StartupGateMiddleware keeps
-    every other route unavailable. See app.services.migration.status for
-    what is (and deliberately isn't) included."""
-    try:
-        run = await run_in_threadpool(_latest_migration_run)
-    except Exception:
-        return JSONResponse(status_code=503, content={"status": "unavailable"})
-    return public_migration_status(run)

@@ -36,13 +36,6 @@ from app.models.identity_link import (
 from app.models.identity_link_claim import IdentityLinkClaim
 from app.models.job import BackgroundJob
 from app.models.legal import LegalAcceptance, LegalDocumentVersion
-from app.models.migration import (
-    MigrationConflict,
-    MigrationIdempotencyKey,
-    MigrationMapping,
-    MigrationReport,
-    MigrationRun,
-)
 from app.models.notification import Notification
 from app.models.provenance import ContentScope, ContentType
 from app.models.quality import QualityIssueDismissal
@@ -55,13 +48,6 @@ from app.models.saved_view import (
 from app.models.section import Section, SectionMember
 from app.models.setting import AppSetting
 from app.models.user import User
-from app.models.virtual_view import (
-    VirtualView,
-    VirtualViewMemberMatch,
-    VirtualViewPosition,
-    VirtualViewSource,
-    VirtualViewUserState,
-)
 from app.models.workspace import (
     Workspace,
     WorkspaceInvitation,
@@ -83,11 +69,6 @@ __all__ = [
     "WorkspaceSectionPublicLink",
     "WorkspaceUserState",
     "Friendship",
-    "VirtualView",
-    "VirtualViewSource",
-    "VirtualViewMemberMatch",
-    "VirtualViewPosition",
-    "VirtualViewUserState",
     "Member",
     "Relation",
     "RelationType",
@@ -128,9 +109,4 @@ __all__ = [
     "IdentityLinkEvent",
     "IdentityLinkIdempotencyKey",
     "IdentityLinkClaim",
-    "MigrationRun",
-    "MigrationMapping",
-    "MigrationReport",
-    "MigrationConflict",
-    "MigrationIdempotencyKey",
 ]

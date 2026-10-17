@@ -2,10 +2,12 @@ import "./App.css";
 import { useEffect, useState } from "react";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { resetLegalStoreForSession } from "@/hooks/useLegalStore";
-import { resetTreeStoreForSession, useWorkspaceStore } from "@/hooks/useWorkspaceStore";
+import {
+  resetTreeStoreForSession,
+  useWorkspaceStore,
+} from "@/hooks/useWorkspaceStore";
 import { resetTutorialStoreForSession } from "@/hooks/useTutorialStore";
 import { resetNotificationStoreForSession } from "@/hooks/useNotificationStore";
-import { migrateV1BrowserState } from "@/utils/migrateBrowserState";
 import { startRealtime, stopRealtime } from "@/services/realtime";
 import { useAdminViewStore } from "@/hooks/useAdminViewStore";
 import { useUserSettingsViewStore } from "@/hooks/useUserSettingsViewStore";
@@ -61,10 +63,6 @@ export const App = () => {
     resetTreeStoreForSession();
     resetTutorialStoreForSession();
     resetNotificationStoreForSession();
-    // Best-effort and independent of the bootstrap sequence below — must
-    // never block login or tree loading (see migrateV1BrowserState's docs).
-    void migrateV1BrowserState();
-
     void (async () => {
       try {
         // Accept a pending invite (from an #invite= link) before loading workspaces
@@ -80,7 +78,8 @@ export const App = () => {
         // membership list are intentionally absent from GET /workspaces. A
         // password-protected or otherwise inaccessible target falls back to
         // the public viewer so it can request the public password.
-        const { pendingPublicTreeId: targetWorkspaceId } = useAuthStore.getState();
+        const { pendingPublicTreeId: targetWorkspaceId } =
+          useAuthStore.getState();
         if (targetWorkspaceId) {
           try {
             await openTreeById(targetWorkspaceId);
