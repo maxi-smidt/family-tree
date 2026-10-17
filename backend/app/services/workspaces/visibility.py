@@ -157,12 +157,6 @@ class WorkspaceAccessContext:
         scope = db.get(ContentScope, (str(content_type), content_id))
         return self.can_read_scope(scope.section_id if scope is not None else None)
 
-    def require_read_content(
-        self, db: Session, content_type: ContentType, content_id: str
-    ) -> None:
-        if not self.can_read_content_record(db, content_type, content_id):
-            raise NotFoundError(f"{content_type.value.capitalize()} not found")
-
     # -- read: members -------------------------------------------------------
 
     def member_filter(self, *, domain: str | None = None) -> ColumnElement | None:

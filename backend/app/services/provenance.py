@@ -246,30 +246,6 @@ def reassign_section_scopes(
     )
 
 
-def rehome_scopes(
-    db: Session,
-    *,
-    content_type: ContentType,
-    content_ids: Iterable[str],
-    workspace_id: str,
-) -> None:
-    """Move existing scopes to ``workspace_id`` for content relocated by a
-    workspace-crossing operation other than normal create/delete (e.g. sub-tree
-    extraction), whose origin section — scoped to the tree it's leaving —
-    cannot follow it.
-    """
-    ids = list(content_ids)
-    if not ids:
-        return
-    db.query(ContentScope).filter(
-        ContentScope.content_type == str(content_type),
-        ContentScope.content_id.in_(ids),
-    ).update(
-        {ContentScope.workspace_id: workspace_id, ContentScope.section_id: None},
-        synchronize_session=False,
-    )
-
-
 def rescope_content(
     db: Session,
     tree: Workspace,

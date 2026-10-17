@@ -1,5 +1,5 @@
 import { Handle, Node, NodeProps, Position } from "@xyflow/react";
-import { UnionInfo } from "@/hooks/useFlowUnions";
+import type { WorkerUnionInfo } from "@/workers/treeProcessor.types";
 import { useTranslation } from "react-i18next";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,9 @@ import { PlusIcon } from "lucide-react";
 
 export const UNION_NODE_SIZE = 10;
 
-type UnionNodeData = UnionInfo & {
+type UnionNodeData = WorkerUnionInfo & {
+  /** Resolved dot colour (relation-type default merged with admin override). */
+  color?: string;
   isConnectionPath?: boolean;
   isConnectionDimmed?: boolean;
   isReadOnly?: boolean;

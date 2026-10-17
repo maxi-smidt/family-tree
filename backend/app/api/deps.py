@@ -280,9 +280,3 @@ def explicit_workspace_ids(db: Session, user: User) -> list[str]:
         )
     ).all()
     return list({*owned, *shared, *section_scoped})
-
-
-def accessible_workspace_ids(db: Session, user: User) -> list[str]:
-    if user.is_admin:
-        return [t.id for t in db.scalars(select(Workspace)).all()]
-    return explicit_workspace_ids(db, user)

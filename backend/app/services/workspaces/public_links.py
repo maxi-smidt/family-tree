@@ -163,7 +163,7 @@ def set_section_public_link_password(
 
 
 def revoke_section_public_link(db: Session, link: WorkspaceSectionPublicLink) -> None:
-    """Delete the link outright (mirrors ``revoke_section_grant``) so a
+    """Delete the link outright (as section grants are revoked) so a
     revoked link neither remains unlockable nor permanently blocks its
     section from being deleted via the still-referencing FK row."""
     db.delete(link)
