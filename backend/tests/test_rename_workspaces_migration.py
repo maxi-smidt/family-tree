@@ -13,10 +13,10 @@ def _load_migration_module():
         Path(__file__).resolve().parents[1]
         / "alembic"
         / "versions"
-        / "v2_0_0_rename_workspaces.py"
+        / "v2_0_0_workspaces.py"
     )
     spec = importlib.util.spec_from_file_location(
-        "v2_0_0_rename_workspaces_under_test", path
+        "v2_0_0_workspaces_under_test", path
     )
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
@@ -119,7 +119,7 @@ def test_upgrade_and_downgrade_rename_tables_columns_and_data():
         )
         operations = Operations(MigrationContext.configure(connection))
         with Operations.context(operations):
-            migration.upgrade()
+            migration._rename_schema()
 
         assert "trees" not in sa.inspect(connection).get_table_names()
         assert "workspaces" in sa.inspect(connection).get_table_names()
@@ -134,7 +134,7 @@ def test_upgrade_and_downgrade_rename_tables_columns_and_data():
         )
 
         with Operations.context(operations):
-            migration.downgrade()
+            migration._restore_schema()
 
         assert "trees" in sa.inspect(connection).get_table_names()
         assert "workspaces" not in sa.inspect(connection).get_table_names()

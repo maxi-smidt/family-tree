@@ -1,4 +1,5 @@
-"""Data-migration test for v2_0_0_identity_links (#985).
+"""Data-migration test for v2_0_0_workspaces' bridge -> identity-link
+conversion (#985).
 
 Exercises the migration's ``migrate_legacy_bridges_to_identity_links`` helper
 directly against a hermetic SQLite schema, mirroring
@@ -18,10 +19,10 @@ def _load_migration_module():
         Path(__file__).resolve().parents[1]
         / "alembic"
         / "versions"
-        / "v2_0_0_identity_links.py"
+        / "v2_0_0_workspaces.py"
     )
     spec = importlib.util.spec_from_file_location(
-        "v2_0_0_identity_links_under_test", path
+        "v2_0_0_workspaces_under_test", path
     )
     module = importlib.util.module_from_spec(spec)
     assert spec and spec.loader
