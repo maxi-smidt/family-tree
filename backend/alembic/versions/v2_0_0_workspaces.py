@@ -185,20 +185,8 @@ def _create_sections() -> None:
         unique=False,
     )
 
-    op.create_table(
-        "section_positions",
-        sa.Column("section_id", sa.String(length=36), nullable=False),
-        sa.Column("member_id", sa.String(length=36), nullable=False),
-        sa.Column("position_x", sa.Float(), nullable=False),
-        sa.Column("position_y", sa.Float(), nullable=False),
-        sa.ForeignKeyConstraint(["section_id"], ["sections.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["member_id"], ["members.id"], ondelete="CASCADE"),
-        sa.PrimaryKeyConstraint("section_id", "member_id"),
-    )
-
 
 def _drop_sections() -> None:
-    op.drop_table("section_positions")
     op.drop_index(op.f("ix_section_members_member_id"), table_name="section_members")
     op.drop_table("section_members")
     op.drop_index(op.f("ix_sections_workspace_id"), table_name="sections")
