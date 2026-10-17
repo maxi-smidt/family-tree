@@ -40,7 +40,7 @@ import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { createMember, Member } from "@/types/member";
-import { NODE_WIDTH } from "@/constants";
+import { NODE_HEIGHT, NODE_WIDTH } from "@/constants";
 import { RelationControls } from "@/components/view/tree-view/RelationControls";
 import { PanelMoreMenu } from "@/components/view/tree-view/PanelMoreMenu";
 import {
@@ -314,7 +314,6 @@ export const MemberControls = ({
   );
 
   async function onAddMember() {
-    const NODE_HEIGHT = 157;
     const BOTTOM_MARGIN = 50;
     const flowPoint = screenToFlowPosition({
       x: window.innerWidth / 2,

@@ -15,6 +15,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Member, createMember } from "@/types/member";
 import { Maximize, UserPlus } from "lucide-react";
 import { NODE_WIDTH, NODE_HEIGHT } from "@/constants";
+import { SNAP_GRID } from "@/utils/gridUtils";
 import { EXPANSION_NODE_BUDGET, useMemberStore } from "@/hooks/useMemberStore";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
@@ -810,7 +811,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
           onPaneClick={isMobile ? () => setPeekMemberId(null) : undefined}
           minZoom={0.1}
           snapToGrid={true}
-          snapGrid={[50, 50]}
+          snapGrid={SNAP_GRID}
           nodesDraggable={
             !connection.isConnectionMode && !isLockedScreen && canDragLayout
           }
@@ -865,7 +866,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
           }}
         >
           <SelectionModeController active={inSelectionMode} />
-          <Background color="var(--canvas-dot)" gap={22} size={1.4} />
+          <Background color="var(--canvas-dot)" gap={SNAP_GRID} size={1.4} />
           <GenerationLines
             visible={generationLineGap !== null}
             gap={generationLineGap ?? undefined}
