@@ -1,5 +1,9 @@
 import { filterSavedViewMembers } from "@/utils/savedViewProjection";
-import { SavedViewDB, SavedViewPositionDB } from "@/types/savedView";
+import {
+  SavedViewDB,
+  SavedViewPositionDB,
+  stepNeighborhoodDepth,
+} from "@/types/savedView";
 import { contentOriginArgs } from "@/hooks/contentOrigin";
 import { create } from "zustand";
 import {
@@ -787,8 +791,8 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     } = get();
     if (neighborhoodMemberRows.length >= EXPANSION_NODE_BUDGET) return;
 
-    const nextUp = Math.min(neighborhoodUp + 1, 20);
-    const nextDown = Math.min(neighborhoodDown + 1, 20);
+    const nextUp = stepNeighborhoodDepth(neighborhoodUp, 1, 20);
+    const nextDown = stepNeighborhoodDepth(neighborhoodDown, 1, 20);
     const version = ++memberRefreshVersion;
     const stale = () =>
       !isActiveTree(workspaceId) || version !== memberRefreshVersion;

@@ -81,6 +81,7 @@ from app.services.system.settings_service import get_media_limits
 from app.services.unit_of_work import UnitOfWork
 from app.services.workspaces import search_cursor
 from app.services.workspaces.neighborhood import (
+    ALL_GENERATIONS,
     MAX_NEIGHBORHOOD_NODES,
     MAX_NEIGHBORHOOD_TOTAL,
     NeighborhoodQuery,
@@ -507,8 +508,8 @@ def _empty_neighborhood(total_count: int) -> NeighborhoodOut:
 def get_neighborhood(
     request: Request,
     root: str | None = Query(None),
-    up: int = Query(3, ge=0, le=20),
-    down: int = Query(3, ge=0, le=20),
+    up: int = Query(3, ge=0, le=ALL_GENERATIONS),
+    down: int = Query(3, ge=0, le=ALL_GENERATIONS),
     partners: bool = Query(True),
     sections: list[str] | None = Query(None),
     budget: int = Query(MAX_NEIGHBORHOOD_NODES, ge=1, le=MAX_NEIGHBORHOOD_NODES),

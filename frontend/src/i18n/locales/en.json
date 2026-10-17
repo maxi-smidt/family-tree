@@ -2492,7 +2492,13 @@
       "edit-error": "The saved view could not be saved.",
       "cancel": "Cancel",
       "create": "Create",
-      "save": "Save"
+      "save": "Save",
+      "scope-label": "Show",
+      "scope-workspace": "Whole workspace",
+      "scope-sections": "Chosen sections",
+      "sections-required": "Choose at least one section, or show the whole workspace.",
+      "all-ancestors": "All the way up",
+      "all-descendants": "All the way down"
     },
     "delete-saved-view": {
       "title": "Delete \"{{name}}\"?",
@@ -2576,5 +2582,14 @@
     "confirmed": "Confirmed",
     "more-actions": "More actions",
     "withdraw": "Withdraw"
+  },
+  "tree-preview": {
+    "focus": "Focus person",
+    "seed": "Seed person",
+    "included": "Included",
+    "excluded": "Not included",
+    "outside-sections": "Outside the sections",
+    "caption": "Example tree, not your data",
+    "summary": "Example tree: {{included}} of {{total}} people included"
   }
 }

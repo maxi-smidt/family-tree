@@ -1,5 +1,6 @@
 """Tests for the neighborhood BFS endpoint and member search."""
 
+from app.services.workspaces.neighborhood import ALL_GENERATIONS
 from tests.conftest import API, add_member, auth, make_tree, make_user
 
 
@@ -60,6 +61,36 @@ def test_neighborhood_bfs_ancestors(db, client):
     ids = {m["id"] for m in data["members"]}
     assert ids == {"m0", "m1", "m2"}
     assert data.get("truncated") is False or data.get("truncated") is False
+
+
+def test_neighborhood_all_generations_walks_the_whole_line(db, client):
+    user = make_user(db, "alice")
+    tree = make_tree(db, user)
+    # 25 generations — deeper than any bounded depth a view can store.
+    chain = _setup_chain(db, client, user, tree, n=25)
+
+    r = client.get(
+        f"{API}/workspaces/{tree.id}/members/neighborhood"
+        f"?root=m0&up={ALL_GENERATIONS}&down={ALL_GENERATIONS}&partners=false",
+        headers=auth(user),
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert {m["id"] for m in data["members"]} == set(chain)
+    assert data["expandable"] is False
+
+
+def test_neighborhood_rejects_depth_past_all_generations(db, client):
+    user = make_user(db, "alice")
+    tree = make_tree(db, user)
+    add_member(db, tree, "solo", first_name="Solo", gender="m")
+
+    r = client.get(
+        f"{API}/workspaces/{tree.id}/members/neighborhood"
+        f"?root=solo&up={ALL_GENERATIONS + 1}",
+        headers=auth(user),
+    )
+    assert r.status_code == 422
 
 
 def test_neighborhood_bfs_descendants(db, client):
