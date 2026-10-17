@@ -40,7 +40,7 @@ export function ListPagination({
           value={String(pageSize)}
           onValueChange={(v) => onPageSizeChange(Number(v))}
         >
-          <SelectTrigger size="sm" className="w-16">
+          <SelectTrigger size="sm" className="w-20">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
