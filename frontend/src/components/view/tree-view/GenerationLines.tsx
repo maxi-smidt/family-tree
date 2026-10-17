@@ -2,12 +2,11 @@ import { useStore } from "@xyflow/react";
 import { NODE_HEIGHT } from "@/constants";
 import { DEFAULT_GENERATION_LINE_GAP } from "@/utils/generationLineSpacing";
 
-// Vertical spacing between ruled lines, in flow (canvas) coordinates. 500 is
-// roughly two and a half generations' row pitch (NODE_HEIGHT 68 +
-// RANK_SEPARATION 130 ≈ 200 each) — so the ruled bands read like notebook lines
-// for orientation. Because the gap is a multiple of the snap grid, a node
-// placed at a multiple of the gap lands its vertical center exactly on a line
-// (see the NODE_HEIGHT/2 phase applied below).
+// Vertical spacing between ruled lines, in flow (canvas) coordinates. The
+// default is the auto-layout's generation pitch, so after "Arrange" every
+// generation sits on its own rule. Because the gap is a multiple of the snap
+// grid, a node placed at a multiple of the gap lands its vertical center
+// exactly on a line (see the NODE_HEIGHT/2 phase applied below).
 export const GENERATION_LINE_GAP = DEFAULT_GENERATION_LINE_GAP;
 
 type Transform = [number, number, number];
