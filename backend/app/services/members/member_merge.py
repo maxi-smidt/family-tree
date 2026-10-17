@@ -27,7 +27,6 @@ from app.models import (
     MemberTaskLink,
     Relation,
     SectionMember,
-    SectionPosition,
     StoryMemberLink,
     Workspace,
 )
@@ -382,14 +381,6 @@ def merge_members_in_place(
     _repoint_member_links(db, DocumentMemberLink, "document_id", keep.id, remove.id)
     _repoint_member_links(db, MemberTaskLink, "task_id", keep.id, remove.id)
     _repoint_member_links(db, SectionMember, "section_id", keep.id, remove.id)
-    _repoint_member_links(
-        db,
-        SectionPosition,
-        "section_id",
-        keep.id,
-        remove.id,
-        extra_fields=("position_x", "position_y"),
-    )
     _transfer_diseases(db, keep.id, remove.id)
     repoint_identity_links_for_merge(db, keep, remove)
     repoint_identity_link_claims_for_merge(db, keep, remove)

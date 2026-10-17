@@ -285,13 +285,6 @@ class BundleSectionMemberRow(TypedDict, total=False):
     member_id: str
 
 
-class BundleSectionPositionRow(TypedDict, total=False):
-    section_id: str
-    member_id: str
-    position_x: float
-    position_y: float
-
-
 class BundleSavedViewRow(TypedDict, total=False):
     id: str
     workspace_id: str
@@ -417,7 +410,6 @@ class TreeBundleV5(TypedDict, total=False):
     story_document_links: list[BundleStoryDocumentLinkRow]
     sections: list[BundleSectionRow]
     section_members: list[BundleSectionMemberRow]
-    section_positions: list[BundleSectionPositionRow]
     saved_views: list[BundleSavedViewRow]
     saved_view_sections: list[BundleSavedViewSectionRow]
     saved_view_positions: list[BundleSavedViewPositionRow]

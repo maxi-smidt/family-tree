@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 
 import app.services.sections as sections_service
-from app.models import Member, Relation, Section, SectionMember, SectionPosition
+from app.models import Member, Relation, Section, SectionMember
 from app.services.members.member_merge import merge_members_in_place
 from tests.conftest import API, add_member, auth, make_tree, make_user, share
 
@@ -224,74 +224,6 @@ def test_get_members_lists_current_members_by_name(client, db):
     assert [m["id"] for m in res.json()] == ["m1", "m2"]
 
 
-def test_positions_upsert(client, db):
-    user = make_user(db)
-    tree = make_tree(db, user)
-    add_member(db, tree, "m1")
-    add_member(db, tree, "outsider")
-    section = _create(client, user, tree, name="Section").json()
-    client.put(
-        f"{API}/workspaces/{tree.id}/sections/{section['id']}/members",
-        headers=auth(user),
-        json={"member_ids": ["m1"]},
-    )
-
-    res = client.patch(
-        f"{API}/workspaces/{tree.id}/sections/{section['id']}/members/positions",
-        headers=auth(user),
-        json=[
-            {"member_id": "m1", "position_x": 1.5, "position_y": 2.5},
-            {"member_id": "outsider", "position_x": 0, "position_y": 0},
-        ],
-    )
-    assert res.status_code == 204
-    rows = db.query(SectionPosition).filter(
-        SectionPosition.section_id == section["id"]
-    ).all()
-    assert {(r.member_id, r.position_x, r.position_y) for r in rows} == {
-        ("m1", 1.5, 2.5)
-    }
-
-    res = client.patch(
-        f"{API}/workspaces/{tree.id}/sections/{section['id']}/members/positions",
-        headers=auth(user),
-        json=[{"member_id": "m1", "position_x": 9, "position_y": 9}],
-    )
-    assert res.status_code == 204
-    db.expire_all()
-    rows = db.query(SectionPosition).filter(
-        SectionPosition.section_id == section["id"]
-    ).all()
-    assert {(r.member_id, r.position_x, r.position_y) for r in rows} == {("m1", 9, 9)}
-
-
-def test_removing_member_prunes_their_position(client, db):
-    user = make_user(db)
-    tree = make_tree(db, user)
-    add_member(db, tree, "m1")
-    section = _create(client, user, tree, name="Section").json()
-    client.put(
-        f"{API}/workspaces/{tree.id}/sections/{section['id']}/members",
-        headers=auth(user),
-        json={"member_ids": ["m1"]},
-    )
-    client.patch(
-        f"{API}/workspaces/{tree.id}/sections/{section['id']}/members/positions",
-        headers=auth(user),
-        json=[{"member_id": "m1", "position_x": 1, "position_y": 1}],
-    )
-
-    client.put(
-        f"{API}/workspaces/{tree.id}/sections/{section['id']}/members",
-        headers=auth(user),
-        json={"member_ids": []},
-    )
-    remaining = db.query(SectionPosition).filter(
-        SectionPosition.section_id == section["id"]
-    ).all()
-    assert remaining == []
-
-
 def test_suggestions_from_parent_membership(client, db):
     user = make_user(db)
     tree = make_tree(db, user)
@@ -392,7 +324,7 @@ def test_race_on_create_surfaces_as_409_not_500(client, db, monkeypatch):
     assert res.status_code == 409
 
 
-def test_merge_repoints_section_membership_and_position_onto_keep(db):
+def test_merge_repoints_section_membership_onto_keep(db):
     user = make_user(db, "alice")
     tree = make_tree(db, user, "T")
     keep = add_member(db, tree, "keep")
@@ -400,9 +332,6 @@ def test_merge_repoints_section_membership_and_position_onto_keep(db):
     section = Section(id="s1", workspace_id=tree.id, name="Section", position=0)
     db.add(section)
     db.add(SectionMember(section_id="s1", member_id="remove"))
-    db.add(
-        SectionPosition(section_id="s1", member_id="remove", position_x=3, position_y=4)
-    )
     db.commit()
 
     merge_members_in_place(db, tree, keep, remove, {})
@@ -410,7 +339,3 @@ def test_merge_repoints_section_membership_and_position_onto_keep(db):
 
     members = db.query(SectionMember).filter(SectionMember.section_id == "s1").all()
     assert [m.member_id for m in members] == ["keep"]
-    positions = db.query(SectionPosition).filter(SectionPosition.section_id == "s1").all()
-    assert len(positions) == 1
-    assert positions[0].member_id == "keep"
-    assert (positions[0].position_x, positions[0].position_y) == (3, 4)

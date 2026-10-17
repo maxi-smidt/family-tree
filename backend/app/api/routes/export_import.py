@@ -56,7 +56,6 @@ from app.models import (
     SavedViewSection,
     Section,
     SectionMember,
-    SectionPosition,
     Story,
     StoryDocumentLink,
     StoryMemberLink,
@@ -152,7 +151,6 @@ def export_tree(
         "story_document_links": _document_link_rows(db, StoryDocumentLink, tree.id),
         "sections": _rows(db, Section, tree.id),
         "section_members": _link_rows(db, SectionMember, Section, tree.id),
-        "section_positions": _link_rows(db, SectionPosition, Section, tree.id),
         # Saved views are private to their owner — the live API never shows
         # one user's saved views to another (see list_saved_views) — so a
         # bundle only ever carries the exporting user's own views, never a

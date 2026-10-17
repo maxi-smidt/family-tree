@@ -38,7 +38,6 @@ from app.models import (
     SavedViewSection,
     Section,
     SectionMember,
-    SectionPosition,
     Story,
     StoryDocumentLink,
     StoryMemberLink,
@@ -265,14 +264,6 @@ def do_import(
             db,
             bundle.get("section_members", []),
             SectionMember,
-            "section_id",
-            section_map,
-            member_map,
-        )
-        _import_links(
-            db,
-            bundle.get("section_positions", []),
-            SectionPosition,
             "section_id",
             section_map,
             member_map,

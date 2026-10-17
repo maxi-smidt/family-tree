@@ -84,7 +84,6 @@ from app.models import (
     SavedViewUserState,
     Section,
     SectionMember,
-    SectionPosition,
     Story,
     StoryDocumentLink,
     StoryMemberLink,
@@ -155,7 +154,6 @@ BACKUP_MODELS: tuple[type, ...] = (
     IdentityLinkClaim,
     Section,
     SectionMember,
-    SectionPosition,
     ContentScope,
     WorkspaceMembership,
     WorkspaceInvitation,
@@ -338,7 +336,6 @@ LEGACY_OPTIONAL_TABLES: frozenset[str] = frozenset(
         # backup taken before this table existed must stay restorable too.
         Section.__tablename__,
         SectionMember.__tablename__,
-        SectionPosition.__tablename__,
         ContentScope.__tablename__,
         # Scoped grants/public links/invitation scope (#993) landed after v2
         # was already in development; a v2 backup taken before these existed
@@ -363,6 +360,16 @@ LEGACY_OPTIONAL_TABLES: frozenset[str] = frozenset(
 )
 
 LEGACY_FEATURE_OVERRIDE_TABLE = "feature_flag_overrides"
+
+# Tables a pre-release v2 backup may still carry but that no longer exist.
+# Their rows are discarded on restore instead of rejecting the whole file.
+DROPPED_TABLES: frozenset[str] = frozenset(
+    {
+        # Per-section layout overlay, never used by the app; sections show
+        # members at their workspace positions.
+        "section_positions",
+    }
+)
 LEGACY_FEATURE_SETTING_PREFIX = "feature."
 
 
@@ -437,8 +444,9 @@ def _drop_legacy_feature_metadata(bundle_dict: dict[str, Any]) -> dict[str, Any]
     if not isinstance(tables, dict) or not isinstance(counts, dict):
         return bundle_dict
 
-    tables.pop(LEGACY_FEATURE_OVERRIDE_TABLE, None)
-    counts.pop(LEGACY_FEATURE_OVERRIDE_TABLE, None)
+    for name in (LEGACY_FEATURE_OVERRIDE_TABLE, *DROPPED_TABLES):
+        tables.pop(name, None)
+        counts.pop(name, None)
 
     settings = tables.get(AppSetting.__tablename__)
     if isinstance(settings, list):
@@ -825,7 +833,14 @@ def _validate_manifest_totals(
     media: _MediaStager,
 ) -> None:
     _validate_stream_meta(manifest)
-    if manifest.get("table_row_counts") != table_counts:
+    manifest_counts = manifest.get("table_row_counts")
+    if isinstance(manifest_counts, dict):
+        manifest_counts = {
+            name: count
+            for name, count in manifest_counts.items()
+            if name not in DROPPED_TABLES
+        }
+    if manifest_counts != table_counts:
         raise BackupValidationError(
             "Backup archive manifest row counts do not match its contents"
         )
@@ -882,7 +897,8 @@ def _consume_streaming_archive(
             if kind == "row":
                 table = record.get("table")
                 rows = record.get("rows")
-                if table not in table_counts or not isinstance(rows, list):
+                known = table in table_counts or table in DROPPED_TABLES
+                if not known or not isinstance(rows, list):
                     raise BackupValidationError(
                         f"Backup archive references an unknown table {table!r}"
                     )
@@ -891,6 +907,8 @@ def _consume_streaming_archive(
                     raise BackupValidationError(
                         "Backup archive exceeds the maximum row count"
                     )
+                if table in DROPPED_TABLES:
+                    continue
                 table_counts[table] += len(rows)
                 if db is not None:
                     _insert_row_batch(db, table, rows)

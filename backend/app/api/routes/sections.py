@@ -22,7 +22,6 @@ from app.schemas.section import (
     SectionCreate,
     SectionMembersSet,
     SectionOut,
-    SectionPositionItem,
     SectionPreview,
     SectionSuggestion,
     SectionUpdate,
@@ -42,7 +41,6 @@ from app.services.sections import (
     section_out,
     suggest_sections_for_member,
     update_section,
-    upsert_section_positions,
 )
 from app.services.unit_of_work import UnitOfWork
 from app.services.workspaces.visibility import WorkspaceAccessContext
@@ -309,24 +307,3 @@ def put_section_members(
         )
         uow.after_commit(lambda: _activity_added(db, tree))
         uow.after_commit(lambda: _content_changed(db, tree))
-
-
-@router.patch("/{section_id}/members/positions", status_code=204)
-def patch_section_positions(
-    section_id: str,
-    payload: list[SectionPositionItem],
-    tree: Workspace = Depends(get_writable_workspace),
-    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
-    db: Session = Depends(get_db),
-):
-    section = _get_writable_section(db, tree, section_id, context)
-    if not payload:
-        return
-    items = [(p.member_id, p.position_x, p.position_y) for p in payload]
-    with UnitOfWork(db) as uow:
-        upsert_section_positions(db, section, items)
-        uow.after_commit(
-            lambda: publish_workspace_event(
-                db, tree, "workspace.layout_changed", {"workspace_id": tree.id}
-            )
-        )

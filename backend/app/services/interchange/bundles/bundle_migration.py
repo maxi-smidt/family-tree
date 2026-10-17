@@ -28,7 +28,7 @@ from app.services.interchange.bundles.bundle_types import (
 #   v4 (v1.8+):   gallery_links gain face regions; tasks / task_links
 #                 (research tasks); unknown_faces (gallery unknown-person
 #                 tags, issue #736)
-#   v5 (v2.0+):   sections / section_members / section_positions;
+#   v5 (v2.0+):   sections / section_members;
 #                 saved_views / saved_view_sections / saved_view_positions
 #                 (#1016) — a bundle never carries identity links or the
 #                 legacy member bridge fields, see export_import.export_tree.
@@ -200,7 +200,6 @@ def migrate_bundle(bundle: TreeBundle) -> TreeBundleV5:
         migrated = dict(bundle)
         migrated["sections"] = bundle.get("sections", [])
         migrated["section_members"] = bundle.get("section_members", [])
-        migrated["section_positions"] = bundle.get("section_positions", [])
         migrated["saved_views"] = bundle.get("saved_views", [])
         migrated["saved_view_sections"] = bundle.get("saved_view_sections", [])
         migrated["saved_view_positions"] = bundle.get("saved_view_positions", [])
