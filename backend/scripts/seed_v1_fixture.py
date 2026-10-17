@@ -250,7 +250,7 @@ def build_fixture(database_url: str, revision: str) -> dict:
         # schema-only migration but *before* the orchestrator's CONVERTING
         # phase runs (see docs/UPGRADE_V2.md #6/#8) — restoring it into a
         # blank target must reproduce these still-unmerged counts, not the
-        # converged ones. The `v2_0_0_identity_links` schema migration
+        # converged ones. The `v2_0_0_workspaces` schema migration
         # itself already turns every live bridge pointer into an
         # IdentityLink row (including the same-owner pair that CONVERTING
         # will later collapse into one member), so this is 1, not 0.

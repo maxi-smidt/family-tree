@@ -50,7 +50,7 @@ class IdentityLinkVerificationBasis(StrEnum):
     SAME_OWNER = "same_owner"
     # Converted from a legacy bridge person at migration time — created by one
     # actor who had write access to both trees, not necessarily approval from
-    # both current owners. See ``alembic/versions/v2_0_0_identity_links.py``.
+    # both current owners. See ``alembic/versions/v2_0_0_workspaces.py``.
     LEGACY_DUAL_WRITE_ACCESS = "legacy_dual_write_access"
 
 
@@ -61,7 +61,7 @@ class IdentityLinkAction(StrEnum):
     REVOKE = "revoke"
     EXPIRE = "expire"
     # System-authored: a legacy bridge pair converted by
-    # alembic/versions/v2_0_0_identity_links.py, not a user action.
+    # alembic/versions/v2_0_0_workspaces.py, not a user action.
     MIGRATE = "migrate"
 
 
@@ -80,7 +80,7 @@ class IdentityLink(Base):
         # Deferred to transaction-commit: app.services.migration.converter
         # briefly has a link naming a member's about-to-be-vacated workspace
         # while consolidating a same-owner component chaining 3+ workspaces
-        # together — see alembic/versions/v2_0_0_defer_identity_link_fks.py.
+        # together — see alembic/versions/v2_0_0_workspaces.py.
         ForeignKeyConstraint(
             ["workspace_a_id", "member_a_id"],
             ["members.workspace_id", "members.id"],

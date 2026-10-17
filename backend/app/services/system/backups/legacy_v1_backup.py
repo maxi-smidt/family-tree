@@ -12,9 +12,9 @@ manifest before touching anything, and converts it into a fully v2-shaped
 v1 -> v2 upgrade uses — never by re-deriving those rules by hand:
 
 - Table/column renames and the legacy bridge -> identity-link conversion are
-  loaded directly from their Alembic revisions (``v2_0_0_rename_workspaces``,
-  ``v2_0_0_identity_links``) instead of being duplicated here, since revision
-  files under ``alembic/versions`` aren't an importable package (see
+  loaded directly from their Alembic revision (``v2_0_0_workspaces``)
+  instead of being duplicated here, since revision files under
+  ``alembic/versions`` aren't an importable package (see
   ``_load_revision`` below).
 - Workspace consolidation and media relocation reuse
   ``app.services.migration.converter.run_conversion`` and
@@ -103,15 +103,14 @@ def _load_revision(name: str):
     return module
 
 
-_rename_revision = _load_revision("v2_0_0_rename_workspaces")
-_identity_link_revision = _load_revision("v2_0_0_identity_links")
+_v2_revision = _load_revision("v2_0_0_workspaces")
 
 # (v1_table, v2_table)
-TABLE_RENAMES: tuple[tuple[str, str], ...] = _rename_revision.TABLE_RENAMES
+TABLE_RENAMES: tuple[tuple[str, str], ...] = _v2_revision.TABLE_RENAMES
 # (v2_table, v1_column, v2_column)
-COLUMN_RENAMES: tuple[tuple[str, str, str], ...] = _rename_revision.COLUMN_RENAMES
+COLUMN_RENAMES: tuple[tuple[str, str, str], ...] = _v2_revision.COLUMN_RENAMES
 _migrate_legacy_bridges_to_identity_links = (
-    _identity_link_revision.migrate_legacy_bridges_to_identity_links
+    _v2_revision.migrate_legacy_bridges_to_identity_links
 )
 
 _V1_TO_V2_TABLE: dict[str, str] = dict(TABLE_RENAMES)
@@ -119,7 +118,7 @@ _V2_TO_V1_TABLE: dict[str, str] = {new: old for old, new in TABLE_RENAMES}
 
 # Tables in the current v2 model registry that were introduced by schema work
 # that happened *after* the v1 -> v2 cutover itself (see the corresponding
-# alembic/versions/v2_0_0_*.py revisions) and therefore can never appear in a
+# alembic/versions/v2_0_0_workspaces.py revision) and therefore can never appear in a
 # genuine v1 archive. A v1 restore always synthesizes these — empty, or (for
 # the identity-link family) populated deterministically from the legacy
 # bridge columns by the staged conversion below.

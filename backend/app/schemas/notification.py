@@ -67,7 +67,7 @@ class IdentityLinkClaimDecidedPayload(BaseModel):
 
 
 class IdentityLinkLegacyMigratedPayload(BaseModel):
-    """Sent once, by the v2_0_0_identity_links migration, to each owner of a
+    """Sent once, by the v2_0_0_workspaces migration, to each owner of a
     tree-in-tree bridge that was converted into an identity link."""
 
     identity_link_id: str

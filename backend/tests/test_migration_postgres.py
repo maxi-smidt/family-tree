@@ -63,11 +63,11 @@ _PG_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "familytree")
 _PG_ADMIN_DB = os.environ.get("POSTGRES_DB", "familytree")
 _TEST_SECRET_KEY = "test-only-secret-key-at-least-32-bytes-long-for-hs256"
 
-# Right before v2_0_0_identity_links: the revision every fixture in this
-# module seeds legacy bridge data against, so the *real* migration (not a
-# hand-inserted IdentityLink row) is what converts it — see
-# alembic/versions/v2_0_0_identity_links.py.
-_PRE_IDENTITY_LINKS_REVISION = "v2_0_0_scoped_grants"
+# The last v1 revision: the one every fixture in this module seeds legacy
+# bridge data against, so the *real* v2 migration (not a hand-inserted
+# IdentityLink row) is what converts it — see
+# alembic/versions/v2_0_0_workspaces.py.
+_LATEST_V1_REVISION = "v1_10_0_remove_feature_flags"
 
 
 def _postgres_reachable() -> bool:
@@ -161,7 +161,7 @@ def _reflect(engine: Engine, *names: str) -> dict[str, Table]:
 
 class V1Seed:
     """Minimal fixture builder for a database upgraded only as far as
-    ``_PRE_IDENTITY_LINKS_REVISION``.
+    ``_LATEST_V1_REVISION`` — still named ``trees``/``tree_id``.
 
     The ORM models always reflect the *head* schema, so ``tests.conftest``'s
     ``make_user``/``make_tree``/``add_member`` can't insert here — e.g.
@@ -173,9 +173,9 @@ class V1Seed:
 
     def __init__(self, conn: Connection) -> None:
         self._conn = conn
-        tables = _reflect(conn.engine, "users", "workspaces", "members")
+        tables = _reflect(conn.engine, "users", "trees", "members")
         self._users = tables["users"]
-        self._workspaces = tables["workspaces"]
+        self._trees = tables["trees"]
         self._members = tables["members"]
 
     def user(self, username: str) -> str:
@@ -195,7 +195,7 @@ class V1Seed:
     def workspace(self, owner_id: str, name: str) -> str:
         workspace_id = str(uuid.uuid4())
         self._conn.execute(
-            self._workspaces.insert().values(
+            self._trees.insert().values(
                 id=workspace_id, name=name, owner_id=owner_id, created_at=utcnow_iso()
             )
         )
@@ -212,11 +212,11 @@ class V1Seed:
         self._conn.execute(
             self._members.insert().values(
                 id=member_id,
-                workspace_id=workspace_id,
+                tree_id=workspace_id,
                 is_collapsed=False,
                 position_x=0.0,
                 position_y=0.0,
-                linked_workspace_id=linked_workspace_id,
+                linked_tree_id=linked_workspace_id,
                 linked_member_id=linked_member_id,
             )
         )
@@ -228,7 +228,7 @@ class V1Seed:
             self._members.update()
             .where(self._members.c.id == member_id)
             .values(
-                linked_workspace_id=linked_workspace_id,
+                linked_tree_id=linked_workspace_id,
                 linked_member_id=linked_member_id,
             )
         )
@@ -272,9 +272,9 @@ def test_full_alembic_chain_converts_v1_fixture_and_is_idempotent(
     pg_database, tmp_path, monkeypatch
 ):
     dbname = pg_database
-    # Every revision from the oldest supported baseline up to (not including)
-    # the bridge -> identity-link conversion.
-    _upgrade(dbname, _PRE_IDENTITY_LINKS_REVISION)
+    # Every v1 revision from the oldest supported baseline, stopping short of
+    # the v2 schema migration (and its bridge -> identity-link conversion).
+    _upgrade(dbname, _LATEST_V1_REVISION)
 
     pre_engine = create_engine(_pg_url(dbname), future=True)
     try:
@@ -336,13 +336,13 @@ def test_full_alembic_chain_converts_v1_fixture_and_is_idempotent(
                 text("SELECT count(*) FROM members")
             ).scalar()
             workspace_count_before = conn.execute(
-                text("SELECT count(*) FROM workspaces")
+                text("SELECT count(*) FROM trees")
             ).scalar()
     finally:
         pre_engine.dispose()
 
-    # Runs the real v2_0_0_identity_links migration (and the rest of the v2
-    # chain) against the fixture just seeded — converting every live bridge
+    # Runs the real v2_0_0_workspaces migration against the fixture just
+    # seeded — converting every live bridge
     # pointer above into a real identity_links row, not a hand-inserted one.
     _upgrade(dbname, "head")
 

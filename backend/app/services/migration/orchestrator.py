@@ -12,9 +12,9 @@ is what keeps a normal request or background job from mutating v1 data while
 the backup or conversion runs, without a separate maintenance-mode flag.
 
 Why the pre-migration backup happens *after* ``alembic upgrade head`` rather
-than before it: every v2 revision's ``upgrade()`` is additive or a rename
-(see ``alembic/versions/v2_0_0_*.py`` — every ``drop_table``/``drop_column``
-call in that chain is in ``downgrade()``, not ``upgrade()``), so nothing
+than before it: the v2 revision's ``upgrade()`` is additive or a rename
+(see ``alembic/versions/v2_0_0_workspaces.py`` — every ``drop_table``/
+``drop_column`` call in it is in ``downgrade()``, not ``upgrade()``), so nothing
 destructive has happened by the time this module runs. The actually
 destructive, hard-to-reverse step is the application-level data
 consolidation below — merging per-owner workspaces, deleting the absorbed
