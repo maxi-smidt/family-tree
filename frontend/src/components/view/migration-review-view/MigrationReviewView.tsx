@@ -190,6 +190,10 @@ export const MigrationReviewView = () => {
   const dropped = reports.flatMap((r) => r.dropped_virtual_views);
   const allAcknowledged =
     reports.length > 0 && reports.every((r) => r.status === "acknowledged");
+  // Visits live only in this component, so after a reload an acknowledged
+  // review would show its informational steps as open again. Acknowledging
+  // closes the review, so it marks those steps done for good.
+  const reviewed = (id: StepId) => allAcknowledged || visited.has(id);
 
   const steps: {
     id: StepId;
@@ -202,19 +206,19 @@ export const MigrationReviewView = () => {
       id: "workspaces",
       title: t("steps.workspaces"),
       note: t("steps.workspaces-note", { count: mappings.length }),
-      done: visited.has("workspaces"),
+      done: reviewed("workspaces"),
     },
     {
       id: "views",
       title: t("steps.views"),
       note: t("steps.views-note", { count: converted.length }),
-      done: visited.has("views"),
+      done: reviewed("views"),
     },
     {
       id: "access",
       title: t("steps.access"),
       note: t("steps.access-note", { count: grants.length }),
-      done: visited.has("access"),
+      done: reviewed("access"),
     },
     {
       id: "differences",
