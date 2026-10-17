@@ -1107,32 +1107,6 @@ def copy_media_to_workspace(value: str | None, new_tree_id: str) -> str | None:
     return f"{MEDIA_URL_PREFIX}/{new_tree_id}/{filename}"
 
 
-def move_media_to_tree(value: str | None, new_tree_id: str) -> str | None:
-    """Move a stored media file into another tree's directory (subtree move).
-
-    Mirrors ``copy_media_to_workspace`` but relocates the file (and any
-    ``originals/`` sibling written by ``store_data_url`` in ``"both"`` mode)
-    instead of copying it. Returns the new media URL, the input unchanged when
-    it isn't one of our media URLs, or ``None`` if the source file is missing.
-    """
-    if not value or not value.startswith(f"{MEDIA_URL_PREFIX}/"):
-        return value
-    src = _safe_media_path(value)
-    if src is None or not src.is_file():
-        return None
-    ext = src.suffix.lstrip(".") or "bin"
-    new_stem = uuid4().hex
-    filename = f"{new_stem}.{ext}"
-    dest_dir = _tree_media_dir(new_tree_id)
-    shutil.move(src, dest_dir / filename)
-    # Move the original stored in the originals/ subdir by "both" mode.
-    for orig_src in _safe_original_files(src):
-        orig_ext = orig_src.suffix.lstrip(".") or "bin"
-        dest = _originals_dir(new_tree_id) / f"{new_stem}.{orig_ext}"
-        shutil.move(orig_src, dest)
-    return f"{MEDIA_URL_PREFIX}/{new_tree_id}/{filename}"
-
-
 def resolve_media_path(value: str | None) -> Path | None:
     """Resolve a stored media URL to its canonical on-disk path, or ``None``
     for a non-media URL or a workspace/filename that fails the safety check.
@@ -1143,47 +1117,6 @@ def resolve_media_path(value: str | None) -> Path | None:
     private helper.
     """
     return _safe_media_path(value)
-
-
-def media_disk_usage(value: str | None) -> int:
-    """Total on-disk bytes backing a media URL, including any ``originals/``
-    siblings. Returns 0 for non-media URLs and missing files (never raises).
-    """
-    if not value or not value.startswith(f"{MEDIA_URL_PREFIX}/"):
-        return 0
-    path = _safe_media_path(value)
-    if path is None:
-        return 0
-    total = 0
-    try:
-        if path.is_file():
-            total += path.stat().st_size
-        for orig in _safe_original_files(path):
-            total += orig.stat().st_size
-    except OSError:
-        pass
-    return total
-
-
-def process_gallery_image_field(
-    workspace_id: str,
-    value: str | None,
-    limits: MediaLimits,
-) -> str | None:
-    """Like ``process_image_field`` but honours ``limits.image_storage_mode``.
-
-    Used exclusively by the gallery router so that originals are only kept for
-    gallery images; member photos, story attachments, and exports are unaffected.
-    """
-    if value is None:
-        return None
-    if is_data_url(value):
-        return store_data_url(workspace_id, value, limits, mode=limits.image_storage_mode)
-    if _safe_media_path(value, expected_tree_id=workspace_id) is not None:
-        return value
-    raise InvalidImageURL(
-        "Image field must be null, a data URL, or a media URL owned by this tree"
-    )
 
 
 def process_image_field(

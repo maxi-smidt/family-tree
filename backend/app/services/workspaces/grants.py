@@ -262,10 +262,6 @@ def update_section_grant(
     return grant
 
 
-def revoke_section_grant(db: Session, grant: WorkspaceSectionGrant) -> None:
-    db.delete(grant)
-
-
 def widen_grant_to_workspace(
     db: Session, *, workspace_id: str, section_id: str, user_id: str
 ) -> dict:

@@ -29,9 +29,7 @@ from app.services.media.storage import (
     cleanup_image_upload_temps,
     copy_media_to_workspace,
     delete_media,
-    media_disk_usage,
     media_url_to_data_url,
-    move_media_to_tree,
     process_image_field,
     purge_expired_media_trash,
     store_data_url,
@@ -143,8 +141,6 @@ def test_media_helpers_cannot_escape_media_root(tmp_path, monkeypatch):
 
     assert media_url_to_data_url(traversal_url) is None
     assert copy_media_to_workspace(traversal_url, _OTHER_TREE_ID) is None
-    assert move_media_to_tree(traversal_url, _OTHER_TREE_ID) is None
-    assert media_disk_usage(traversal_url) == 0
     delete_media(traversal_url)
     assert secret.read_text() == "do not read"
 
@@ -161,7 +157,6 @@ def test_media_symlink_outside_tree_is_rejected(tmp_path, monkeypatch):
     url = f"{MEDIA_URL_PREFIX}/{_TREE_ID}/linked.txt"
 
     assert media_url_to_data_url(url) is None
-    assert media_disk_usage(url) == 0
 
 
 def test_originals_symlink_cannot_reach_outside_tree(tmp_path, monkeypatch):
@@ -179,7 +174,6 @@ def test_originals_symlink_cannot_reach_outside_tree(tmp_path, monkeypatch):
     (tree_dir / "originals").symlink_to(outside_dir, target_is_directory=True)
     url = f"{MEDIA_URL_PREFIX}/{_TREE_ID}/{display.name}"
 
-    assert media_disk_usage(url) == len(b"display")
     delete_media(url)
     assert outside.read_bytes() == b"private-original"
 

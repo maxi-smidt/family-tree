@@ -168,36 +168,3 @@ def collect_member_ids(
     if direction == "partnership":
         return _collect_partnership_ids(db, workspace_id, root_id)
     return _collect_direct_family_ids(db, workspace_id, root_id)
-
-
-def classify_relations(
-    relations: list[Relation],
-    moved: set[str],
-    root_id: str,
-) -> tuple[list[Relation], list[Relation], list[Relation]]:
-    """Split a source tree's relations for a move.
-
-    Returns ``(kept, bridged, severed)``:
-
-    - kept: both endpoints move → recreated as-is in the new tree,
-    - bridged: root ↔ moved → recreated with the root replaced by its
-      counterpart (the bridge person carries the seam),
-    - severed: moved ↔ anything staying (other than the root) → deleted.
-
-    Relations entirely among staying members are not returned (untouched).
-    """
-    kept: list[Relation] = []
-    bridged: list[Relation] = []
-    severed: list[Relation] = []
-    for r in relations:
-        from_moved = r.from_member_id in moved
-        to_moved = r.to_member_id in moved
-        if from_moved and to_moved:
-            kept.append(r)
-        elif from_moved or to_moved:
-            other = r.to_member_id if from_moved else r.from_member_id
-            if other == root_id:
-                bridged.append(r)
-            else:
-                severed.append(r)
-    return kept, bridged, severed
