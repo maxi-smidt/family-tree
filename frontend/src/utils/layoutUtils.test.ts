@@ -653,16 +653,18 @@ describe("getLayoutedElements", () => {
 
     const positions = getLayoutedElements(members);
 
+    // Re-captured when the compact 220×68 member cards landed (redesign);
+    // the relative order and generation rows are unchanged.
     expect(positions).toEqual({
-      abe: { x: 400, y: 0 },
+      abe: { x: 300, y: 0 },
       mona: { x: 0, y: 0 },
-      clancy: { x: 1400, y: 0 },
-      jackie: { x: 800, y: 0 },
-      vm_homer: { x: 200, y: 350 },
-      marge: { x: 600, y: 350 },
-      selma: { x: 1400, y: 350 },
-      patty: { x: 1000, y: 350 },
-      bart: { x: 400, y: 650 },
+      clancy: { x: 1000, y: 0 },
+      jackie: { x: 550, y: 0 },
+      vm_homer: { x: 150, y: 350 },
+      marge: { x: 400, y: 350 },
+      selma: { x: 1000, y: 350 },
+      patty: { x: 700, y: 350 },
+      bart: { x: 300, y: 650 },
     });
   });
 

@@ -13,7 +13,7 @@ import {
   createTree,
   deleteTree,
 } from "../fixtures/seed";
-import { loginAs } from "../fixtures/ui";
+import { loginAs, openWorkspaceMenu } from "../fixtures/ui";
 
 const sectionsTest = test.extend<{ ownedTree: TreeRecord }>({
   ownedTree: async ({ secondApi }, use) => {
@@ -43,6 +43,7 @@ async function createSection(
   name: string,
   seedPersonName?: string,
 ) {
+  await openWorkspaceMenu(page);
   await page.getByRole("button", { name: "Create section" }).click();
   const dialog = page.getByRole("dialog", { name: "Create section" });
   await dialog.locator("#new-section-name").fill(name);
@@ -61,6 +62,7 @@ function sectionRow(page: Page, name: string) {
 }
 
 async function openSectionActions(page: Page, name: string) {
+  await openWorkspaceMenu(page);
   const row = sectionRow(page, name);
   await row.hover();
   await row.getByRole("button", { name: `Actions for ${name}` }).click();
@@ -95,6 +97,7 @@ sectionsTest(
     await seedFamily(secondApi, ownedTree.id);
     await login(page, secondUser);
 
+    await openWorkspaceMenu(page);
     await page.getByRole("button", { name: "Create section" }).click();
     const dialog = page.getByRole("dialog", { name: "Create section" });
     await dialog.locator("#new-section-name").fill("Alice Origin");
@@ -111,6 +114,7 @@ sectionsTest(
     await dialog.getByRole("button", { name: "Create", exact: true }).click();
     await expect(dialog).not.toBeVisible();
 
+    await openWorkspaceMenu(page);
     const row = sectionRow(page, "Alice Origin");
     await expect(row).toBeVisible();
     await expect(row.getByText("1", { exact: true })).toBeVisible();
@@ -139,6 +143,7 @@ sectionsTest(
     await expect(membersDialog).not.toBeVisible();
 
     // Edit Alice while "Family A" is the active section.
+    await openWorkspaceMenu(page);
     await sectionRow(page, "Family A").click();
     await expect(memberNode(page, alice.id)).toBeVisible();
     await memberNode(page, alice.id)
@@ -158,6 +163,7 @@ sectionsTest(
     await page.keyboard.press("Escape");
 
     // "Family B" — a different section Alice also belongs to — shows the edit.
+    await openWorkspaceMenu(page);
     await sectionRow(page, "Family B").click();
     await expect(memberNode(page, alice.id)).toContainText("Alicia");
   },
@@ -209,6 +215,7 @@ sectionsTest(
       alert.getByRole("button", { name: "Delete", exact: true }),
     ).toHaveCount(0);
     await alert.getByRole("button", { name: "Close" }).click();
-    await expect(page.getByText("Blocked", { exact: true })).toBeVisible();
+    await openWorkspaceMenu(page);
+    await expect(sectionRow(page, "Blocked")).toBeVisible();
   },
 );

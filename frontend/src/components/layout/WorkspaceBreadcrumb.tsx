@@ -20,10 +20,13 @@ export const WorkspaceBreadcrumb = () => {
   return (
     <nav
       aria-label={t("aria-label")}
-      className="ml-16 mr-4 mt-2 flex items-center gap-1 overflow-x-auto text-xs text-muted-foreground"
+      className="flex flex-none items-center gap-1 overflow-x-auto border-b bg-muted/60 px-4 py-1.5 text-xs text-muted-foreground md:px-5"
     >
       {stack.map((entry, index) => (
-        <span key={`${entry.id}-${index}`} className="flex shrink-0 items-center gap-1">
+        <span
+          key={`${entry.id}-${index}`}
+          className="flex shrink-0 items-center gap-1"
+        >
           <button
             type="button"
             onClick={() => void navigateToTreeStack(index)}

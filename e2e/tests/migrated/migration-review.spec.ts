@@ -11,11 +11,12 @@ import {
   expect,
   test,
 } from "../../fixtures/migrated";
+import { openView } from "../../fixtures/ui";
 
 async function openMigrationReview(page: import("@playwright/test").Page) {
-  await page.getByRole("tab", { name: /Migration Review/ }).click();
+  await openView(page, /Migration review/i);
   await expect(
-    page.getByRole("heading", { name: "Migration Review" }),
+    page.getByRole("heading", { name: "Migration review", level: 1 }),
   ).toBeVisible();
 }
 
@@ -30,6 +31,7 @@ test("owner sees workspace mappings, access changes, and converted/dropped views
 
   // Access changes: two scoped grants (different roles) + two scoped public
   // links, each independently narrowed.
+  await page.getByRole("tab", { name: /Sharing carried over/ }).click();
   await expect(
     page.getByText("viewer access, limited to one section"),
   ).toBeVisible();
@@ -41,6 +43,9 @@ test("owner sees workspace mappings, access changes, and converted/dropped views
   ).toHaveCount(2);
 
   // Views: one converted to a saved view, one dropped (spanned workspaces).
+  await page
+    .getByRole("tab", { name: /Virtual views became saved views/ })
+    .click();
   await expect(page.getByText(COMBO_VIEW_NAME)).toBeVisible();
   await expect(page.getByText(DROPPED_VIEW_NAME)).toBeVisible();
 });
@@ -49,6 +54,7 @@ test("acknowledging the report persists across reload", async ({
   owner1Page: page,
 }) => {
   await openMigrationReview(page);
+  await page.getByRole("tab", { name: /Final check/ }).click();
 
   const acknowledgeButton = page.getByRole("button", {
     name: "Acknowledge",
@@ -60,6 +66,7 @@ test("acknowledging the report persists across reload", async ({
 
   await page.reload();
   await openMigrationReview(page);
+  await page.getByRole("tab", { name: /Final check/ }).click();
   await expect(page.getByText("Acknowledged").first()).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Acknowledge", exact: true }),
@@ -70,7 +77,7 @@ test("review checklist: resolving a duplicate-person conflict and dismissing a p
   owner1Page: page,
 }) => {
   await openMigrationReview(page);
-  await page.getByRole("tab", { name: "Review checklist" }).click();
+  await page.getByRole("tab", { name: /Resolve differences/ }).click();
 
   // Matches by kind alone (not also "Pending") — resolving moves the card
   // from the pending list to the resolved history further down the same
@@ -97,7 +104,7 @@ test("review checklist: resolving a duplicate-person conflict and dismissing a p
 
   await page.reload();
   await openMigrationReview(page);
-  await page.getByRole("tab", { name: "Review checklist" }).click();
+  await page.getByRole("tab", { name: /Resolve differences/ }).click();
   await expect(page.getByText("No pending review items.")).toBeVisible();
   await expect(
     page.getByText("Resolved", { exact: true }).first(),

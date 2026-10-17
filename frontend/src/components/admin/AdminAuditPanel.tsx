@@ -169,7 +169,7 @@ export function AdminAuditPanel() {
             {t("filters.action")}
           </label>
           <Select value={action} onValueChange={setAction}>
-            <SelectTrigger className="h-8 w-32 text-xs">
+            <SelectTrigger size="sm" className="w-32">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -187,7 +187,7 @@ export function AdminAuditPanel() {
             {t("filters.subject")}
           </label>
           <Select value={subjectType} onValueChange={setSubjectType}>
-            <SelectTrigger className="h-8 w-44 text-xs">
+            <SelectTrigger size="sm" className="w-44">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -227,7 +227,7 @@ export function AdminAuditPanel() {
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 gap-1 text-xs"
+              className="gap-1"
               onClick={clearFilters}
             >
               <X className="h-3 w-3" />
@@ -237,7 +237,7 @@ export function AdminAuditPanel() {
           <Button
             variant="outline"
             size="sm"
-            className="h-8 text-xs"
+
             onClick={() => void handleExport()}
             disabled={exporting || total === 0}
           >

@@ -236,7 +236,7 @@ describe("ListView — Quick edit toggle gating", () => {
     render(<ListView />);
 
     expect(
-      screen.queryByRole("button", { name: /quick edit/i }),
+      screen.queryByRole("button", { name: /edit in table/i }),
     ).not.toBeInTheDocument();
   });
 
@@ -245,7 +245,7 @@ describe("ListView — Quick edit toggle gating", () => {
     render(<ListView />);
 
     expect(
-      screen.getByRole("button", { name: /quick edit/i }),
+      screen.getByRole("button", { name: /edit in table/i }),
     ).toBeInTheDocument();
   });
 
@@ -253,7 +253,7 @@ describe("ListView — Quick edit toggle gating", () => {
     useWorkspaceStore.setState({ selectedTree: ownerTree, isReady: true });
     render(<ListView />);
 
-    const toggleBtn = screen.getByRole("button", { name: /quick edit/i });
+    const toggleBtn = screen.getByRole("button", { name: /edit in table/i });
     expect(toggleBtn).toHaveAttribute("aria-pressed", "false");
 
     fireEvent.click(toggleBtn);
@@ -267,7 +267,7 @@ describe("ListView — Quick edit toggle gating", () => {
     render(<ListView />);
 
     expect(
-      screen.queryByRole("button", { name: /quick edit/i }),
+      screen.queryByRole("button", { name: /edit in table/i }),
     ).not.toBeInTheDocument();
   });
 });

@@ -1,9 +1,10 @@
-import { FormEvent, useRef, useState } from "react";
+import { FormEvent, ReactNode, useRef, useState } from "react";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { ApiError } from "@/services/api";
 import { authErrorToast } from "@/components/auth/loginError";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/shared/PasswordInput";
 import { FieldLabel } from "@/components/ui/field";
 import {
   Card,
@@ -14,6 +15,7 @@ import {
 } from "@/components/ui/card";
 import { LegalDocsDialog } from "@/components/legal/LegalDocsDialog";
 import { toast } from "sonner";
+import { Network } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 const ADMIN_INITIATED_DELETION = "admin_initiated_deletion";
@@ -105,10 +107,12 @@ export const LoginPage = () => {
 
   if (totpRequired) {
     return (
-      <div className="w-screen h-screen flex items-center justify-center bg-muted/30 p-4">
-        <Card className="w-full max-w-sm">
+      <AuthShell appName={t("title")}>
+        <Card className="w-full max-w-sm gap-5 rounded-2xl px-2 py-8 shadow-lg">
           <CardHeader>
-            <CardTitle>{t("totp-title")}</CardTitle>
+            <CardTitle className="text-xl font-bold tracking-tight">
+              {t("totp-title")}
+            </CardTitle>
             <CardDescription>{t("totp-subtitle")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -145,15 +149,17 @@ export const LoginPage = () => {
             </button>
           </CardContent>
         </Card>
-      </div>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="w-screen h-screen flex items-center justify-center bg-muted/30 p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>{t("title")}</CardTitle>
+    <AuthShell appName={t("title")}>
+      <Card className="w-full max-w-sm gap-5 rounded-2xl px-2 py-8 shadow-lg">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl font-bold tracking-tight">
+            {mode === "register" ? t("register-title") : t("welcome")}
+          </CardTitle>
           <CardDescription>
             {mode === "register" ? t("register-subtitle") : t("subtitle")}
           </CardDescription>
@@ -184,9 +190,8 @@ export const LoginPage = () => {
             )}
             <div className="space-y-2">
               <FieldLabel htmlFor="password">{t("password")}</FieldLabel>
-              <Input
+              <PasswordInput
                 id="password"
-                type="password"
                 value={password}
                 autoComplete={
                   mode === "register" ? "new-password" : "current-password"
@@ -196,6 +201,7 @@ export const LoginPage = () => {
             </div>
             <Button
               type="submit"
+              size="lg"
               className="w-full"
               disabled={loading || !username || !password}
             >
@@ -206,6 +212,7 @@ export const LoginPage = () => {
           {config?.authentik_enabled && config.authentik_login_url && (
             <Button
               variant="outline"
+              size="lg"
               className="w-full"
               onClick={() => {
                 window.location.href = config.authentik_login_url!;
@@ -241,21 +248,67 @@ export const LoginPage = () => {
                 : t("switch-to-login")}
             </button>
           )}
-
-          <button
-            type="button"
-            className="text-xs text-muted-foreground hover:text-foreground w-full text-center"
-            onClick={() => setLegalDocsOpen(true)}
-          >
-            {tLegal("legal-link-public")}
-          </button>
         </CardContent>
       </Card>
+      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        <button
+          type="button"
+          className="hover:text-foreground"
+          onClick={() => setLegalDocsOpen(true)}
+        >
+          {tLegal("legal-link-public")}
+        </button>
+        <span aria-hidden="true">·</span>
+        <LanguageSwitch />
+      </div>
       <LegalDocsDialog
         open={legalDocsOpen}
         onOpenChange={setLegalDocsOpen}
         showTerms={false}
       />
-    </div>
+    </AuthShell>
   );
 };
+
+/** Offers the other UI language, named in that language ("Deutsch"). */
+const LanguageSwitch = () => {
+  const { i18n } = useTranslation();
+  const current = i18n.resolvedLanguage === "de" ? "de" : "en";
+  const other = current === "de" ? "en" : "de";
+  return (
+    <button
+      type="button"
+      lang={other}
+      className="hover:text-foreground"
+      onClick={() => void i18n.changeLanguage(other)}
+    >
+      {i18n.t(other === "de" ? "common.german" : "common.english", {
+        lng: other,
+      })}
+    </button>
+  );
+};
+
+/** Centred sign-in layout: app mark above a single card on the warm page. */
+const AuthShell = ({
+  appName,
+  children,
+}: {
+  appName: string;
+  children: ReactNode;
+}) => (
+  <div className="flex min-h-screen w-full flex-col items-center justify-center gap-7 bg-background p-4">
+    <div className="flex flex-col items-center gap-2.5">
+      <span
+        aria-hidden="true"
+        className="grid size-12 place-items-center rounded-[13px] bg-primary text-2xl font-bold text-primary-foreground"
+      >
+        <Network className="size-6" strokeWidth={2} />
+      </span>
+      <span className="text-[15px] font-semibold text-muted-foreground">
+        {appName}
+      </span>
+    </div>
+    {children}
+  </div>
+);

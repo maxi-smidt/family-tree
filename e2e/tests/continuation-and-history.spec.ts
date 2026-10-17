@@ -12,7 +12,11 @@ import {
   createTree,
   deleteTree,
 } from "../fixtures/seed";
-import { loginAs, searchWorkspaceAndSelect } from "../fixtures/ui";
+import {
+  loginAs,
+  openWorkspaceMenu,
+  searchWorkspaceAndSelect,
+} from "../fixtures/ui";
 
 const test = base.extend<{ ownedTree: TreeRecord }>({
   ownedTree: async ({ secondApi }, use) => {
@@ -103,6 +107,7 @@ test("browser back/forward restores the previously focused section", async ({
   await login(page, secondUser);
 
   for (const name of ["Alice History", "Bob History"]) {
+    await openWorkspaceMenu(page);
     await page.getByRole("button", { name: "Create section" }).click();
     const dialog = page.getByRole("dialog", { name: "Create section" });
     await dialog
@@ -114,10 +119,12 @@ test("browser back/forward restores the previously focused section", async ({
     await expect(dialog).not.toBeVisible();
   }
 
+  await openWorkspaceMenu(page);
   await page.locator("li").filter({ hasText: "Alice Section" }).click();
   await expect(memberNode(page, alice.id)).toBeVisible();
   await expect(memberNode(page, bob.id)).toHaveCount(0);
 
+  await openWorkspaceMenu(page);
   await page.locator("li").filter({ hasText: "Bob Section" }).click();
   await expect(memberNode(page, bob.id)).toBeVisible();
   await expect(memberNode(page, alice.id)).toHaveCount(0);

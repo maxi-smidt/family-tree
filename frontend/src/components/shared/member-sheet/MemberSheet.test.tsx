@@ -171,9 +171,12 @@ describe("MemberSheet tab switching", () => {
 
     expect(await screen.findByTestId("view-active-tab")).toBeInTheDocument();
     expect(screen.queryByTestId("edit-active-tab")).not.toBeInTheDocument();
-    // Only the mocked ViewMode's own "view-go-life" button should render;
-    // the header's edit/view toggle button is omitted entirely when
-    // effectiveCanEdit is false.
-    expect(screen.getAllByRole("button")).toHaveLength(1);
+    // Only the mocked ViewMode's own "view-go-life" button and the header's
+    // close button should render; the edit/view toggle is omitted entirely
+    // when effectiveCanEdit is false.
+    expect(screen.getAllByRole("button")).toHaveLength(2);
+    expect(
+      screen.queryByRole("button", { name: /^edit$/i }),
+    ).not.toBeInTheDocument();
   });
 });

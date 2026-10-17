@@ -274,8 +274,9 @@ export function EditableCell({ member, columnId }: EditableCellProps) {
     }
     return (
       <Input
+        size="sm"
         autoFocus
-        className="h-7 text-xs px-1"
+        className="px-1"
         value={textDraft}
         onChange={(e) => setTextDraft(e.target.value)}
         onBlur={() => void commitText()}
@@ -350,25 +351,13 @@ export function EditableCell({ member, columnId }: EditableCellProps) {
         className="justify-start"
         aria-label={t("inline-edit.gender-aria")}
       >
-        <ToggleGroupItem
-          value="m"
-          aria-label={tCommon("gender.m")}
-          className="h-7 min-w-7 text-xs"
-        >
+        <ToggleGroupItem value="m" aria-label={tCommon("gender.m")}>
           <Mars />
         </ToggleGroupItem>
-        <ToggleGroupItem
-          value="f"
-          aria-label={tCommon("gender.f")}
-          className="h-7 min-w-7 text-xs"
-        >
+        <ToggleGroupItem value="f" aria-label={tCommon("gender.f")}>
           <Venus />
         </ToggleGroupItem>
-        <ToggleGroupItem
-          value="o"
-          aria-label={tCommon("gender.o")}
-          className="h-7 min-w-7 text-xs"
-        >
+        <ToggleGroupItem value="o" aria-label={tCommon("gender.o")}>
           <VenusAndMars />
         </ToggleGroupItem>
       </ToggleGroup>

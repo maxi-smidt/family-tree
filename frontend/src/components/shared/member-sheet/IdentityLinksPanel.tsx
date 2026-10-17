@@ -93,11 +93,12 @@ export const IdentityLinksPanel = ({ member }: Props) => {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-muted-foreground">
+        <h3 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
           {t("title")}
         </h3>
         {canPropose && (
           <Button
+            type="button"
             variant="outline"
             size="sm"
             onClick={() => setProposeOpen(true)}
@@ -134,6 +135,7 @@ export const IdentityLinksPanel = ({ member }: Props) => {
                   )}
                   {!link.counterpart_protected && (
                     <Button
+                      type="button"
                       variant="link"
                       size="sm"
                       className="h-auto p-0"
@@ -144,6 +146,7 @@ export const IdentityLinksPanel = ({ member }: Props) => {
                   )}
                   {isOwner && (
                     <Button
+                      type="button"
                       variant="link"
                       size="sm"
                       className="h-auto p-0 text-destructive"
@@ -170,6 +173,7 @@ export const IdentityLinksPanel = ({ member }: Props) => {
                   {isOwner && (
                     <>
                       <Button
+                        type="button"
                         variant="link"
                         size="sm"
                         className="h-auto p-0"
@@ -182,6 +186,7 @@ export const IdentityLinksPanel = ({ member }: Props) => {
                         {t("approve")}
                       </Button>
                       <Button
+                        type="button"
                         variant="link"
                         size="sm"
                         className="h-auto p-0 text-destructive"
@@ -206,6 +211,7 @@ export const IdentityLinksPanel = ({ member }: Props) => {
                   <Badge variant="outline">{t("status-invited")}</Badge>
                   {canPropose && (
                     <Button
+                      type="button"
                       variant="link"
                       size="sm"
                       className="h-auto p-0 text-destructive"

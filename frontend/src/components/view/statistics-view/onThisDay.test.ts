@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createMember, type Member } from "@/types/member";
 import type { Event } from "@/types/event";
 import type { Story } from "@/types/story";
-import { buildOnThisDayItems } from "./widgets";
+import { buildOnThisDayItems } from "./onThisDay";
 
 function makeMember(overrides: Partial<Member>): Member {
   return {

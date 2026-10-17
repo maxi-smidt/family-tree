@@ -617,9 +617,10 @@ export const EditMode = ({
                   {t("academic-title-field")}
                 </FieldLabel>
                 <Input
+                  size="sm"
                   id="academicTitle"
                   value={formData.academicTitle || ""}
-                  className="h-7 text-xs! shadow-none"
+                  className="shadow-none"
                   placeholder={t("academic-title-placeholder")}
                   onChange={(e) =>
                     handleChange("academicTitle", e.target.value)
@@ -639,25 +640,13 @@ export const EditMode = ({
                   onValueChange={(val) => handleGenderChange(val as Gender)}
                   className="justify-start"
                 >
-                  <ToggleGroupItem
-                    value="m"
-                    aria-label={t("gender-male")}
-                    className="h-7 min-w-7 text-xs"
-                  >
+                  <ToggleGroupItem value="m" aria-label={t("gender-male")}>
                     <Mars />
                   </ToggleGroupItem>
-                  <ToggleGroupItem
-                    value="f"
-                    aria-label={t("gender-female")}
-                    className="h-7 min-w-7 text-xs"
-                  >
+                  <ToggleGroupItem value="f" aria-label={t("gender-female")}>
                     <Venus />
                   </ToggleGroupItem>
-                  <ToggleGroupItem
-                    value="o"
-                    aria-label={t("gender-other")}
-                    className="h-7 min-w-7 text-xs"
-                  >
+                  <ToggleGroupItem value="o" aria-label={t("gender-other")}>
                     <VenusAndMars />
                   </ToggleGroupItem>
                 </ToggleGroup>
@@ -672,6 +661,7 @@ export const EditMode = ({
                     {t("firstname-field")}
                   </FieldLabel>
                   <Input
+                    size="sm"
                     ref={firstNameRef}
                     id="firstName"
                     required
@@ -681,7 +671,7 @@ export const EditMode = ({
                       errors.firstName ? "firstName-error" : undefined
                     }
                     value={formData.firstName}
-                    className="h-7 text-xs! shadow-none"
+                    className="shadow-none"
                     placeholder={t("firstname-placeholder")}
                     onChange={(e) => {
                       handleChange("firstName", e.target.value);
@@ -702,6 +692,7 @@ export const EditMode = ({
                     {t("lastname-field")}
                   </FieldLabel>
                   <Input
+                    size="sm"
                     ref={lastNameRef}
                     id="lastName"
                     required
@@ -711,7 +702,7 @@ export const EditMode = ({
                       errors.lastName ? "lastName-error" : undefined
                     }
                     value={formData.lastName}
-                    className="h-7 text-xs! shadow-none"
+                    className="shadow-none"
                     placeholder={t("lastname-field")}
                     onChange={(e) => {
                       handleChange("lastName", e.target.value);
@@ -729,9 +720,10 @@ export const EditMode = ({
                     {t("middle-names-field")}
                   </FieldLabel>
                   <Input
+                    size="sm"
                     id="middleNames"
                     value={formData.middleNames || ""}
-                    className="h-7 text-xs! shadow-none"
+                    className="shadow-none"
                     placeholder={t("middle-names-field")}
                     onChange={(e) =>
                       handleChange("middleNames", e.target.value)
@@ -744,9 +736,10 @@ export const EditMode = ({
                     {t("maiden-field")}
                   </FieldLabel>
                   <Input
+                    size="sm"
                     id="maidenName"
                     value={formData.maidenName || ""}
-                    className="h-7 text-xs! shadow-none"
+                    className="shadow-none"
                     placeholder={t("lastname-field")}
                     onChange={(e) => handleChange("maidenName", e.target.value)}
                   />
@@ -758,9 +751,10 @@ export const EditMode = ({
                   {t("baptismal-name-field")}
                 </FieldLabel>
                 <Input
+                  size="sm"
                   id="baptismalName"
                   value={formData.baptismalName || ""}
-                  className="h-7 text-xs! shadow-none"
+                  className="shadow-none"
                   placeholder={t("baptismal-name-field")}
                   onChange={(e) =>
                     handleChange("baptismalName", e.target.value)
@@ -785,7 +779,8 @@ export const EditMode = ({
                     {t("born-field")}
                   </FieldLabel>
                   <PartialDatePicker
-                    className="h-7 text-xs shadow-none border-input"
+                    size="sm"
+                    className="shadow-none border-input"
                     value={formData.date.birth}
                     onChange={(date) => handleDateChange("birth", date)}
                     placeholder={t("date-placeholder")}
@@ -799,7 +794,7 @@ export const EditMode = ({
                   <LocationInput
                     id="birthplace"
                     value={formData.birthplace}
-                    className="h-7 text-xs! shadow-none"
+                    size="sm"
                     placeholder={t("location-placeholder")}
                     geocodeEnabled={mapEnabled}
                     onChange={(value) => handleChange("birthplace", value)}
@@ -835,7 +830,8 @@ export const EditMode = ({
                       {t("death-field")}
                     </FieldLabel>
                     <PartialDatePicker
-                      className="h-7 text-xs shadow-none border-input"
+                      size="sm"
+                      className="shadow-none border-input"
                       value={formData.date.death}
                       onChange={(date) => handleDateChange("death", date)}
                       placeholder={t("date-placeholder")}
@@ -850,7 +846,7 @@ export const EditMode = ({
                       <LocationInput
                         id="cemetery"
                         value={formData.cemetery}
-                        className="h-7 text-xs! shadow-none"
+                        size="sm"
                         placeholder={t("location-placeholder")}
                         onChange={(value) => handleChange("cemetery", value)}
                       />
@@ -881,7 +877,7 @@ export const EditMode = ({
                   <LocationInput
                     id="hometown"
                     value={formData.hometown}
-                    className="h-7 text-xs! shadow-none"
+                    size="sm"
                     placeholder={t("location-placeholder")}
                     onChange={(value) => handleChange("hometown", value)}
                   />
@@ -916,7 +912,7 @@ export const EditMode = ({
                       >
                         <LocationInput
                           value={place.location}
-                          className="h-7 text-xs! shadow-none"
+                          size="sm"
                           placeholder={t("location-placeholder")}
                           onChange={(value) => {
                             const next = formData.placesLived.map((p, i) =>
@@ -943,8 +939,9 @@ export const EditMode = ({
                         />
                         <div className="flex gap-1">
                           <Input
+                            size="sm"
                             value={place.from || ""}
-                            className="h-7 text-xs! shadow-none"
+                            className="shadow-none"
                             placeholder={t("places-lived-from")}
                             onChange={(e) => {
                               const next = formData.placesLived.map((p, i) =>
@@ -956,8 +953,9 @@ export const EditMode = ({
                             }}
                           />
                           <Input
+                            size="sm"
                             value={place.to || ""}
-                            className="h-7 text-xs! shadow-none"
+                            className="shadow-none"
                             placeholder={t("places-lived-to")}
                             onChange={(e) => {
                               const next = formData.placesLived.map((p, i) =>

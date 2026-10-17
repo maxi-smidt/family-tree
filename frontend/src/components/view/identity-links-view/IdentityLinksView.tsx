@@ -1,9 +1,17 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Check, Link2, X } from "lucide-react";
+import { Check, Link2, MoreHorizontal } from "lucide-react";
 import { ViewLayout } from "@/components/layout/ViewLayout";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { PageSection } from "@/components/shared/PageSection";
+import { AccountAvatar } from "@/components/auth/AccountAvatar";
+import { formatDate } from "@/utils/dateUtils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -17,7 +25,57 @@ import {
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
 import { useIdentityLinkStore } from "@/hooks/useIdentityLinkStore";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
-import { IdentityLinkClaim } from "@/types/identityLink";
+import {
+  IdentityLink,
+  IdentityLinkClaim,
+  IdentityLinkEndpoint,
+} from "@/types/identityLink";
+
+const initialsOf = (name: string | null | undefined) =>
+  (name ?? "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => Array.from(part)[0]?.toLocaleUpperCase())
+    .join("") || "?";
+
+/** Initials disc for a member we only know by display name. */
+function NameDisc({ name }: { name: string | null | undefined }) {
+  return (
+    <span
+      aria-hidden="true"
+      className="grid size-8 shrink-0 place-items-center rounded-full bg-gender-o-bg text-xs font-semibold text-gender-o"
+    >
+      {initialsOf(name)}
+    </span>
+  );
+}
+
+/** One side of a proposed link: who, and in which workspace. */
+function EndpointBox({
+  endpoint,
+  fallback,
+  note,
+}: {
+  endpoint: IdentityLinkEndpoint | null;
+  fallback: string;
+  note?: string;
+}) {
+  return (
+    <div className="flex min-w-0 flex-1 items-center gap-3 rounded-xl border bg-muted/40 px-3 py-2.5">
+      <NameDisc name={endpoint?.display_name} />
+      <div className="min-w-0">
+        <p className="truncate text-sm font-semibold">
+          {endpoint?.display_name ?? fallback}
+        </p>
+        <p className="truncate text-xs text-muted-foreground">
+          {endpoint ? endpoint.workspace_name : note}
+          {endpoint && note ? ` · ${note}` : ""}
+        </p>
+      </div>
+    </div>
+  );
+}
 import { CompleteIdentityLinkClaimDialog } from "./CompleteIdentityLinkClaimDialog";
 
 export const IdentityLinksView = () => {
@@ -44,7 +102,6 @@ export const IdentityLinksView = () => {
     (s) => s.cancelOutgoingClaim,
   );
 
-  const [tab, setTab] = useState("links");
   const [toComplete, setToComplete] = useState<IdentityLinkClaim | null>(null);
   const [toDecline, setToDecline] = useState<IdentityLinkClaim | null>(null);
 
@@ -70,217 +127,225 @@ export const IdentityLinksView = () => {
 
   const pending = workspaceLinks.filter((l) => l.status === "proposed");
   const verified = workspaceLinks.filter((l) => l.status === "verified");
+  const waitingCount = pending.length + incomingClaims.length;
+
+  const counterpartLine = (link: IdentityLink) =>
+    link.counterpart_protected
+      ? t("protected-counterpart")
+      : t("also-in", {
+          workspace: link.counterpart?.workspace_name ?? "",
+          name: link.counterpart?.display_name ?? t("unnamed-member"),
+        });
 
   return (
-    <ViewLayout title={t("title")}>
-      <Tabs
-        value={tab}
-        onValueChange={setTab}
-        className="flex h-full min-h-0 flex-1 flex-col"
-      >
-        <TabsList>
-          <TabsTrigger value="links">
-            {t("tab-links")}
-            {pending.length > 0 && (
-              <Badge variant="default" className="ml-1.5 px-1.5">
-                {pending.length}
-              </Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="claims">
-            {t("tab-claims")}
-            {incomingClaims.length > 0 && (
-              <Badge variant="default" className="ml-1.5 px-1.5">
-                {incomingClaims.length}
-              </Badge>
-            )}
-          </TabsTrigger>
-        </TabsList>
+    <ViewLayout title={t("title")} subtitle={t("subtitle")}>
+      <div className="flex max-w-5xl flex-col gap-8 px-1 pb-4">
+        <p className="max-w-2xl text-sm text-muted-foreground">{t("intro")}</p>
 
-        <TabsContent value="links" className="mt-4 flex-1 space-y-6">
-          {!selectedTree ? (
-            <p className="text-sm text-muted-foreground">
-              {t("no-tree-selected")}
-            </p>
-          ) : !isOwner ? (
-            <p className="text-sm text-muted-foreground">{t("owner-only")}</p>
+        <PageSection title={t("waiting")} count={waitingCount}>
+          {waitingCount === 0 ? (
+            <Empty className="border">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <Link2 />
+                </EmptyMedia>
+                <EmptyTitle>{t("no-incoming-claims")}</EmptyTitle>
+                <EmptyDescription>
+                  {t("incoming-claims-description")}
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           ) : (
-            <>
-              <section className="space-y-3">
-                <h2 className="text-sm font-semibold text-muted-foreground">
-                  {t("pending-links")}
-                </h2>
-                {pending.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    {t("no-pending-links")}
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {pending.map((link) => (
-                      <Card
-                        key={link.id}
-                        className="flex-row items-center gap-3 p-3"
+            <div className="flex flex-col gap-3">
+              {selectedTree &&
+                pending.map((link) => (
+                  <Card key={link.id} className="gap-4 px-5">
+                    <p className="text-sm text-muted-foreground">
+                      {t("proposed-on", {
+                        date: formatDate(link.proposed_at),
+                      })}
+                    </p>
+                    <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+                      <EndpointBox
+                        endpoint={link.self}
+                        fallback={t("unnamed-member")}
+                        note={t("yours")}
+                      />
+                      <span
+                        aria-hidden="true"
+                        className="grid size-8 shrink-0 place-items-center self-center rounded-full bg-primary-soft text-primary"
                       >
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium">
-                            {link.self.display_name ?? t("unnamed-member")}
-                          </p>
-                          <p className="truncate text-xs text-muted-foreground">
-                            {link.counterpart_protected
-                              ? t("protected-counterpart")
-                              : `${link.counterpart?.display_name ?? t("unnamed-member")} · ${link.counterpart?.workspace_name ?? ""}`}
-                          </p>
-                        </div>
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={() =>
-                            void run(() =>
-                              approveWorkspaceLink(selectedTree.id, link.id),
-                            )
-                          }
-                        >
-                          <Check className="h-4 w-4" />
-                          {t("approve")}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            void run(() =>
-                              rejectWorkspaceLink(selectedTree.id, link.id),
-                            )
-                          }
-                        >
-                          <X className="h-4 w-4" />
-                          {t("reject-or-cancel")}
-                        </Button>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-              </section>
-
-              <section className="space-y-3">
-                <h2 className="text-sm font-semibold text-muted-foreground">
-                  {t("verified-links")}
-                </h2>
-                {verified.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    {t("no-verified-links")}
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {verified.map((link) => (
-                      <Card
-                        key={link.id}
-                        className="flex-row items-center gap-3 p-3"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium">
-                            {link.self.display_name ?? t("unnamed-member")}
-                          </p>
-                          <p className="truncate text-xs text-muted-foreground">
-                            {link.counterpart_protected
-                              ? t("protected-counterpart")
-                              : `${link.counterpart?.display_name ?? t("unnamed-member")} · ${link.counterpart?.workspace_name ?? ""}`}
-                          </p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive"
-                          onClick={() =>
-                            void run(() =>
-                              revokeWorkspaceLink(selectedTree.id, link.id),
-                            )
-                          }
-                        >
-                          {t("revoke")}
-                        </Button>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-              </section>
-            </>
-          )}
-        </TabsContent>
-
-        <TabsContent value="claims" className="mt-4 flex-1 space-y-6">
-          <section className="space-y-3">
-            <h2 className="text-sm font-semibold text-muted-foreground">
-              {t("incoming-claims")}
-            </h2>
-            {incomingClaims.length === 0 ? (
-              <Empty className="border">
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <Link2 />
-                  </EmptyMedia>
-                  <EmptyTitle>{t("no-incoming-claims")}</EmptyTitle>
-                  <EmptyDescription>
-                    {t("incoming-claims-description")}
-                  </EmptyDescription>
-                </EmptyHeader>
-              </Empty>
-            ) : (
-              <div className="space-y-2">
-                {incomingClaims.map((claim) => (
-                  <Card
-                    key={claim.id}
-                    className="flex-row items-center gap-3 p-3"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">
-                        {t("claim-from", {
-                          username: claim.proposer_username ?? "",
-                        })}
-                      </p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {claim.source_display_name ?? t("unnamed-member")}
-                        {claim.note ? ` — ${claim.note}` : ""}
-                      </p>
+                        <Link2 className="size-4" />
+                      </span>
+                      <EndpointBox
+                        endpoint={link.counterpart}
+                        fallback={t("protected-counterpart")}
+                      />
                     </div>
+                    <div className="flex flex-wrap gap-2 border-t pt-3">
+                      <Button
+                        size="sm"
+                        onClick={() =>
+                          void run(() =>
+                            approveWorkspaceLink(selectedTree.id, link.id),
+                          )
+                        }
+                      >
+                        <Check />
+                        {t("approve")}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          void run(() =>
+                            rejectWorkspaceLink(selectedTree.id, link.id),
+                          )
+                        }
+                      >
+                        {t("reject-or-cancel")}
+                      </Button>
+                    </div>
+                  </Card>
+                ))}
+              {incomingClaims.map((claim) => (
+                <Card key={claim.id} className="gap-4 px-5">
+                  <div className="flex items-center gap-2 text-sm">
+                    <AccountAvatar
+                      user={{
+                        first_name: null,
+                        last_name: null,
+                        profile_image_url: null,
+                      }}
+                      className="size-6 text-[10px]"
+                    />
+                    <span className="min-w-0 flex-1">
+                      {t("claim-from", {
+                        username: claim.proposer_username ?? "",
+                      })}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {formatDate(claim.created_at)}
+                    </span>
+                  </div>
+                  <EndpointBox
+                    endpoint={{
+                      workspace_id: claim.source_workspace_id,
+                      workspace_name: claim.source_workspace_name,
+                      member_id: claim.source_member_id,
+                      display_name: claim.source_display_name,
+                    }}
+                    fallback={t("unnamed-member")}
+                    note={claim.note ?? undefined}
+                  />
+                  <div className="flex flex-wrap gap-2 border-t pt-3">
                     <Button size="sm" onClick={() => setToComplete(claim)}>
                       {t("choose-member")}
                     </Button>
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
                       onClick={() => setToDecline(claim)}
                     >
                       {t("decline")}
                     </Button>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </section>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+          {selectedTree && !isOwner && (
+            <p className="text-sm text-muted-foreground">{t("owner-only")}</p>
+          )}
+        </PageSection>
 
-          <section className="space-y-3">
-            <h2 className="text-sm font-semibold text-muted-foreground">
-              {t("outgoing-claims")}
-            </h2>
-            {outgoingClaims.length === 0 ? (
+        {selectedTree && isOwner && (
+          <PageSection title={t("verified-links")} count={verified.length}>
+            {verified.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                {t("no-outgoing-claims")}
+                {t("no-verified-links")}
               </p>
             ) : (
-              <div className="space-y-2">
+              <Card className="gap-0 py-0">
+                <ul className="divide-y">
+                  {verified.map((link) => (
+                    <li
+                      key={link.id}
+                      className="flex items-center gap-3 px-5 py-3"
+                    >
+                      <NameDisc name={link.self.display_name} />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold">
+                          {link.self.display_name ?? t("unnamed-member")}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {counterpartLine(link)}
+                        </p>
+                      </div>
+                      <Badge variant="success">{t("confirmed")}</Badge>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label={t("more-actions")}
+                          >
+                            <MoreHorizontal />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            variant="destructive"
+                            onSelect={() =>
+                              void run(() =>
+                                revokeWorkspaceLink(selectedTree.id, link.id),
+                              )
+                            }
+                          >
+                            {t("revoke")}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            )}
+          </PageSection>
+        )}
+
+        {outgoingClaims.length > 0 && (
+          <PageSection
+            title={t("outgoing-claims")}
+            count={outgoingClaims.length}
+          >
+            <Card className="gap-0 py-0">
+              <ul className="divide-y">
                 {outgoingClaims.map((claim) => (
-                  <Card
+                  <li
                     key={claim.id}
-                    className="flex-row items-center gap-3 p-3"
+                    className="flex items-center gap-3 px-5 py-3"
                   >
+                    <NameDisc name={claim.source_display_name} />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">
-                        {t("claim-to", { username: claim.target_username })}
+                      <p className="truncate text-sm font-semibold">
+                        {claim.source_display_name ?? t("unnamed-member")}
                       </p>
                       <p className="truncate text-xs text-muted-foreground">
-                        {t(`claim-status-${claim.status}`)}
+                        {t("claim-to", { username: claim.target_username })}
                       </p>
                     </div>
+                    <Badge
+                      variant={
+                        claim.status === "pending"
+                          ? "warning"
+                          : claim.status === "completed"
+                            ? "success"
+                            : "muted"
+                      }
+                    >
+                      {t(`claim-status-${claim.status}`)}
+                    </Badge>
                     {claim.status === "pending" && (
                       <Button
                         variant="ghost"
@@ -289,16 +354,16 @@ export const IdentityLinksView = () => {
                           void run(() => cancelOutgoingClaim(claim.id))
                         }
                       >
-                        {t("reject-or-cancel")}
+                        {t("withdraw")}
                       </Button>
                     )}
-                  </Card>
+                  </li>
                 ))}
-              </div>
-            )}
-          </section>
-        </TabsContent>
-      </Tabs>
+              </ul>
+            </Card>
+          </PageSection>
+        )}
+      </div>
 
       <CompleteIdentityLinkClaimDialog
         claim={toComplete}

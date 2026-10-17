@@ -107,7 +107,8 @@ export const TutorialTour = () => {
   useEffect(() => {
     if (!isRunning) return;
 
-    const hadTreeOnStart = useWorkspaceStore.getState().selectedTree !== undefined;
+    const hadTreeOnStart =
+      useWorkspaceStore.getState().selectedTree !== undefined;
     const sidebarOpenOnStart = useFamilyTreeSettings.getState().sidebarOpen;
     const tabsSelector = currentTabsSelector();
 
@@ -299,13 +300,14 @@ export const TutorialTour = () => {
         },
       },
 
-      // Tab bar. Next navigates to tree management; Back re-opens the sidebar.
+      // View navigation (left sidebar; the bottom tab bar on phones). Next
+      // navigates to workspace management; Back re-opens the sidebar.
       {
         element: tabsSelector,
         popover: {
           title: t("switch-views.title"),
           description: t("switch-views.body"),
-          side: "bottom",
+          side: tabsSelector === DESKTOP_TABS_SELECTOR ? "right" : "top",
           align: "start",
           onPrevClick: (_, __, { driver: d }) => {
             go(

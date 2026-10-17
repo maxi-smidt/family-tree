@@ -8,7 +8,6 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useStorageStore } from "@/hooks/useStorageStore";
-import { SidebarGroupLabel } from "@/components/ui/sidebar";
 
 // Unit suffixes are identical across the supported locales; only the number
 // (decimal separator/grouping) is localised via Intl.NumberFormat.
@@ -64,7 +63,7 @@ function UsageRow({
               percent >= 90
                 ? "bg-destructive"
                 : percent >= 70
-                  ? "bg-yellow-500"
+                  ? "bg-warning"
                   : "bg-primary"
             }`}
             style={{ width: `${percent}%` }}
@@ -104,10 +103,24 @@ export function StorageUsagePanel({ workspaceId }: StorageUsagePanelProps) {
   const usedOfLabel = (used: string, quota: string) =>
     t("used-of", { used, quota });
 
+  const nearQuota = [
+    [usage.tree_bytes, usage.tree_quota_bytes],
+    [usage.media_bytes, usage.media_quota_bytes],
+  ].some(
+    ([used, quota]) => quota != null && quota > 0 && (used ?? 0) / quota >= 0.7,
+  );
+
+  // A single quiet line in the sidebar; the breakdown opens on demand (and
+  // starts open when a quota is getting tight).
   return (
-    <div className="mb-3">
-      <SidebarGroupLabel>{t("title")}</SidebarGroupLabel>
-      <div className="flex flex-col gap-2 px-3 py-2">
+    <details className="group mb-1 px-2 text-xs" open={nearQuota}>
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-md py-1.5 text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
+        <span className="font-medium">{t("title")}</span>
+        <span className="tabular-nums">
+          {formatBytes(usage.total_bytes, locale)}
+        </span>
+      </summary>
+      <div className="flex flex-col gap-2 pt-1 pb-2">
         <UsageRow
           label={t("workspace")}
           used={usage.tree_bytes}
@@ -124,15 +137,7 @@ export function StorageUsagePanel({ workspaceId }: StorageUsagePanelProps) {
           unlimitedLabel={unlimitedLabel}
           usedOfLabel={usedOfLabel}
         />
-        <div className="flex items-center justify-between gap-2 border-t border-sidebar-border pt-2">
-          <span className="text-xs font-medium text-muted-foreground">
-            {t("total")}
-          </span>
-          <span className="text-xs font-medium tabular-nums">
-            {formatBytes(usage.total_bytes, locale)}
-          </span>
-        </div>
       </div>
-    </div>
+    </details>
   );
 }

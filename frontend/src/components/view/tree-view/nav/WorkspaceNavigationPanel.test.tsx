@@ -64,15 +64,13 @@ describe("WorkspaceNavigationPanel — saved view create/edit focus", () => {
       createSavedView: vi.fn().mockResolvedValue(created),
     });
 
-    render(
-      <WorkspaceNavigationPanel
-        workspaceId="tree-1"
-        workspaceName="Family"
-        canWrite
-      />,
-    );
+    render(<WorkspaceNavigationPanel workspaceId="tree-1" canWrite />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Create saved view" }));
+    // The panel now lives in a canvas menu — open it first.
+    fireEvent.click(screen.getByRole("button", { name: /saved views/i }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Create saved view" }),
+    );
     fireEvent.change(await screen.findByLabelText("Name"), {
       target: { value: "New view" },
     });

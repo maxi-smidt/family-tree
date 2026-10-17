@@ -51,7 +51,7 @@ describe("QualityReportView research tasks", () => {
   it("opens the linked member from an open research task", () => {
     render(<QualityReportView />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Ada Lovelace" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open Ada Lovelace" }));
 
     expect(useMemberSheetStore.getState().setOpenSheet).toHaveBeenCalledWith(
       "tree-1",

@@ -3,10 +3,17 @@ import { ImageCard } from "@/components/view/gallery-view/ImageCard";
 import { ChangeEvent, DragEvent, useMemo, useRef, useState } from "react";
 import { ImageSheet } from "@/components/view/gallery-view/ImageSheet";
 import { GalleryImage } from "@/types/gallery";
-import { UploadImageCard } from "@/components/view/gallery-view/UploadImageCard";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ArrowDown, ArrowUp, ImagePlus, Search } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ImagePlus,
+  Upload,
+  UserRoundPlus,
+} from "lucide-react";
+import { SearchInput } from "@/components/shared/SearchInput";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 import {
   Empty,
   EmptyContent,
@@ -35,29 +42,19 @@ import { UploadQueuePanel } from "@/components/view/gallery-view/UploadQueuePane
 type SortKey = "createdAt" | "uploadedAt" | "title";
 type SortDirection = "asc" | "desc";
 
-const SKELETON_CARDS = 10;
+const SKELETON_CARDS = 8;
+const GRID =
+  "grid grid-cols-2 gap-x-5 gap-y-6 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5";
 
 function GallerySkeleton() {
   return (
     <div className="flex h-full flex-col">
-      <div className="mb-4 flex items-center justify-between gap-4 p-1">
-        <Skeleton className="h-9 w-72" />
-        <div className="flex items-center gap-2">
-          <Skeleton className="h-9 w-48" />
-          <Skeleton className="h-9 w-9" />
-        </div>
-      </div>
-      <div className="grid flex-1 auto-rows-[300px] grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+      <div className={GRID}>
         {Array.from({ length: SKELETON_CARDS }).map((_, index) => (
-          <div
-            key={index}
-            className="flex h-full flex-col overflow-hidden rounded-xl border"
-          >
-            <Skeleton className="min-h-0 flex-1 rounded-none" />
-            <div className="space-y-2 p-2">
-              <Skeleton className="h-3 w-3/4" />
-              <Skeleton className="h-2.5 w-1/3" />
-            </div>
+          <div key={index} className="space-y-2">
+            <Skeleton className="aspect-[4/3] rounded-2xl" />
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-3 w-1/3" />
           </div>
         ))}
       </div>
@@ -77,6 +74,7 @@ export const GalleryView = () => {
   const [sortKey, setSortKey] = useState<SortKey>("uploadedAt");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [searchTerm, setSearchTerm] = useState("");
+  const [show, setShow] = useState<"all" | "unlinked">("all");
   const [isDragOver, setIsDragOver] = useState(false);
 
   const parentRef = useRef<HTMLDivElement>(null);
@@ -128,9 +126,18 @@ export const GalleryView = () => {
     }
   };
 
+  const unlinkedCount = useMemo(
+    () => galleryImages.filter((i) => i.linkedMemberIds.length === 0).length,
+    [galleryImages],
+  );
+
   const filteredAndSortedImages = useMemo(() => {
+    const pool =
+      show === "unlinked"
+        ? galleryImages.filter((i) => i.linkedMemberIds.length === 0)
+        : galleryImages;
     const filtered = searchTerm
-      ? galleryImages.filter(
+      ? pool.filter(
           (image) =>
             (image.title &&
               image.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -139,7 +146,7 @@ export const GalleryView = () => {
                 .toLowerCase()
                 .includes(searchTerm.toLowerCase())),
         )
-      : galleryImages;
+      : pool;
 
     return [...filtered].sort((a, b) => {
       if (sortKey === "createdAt") {
@@ -162,7 +169,7 @@ export const GalleryView = () => {
         ? aValue.localeCompare(bValue)
         : bValue.localeCompare(aValue);
     });
-  }, [galleryImages, sortKey, sortDirection, searchTerm]);
+  }, [galleryImages, sortKey, sortDirection, searchTerm, show]);
 
   const rowVirtualizer = useVirtualizer({
     // The virtualized indexes address the filtered list, not the complete
@@ -180,6 +187,13 @@ export const GalleryView = () => {
 
   const isEmpty = galleryImages.length === 0;
 
+  const uploadButton = (
+    <Button onClick={handleUploadImage}>
+      <Upload />
+      {t("upload-photos")}
+    </Button>
+  );
+
   if (!isReady) {
     return (
       <ViewLayout title={t("title")}>
@@ -188,28 +202,61 @@ export const GalleryView = () => {
     );
   }
 
+  const dropOverlay = isDragOver && (
+    <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl border-2 border-dashed border-primary bg-primary/10">
+      <p className="text-lg font-medium text-primary">
+        {t("upload-queue.dropzone")}
+      </p>
+    </div>
+  );
+
   return (
-    <ViewLayout title={t("title")}>
-      {!isEmpty && (
-        <div className="flex justify-between items-center mb-4 gap-4 p-1">
-          <div className="relative w-72">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
+    <ViewLayout
+      title={t("title")}
+      subtitle={
+        isEmpty ? undefined : t("subtitle", { count: galleryImages.length })
+      }
+      action={isEmpty ? undefined : uploadButton}
+      toolbar={
+        isEmpty ? undefined : (
+          <div className="flex flex-wrap items-center gap-2">
+            <ToggleGroup
+              type="single"
+              variant="chip"
+              size="sm"
+              spacing={2}
+              value={show}
+              onValueChange={(v) => v && setShow(v as "all" | "unlinked")}
+              aria-label={t("show-filter")}
+            >
+              <ToggleGroupItem value="all">
+                {t("chip-all")}
+                <span className="tabular-nums opacity-60">
+                  {galleryImages.length}
+                </span>
+              </ToggleGroupItem>
+              <ToggleGroupItem value="unlinked">
+                {t("chip-unlinked")}
+                <span className="tabular-nums opacity-60">{unlinkedCount}</span>
+              </ToggleGroupItem>
+            </ToggleGroup>
+            <SearchInput
+              size="sm"
+              containerClassName="w-full sm:w-60"
               placeholder={t("search-placeholder")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8"
+              onClear={() => setSearchTerm("")}
             />
-          </div>
-          <div className="flex items-center gap-2">
+            <div className="hidden flex-1 sm:block" />
             <Select
               value={sortKey}
               onValueChange={(value) => setSortKey(value as SortKey)}
             >
-              <SelectTrigger className="w-48">
+              <SelectTrigger size="sm" className="w-40">
                 <SelectValue placeholder={t("sort-placeholder")} />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent align="end">
                 <SelectItem value="uploadedAt">
                   {t("select-date-uploaded")}
                 </SelectItem>
@@ -220,8 +267,8 @@ export const GalleryView = () => {
               </SelectContent>
             </Select>
             <Button
-              variant="ghost"
-              size="icon"
+              variant="outline"
+              size="icon-sm"
               onClick={toggleSortDirection}
               aria-label={
                 sortDirection === "asc"
@@ -232,8 +279,9 @@ export const GalleryView = () => {
               {sortDirection === "asc" ? <ArrowUp /> : <ArrowDown />}
             </Button>
           </div>
-        </div>
-      )}
+        )
+      }
+    >
       <input
         ref={fileInputRef}
         type="file"
@@ -249,13 +297,7 @@ export const GalleryView = () => {
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
         >
-          {isDragOver && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-primary bg-primary/10">
-              <p className="text-lg font-medium text-primary">
-                {t("upload-queue.dropzone")}
-              </p>
-            </div>
-          )}
+          {dropOverlay}
           <Empty className="flex-1 border">
             <EmptyHeader>
               <EmptyMedia variant="icon">
@@ -279,16 +321,26 @@ export const GalleryView = () => {
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
         >
-          {isDragOver && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-primary bg-primary/10">
-              <p className="text-lg font-medium text-primary">
-                {t("upload-queue.dropzone")}
-              </p>
-            </div>
-          )}
-          <div ref={parentRef} className="min-h-0 flex-1 overflow-y-auto">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 auto-rows-[300px]">
-              <UploadImageCard onClick={handleUploadImage} />
+          {dropOverlay}
+          <div ref={parentRef} className="min-h-0 flex-1 overflow-y-auto pb-4">
+            {show === "all" && unlinkedCount > 0 && (
+              <Alert variant="warning" className="mb-5">
+                <UserRoundPlus />
+                <AlertDescription>
+                  {t("unlinked-callout", { count: unlinkedCount })}
+                </AlertDescription>
+                <AlertAction>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShow("unlinked")}
+                  >
+                    {t("unlinked-show")}
+                  </Button>
+                </AlertAction>
+              </Alert>
+            )}
+            <div className={GRID}>
               {rowVirtualizer.getVirtualItems().map((virtualItem) => {
                 const image = filteredAndSortedImages[virtualItem.index];
                 return (
@@ -299,7 +351,20 @@ export const GalleryView = () => {
                   />
                 );
               })}
+              <button
+                type="button"
+                onClick={handleUploadImage}
+                className="flex aspect-[4/3] flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed text-sm font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              >
+                <Upload className="size-5" />
+                {t("drop-photos")}
+              </button>
             </div>
+            {filteredAndSortedImages.length === 0 && (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                {t("no-matches")}
+              </p>
+            )}
           </div>
         </div>
       )}

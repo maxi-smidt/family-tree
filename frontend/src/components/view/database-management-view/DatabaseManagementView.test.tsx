@@ -73,7 +73,9 @@ describe("DatabaseManagementView rename", () => {
       );
     });
     expect(toast.success).toHaveBeenCalled();
-    expect(screen.queryByDisplayValue("Renamed Workspace")).not.toBeInTheDocument();
+    expect(
+      screen.queryByDisplayValue("Renamed Workspace"),
+    ).not.toBeInTheDocument();
   });
 
   it("shows an error toast and keeps editing when a rename is rejected", async () => {
@@ -90,7 +92,9 @@ describe("DatabaseManagementView rename", () => {
     fireEvent.keyDown(input, { key: "Enter" });
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith("Could not rename the tree.");
+      expect(toast.error).toHaveBeenCalledWith(
+        "Could not rename the workspace.",
+      );
     });
     // The row stays in edit mode with the attempted name so the user can retry.
     expect(screen.getByDisplayValue("Renamed Workspace")).toBeInTheDocument();

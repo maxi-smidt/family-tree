@@ -12,12 +12,17 @@ import {
 import { RemoveMemberDialog } from "@/components/shared/dialog/RemoveMemberDialog";
 import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Member } from "@/types/member";
+import { Member, createMember } from "@/types/member";
+import { Maximize, UserPlus } from "lucide-react";
 import { NODE_WIDTH, NODE_HEIGHT } from "@/constants";
 import { EXPANSION_NODE_BUDGET, useMemberStore } from "@/hooks/useMemberStore";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
-import { FlowPanelControls } from "@/components/view/tree-view/FlowPanelControls";
+import {
+  CanvasMenuItems,
+  FlowPanelControls,
+} from "@/components/view/tree-view/FlowPanelControls";
+import { ToolbarSeparator } from "@/components/view/tree-view/CanvasToolbar";
 import GenerationLines from "@/components/view/tree-view/GenerationLines";
 import { CanvasSearch } from "@/components/view/tree-view/CanvasSearch";
 import { ContinuationControls } from "@/components/view/tree-view/ContinuationControls";
@@ -27,6 +32,8 @@ import { EmptyTreeState } from "@/components/view/tree-view/EmptyTreeState";
 import { MemberControls } from "@/components/view/tree-view/MemberControls";
 import { ConnectionRelationCard } from "@/components/view/tree-view/ConnectionRelationCard";
 import { MemberSheet } from "@/components/shared/member-sheet/MemberSheet";
+import { MemberPeekCard } from "@/components/view/tree-view/MemberPeekCard";
+import { DatabaseSelector } from "@/components/sidebar/DatabaseSelector";
 import { FamilyNode } from "@/components/view/tree-view/node/FamilyNode";
 import {
   UnionNode,
@@ -59,11 +66,13 @@ import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import { NoDatabasePlaceholder } from "@/components/layout/NoDatabasePlaceholder";
 import { PresenceChips } from "@/components/layout/PresenceChips";
+import { PageHeader } from "@/components/layout/PageHeader";
 import {
   clearMemberSheetDeepLink,
   readMemberSheetDeepLink,
 } from "@/utils/memberSheetState";
 import { getGenerationLineGap } from "@/utils/generationLineSpacing";
+import { buildMemberNodes } from "@/utils/memberNodes";
 
 const nodeTypes = { familyMember: FamilyNode, unionNode: UnionNode };
 const edgeTypes = { relation: RelationEdge };
@@ -158,16 +167,30 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   // the role/mobile read-only gating. Drag/select/connect are gated
   // separately at the ReactFlow level below.
   const isEditReadOnly = isCanvasReadOnly || isLockedScreen;
+  // Phones can't drag or connect on the canvas, but they can still open a
+  // person and edit or add relatives through the sheet.
+  const canEditMembers = canWrite && !isLockedScreen;
   const DEFAULT_VIEWPORT = { x: 0, y: 0, zoom: 1 };
   const viewport = (activeTree && viewports[activeTree.id]) ?? DEFAULT_VIEWPORT;
   const generationLineGap = getGenerationLineGap(
     activeTree ? generationLineGaps[activeTree.id] : undefined,
   );
   const [rfInstance, setRfInstance] = useState<ReactFlowInstance | null>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  /** The middle of the visible canvas, in flow coordinates. */
+  const canvasCenter = () => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    const screen = rect
+      ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+      : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    return rfInstance?.screenToFlowPosition(screen) ?? { x: 0, y: 0 };
+  };
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [membersToDelete, setMembersToDelete] = useState<Member[]>([]);
   const [selectedNodes, setSelectedNodes] = useState<Node[]>([]);
+  // The person shown in the phone's pull-up card.
+  const [peekMemberId, setPeekMemberId] = useState<string | null>(null);
 
   // Browser back/forward for canvas focus (#989) — skipped on the public,
   // chromeless view, which has no navigation panel to drive focus changes.
@@ -516,6 +539,52 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     publicView,
     selection.isSelectionMode,
   );
+  // On phones a tap opens the pull-up card instead of the name link or the
+  // hover actions, and the tapped person keeps the selection ring.
+  const displayNodes = useMemo(
+    () =>
+      isMobile && !publicView
+        ? viewNodes.map((node) => ({
+            ...node,
+            selected: node.id === peekMemberId,
+            data: {
+              ...node.data,
+              disableNameLink: true,
+              onView: undefined,
+              onEdit: undefined,
+            },
+          }))
+        : viewNodes,
+    [isMobile, publicView, viewNodes, peekMemberId],
+  );
+  const peekMember =
+    isMobile && peekMemberId
+      ? (members.find((m) => m.id === peekMemberId) ?? null)
+      : null;
+
+  const openPeek = (node: Node) => {
+    setPeekMemberId(node.id);
+    if (!rfInstance) return;
+    // Lift the person into the upper part of the canvas so the card that
+    // slides up from the bottom doesn't cover them.
+    const { zoom } = rfInstance.getViewport();
+    void rfInstance.setCenter(
+      node.position.x + NODE_WIDTH / 2,
+      node.position.y + NODE_HEIGHT / 2 + (window.innerHeight * 0.15) / zoom,
+      { zoom, duration: 250 },
+    );
+  };
+
+  const addPersonFromHeader = () => {
+    const center = canvasCenter();
+    pending.createNew(
+      createMember({
+        x: center.x - NODE_WIDTH / 2,
+        y: center.y - NODE_HEIGHT / 2,
+      }),
+    );
+  };
+
   const viewEdges = useFlowEdges(
     baseEdges,
     connection.connectionPath.edgeKeys.size > 0
@@ -620,13 +689,10 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
 
   const handleAddFirstMember = () => {
     if (!rfInstance) return;
-    const flowPoint = rfInstance.screenToFlowPosition({
-      x: window.innerWidth / 2,
-      y: window.innerHeight / 2,
-    });
+    const center = canvasCenter();
     pending.addFirstMember({
-      x: flowPoint.x - NODE_WIDTH / 2,
-      y: flowPoint.y,
+      x: center.x - NODE_WIDTH / 2,
+      y: center.y - NODE_HEIGHT / 2,
     });
   };
 
@@ -642,28 +708,66 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     setMembersToDelete([]);
   };
 
-  if (!activeTree) {
-    return availableTreeCount === 0 ? <NoDatabasePlaceholder /> : null;
+  if (!activeTree || !isReady) {
+    // Keep the header (sidebar toggle, bell) while there is no workspace yet
+    // or the canvas is still loading — otherwise phones lose the way back to
+    // the navigation.
+    return (
+      <div className="flex h-full w-full flex-col">
+        {!publicView && <PageHeader title={t("tree-view.header.title")} />}
+        {!activeTree && availableTreeCount === 0 && (
+          <div className="min-h-0 flex-1">
+            <NoDatabasePlaceholder />
+          </div>
+        )}
+      </div>
+    );
   }
 
-  if (!isReady) return null;
+  const peopleCount = windowed
+    ? (totalMemberCount ?? members.length)
+    : members.length;
 
   return (
-    <div className="flex h-full w-full">
-      {!publicView && (
-        <WorkspaceNavigationPanel
-          workspaceId={activeTree.id}
-          workspaceName={activeTree.name}
-          canWrite={canWrite}
-        />
-      )}
+    <div className="flex h-full w-full flex-col">
+      {!publicView &&
+        (isMobile ? (
+          // Phones: "Monogram Workspace ▾", search and add person, as in
+          // the native apps' title bars.
+          <PageHeader
+            title={t("tree-view.header.title")}
+            heading={<DatabaseSelector variant="header" />}
+            inlineActions
+            actions={
+              canEditMembers ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-muted-foreground"
+                  aria-label={t("tree-view.mobile.add-person")}
+                  data-tutorial="add-member"
+                  onClick={addPersonFromHeader}
+                >
+                  <UserPlus />
+                </Button>
+              ) : undefined
+            }
+          />
+        ) : (
+          <PageHeader
+            title={t("tree-view.header.title")}
+            subtitle={t("tree-view.header.people", { count: peopleCount })}
+            actions={<PresenceChips />}
+          />
+        ))}
       <div
-        className="h-full min-w-0 flex-1"
+        ref={canvasRef}
+        className="relative min-h-0 w-full flex-1 bg-canvas"
         aria-label={t("tree-view.canvas-label")}
       >
         <ReactFlow
           className={`ft-tree-canvas${inSelectionMode ? " cursor-crosshair" : ""}`}
-          nodes={[...viewNodes, ...unionNodes]}
+          nodes={[...displayNodes, ...unionNodes]}
           edges={edges}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
@@ -689,7 +793,19 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
               ? undefined
               : onSelectionChange
           }
-          onNodeClick={connection.handleNodeClick}
+          onNodeClick={(event, node) => {
+            if (
+              isMobile &&
+              !publicView &&
+              !connection.isConnectionMode &&
+              node.type === "familyMember"
+            ) {
+              openPeek(node);
+              return;
+            }
+            connection.handleNodeClick(event, node);
+          }}
+          onPaneClick={isMobile ? () => setPeekMemberId(null) : undefined}
           minZoom={0.1}
           snapToGrid={true}
           snapGrid={[50, 50]}
@@ -747,37 +863,37 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
           }}
         >
           <SelectionModeController active={inSelectionMode} />
-          <Background />
-          {/* pr-16 clears the notification bell fixed at top-4 right-4 in Layout. */}
-          <Panel position="top-right" className="pt-2 pr-16">
-            <PresenceChips />
-          </Panel>
+          <Background color="var(--canvas-dot)" gap={22} size={1.4} />
           <GenerationLines
             visible={generationLineGap !== null}
             gap={generationLineGap ?? undefined}
           />
-          {members.length === 0 && !isCanvasReadOnly && (
-            <Panel
-              position="top-center"
-              className="!left-1/2 !-translate-x-1/2 !top-1/2 !-translate-y-1/2"
-            >
-              <EmptyTreeState onAddFirstMember={handleAddFirstMember} />
-            </Panel>
-          )}
           <Panel
             position={isMobile ? "top-center" : "top-left"}
-            className={isMobile ? "w-[calc(100vw-1rem)] pt-2" : "pt-2"}
+            className={isMobile ? "max-w-[calc(100vw-1.5rem)] pt-1" : "pt-2"}
           >
-            <div className="flex flex-col gap-1">
-              <CanvasSearch
-                members={members}
-                onLocate={locator.locateMember}
-                className={isMobile ? "w-full" : undefined}
-                windowed={windowed}
-                workspaceId={activeTree?.id}
-                onFocusRoot={setFocusRoot}
-                onOpenOtherTree={openTreeAndLocateMember}
-              />
+            <div className="flex flex-col items-center gap-1 md:items-stretch">
+              <div className="flex items-start gap-2">
+                {!publicView && (
+                  <WorkspaceNavigationPanel
+                    workspaceId={activeTree.id}
+                    canWrite={canWrite}
+                  />
+                )}
+                {/* Phones search from the header (people) and the
+                  "Whole family" menu (the whole workspace). */}
+                {(!isMobile || publicView) && (
+                  <CanvasSearch
+                    members={members}
+                    onLocate={locator.locateMember}
+                    className={isMobile ? "min-w-0 flex-1" : undefined}
+                    windowed={windowed}
+                    workspaceId={activeTree?.id}
+                    onFocusRoot={setFocusRoot}
+                    onOpenOtherTree={openTreeAndLocateMember}
+                  />
+                )}
+              </div>
               {windowed && neighborhoodTruncated && (
                 <div className="rounded-md border bg-background/90 px-3 py-1.5 text-xs text-muted-foreground shadow-md">
                   {t("tree-view.windowed.banner", {
@@ -839,18 +955,44 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
               </div>
             </Panel>
           )}
-          <Panel position="bottom-left" className="pb-2 flex flex-col gap-2">
-            <FlowPanelControls
-              navigationOnly={isCanvasReadOnly}
-              isConnectionMode={connection.isConnectionMode}
-              connectionDisabled={members.length < 2}
-              onToggleConnectionMode={connection.toggleConnectionMode}
-              isSelectionMode={selection.isSelectionMode}
-              onToggleSelectionMode={selection.toggleSelectionMode}
-              selectionAvailable={!isCanvasReadOnly}
-              selectionDisabled={members.length < 1 || isLockedScreen}
-            />
-          </Panel>
+          {(!isMobile || publicView) && (
+            <Panel
+              position="bottom-center"
+              className="!m-0 !mb-4 !w-max max-w-[calc(100vw-2rem)]"
+            >
+              <div
+                role="toolbar"
+                aria-label={t("tree-view.controls.toolbar")}
+                className="flex flex-wrap items-center justify-center gap-y-1 rounded-[1.375rem] border bg-card p-1 shadow-lg"
+              >
+                <FlowPanelControls
+                  navigationOnly={isCanvasReadOnly}
+                  isConnectionMode={connection.isConnectionMode}
+                  connectionDisabled={members.length < 2}
+                  onToggleConnectionMode={connection.toggleConnectionMode}
+                  isSelectionMode={selection.isSelectionMode}
+                  onToggleSelectionMode={selection.toggleSelectionMode}
+                  selectionAvailable={!isCanvasReadOnly}
+                  selectionDisabled={members.length < 1 || isLockedScreen}
+                  showMoreMenu={isCanvasReadOnly}
+                />
+                {!isCanvasReadOnly && (
+                  <>
+                    <ToolbarSeparator />
+                    <MemberControls
+                      nodes={nodes}
+                      selectedNodes={selectedNodes}
+                      setMembersToDelete={setMembersToDelete}
+                      onEditMember={(member) => pending.editExisting(member)}
+                      onCreateNewMember={(member) => pending.createNew(member)}
+                      onRearrange={rearrangeNodes}
+                      leadingMenuItems={<CanvasMenuItems />}
+                    />
+                  </>
+                )}
+              </div>
+            </Panel>
+          )}
           {!publicView && windowed && (
             <ContinuationControls
               continuations={neighborhoodCursor ? continuations : []}
@@ -861,19 +1003,51 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
               onReset={() => void resetNeighborhood()}
             />
           )}
-          {!isCanvasReadOnly && (
-            <Panel position="bottom-right" className="pb-2">
-              <MemberControls
-                nodes={nodes}
-                selectedNodes={selectedNodes}
-                setMembersToDelete={setMembersToDelete}
-                onEditMember={(member) => pending.editExisting(member)}
-                onCreateNewMember={(member) => pending.createNew(member)}
-                onRearrange={rearrangeNodes}
-              />
-            </Panel>
-          )}
         </ReactFlow>
+        {members.length === 0 && !publicView && canEditMembers && (
+          // A plain overlay rather than a React Flow <Panel>: panels centre
+          // themselves with their own transform and margin, which pushed this
+          // card off-centre.
+          <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center p-4">
+            <div className="pointer-events-auto">
+              <EmptyTreeState onAddFirstMember={handleAddFirstMember} />
+            </div>
+          </div>
+        )}
+        {isMobile && !publicView && (
+          // Phones: pinch to zoom, one fit button, and the pull-up card for
+          // the tapped person.
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex flex-col">
+            <Button
+              variant="outline"
+              size="icon-lg"
+              className="pointer-events-auto mr-3 mb-6 self-end rounded-2xl bg-card shadow-sm"
+              aria-label={t("tree-view.controls.fit-view")}
+              onClick={() => rfInstance && fitViewToAllNodes(rfInstance)}
+            >
+              <Maximize />
+            </Button>
+            {peekMember && (
+              <div className="pointer-events-auto">
+                <MemberPeekCard
+                  member={peekMember}
+                  canEdit={canEditMembers}
+                  onView={() => {
+                    pending.setEditingMemberId(peekMember.id);
+                    pending.setIsEditMode(false);
+                  }}
+                  onEdit={() => pending.editExisting(peekMember)}
+                  onAddParent={() => pending.onAddParent(peekMember.id)}
+                  onAddPartner={() =>
+                    pending.onAddHorizontal(peekMember.id, "right")
+                  }
+                  onAddChild={() => pending.onAddChild(peekMember.id)}
+                  onClose={() => setPeekMemberId(null)}
+                />
+              </div>
+            )}
+          </div>
+        )}
         {/* The public read-only view is purely visual: no detail sheet or edit
           dialogs are mounted. */}
         {!publicView && (
@@ -889,10 +1063,17 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
               onClose={pending.closeSheet}
               member={pending.editingMember}
               initialEditMode={pending.isEditMode}
-              canEdit={!isEditReadOnly}
+              canEdit={canEditMembers}
               isNewMember={pending.isNewMemberSession}
               onDiscardNewMember={pending.discardNewMember}
               onSaveNewMember={pending.saveNewMember}
+              onOpenMember={(memberId) => {
+                if (isMobile) setPeekMemberId(memberId);
+                pending.setEditingMemberId(memberId);
+                pending.setIsEditMode(false);
+                const target = members.find((m) => m.id === memberId);
+                if (target) locator.locateMember(target);
+              }}
             />
             <AddRelationDialog
               isOpen={relation.isDialogOpen}
@@ -924,19 +1105,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
 
   function initializeFlow() {
     // Rebuilt on every `members` change (incl. drag-position persistence), so
-    // carry the current selection over — otherwise moving a selected member
-    // would clear the selection once its new position is saved.
-    setNodes((prevNodes) => {
-      const selectedIds = new Set(
-        prevNodes.filter((n) => n.selected).map((n) => n.id),
-      );
-      return members.map((member) => ({
-        id: member.id,
-        type: "familyMember",
-        position: member.position,
-        data: member,
-        selected: selectedIds.has(member.id),
-      }));
-    });
+    // carry the selection and measured sizes over — see buildMemberNodes.
+    setNodes((prevNodes) => buildMemberNodes(members, prevNodes));
   }
 };

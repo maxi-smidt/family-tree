@@ -4,6 +4,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useAuthStore } from "@/hooks/useAuthStore";
@@ -17,6 +18,9 @@ import { useTutorialStore } from "@/hooks/useTutorialStore";
 import { useUnsavedChangesStore } from "@/hooks/useUnsavedChangesStore";
 import { type User } from "@/types/user";
 import { MainPanel } from "./MainPanel";
+import { AppNav } from "@/components/sidebar/AppNav";
+import { SidebarProvider } from "@/components/ui/sidebar";
+import { MobileTabBar } from "./MobileTabBar";
 
 vi.mock("@/components/view/tree-view/FlowPanel", () => ({
   FlowPanel: () => <div>Tree view</div>,
@@ -126,41 +130,91 @@ describe("MainPanel", () => {
     });
   });
 
-  it("keeps Tree, Workspace Management, and Friends visible for a fresh account", () => {
-    render(<MainPanel />);
+  // jsdom doesn't implement matchMedia; the sidebar's useIsMobile needs it.
+  const stubMatchMedia = () => {
+    window.matchMedia ??= vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }) as unknown as typeof window.matchMedia;
+  };
 
-    expect(screen.getByRole("tab", { name: "Tree" })).toBeInTheDocument();
+  const renderWithNav = () => {
+    stubMatchMedia();
+    return render(
+      <SidebarProvider>
+        <AppNav />
+        <MainPanel />
+      </SidebarProvider>,
+    );
+  };
+
+  it("keeps Tree, Workspaces, and Friends in the navigation for a fresh account", () => {
+    renderWithNav();
+
+    const nav = screen.getByRole("navigation", { name: "Main" });
     expect(
-      screen.getByRole("tab", { name: "Workspace Management" }),
+      within(nav).getByRole("button", { name: "Tree" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Friends" })).toBeInTheDocument();
-
-    expect(screen.queryByRole("tab", { name: "List" })).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("tab", { name: "Gallery" }),
+      within(nav).getByRole("button", { name: "Workspaces" }),
+    ).toBeInTheDocument();
+    expect(
+      within(nav).getByRole("button", { name: "Friends" }),
+    ).toBeInTheDocument();
+
+    expect(
+      within(nav).queryByRole("button", { name: "People" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(nav).queryByRole("button", { name: "Gallery" }),
     ).not.toBeInTheDocument();
   });
 
-  it("opens Gallery and Documents from the Media tab menu", async () => {
+  it("gives phones a tab bar with the main views and everything else under More", async () => {
     useWorkspaceStore.setState({
       selectedTree: { id: "tree-1", role: "owner", restrictions: [] } as never,
     });
-    render(<MainPanel />);
+    stubMatchMedia();
+    render(
+      <SidebarProvider>
+        <MainPanel />
+        <MobileTabBar />
+      </SidebarProvider>,
+    );
 
-    expect(screen.getByRole("tab", { name: "Media" })).toBeInTheDocument();
+    const bar = screen.getByRole("navigation", { name: "Quick navigation" });
     expect(
-      screen.queryByRole("tab", { name: "Gallery" }),
-    ).not.toBeInTheDocument();
+      within(bar)
+        .getAllByRole("button")
+        .map((b) => b.textContent),
+    ).toEqual(["Tree", "People", "Timeline", "Gallery", "More"]);
+
+    fireEvent.click(within(bar).getByRole("button", { name: "Timeline" }));
+    await waitFor(() => {
+      expect(screen.getByText("Timeline view")).toBeInTheDocument();
+    });
     expect(
-      screen.queryByRole("tab", { name: "Documents" }),
-    ).not.toBeInTheDocument();
-    const mediaTab = screen.getByRole("tab", { name: "Media" });
-    fireEvent.pointerDown(mediaTab, { button: 0, ctrlKey: false });
-    fireEvent.click(mediaTab);
+      within(bar).getByRole("button", { name: "Timeline" }),
+    ).toHaveAttribute("aria-current", "page");
+
+    const more = within(bar).getByRole("button", { name: "More" });
+    expect(more).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(more);
+    expect(more).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("opens Gallery and Documents straight from the navigation", async () => {
+    useWorkspaceStore.setState({
+      selectedTree: { id: "tree-1", role: "owner", restrictions: [] } as never,
+    });
+    renderWithNav();
+
+    const nav = screen.getByRole("navigation", { name: "Main" });
     expect(
-      screen.getByRole("menuitem", { name: "Gallery" }),
+      within(nav).getByRole("button", { name: "Gallery" }),
     ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("menuitem", { name: "Documents" }));
+    fireEvent.click(within(nav).getByRole("button", { name: "Documents" }));
     await waitFor(() => {
       expect(screen.getByText("Media documents view")).toBeInTheDocument();
     });

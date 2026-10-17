@@ -46,7 +46,7 @@ describe("GalleryView search", () => {
   it("renders only matching images without requesting an out-of-range virtual item", () => {
     render(<GalleryView />);
 
-    fireEvent.change(screen.getByPlaceholderText("Search image..."), {
+    fireEvent.change(screen.getByPlaceholderText("Search photos…"), {
       target: { value: "matching" },
     });
 

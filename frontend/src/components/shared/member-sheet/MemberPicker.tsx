@@ -17,6 +17,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Member } from "@/types/member";
+import { MemberAvatar } from "@/components/shared/MemberAvatar";
 import { getMemberSearchText, formatMemberSubLabel } from "@/utils/memberUtils";
 
 type Props = {
@@ -27,6 +28,10 @@ type Props = {
   noResultsText: string;
   /** "sm" matches the compact member sheet; "default" matches Input/SelectTrigger (h-9). */
   size?: "sm" | "default";
+  /** Classes for the trigger (e.g. a fixed width in a toolbar). */
+  className?: string;
+  /** Leading icon in the trigger, e.g. a person icon for a filter. */
+  icon?: React.ReactNode;
 };
 
 export const MemberPicker = ({
@@ -36,6 +41,8 @@ export const MemberPicker = ({
   placeholder,
   noResultsText,
   size = "sm",
+  className,
+  icon,
 }: Props) => {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -68,19 +75,25 @@ export const MemberPicker = ({
             variant="outline"
             role="combobox"
             aria-expanded={open}
+            size={size === "default" ? "default" : "sm"}
             className={cn(
-              "w-full justify-between shadow-none font-normal",
-              size === "default" ? "h-9 text-sm" : "h-7 text-xs",
+              "w-full justify-between font-normal shadow-none",
+              className,
             )}
           >
-            <span className={cn(!label && "text-muted-foreground truncate")}>
-              {label ?? placeholder}
+            <span className="flex min-w-0 items-center gap-2">
+              {icon}
+              <span
+                className={cn("truncate", !label && "text-muted-foreground")}
+              >
+                {label ?? placeholder}
+              </span>
             </span>
             <div className="flex items-center gap-1 ml-1 shrink-0">
               {value && (
                 <span
                   role="button"
-                  aria-label="Clear"
+                  aria-label={t("common.clear")}
                   className="opacity-60 hover:opacity-100"
                   onPointerDown={(e) => {
                     e.stopPropagation();
@@ -101,9 +114,9 @@ export const MemberPicker = ({
           portalContainer={portalContainer}
         >
           <Command>
-            <CommandInput className="h-8 text-xs" placeholder={placeholder} />
-            <CommandList className="max-h-48 overflow-y-auto">
-              <CommandEmpty className="text-xs py-4">
+            <CommandInput placeholder={t("common.search-people")} />
+            <CommandList className="max-h-64 overflow-y-auto">
+              <CommandEmpty className="py-4 text-sm">
                 {noResultsText}
               </CommandEmpty>
               <CommandGroup>
@@ -122,24 +135,24 @@ export const MemberPicker = ({
                         onChange(m.id === value ? null : m.id);
                         setOpen(false);
                       }}
-                      className="text-xs"
                     >
-                      <Check
-                        className={cn(
-                          "size-3 shrink-0",
-                          value === m.id ? "opacity-100" : "opacity-0",
-                        )}
-                      />
-                      <div className="flex flex-col min-w-0">
+                      <MemberAvatar member={m} size="xs" />
+                      <div className="flex min-w-0 flex-1 flex-col">
                         <span className="truncate">
                           {m.firstName} {m.lastName}
                         </span>
                         {sublabel && (
-                          <span className="truncate text-muted-foreground">
+                          <span className="truncate text-xs text-muted-foreground">
                             {sublabel}
                           </span>
                         )}
                       </div>
+                      <Check
+                        className={cn(
+                          "size-4 shrink-0",
+                          value === m.id ? "opacity-100" : "opacity-0",
+                        )}
+                      />
                     </CommandItem>
                   );
                 })}

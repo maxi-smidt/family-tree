@@ -1,8 +1,8 @@
 import type { Locator, Page } from "@playwright/test";
 import { test, expect } from "../fixtures";
-import { createTree } from "../fixtures/seed";
+import { createMember, createTree } from "../fixtures/seed";
 import { createTestUser, deleteTestUser } from "../fixtures/users";
-import { loginAs, selectTree } from "../fixtures/ui";
+import { loginAs, openView, selectTree } from "../fixtures/ui";
 
 async function expectWithinViewport(
   locator: Locator,
@@ -38,11 +38,9 @@ for (const viewport of [
       await selectTree(page, tree.name);
       // Open through the desktop management view, then exercise the same
       // dialog at both widths without depending on mobile navigation labels.
+      await openView(page, "Workspaces");
       await page
-        .getByRole("tab", { name: "Workspace Management", exact: true })
-        .click();
-      await page
-        .getByRole("row")
+        .locator('[data-slot="workspace-card"]')
         .filter({ hasText: tree.name })
         .getByRole("button", { name: "More actions" })
         .click();
@@ -127,7 +125,7 @@ test("tab content fills the viewport and long timelines scroll inside the view",
   try {
     await loginAs(page, secondUser);
     await selectTree(page, tree.name);
-    await page.getByRole("tab", { name: "Timeline", exact: true }).click();
+    await openView(page, "Timeline");
     const panel = page.getByRole("tabpanel");
     const empty = panel.getByText("No events found", { exact: true });
     await expect(empty).toBeVisible();
@@ -207,4 +205,73 @@ test("session warning clears the sidebar trigger and can be dismissed", async ({
   await trigger.click();
   await alert.getByRole("button", { name: "Dismiss" }).click();
   await expect(alert).not.toBeVisible();
+});
+
+test("phones navigate from the tab bar and open a person from the tree", async ({
+  adminPage: page,
+  adminApi,
+  seedTree,
+}) => {
+  const tree = await seedTree(`Phone-${crypto.randomUUID().slice(0, 8)}`);
+  const member = await createMember(adminApi, tree.id, {
+    firstName: "Phone",
+    lastName: "Person",
+  });
+  await page.reload();
+  // Pick the workspace with the desktop switcher, then continue on a phone.
+  await selectTree(page, tree.name);
+  await openView(page, "Tree");
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  const tabs = page.getByRole("navigation", { name: "Quick navigation" });
+  await expect(tabs).toBeVisible();
+  await expect(page.locator('[data-sidebar="trigger"]')).toHaveCount(0);
+  await expect(page.getByTestId("tree-selector-header")).toContainText(
+    tree.name,
+  );
+
+  // Tapping a person brings up the pull-up card; its profile is full screen.
+  await page.getByRole("button", { name: "Fit view" }).click();
+  await page.locator(`.react-flow__node[data-id="${member.id}"]`).click();
+  const card = page.getByRole("region", { name: "Phone Person" });
+  await expect(card).toBeVisible();
+  await expectWithinViewport(card, page);
+  await card.getByRole("button", { name: "View profile" }).click();
+  const profile = page.getByRole("dialog", { name: "Person" });
+  await expect(
+    profile.getByRole("heading", { name: "Phone Person" }),
+  ).toBeVisible();
+  await profile.getByRole("button", { name: "Back to tree" }).click();
+  await expect(profile).toBeHidden();
+  await expect(card).toBeVisible();
+
+  // The tab bar switches views; More opens everything else.
+  await tabs.getByRole("button", { name: "People" }).click();
+  await expect(
+    page.getByRole("heading", { name: "People", level: 1 }),
+  ).toBeVisible();
+  await tabs.getByRole("button", { name: "More" }).click();
+  await expect(
+    page
+      .getByRole("navigation", { name: "Main" })
+      .getByRole("button", { name: "Workspaces" }),
+  ).toBeVisible();
+});
+
+test("the empty-workspace prompt sits in the middle of the canvas", async ({
+  adminPage: page,
+  seedTree,
+}) => {
+  const tree = await seedTree(`Empty-${crypto.randomUUID().slice(0, 8)}`);
+  await page.reload();
+  await selectTree(page, tree.name);
+  await openView(page, "Tree");
+
+  const canvas = page.getByLabel("Family tree canvas");
+  const prompt = canvas.locator('[data-slot="empty"]');
+  await expect(prompt).toContainText("Start your family tree");
+  const c = (await canvas.boundingBox())!;
+  const p = (await prompt.boundingBox())!;
+  expect(Math.abs(p.x + p.width / 2 - (c.x + c.width / 2))).toBeLessThan(2);
+  expect(Math.abs(p.y + p.height / 2 - (c.y + c.height / 2))).toBeLessThan(2);
 });

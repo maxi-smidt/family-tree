@@ -7,7 +7,17 @@ import { Activity, isUndoableDelete } from "@/types/activity";
 import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { ListPagination } from "@/components/view/list-view/ListPagination";
-import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -28,18 +38,22 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
-import { formatDateWithFallback } from "@/utils/dateUtils";
+import { resolveDateLocale } from "@/utils/dateUtils";
 import { ApiError } from "@/services/api";
 import {
-  Clock,
   Activity as ActivityIcon,
-  ArrowRight,
   BookOpen,
   CalendarDays,
   ClipboardList,
   FileText,
-  Loader2,
+  GitMerge,
+  Image as ImageIcon,
+  Link2,
+  Share2,
+  Stethoscope,
   Undo2,
+  Upload,
+  UserRound,
   X,
 } from "lucide-react";
 
@@ -82,11 +96,30 @@ const TARGET_VIEW: Record<string, ViewId> = {
 };
 
 const TARGET_ICONS: Record<string, typeof ActivityIcon> = {
+  member: UserRound,
+  relation: Link2,
   event: CalendarDays,
   task: ClipboardList,
   story: BookOpen,
+  gallery_image: ImageIcon,
   document: FileText,
   document_file: FileText,
+  disease: Stethoscope,
+  share: Share2,
+  import: Upload,
+  merge: GitMerge,
+};
+
+/** Icon tile tint per target, so a day's feed scans by kind of change. */
+const TARGET_TONE: Record<string, string> = {
+  member: "bg-primary-soft text-primary",
+  relation: "bg-primary-soft text-primary",
+  event: "bg-warning-soft text-warning",
+  story: "bg-primary-soft text-primary",
+  gallery_image: "bg-gender-f-bg text-gender-f",
+  document: "bg-warning-soft text-warning",
+  document_file: "bg-warning-soft text-warning",
+  share: "bg-gender-m-bg text-gender-m",
 };
 
 // Fields we do not want to surface in the diff.
@@ -111,26 +144,26 @@ function DiffDisplay({ details }: { details: Record<string, unknown> }) {
   if (top.length === 0) return null;
 
   return (
-    <div className="mt-2 text-xs text-muted-foreground space-y-0.5">
-      <span className="font-medium text-foreground">{t("diff-changed")}</span>
+    <div className="mt-1.5 flex flex-wrap gap-1.5">
+      <span className="sr-only">{t("diff-changed")}</span>
       {top.map((field) => (
-        <div key={field} className="flex items-center gap-1 ml-2 flex-wrap">
-          <span className="font-mono text-foreground/70">{field}</span>
-          <span className="truncate max-w-[120px]">
-            {String(before[field] ?? "")}
+        <Badge key={field} variant="muted" className="max-w-full font-normal">
+          <span className="font-semibold">{field}</span>
+          <span className="max-w-[10rem] truncate">
+            {String(before[field] ?? "—")}
           </span>
-          <span>{t("diff-arrow")}</span>
-          <span className="truncate max-w-[120px]">
-            {String(after[field] ?? "")}
+          <span aria-hidden="true">{t("diff-arrow")}</span>
+          <span className="max-w-[10rem] truncate">
+            {String(after[field] ?? "—")}
           </span>
-        </div>
+        </Badge>
       ))}
     </div>
   );
 }
 
 function ActivityItem({ item }: { item: Activity }) {
-  const { t, i18n } = useTranslation(undefined, {
+  const { t } = useTranslation(undefined, {
     keyPrefix: "activity-view",
   });
   const { navigateTo } = useNavigationStore();
@@ -177,9 +210,18 @@ function ActivityItem({ item }: { item: Activity }) {
     }
   };
 
+  const time = new Intl.DateTimeFormat(resolveDateLocale(), {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(item.createdAt));
+
   return (
-    <Card
-      className={`p-4 flex flex-row gap-4 items-center${canNavigate ? " group cursor-pointer hover:bg-muted/50 transition-colors" : ""}`}
+    <li
+      className={cn(
+        "flex items-start gap-3 px-5 py-3.5",
+        canNavigate &&
+          "cursor-pointer transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none",
+      )}
       onClick={canNavigate ? handleNavigate : undefined}
       role={canNavigate ? "button" : undefined}
       tabIndex={canNavigate ? 0 : undefined}
@@ -199,53 +241,62 @@ function ActivityItem({ item }: { item: Activity }) {
           : undefined
       }
     >
-      <div className="mt-0.5 flex-shrink-0 w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-        <TargetIcon className="w-4 h-4 text-muted-foreground" />
-      </div>
-      <div className="flex-1 min-w-0">
+      <span
+        aria-hidden="true"
+        className={cn(
+          "grid size-9 shrink-0 place-items-center rounded-lg",
+          TARGET_TONE[item.targetType] ?? "bg-muted text-muted-foreground",
+        )}
+      >
+        <TargetIcon className="size-4" />
+      </span>
+      <div className="min-w-0 flex-1 pt-1">
         <p className="text-sm leading-snug">
-          <span className="font-medium">{actor}</span>{" "}
-          <span className="text-muted-foreground">{action}</span>{" "}
-          <span className="text-muted-foreground">{targetType}</span>
-          {label && (
+          <span className="font-semibold">{actor}</span>{" "}
+          <span className="text-muted-foreground">
+            {action} {targetType}
+          </span>
+          {item.targetLabel && (
             <>
               {" "}
-              <span className="font-medium truncate">{label}</span>
+              <span
+                className={cn(
+                  "font-medium",
+                  canNavigate &&
+                    "text-primary underline decoration-primary/30 underline-offset-2",
+                )}
+              >
+                {item.targetLabel}
+              </span>
             </>
           )}
-        </p>
-        <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-          <Clock className="w-3 h-3" />
-          {formatDateWithFallback(item.createdAt, i18n.t)}
         </p>
         {item.action === "update" && item.details && (
           <DiffDisplay details={item.details} />
         )}
       </div>
-      {showUndo && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 flex-shrink-0 gap-1 text-xs"
-          disabled={undoing}
-          onClick={(e) => {
-            e.stopPropagation();
-            setConfirmOpen(true);
-          }}
+      <div className="flex shrink-0 items-center gap-2 pt-1">
+        {showUndo && (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={undoing}
+            onClick={(e) => {
+              e.stopPropagation();
+              setConfirmOpen(true);
+            }}
+          >
+            <Undo2 />
+            {t("undo")}
+          </Button>
+        )}
+        <time
+          dateTime={item.createdAt}
+          className="text-xs text-muted-foreground tabular-nums"
         >
-          <Undo2 className="w-3 h-3" />
-          {t("undo")}
-        </Button>
-      )}
-      {canNavigate && (
-        <div
-          className="flex-shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-          aria-hidden="true"
-          title={t("navigate-hint")}
-        >
-          <ArrowRight className="w-4 h-4 text-muted-foreground" />
-        </div>
-      )}
+          {time}
+        </time>
+      </div>
       {showUndo && (
         <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
           <AlertDialogContent onClick={(e) => e.stopPropagation()}>
@@ -267,8 +318,25 @@ function ActivityItem({ item }: { item: Activity }) {
           </AlertDialogContent>
         </AlertDialog>
       )}
-    </Card>
+    </li>
   );
+}
+
+/** "Today", "Yesterday", or the full weekday date — the feed's day headings. */
+function dayLabel(iso: string, t: (k: string) => string): string {
+  const date = new Date(iso);
+  const today = new Date();
+  const startOf = (d: Date) =>
+    new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const diffDays = Math.round((startOf(today) - startOf(date)) / 86_400_000);
+  if (diffDays === 0) return t("day-today");
+  if (diffDays === 1) return t("day-yesterday");
+  return new Intl.DateTimeFormat(resolveDateLocale(), {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: date.getFullYear() === today.getFullYear() ? undefined : "numeric",
+  }).format(date);
 }
 
 const ALL_ACTIONS = ["create", "update", "delete"] as const;
@@ -311,68 +379,53 @@ export const ActivityView = () => {
 
   const hasActiveFilters = !!(filterActor || filterAction || filterTargetType);
 
+  // Group the current page into days (the API returns newest first).
+  const days: { key: string; label: string; items: Activity[] }[] = [];
+  for (const item of activities) {
+    const d = new Date(item.createdAt);
+    const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    const last = days[days.length - 1];
+    if (last && last.key === key) last.items.push(item);
+    else days.push({ key, label: dayLabel(item.createdAt, t), items: [item] });
+  }
+
   return (
     <ViewLayout
       title={t("title")}
+      subtitle={t("subtitle")}
       toolbar={
         <div className="flex flex-wrap items-center gap-2">
-          {/* Filter bar */}
-          {/* Actor filter */}
-          <Select
-            value={filterActor || "__all__"}
+          <ToggleGroup
+            type="single"
+            variant="chip"
+            size="sm"
+            spacing={2}
+            value={filterAction || "all"}
             onValueChange={(v) =>
-              void setFilter("filterActor", v === "__all__" ? "" : v)
+              v && void setFilter("filterAction", v === "all" ? "" : v)
             }
+            aria-label={t("filter-action-label")}
           >
-            <SelectTrigger className="h-8 w-40 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">{t("filter-all-actors")}</SelectItem>
-              {actors.map((actor) => (
-                <SelectItem key={actor} value={actor}>
-                  {actor}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Action filter: toggle buttons */}
-          <div className="flex gap-1">
-            <Button
-              variant={filterAction === "" ? "default" : "outline"}
-              size="sm"
-              className="h-8 text-xs px-3"
-              onClick={() => void setFilter("filterAction", "")}
-            >
+            <ToggleGroupItem value="all">
               {t("filter-all-actions")}
-            </Button>
+            </ToggleGroupItem>
             {ALL_ACTIONS.map((action) => (
-              <Button
-                key={action}
-                variant={filterAction === action ? "default" : "outline"}
-                size="sm"
-                className="h-8 text-xs px-3"
-                onClick={() =>
-                  void setFilter(
-                    "filterAction",
-                    filterAction === action ? "" : action,
-                  )
-                }
-              >
-                {t(ACTION_KEY[action])}
-              </Button>
+              <ToggleGroupItem key={action} value={action}>
+                {t(`chip-${action}`)}
+              </ToggleGroupItem>
             ))}
-          </div>
-
-          {/* Target type filter */}
+          </ToggleGroup>
           <Select
             value={filterTargetType || "__all__"}
             onValueChange={(v) =>
               void setFilter("filterTargetType", v === "__all__" ? "" : v)
             }
           >
-            <SelectTrigger className="h-8 w-36 text-xs">
+            <SelectTrigger
+              size="sm"
+              className="w-40"
+              aria-label={t("filter-type-label")}
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -384,70 +437,105 @@ export const ActivityView = () => {
               ))}
             </SelectContent>
           </Select>
-
-          {/* Clear filters button */}
           {hasActiveFilters && (
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 text-xs gap-1"
               onClick={() => void clearFilters()}
             >
-              <X className="w-3 h-3" />
+              <X />
               {t("filter-clear")}
             </Button>
           )}
+          <div className="hidden flex-1 sm:block" />
+          <Select
+            value={filterActor || "__all__"}
+            onValueChange={(v) =>
+              void setFilter("filterActor", v === "__all__" ? "" : v)
+            }
+          >
+            <SelectTrigger
+              size="sm"
+              className="w-44"
+              aria-label={t("filter-actor-label")}
+            >
+              <span className="flex min-w-0 items-center gap-2">
+                <UserRound className="size-4 text-muted-foreground" />
+                <SelectValue />
+              </span>
+            </SelectTrigger>
+            <SelectContent align="end">
+              <SelectItem value="__all__">{t("filter-all-actors")}</SelectItem>
+              {actors.map((actor) => (
+                <SelectItem key={actor} value={actor}>
+                  {actor}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       }
-      toolbarClassName="mb-4"
       contentClassName="flex min-h-0 flex-col overflow-hidden"
     >
       <div className="flex min-h-0 flex-1 flex-col overflow-auto">
         {error && activities.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-            <ActivityIcon className="w-10 h-10 text-destructive opacity-60" />
-            <div>
-              <p className="font-medium">{t("error")}</p>
-              <Button className="mt-3" size="sm" onClick={() => void retry()}>
+          <Empty className="flex-1">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <ActivityIcon className="text-destructive" />
+              </EmptyMedia>
+              <EmptyTitle>{t("error")}</EmptyTitle>
+            </EmptyHeader>
+            <EmptyContent>
+              <Button size="sm" onClick={() => void retry()}>
                 {t("retry")}
               </Button>
-            </div>
-          </div>
+            </EmptyContent>
+          </Empty>
         ) : loading && !initialized ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">{t("loading")}</p>
+          <div className="max-w-3xl space-y-3">
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-48 rounded-2xl" />
           </div>
         ) : total === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-            <ActivityIcon className="w-10 h-10 text-muted-foreground opacity-40" />
-            <div>
-              <p className="font-medium">
+          <Empty className="flex-1">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <ActivityIcon />
+              </EmptyMedia>
+              <EmptyTitle>
                 {hasActiveFilters ? t("filter-no-matches") : t("empty-title")}
-              </p>
+              </EmptyTitle>
               {!hasActiveFilters && (
-                <p className="text-sm text-muted-foreground mt-1">
-                  {t("empty-description")}
-                </p>
+                <EmptyDescription>{t("empty-description")}</EmptyDescription>
               )}
-            </div>
-          </div>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <div
             className={cn(
-              "flex flex-col gap-3 pb-4 transition-opacity",
+              "flex max-w-3xl flex-col gap-5 pb-4 transition-opacity",
               loading && "opacity-60",
             )}
           >
-            {activities.map((item) => (
-              <ActivityItem key={item.id} item={item} />
+            {days.map((day) => (
+              <section key={day.key} aria-label={day.label}>
+                <h2 className="mb-2 text-[13px] font-semibold text-muted-foreground">
+                  {day.label}
+                </h2>
+                <ul className="divide-y overflow-hidden rounded-2xl border bg-card shadow-xs">
+                  {day.items.map((item) => (
+                    <ActivityItem key={item.id} item={item} />
+                  ))}
+                </ul>
+              </section>
             ))}
           </div>
         )}
       </div>
 
       {error && activities.length > 0 && (
-        <div className="mt-3 flex items-center justify-between rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+        <div className="mt-3 flex items-center justify-between rounded-xl border border-destructive/30 bg-destructive-soft px-3 py-2 text-sm text-destructive">
           <span>{t("error")}</span>
           <Button variant="outline" size="sm" onClick={() => void retry()}>
             {t("retry")}
@@ -456,7 +544,7 @@ export const ActivityView = () => {
       )}
 
       {initialized && total > 0 && (
-        <div className="flex-none border-t">
+        <div className="max-w-3xl flex-none">
           <ListPagination
             page={page}
             pageSize={pageSize}

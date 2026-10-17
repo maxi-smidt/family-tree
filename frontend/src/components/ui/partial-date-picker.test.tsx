@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PartialDatePicker } from "./partial-date-picker";
-import { formatDate } from "@/utils/dateUtils";
+import { formatPartialDateForInput } from "@/utils/dateUtils";
 
 function ControlledPicker({ initialValue }: { initialValue: string | null }) {
   const [value, setValue] = useState(initialValue);
@@ -36,7 +36,9 @@ describe("PartialDatePicker", () => {
   it("shows the value as editable text in the locale's numeric format", () => {
     render(<ControlledPicker initialValue="2025-06-12" />);
 
-    expect(screen.getByRole("textbox")).toHaveValue(formatDate("2025-06-12"));
+    expect(screen.getByRole("textbox")).toHaveValue(
+      formatPartialDateForInput("2025-06-12"),
+    );
   });
 
   it("opens an empty day picker on the current month", () => {

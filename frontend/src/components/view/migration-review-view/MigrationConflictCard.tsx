@@ -106,22 +106,22 @@ export const MigrationConflictCard = ({ conflict }: Props) => {
 
   const statusVariant =
     conflict.status === "resolved"
-      ? "default"
+      ? "success"
       : conflict.status === "dismissed"
-        ? "secondary"
-        : "outline";
+        ? "muted"
+        : "warning";
 
   return (
-    <Card className="p-4 space-y-3">
+    <Card className="gap-3 px-5">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
-          <Badge variant="outline">
+          <Badge variant="info">
             {isBridgeMerge
               ? t("kind-bridge-merge")
               : t("kind-virtual-view-match")}
           </Badge>
           {isPending && conflict.blocks_finalization && (
-            <Badge variant="destructive">{t("blocks-finalization")}</Badge>
+            <Badge variant="danger">{t("blocks-finalization")}</Badge>
           )}
         </div>
         <Badge variant={statusVariant}>{t(`status-${conflict.status}`)}</Badge>
@@ -130,7 +130,7 @@ export const MigrationConflictCard = ({ conflict }: Props) => {
       {isPending ? (
         <>
           {isCycle && (
-            <p className="text-sm text-muted-foreground bg-muted/30 rounded-sm px-3 py-2">
+            <p className="rounded-lg bg-warning-soft px-3 py-2 text-sm">
               {t("cycle-notice")}
             </p>
           )}
@@ -145,7 +145,7 @@ export const MigrationConflictCard = ({ conflict }: Props) => {
                 return (
                   <div
                     key={field}
-                    className="grid grid-cols-[1fr_1fr_auto] gap-2 items-center rounded-sm bg-muted/30 px-3 py-2"
+                    className="grid grid-cols-[1fr_1fr_auto] gap-2 items-center rounded-lg bg-muted/50 px-3 py-2"
                   >
                     <div className="min-w-0">
                       <p className="text-xs text-muted-foreground">
@@ -165,7 +165,7 @@ export const MigrationConflictCard = ({ conflict }: Props) => {
                             setFieldChoice(field, v as MergeFieldChoice)
                           }
                         >
-                          <SelectTrigger className="h-7 text-xs">
+                          <SelectTrigger size="sm">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -188,7 +188,7 @@ export const MigrationConflictCard = ({ conflict }: Props) => {
                 );
               })}
               {hasPhotoConflict && (
-                <div className="grid grid-cols-[1fr_1fr_auto] gap-2 items-center rounded-sm bg-muted/30 px-3 py-2">
+                <div className="grid grid-cols-[1fr_1fr_auto] gap-2 items-center rounded-lg bg-muted/50 px-3 py-2">
                   <p className="text-sm col-span-2">{t("field-photo")}</p>
                   <div className="w-28">
                     {action === "merge" ? (
@@ -198,7 +198,7 @@ export const MigrationConflictCard = ({ conflict }: Props) => {
                           setFieldChoice("image_data", v as MergeFieldChoice)
                         }
                       >
-                        <SelectTrigger className="h-7 text-xs">
+                        <SelectTrigger size="sm">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -226,7 +226,7 @@ export const MigrationConflictCard = ({ conflict }: Props) => {
                 value={action}
                 onValueChange={(v) => setAction(v as MigrationConflictAction)}
               >
-                <SelectTrigger className="h-8 w-36 text-xs">
+                <SelectTrigger size="sm" className="w-36">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

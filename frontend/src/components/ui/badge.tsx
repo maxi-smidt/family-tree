@@ -18,6 +18,12 @@ const badgeVariants = cva(
           "border-border text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
         ghost: "[a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
         link: "text-primary underline-offset-4 [a&]:hover:underline",
+        // Soft status tags — tinted background, readable text, no border.
+        muted: "bg-muted text-muted-foreground",
+        success: "bg-primary-soft text-primary",
+        warning: "bg-warning-soft text-warning",
+        danger: "bg-destructive-soft text-destructive",
+        info: "bg-gender-m-bg text-gender-m",
       },
     },
     defaultVariants: {

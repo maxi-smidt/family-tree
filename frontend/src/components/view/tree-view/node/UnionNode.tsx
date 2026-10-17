@@ -22,7 +22,7 @@ export const UnionNode = ({ data }: NodeProps<Node<UnionNodeData>>) => {
   const isConnectionDimmed = data.isConnectionDimmed === true;
   // Colour is resolved upstream (relation-type default merged with the admin
   // override) and threaded through node data; fall back to the neutral default.
-  const color = data.color ?? "var(--muted-foreground)";
+  const color = data.color ?? "var(--edge)";
 
   const unionLabel = data.relationType
     ? t("union-type", {

@@ -119,7 +119,7 @@ export const NotificationBell = () => {
         <Button
           variant="ghost"
           size="icon"
-          className="size-7 relative"
+          className="relative"
           aria-label={triggerLabel}
         >
           <Bell className="size-4" />

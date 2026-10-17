@@ -3,17 +3,11 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuItem,
+  SidebarHeader,
 } from "@/components/ui/sidebar";
-import { EdgeTypeSelector } from "@/components/sidebar/EdgeTypeSelector.tsx";
-import { GenerationLineSpacingSelector } from "@/components/sidebar/GenerationLineSpacingSelector.tsx";
 import { DatabaseSelector } from "@/components/sidebar/DatabaseSelector.tsx";
-import { LanguageSelector } from "@/components/sidebar/LanguageSelector.tsx";
-import { ThemeSelector } from "@/components/sidebar/ThemeSelector.tsx";
+import { AppNav } from "@/components/sidebar/AppNav";
+import { PreferencesMenu } from "@/components/sidebar/PreferencesMenu";
 import { UserMenu } from "@/components/auth/UserMenu";
 import { StorageUsagePanel } from "@/components/shared/StorageUsagePanel";
 import { LegalDocsDialog } from "@/components/legal/LegalDocsDialog";
@@ -26,6 +20,10 @@ const RELEASES_URL = "https://github.com/maxi-smidt/family-tree/releases";
 // builds (e.g. "dev", "main-abc1234") link to the releases index instead.
 const RELEASE_VERSION_RE = /^\d+\.\d+\.\d+$/;
 
+/**
+ * The app's left sidebar: workspace switcher on top, the grouped view
+ * navigation, then storage, the account menu and display preferences.
+ */
 export function FamilyTreeSidebar() {
   const { t } = useTranslation(undefined, { keyPrefix: "sidebar" });
   const { t: tLegal } = useTranslation(undefined, { keyPrefix: "legal" });
@@ -38,54 +36,32 @@ export function FamilyTreeSidebar() {
 
   return (
     <Sidebar>
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>{t("appearance")}</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <ThemeSelector />
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <EdgeTypeSelector />
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <GenerationLineSpacingSelector />
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <LanguageSelector />
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup data-tutorial="sidebar">
-          <SidebarGroupLabel>{t("dataManagement")}</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <DatabaseSelector />
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+      <SidebarHeader className="p-3 pb-1" data-tutorial="sidebar">
+        <DatabaseSelector />
+      </SidebarHeader>
+      <SidebarContent className="gap-0 px-1">
+        <AppNav />
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className="gap-1 p-3 pt-1">
         {showStorage && <StorageUsagePanel workspaceId={selectedTree.id} />}
-        <UserMenu />
-        <div className="text-xs text-muted-foreground p-2 text-center select-none space-y-1">
+        <div className="flex items-center gap-1 border-t border-sidebar-border pt-2">
+          <UserMenu />
+          <PreferencesMenu />
+        </div>
+        <div className="flex items-center justify-center gap-2 text-[11px] text-muted-foreground select-none">
           <button
             type="button"
-            className="block w-full hover:text-foreground"
+            className="hover:text-foreground"
             onClick={() => setLegalDocsOpen(true)}
           >
             {tLegal("legal-link")}
           </button>
+          <span aria-hidden="true">·</span>
           <a
             href={releaseUrl}
             target="_blank"
             rel="noreferrer"
-            className="block w-full hover:text-foreground"
+            className="hover:text-foreground"
             aria-label={t("version-link-label")}
           >
             v{APP_VERSION}

@@ -1,17 +1,21 @@
 import { useState } from "react";
 import { Member, isDeceased } from "@/types/member";
-import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
-import { Mars, User, Venus, VenusAndMars } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Button } from "@/components/ui/button";
 import { MemberDetailDialog } from "@/components/shared/dialog/MemberDetailDialog";
+import { MemberAvatar } from "@/components/shared/MemberAvatar";
 import { formatDate as formatLocaleDate } from "@/utils/dateUtils";
+import { cn } from "@/lib/utils";
 
 type Props = {
   member: Member;
+  /** The large, centred presentation used in the person panel and dialog. */
   largeImage?: boolean;
   disableNameLink?: boolean;
 };
+
+// A canvas card shows just the years ("1921 – 1994"); the full dates are in
+// its tooltip and in the person panel.
+const yearOf = (value: string) => /^\d{4}/.exec(value)?.[0] ?? null;
 
 export const FamilyNodeContent = ({
   member,
@@ -21,148 +25,129 @@ export const FamilyNodeContent = ({
   const { t } = useTranslation(undefined, {
     keyPrefix: "tree-view.node",
   });
-  const sizeClass = largeImage ? "size-32" : "size-16";
-  const iconSize = largeImage ? 64 : 48;
-  const genderIconSize = largeImage ? 20 : 12;
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const fullName = `${member.firstName} ${member.lastName}`.trim();
+  const compact = !largeImage;
 
-  const GenderIcon = () => {
-    switch (member.gender) {
-      case "m":
-        return <Mars size={genderIconSize} className="text-blue-500" />;
-      case "f":
-        return <Venus size={genderIconSize} className="text-pink-500" />;
-      default:
-        return (
-          <VenusAndMars size={genderIconSize} className="text-purple-500" />
-        );
-    }
-  };
+  const nameClass = compact
+    ? "block min-w-0 max-w-full truncate text-left text-[14px] font-semibold leading-tight"
+    : "block w-full text-center text-xl font-bold leading-tight tracking-tight line-clamp-2";
 
-  const FallbackAvatar = () => {
-    switch (member.gender) {
-      case "f":
-        return <User size={iconSize} className="text-pink-500" />;
-      case "m":
-        return <User size={iconSize} className="text-blue-500" />;
-      default:
-        return <User size={iconSize} />;
-    }
-  };
+  const nameEl = disableNameLink ? (
+    <span className={nameClass} title={fullName}>
+      {fullName}
+    </span>
+  ) : (
+    <button
+      type="button"
+      className={cn(
+        nameClass,
+        "nodrag cursor-pointer rounded-sm hover:underline focus-visible:outline-2 focus-visible:outline-ring",
+      )}
+      title={fullName}
+      onClick={() => setDetailDialogOpen(true)}
+    >
+      {fullName}
+    </button>
+  );
 
-  return (
-    // w-full/min-w-0 pins the content to the card width (the card centers its
-    // children, so an unconstrained child would grow past it) — required for
-    // the badge row below to truncate instead of overflowing.
-    <div className="w-full min-w-0">
-      <div className="relative w-fit mx-auto">
-        {member.imageData ? (
-          <AuthenticatedImage
-            src={member.imageData}
-            className={`${sizeClass} rounded-full object-cover bg-muted`}
-            alt=""
-            fallback={
-              <div
-                aria-hidden="true"
-                className={`${sizeClass} flex justify-center items-center rounded-full bg-muted text-2xl font-bold text-muted-foreground`}
-              >
-                <FallbackAvatar />
-              </div>
-            }
-          />
-        ) : (
-          <div
-            aria-hidden="true"
-            className={`${sizeClass} flex justify-center items-center rounded-full bg-muted text-2xl font-bold text-muted-foreground`}
-          >
-            <FallbackAvatar />
-          </div>
-        )}
-        <div
-          aria-hidden="true"
-          className={`absolute bg-card rounded-full shadow-sm border border-border flex items-center justify-center bottom-0 right-0 ${
-            largeImage ? "p-2" : "p-1"
-          }`}
-        >
-          <GenderIcon />
-        </div>
-      </div>
+  const sources =
+    member.isMerged &&
+    member.sourceWorkspaceNames &&
+    member.sourceWorkspaceNames.length > 0
+      ? member.sourceWorkspaceNames
+      : member.sourceWorkspaceName
+        ? [member.sourceWorkspaceName]
+        : [];
 
-      <div className="mt-1">
-        <div className="flex h-11 w-full items-center justify-center px-1">
-          {disableNameLink ? (
-            <span className="font-bold text-lg leading-tight text-center line-clamp-2 overflow-hidden block w-full max-w-full p-1">
-              {member.firstName} {member.lastName}
-            </span>
-          ) : (
-            <Button
-              variant="link"
-              className="h-auto p-1 w-full max-w-full block whitespace-normal"
-              onClick={() => setDetailDialogOpen(true)}
-            >
-              <span className="font-bold text-lg leading-tight text-center line-clamp-2 text-ellipsis overflow-hidden">
-                {member.firstName} {member.lastName}
-              </span>
-            </Button>
+  const sourceBadges = sources.length > 0 && (
+    <div
+      className={cn(
+        "mt-0.5 flex min-w-0 flex-nowrap gap-1",
+        !compact && "justify-center",
+      )}
+    >
+      {sources.slice(0, 2).map((tn) => (
+        <span
+          key={tn}
+          title={tn}
+          className={cn(
+            "inline-flex min-w-0 items-center rounded-full border px-1.5 text-[10.5px] leading-4",
+            member.isMerged
+              ? "border-primary/20 bg-primary-soft text-primary"
+              : "bg-muted text-muted-foreground",
           )}
-        </div>
-
-        <div className="text-xs text-muted-foreground text-center">
-          {formatLifeDates(member.date)}
-        </div>
-        {/* Badges stay on a single row (long names truncate, at most two are
-            shown plus a "+N" pill) so every card in a virtual view has the
-            same height — equal heights keep the side handles level and the
-            partner connector lines straight. */}
-        {member.isMerged &&
-        member.sourceWorkspaceNames &&
-        member.sourceWorkspaceNames.length > 0 ? (
-          <div className="mt-1 flex flex-nowrap justify-center gap-1 w-full min-w-0 px-1">
-            {member.sourceWorkspaceNames.slice(0, 2).map((tn) => (
-              <span
-                key={tn}
-                title={tn}
-                className="inline-flex min-w-0 items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary border border-primary/20"
-              >
-                <span className="truncate">{tn}</span>
-              </span>
-            ))}
-            {member.sourceWorkspaceNames.length > 2 && (
-              <span
-                title={member.sourceWorkspaceNames.join(", ")}
-                className="inline-flex shrink-0 items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary border border-primary/20"
-              >
-                +{member.sourceWorkspaceNames.length - 2}
-              </span>
-            )}
-          </div>
-        ) : (
-          member.sourceWorkspaceName && (
-            <div className="mt-1 flex justify-center w-full min-w-0 px-1">
-              <span
-                title={member.sourceWorkspaceName}
-                className="inline-flex min-w-0 items-center rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground border border-border"
-              >
-                <span className="truncate">{member.sourceWorkspaceName}</span>
-              </span>
-            </div>
-          )
-        )}
-      </div>
-      {!disableNameLink && (
-        <MemberDetailDialog
-          member={member}
-          open={detailDialogOpen}
-          onOpenChange={setDetailDialogOpen}
-        />
+        >
+          <span className="truncate">{tn}</span>
+        </span>
+      ))}
+      {sources.length > 2 && (
+        <span
+          title={sources.join(", ")}
+          className="inline-flex shrink-0 items-center rounded-full border border-primary/20 bg-primary-soft px-1.5 text-[10.5px] leading-4 text-primary"
+        >
+          +{sources.length - 2}
+        </span>
       )}
     </div>
   );
 
-  function formatLifeDates(dates: {
-    birth: string | null;
-    death: string | null;
-  }) {
+  const dialog = !disableNameLink && (
+    <MemberDetailDialog
+      member={member}
+      open={detailDialogOpen}
+      onOpenChange={setDetailDialogOpen}
+    />
+  );
+
+  if (compact) {
+    return (
+      <div className="flex w-full min-w-0 items-center gap-3">
+        <MemberAvatar member={member} size="md" />
+        <div className="flex min-w-0 flex-1 flex-col">
+          {nameEl}
+          <div
+            className="truncate text-xs text-muted-foreground tabular-nums"
+            title={fullDatesTitle()}
+          >
+            {formatLifeDates(member.date, true)}
+          </div>
+          {sourceBadges}
+        </div>
+        {dialog}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex w-full min-w-0 flex-col items-center gap-2">
+      <MemberAvatar member={member} size="xl" />
+      <div className="w-full max-w-full px-1">{nameEl}</div>
+      <div className="text-sm text-muted-foreground tabular-nums">
+        {formatLifeDates(member.date, false)}
+      </div>
+      {sourceBadges}
+      {dialog}
+    </div>
+  );
+
+  function fullDatesTitle() {
+    const b = member.date.birth ? formatLocaleDate(member.date.birth) : "";
+    const d = member.date.death ? formatLocaleDate(member.date.death) : "";
+    return [b, d].filter(Boolean).join(" – ") || undefined;
+  }
+
+  function formatLifeDates(
+    dates: {
+      birth: string | null;
+      death: string | null;
+    },
+    yearsOnly: boolean,
+  ) {
+    const fmt = (value: string) =>
+      yearsOnly
+        ? (yearOf(value) ?? formatLocaleDate(value))
+        : formatLocaleDate(value);
     const hasBirth = !!dates.birth;
     const hasDeath = !!dates.death;
     const deceased = isDeceased(member);
@@ -172,8 +157,8 @@ export const FamilyNodeContent = ({
       return <>&#8202;</>; // hair space to keep the card height consistent
     }
 
-    const birthFormatted = hasBirth ? formatLocaleDate(dates.birth!) : null;
-    const deathFormatted = hasDeath ? formatLocaleDate(dates.death!) : null;
+    const birthFormatted = hasBirth ? fmt(dates.birth!) : null;
+    const deathFormatted = hasDeath ? fmt(dates.death!) : null;
 
     const crossMarker = (
       <span
@@ -221,7 +206,7 @@ export const FamilyNodeContent = ({
 
     // Case 2: Living (has birth, not deceased, no death date) → just birth date
     if (hasBirth) {
-      return <>{birthFormatted}</>;
+      return <>{t("born-short", { date: birthFormatted })}</>;
     }
 
     return null;

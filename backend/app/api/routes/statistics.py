@@ -65,7 +65,9 @@ async def get_statistics(
 
     # --- cache hit -----------------------------------------------------------
     cached = await cache_get_json(key)
-    if cached is not None:
+    # Reports cached before the overview fields existed are recomputed rather
+    # than served with those fields empty.
+    if cached is not None and "longest_lives" in cached:
         try:
             return StatisticsReport.model_validate(cached)
         except Exception:

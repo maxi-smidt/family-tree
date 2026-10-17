@@ -97,26 +97,25 @@ describe("DocumentsView", () => {
     ).not.toBeInTheDocument();
     const documentCard = screen
       .getByText("Birth certificate")
-      .closest('[data-slot="card"]');
+      .closest('[data-slot="document-row"]');
     expect(documentCard).not.toBeNull();
     expect(
       within(documentCard as HTMLElement).getByRole("button", {
         name: "Show details",
       }),
-    ).toHaveClass("border");
+    ).toHaveAttribute("aria-expanded", "false");
     expect(
       within(documentCard as HTMLElement).getByRole("button", {
         name: "Delete document",
       }),
-    ).toHaveClass("text-destructive");
-    expect(
-      within(documentCard as HTMLElement).getByText("1 file"),
     ).toBeInTheDocument();
     expect(
-      within(documentCard as HTMLElement).getByText("1 external link"),
+      within(documentCard as HTMLElement).getByText("1 file · 1 external link"),
     ).toBeInTheDocument();
     expect(
-      within(documentCard as HTMLElement).getByText("1 linked person"),
+      within(documentCard as HTMLElement).getByRole("button", {
+        name: "Open Ada Lovelace",
+      }),
     ).toBeInTheDocument();
 
     fireEvent.click(
@@ -141,9 +140,6 @@ describe("DocumentsView", () => {
       within(documentCard as HTMLElement).getByText("External links"),
     ).toBeInTheDocument();
     expect(
-      within(documentCard as HTMLElement).getByText("Linked people"),
-    ).toBeInTheDocument();
-    expect(
       within(documentCard as HTMLElement).getByRole("button", {
         name: "birth-certificate.pdf",
       }),
@@ -160,27 +156,19 @@ describe("DocumentsView", () => {
       }),
     );
 
-    const [filter] = screen.getAllByRole("combobox");
-    fireEvent.click(filter);
-    fireEvent.click(screen.getByRole("option", { name: "Unlinked only" }));
+    fireEvent.click(screen.getByRole("radio", { name: /Not linked/ }));
 
     expect(screen.getByText("Archive index")).toBeInTheDocument();
     expect(screen.queryByText("Birth certificate")).not.toBeInTheDocument();
 
-    fireEvent.click(filter);
-    fireEvent.click(screen.getByRole("option", { name: "All documents" }));
+    fireEvent.click(screen.getByRole("radio", { name: /All/ }));
     const restoredDocumentCard = screen
       .getByText("Birth certificate")
-      .closest('[data-slot="card"]');
+      .closest('[data-slot="document-row"]');
     expect(restoredDocumentCard).not.toBeNull();
     fireEvent.click(
       within(restoredDocumentCard as HTMLElement).getByRole("button", {
-        name: "Show details",
-      }),
-    );
-    fireEvent.click(
-      within(restoredDocumentCard as HTMLElement).getByRole("button", {
-        name: "Ada Lovelace",
+        name: "Open Ada Lovelace",
       }),
     );
 
@@ -194,7 +182,7 @@ describe("DocumentsView", () => {
     render(<DocumentsView />);
     const documentCard = screen
       .getByText("Birth certificate")
-      .closest('[data-slot="card"]') as HTMLElement;
+      .closest('[data-slot="document-row"]') as HTMLElement;
 
     fireEvent.click(within(documentCard).getByText("Birth certificate"));
     expect(
