@@ -31,6 +31,7 @@ describe("usePendingMember — new-member section suggestions", () => {
     vi.clearAllMocks();
     useMemberStore.setState({
       members: [PARENT],
+      focusSectionIds: null,
       addMember: vi.fn().mockResolvedValue(undefined),
       addRelation: vi.fn().mockResolvedValue(undefined),
     });
@@ -83,7 +84,7 @@ describe("usePendingMember — new-member section suggestions", () => {
     expect(result.current.sectionSuggestions).toBeNull();
   });
 
-  it("confirming with selected sections adds the member to them", async () => {
+  it("adding to a suggested section adds the member to it", async () => {
     vi.mocked(
       useSectionStore.getState().getSectionSuggestions,
     ).mockResolvedValue([SUGGESTION]);
@@ -101,13 +102,35 @@ describe("usePendingMember — new-member section suggestions", () => {
     const memberId = result.current.sectionSuggestions?.memberId as string;
 
     await act(async () => {
-      await result.current.confirmSectionSuggestions(["s1"]);
+      await result.current.addToSuggestedSection("s1");
     });
 
     expect(useSectionStore.getState().addMemberToSections).toHaveBeenCalledWith(
       memberId,
       ["s1"],
     );
+  });
+
+  it("does not suggest sections while working in a section", async () => {
+    useMemberStore.setState({ focusSectionIds: ["s1"] });
+    vi.mocked(
+      useSectionStore.getState().getSectionSuggestions,
+    ).mockResolvedValue([SUGGESTION]);
+    const { result } = renderHook(() =>
+      usePendingMember({ onHorizontalRelationReady: vi.fn() }),
+    );
+
+    act(() => result.current.onAddChild("parent-1"));
+    await act(async () => {
+      await result.current.saveNewMember({
+        firstName: "Lea",
+        lastName: "Adams",
+      });
+    });
+
+    expect(
+      useSectionStore.getState().getSectionSuggestions,
+    ).not.toHaveBeenCalled();
     expect(result.current.sectionSuggestions).toBeNull();
   });
 

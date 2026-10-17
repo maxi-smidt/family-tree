@@ -2519,13 +2519,15 @@
     },
     "new-member-suggestions": {
       "title": "{{name}} zu einem Bereich hinzufügen?",
-      "description": "Die Eltern oder der Partner von {{name}} gehören bereits zu diesen Bereichen. Wähle aus, welche sie ebenfalls einschließen sollen — oder überspringe und weise sie später zu.",
+      "description": "Die Eltern oder der Partner von {{name}} sind in diesen Bereichen. Füge die Person hinzu, wo sie hingehört; alles Übersprungene bleibt unzugewiesen.",
       "matched-via": "über {{names}}",
-      "skip": "Nicht zuweisen",
-      "confirm": "Zu ausgewählten hinzufügen",
+      "skip": "Schließen",
       "confirming": "Wird hinzugefügt…",
       "error": "Die Bereichsmitgliedschaft konnte nicht aktualisiert werden.",
-      "read-only": "Für dich nur lesbar"
+      "read-only": "Für dich nur lesbar",
+      "add": "Hinzufügen",
+      "add-to": "Zu {{section}} hinzufügen",
+      "added": "Hinzugefügt"
     },
     "whole-family": "Ganze Familie",
     "open-menu": "Ansicht: {{name}} — Abschnitte und gespeicherte Ansichten"

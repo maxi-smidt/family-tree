@@ -2519,13 +2519,15 @@
     },
     "new-member-suggestions": {
       "title": "Add {{name}} to a section?",
-      "description": "{{name}}'s parents or partner already belong to these sections. Choose which ones should include them too — or skip and assign them later.",
+      "description": "{{name}}'s parents or partner are in these sections. Add them where they belong; anything you skip stays unassigned.",
       "matched-via": "via {{names}}",
-      "skip": "Leave unassigned",
-      "confirm": "Add to selected",
+      "skip": "Dismiss",
       "confirming": "Adding…",
       "error": "Could not update section membership.",
-      "read-only": "Read-only for you"
+      "read-only": "Read-only for you",
+      "add": "Add",
+      "add-to": "Add to {{section}}",
+      "added": "Added"
     },
     "whole-family": "Whole family",
     "open-menu": "Showing: {{name}} — sections and saved views"

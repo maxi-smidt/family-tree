@@ -43,7 +43,7 @@ import {
   UNION_NODE_SIZE,
 } from "@/components/view/tree-view/node/UnionNode";
 import { AddRelationDialog } from "@/components/view/tree-view/dialog/AddRelationDialog";
-import { NewMemberSectionSuggestionsDialog } from "@/components/view/tree-view/nav/NewMemberSectionSuggestionsDialog";
+import { NewMemberSectionPrompt } from "@/components/view/tree-view/nav/NewMemberSectionPrompt";
 import { RelationEdge } from "@/components/view/tree-view/edge/RelationEdge";
 import { useFlowNodes } from "@/hooks/useFlowNodes";
 import { useFlowEdges } from "@/hooks/useFlowEdges";
@@ -1104,11 +1104,11 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
                 }
               }}
             />
-            <NewMemberSectionSuggestionsDialog
+            <NewMemberSectionPrompt
               memberName={pending.sectionSuggestions?.memberName ?? ""}
               suggestions={pending.sectionSuggestions?.suggestions ?? null}
-              onConfirm={pending.confirmSectionSuggestions}
-              onSkip={pending.dismissSectionSuggestions}
+              onAdd={pending.addToSuggestedSection}
+              onDismiss={pending.dismissSectionSuggestions}
             />
           </>
         )}

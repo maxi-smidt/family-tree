@@ -561,3 +561,43 @@ def test_a_scoped_caller_cannot_name_a_section_outside_their_scope(client, db):
 
 def test_scope_of_returns_none_for_unknown_content(db):
     assert scope_of(db, ContentType.EVENT, "nope") is None
+
+
+# ---------------------------------------------------------------------------
+# Section membership of new members
+# ---------------------------------------------------------------------------
+
+
+def _create_member(client, user, tree, member_id, origin_section_id=None):
+    url = f"{API}/workspaces/{tree.id}/members"
+    if origin_section_id is not None:
+        url += f"?origin_section_id={origin_section_id}"
+    return client.post(
+        url,
+        headers=auth(user),
+        json={"id": member_id, "firstName": "Jo", "lastName": "Doe", "gender": "f"},
+    )
+
+
+def test_member_created_in_a_section_joins_that_section(client, db):
+    user = make_user(db)
+    tree = make_tree(db, user)
+    section_id = _section(client, user, tree)
+
+    res = _create_member(client, user, tree, "new1", origin_section_id=section_id)
+    assert res.status_code == 201, res.text
+
+    db.expire_all()
+    assert db.get(SectionMember, (section_id, "new1")) is not None
+
+
+def test_member_created_outside_a_section_joins_none(client, db):
+    user = make_user(db)
+    tree = make_tree(db, user)
+    _section(client, user, tree)
+
+    res = _create_member(client, user, tree, "new1")
+    assert res.status_code == 201, res.text
+
+    db.expire_all()
+    assert db.query(SectionMember).filter_by(member_id="new1").count() == 0
