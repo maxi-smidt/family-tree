@@ -498,7 +498,7 @@
       "open": "Search people, places and events",
       "placeholder": "Search people, places, events",
       "title": "Search",
-      "description": "Find a person, place or event in this workspace, or jump to a page.",
+      "description": "Find a person, place, event, section or saved view in this workspace, switch to another workspace, or jump to a page.",
       "empty": "Nothing found.",
       "people": "People",
       "places": "Places",
@@ -506,7 +506,14 @@
       "go-to": "Go to",
       "people-count": "{{count}} people",
       "people-count_one": "{{count}} person",
-      "people-count_other": "{{count}} people"
+      "people-count_other": "{{count}} people",
+      "sections": "Sections",
+      "saved-views": "Saved views",
+      "workspaces": "Workspaces",
+      "role-editor": "Editor",
+      "role-viewer": "Viewer",
+      "open-view-error": "That saved view could not be opened.",
+      "open-workspace-error": "That workspace could not be opened."
     }
   },
   "list-view": {
