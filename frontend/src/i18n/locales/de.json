@@ -1031,6 +1031,8 @@
       "open-error": "Dieser Arbeitsbereich konnte nicht geöffnet werden – er ist möglicherweise nicht mehr mit dir geteilt.",
       "unnamed": "Unbenanntes Mitglied",
       "nee": "geb. {{name}}",
+      "nee_male": "geb. {{name}}",
+      "nee_female": "geb. {{name}}",
       "clear": "Suche löschen",
       "searching": "Suche läuft…"
     },
@@ -1629,6 +1631,8 @@
     "date-input-hint": "TT.MM.JJJJ",
     "open-date-picker": "Datumsauswahl öffnen",
     "nee": "geb. {{name}}",
+    "nee_male": "geb. {{name}}",
+    "nee_female": "geb. {{name}}",
     "location-input": {
       "placeholder": "Stadt, Region, Land…"
     },
@@ -2400,6 +2404,8 @@
       "no-results": "Keine Mitglieder gefunden",
       "unnamed": "Unbenanntes Mitglied",
       "nee": "geb. {{name}}",
+      "nee_male": "geb. {{name}}",
+      "nee_female": "geb. {{name}}",
       "unassigned": "Ohne Bereich",
       "show-more": "Mehr anzeigen",
       "loading-more": "Wird geladen…"

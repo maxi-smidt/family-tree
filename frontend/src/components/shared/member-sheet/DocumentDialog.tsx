@@ -33,7 +33,7 @@ import { getQuotaBucket } from "@/lib/quotaError";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
-import { getMemberOptions } from "@/utils/memberUtils";
+import { birthNameContext, getMemberOptions } from "@/utils/memberUtils";
 import {
   ATTACHMENT_ACCEPT,
   attachmentError,
@@ -334,8 +334,8 @@ export const DocumentDialog = ({
 
   useUnsavedGuard("document", isDirty, save);
 
-  const memberOptions = getMemberOptions(members, (name) =>
-    i18n.t("common.nee", { name }),
+  const memberOptions = getMemberOptions(members, (name, gender) =>
+    i18n.t("common.nee", { name, context: birthNameContext(gender) }),
   );
 
   return (
@@ -495,7 +495,6 @@ export const DocumentDialog = ({
                         type="button"
                         variant="ghost"
                         size="icon-sm"
-
                         title={t("files.remove")}
                         onClick={() =>
                           setExisting((prev) =>
@@ -555,7 +554,6 @@ export const DocumentDialog = ({
                         type="button"
                         variant="ghost"
                         size="icon-sm"
-
                         title={t("files.remove")}
                         disabled={submitting}
                         onClick={() =>
@@ -584,7 +582,6 @@ export const DocumentDialog = ({
                         type="button"
                         variant="ghost"
                         size="icon-sm"
-
                         title={t("files.remove")}
                         onClick={() =>
                           setAddedLinks((prev) =>

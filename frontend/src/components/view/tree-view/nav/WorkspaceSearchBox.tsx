@@ -6,7 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { WorkspaceSearchHitDB } from "@/types/member";
-import { getMemberFullName, formatMemberSubLabel } from "@/utils/memberUtils";
+import {
+  birthNameContext,
+  getMemberFullName,
+  formatMemberSubLabel,
+} from "@/utils/memberUtils";
 
 const PAGE_SIZE = 10;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -143,7 +147,8 @@ export const WorkspaceSearchBox = ({
                 const sublabel = formatMemberSubLabel(
                   hit.maidenName,
                   hit.dateOfBirth,
-                  (name) => t("nee", { name }),
+                  (name) =>
+                    t("nee", { name, context: birthNameContext(hit.gender) }),
                 );
                 return (
                   <li key={hit.id}>

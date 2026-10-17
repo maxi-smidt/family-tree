@@ -6,7 +6,11 @@ import { Member, MemberDB, MemberSearchHitDB } from "@/types/member";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
-import { memberMatchesSearch, formatMemberSubLabel } from "@/utils/memberUtils";
+import {
+  birthNameContext,
+  memberMatchesSearch,
+  formatMemberSubLabel,
+} from "@/utils/memberUtils";
 import { toast } from "sonner";
 
 const MAX_CURRENT_RESULTS = 8;
@@ -271,10 +275,16 @@ export const CanvasSearch = ({
     const sublabel = formatMemberSubLabel(
       member.maidenName,
       memberBirthDate(member),
-      (maidenName) => t("nee", { name: maidenName }),
+      (maidenName) =>
+        t("nee", {
+          name: maidenName,
+          context: birthNameContext(member.gender),
+        }),
     );
     const isOtherTree = kind === "other";
-    const workspaceName = isOtherTree ? (member as MemberSearchHitDB).workspaceName : "";
+    const workspaceName = isOtherTree
+      ? (member as MemberSearchHitDB).workspaceName
+      : "";
 
     return (
       <li

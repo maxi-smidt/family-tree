@@ -1031,6 +1031,8 @@
       "open-error": "That workspace could not be opened — it may no longer be shared with you.",
       "unnamed": "Unnamed member",
       "nee": "née {{name}}",
+      "nee_male": "né {{name}}",
+      "nee_female": "née {{name}}",
       "clear": "Clear search",
       "searching": "Searching…"
     },
@@ -1629,6 +1631,8 @@
     "date-input-hint": "MM/DD/YYYY",
     "open-date-picker": "Open date picker",
     "nee": "née {{name}}",
+    "nee_male": "né {{name}}",
+    "nee_female": "née {{name}}",
     "location-input": {
       "placeholder": "City, region, country…"
     },
@@ -2400,6 +2404,8 @@
       "no-results": "No members found",
       "unnamed": "Unnamed member",
       "nee": "née {{name}}",
+      "nee_male": "né {{name}}",
+      "nee_female": "née {{name}}",
       "unassigned": "Unassigned",
       "show-more": "Show more",
       "loading-more": "Loading…"
