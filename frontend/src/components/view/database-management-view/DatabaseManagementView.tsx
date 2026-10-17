@@ -424,6 +424,9 @@ export const DatabaseManagementView = () => {
     <ViewLayout
       title={t("title")}
       subtitle={t("subtitle")}
+      // The scroller clips at its edge, so give the cards' selection and
+      // focus rings room without shifting them out of line with the header.
+      contentClassName="-mx-1 -mt-1 px-1 pt-1"
       action={
         <>
           <Button
