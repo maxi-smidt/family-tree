@@ -665,6 +665,7 @@ def get_neighborhood(
                 "total_member_count": total_count,
                 "next_cursor": next_cursor,
                 "continuations": [c.model_dump() for c in continuations],
+                "expandable": page.expandable,
             }
         )
     return NeighborhoodOut(
@@ -675,6 +676,7 @@ def get_neighborhood(
         total_member_count=total_count,
         next_cursor=next_cursor,
         continuations=continuations,
+        expandable=page.expandable,
     )
 
 

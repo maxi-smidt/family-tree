@@ -7,6 +7,13 @@ workspace — and yields a *deterministic, append-only* sequence of member ids:
     root, descendant generations, ancestor generations, then partners,
     each level ordered by id.
 
+A section-filtered traversal walks the whole family inside the section
+instead: every member within ``up`` generations above and ``down`` below the
+root's, reached hop by hop over parent and (with partners) peer edges —
+siblings, in-laws and cousins included — each hop ordered by id. A section is
+a family branch, so focusing it must not depend on which single lineage the
+default root happens to sit on.
+
 Because that sequence only ever grows at the end as the node budget grows, a
 continuation cursor needs to carry nothing but an offset into it (see
 ``neighborhood_cursor``): replaying page *n* returns exactly the ids page *n*
@@ -33,7 +40,7 @@ MAX_NEIGHBORHOOD_TOTAL = 20_000
 MAX_SECTION_FILTERS = 50
 # Bumped whenever the traversal order changes — cursors issued by an older
 # algorithm no longer describe the same sequence and are rejected.
-ALGORITHM_VERSION = 1
+ALGORITHM_VERSION = 2
 
 # Chunk size for ``IN (...)`` lists, kept well under SQLite's bound-parameter
 # limit so a frontier the size of the node budget still issues valid SQL.
@@ -70,6 +77,8 @@ class NeighborhoodPage:
     delivered_ids: list[str] = field(default_factory=list)
     #: Whether the traversal has more members past this page.
     has_more: bool = False
+    #: Whether one more generation up or down would reach anyone new.
+    expandable: bool = False
 
 
 def _chunks(ids: Iterable[str]) -> Iterator[list[str]]:
@@ -126,6 +135,37 @@ def _peer_step(db: Session, workspace_id: str, core: set[str]) -> set[str]:
     return found - core
 
 
+def _edge_step(
+    db: Session, workspace_id: str, frontier: set[str], *, include_peers: bool
+) -> list[tuple[str, str, int]]:
+    """``(source, target, generation delta)`` for every edge out of *frontier*.
+
+    A parent edge (from=child, to=parent) moves one generation up from the
+    child and one down from the parent; a peer edge stays on the generation.
+    Sorted, so callers resolving a target reached twice do so deterministically.
+    """
+    steps: set[tuple[str, str, int]] = set()
+    for chunk in _chunks(sorted(frontier)):
+        stmt = select(
+            Relation.from_member_id, Relation.to_member_id, Relation.relation_type
+        ).where(
+            Relation.workspace_id == workspace_id,
+            or_(
+                Relation.from_member_id.in_(chunk),
+                Relation.to_member_id.in_(chunk),
+            ),
+        )
+        if not include_peers:
+            stmt = stmt.where(Relation.relation_type == "parent")
+        for from_id, to_id, relation_type in db.execute(stmt):
+            delta = 1 if relation_type == "parent" else 0
+            if from_id in frontier:
+                steps.add((from_id, to_id, delta))
+            if to_id in frontier:
+                steps.add((to_id, from_id, -delta))
+    return sorted(steps)
+
+
 def _admissible(
     db: Session,
     workspace_id: str,
@@ -168,16 +208,22 @@ def _admissible(
 
 def _sequence(
     db: Session, workspace_id: str, query: NeighborhoodQuery, limit: int
-) -> tuple[list[str], bool]:
-    """Return ``(ordered_ids, complete)`` truncated to at most *limit* ids.
+) -> tuple[list[str], bool, bool]:
+    """Return ``(ordered_ids, complete, expandable)`` truncated to at most
+    *limit* ids; ``expandable`` says whether a deeper ``up``/``down`` would
+    reach anyone new (always true for an incomplete sequence).
 
     The focus root is always included, even when a section filter excludes it:
     the filter narrows what the traversal walks *through*, it is not an access
     boundary (grants are resolved before this runs).
     """
+    if query.section_ids is not None:
+        return _family_sequence(db, workspace_id, query, limit)
+
     order: list[str] = [query.root_id]
     seen: set[str] = {query.root_id}
     complete = True
+    expandable = False
 
     def emit(member_ids: set[str]) -> bool:
         """Append *member_ids* in id order; False once *limit* is reached."""
@@ -195,9 +241,8 @@ def _sequence(
         # Candidates are marked examined whether or not they passed the section
         # filter, so a rejected member is never re-queried on a later level.
         examined = {query.root_id}
-        for _ in range(depth):
-            if not complete:
-                break
+        level = 0
+        while level < depth and complete:
             candidates = (
                 _parent_step(db, workspace_id, frontier, upward=upward) - examined
             )
@@ -214,6 +259,16 @@ def _sequence(
             if not frontier:
                 break
             complete = emit(frontier)
+            level += 1
+        if complete and level == depth and not expandable:
+            # The walk used its whole depth: one more generation is only worth
+            # offering when it would actually reach someone.
+            beyond = _parent_step(db, workspace_id, frontier, upward=upward) - examined
+            expandable = bool(
+                _admissible(
+                    db, workspace_id, beyond, query.section_ids, query.visible_section_ids
+                )
+            )
 
     if query.include_partners and complete:
         peers = _peer_step(db, workspace_id, set(order))
@@ -223,7 +278,65 @@ def _sequence(
             )
         )
 
-    return order, complete
+    return order, complete, expandable or not complete
+
+
+def _family_sequence(
+    db: Session, workspace_id: str, query: NeighborhoodQuery, limit: int
+) -> tuple[list[str], bool, bool]:
+    """The section-filtered walk: hop by hop over every edge kind, keeping
+    whoever lands within the root's generation band (see the module docs)."""
+    order: list[str] = [query.root_id]
+    generation: dict[str, int] = {query.root_id: 0}
+    # Members that failed the section filter — never walked through.
+    rejected: set[str] = set()
+    # Reached only outside the band so far; anyone in here not delivered by the
+    # end is what a deeper band would add.
+    beyond: set[str] = set()
+    frontier = {query.root_id}
+    complete = True
+
+    while frontier and complete:
+        candidates: dict[str, int] = {}
+        for source, target, delta in _edge_step(
+            db, workspace_id, frontier, include_peers=query.include_partners
+        ):
+            if target in generation or target in rejected or target in candidates:
+                continue
+            target_generation = generation[source] + delta
+            if -query.down <= target_generation <= query.up:
+                candidates[target] = target_generation
+            else:
+                beyond.add(target)
+        admitted = _admissible(
+            db,
+            workspace_id,
+            set(candidates),
+            query.section_ids,
+            query.visible_section_ids,
+        )
+        rejected |= set(candidates) - admitted
+        frontier = set()
+        for member_id in sorted(admitted):
+            generation[member_id] = candidates[member_id]
+            order.append(member_id)
+            frontier.add(member_id)
+            if len(order) >= limit:
+                complete = False
+                break
+
+    if not complete:
+        return order, False, True
+    expandable = bool(
+        _admissible(
+            db,
+            workspace_id,
+            beyond - generation.keys() - rejected,
+            query.section_ids,
+            query.visible_section_ids,
+        )
+    )
+    return order, True, expandable
 
 
 def collect_neighborhood_page(
@@ -232,13 +345,14 @@ def collect_neighborhood_page(
     """Return the page of the traversal sequence starting at *offset*."""
     ceiling = min(offset + query.budget, MAX_NEIGHBORHOOD_TOTAL)
     # One past the ceiling, so a full page can tell "exactly full" from "more".
-    order, complete = _sequence(db, workspace_id, query, ceiling + 1)
+    order, complete, expandable = _sequence(db, workspace_id, query, ceiling + 1)
     delivered = order[:ceiling]
     page = delivered[offset:]
     return NeighborhoodPage(
         member_ids=page,
         delivered_ids=delivered,
         has_more=not complete or len(order) > len(delivered),
+        expandable=expandable,
     )
 
 

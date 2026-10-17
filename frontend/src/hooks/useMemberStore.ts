@@ -295,6 +295,9 @@ interface MemberState {
   savedViewPositions: SavedViewPositionDB[];
   savedViewFilters: Record<string, unknown>;
   neighborhoodTruncated: boolean;
+  // Whether one more generation up or down would reach anyone new — gates
+  // the "Expand next generation" control so it never offers a no-op.
+  neighborhoodExpandable: boolean;
   totalMemberCount: number;
   // Raw rows/relations accumulated across inline expansion pages (#989) for
   // the current windowed session — the source `refreshMembers`/`expand*`
@@ -424,6 +427,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
   neighborhoodCursor: null,
   continuations: [],
   neighborhoodTruncated: false,
+  neighborhoodExpandable: false,
   totalMemberCount: 0,
   pendingLocateMemberId: null,
   setPendingLocateMemberId: (id: string | null) =>
@@ -575,6 +579,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
           detailLoadedIds: new Set<string>(),
           focusRootId: nb.root_id || null,
           neighborhoodTruncated: nb.truncated,
+          neighborhoodExpandable: nb.expandable ?? false,
           totalMemberCount: nb.total_member_count,
         });
       } catch {
@@ -630,6 +635,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
           detailLoadedIds: new Set<string>(),
           focusRootId: nb.root_id || null,
           neighborhoodTruncated: nb.truncated,
+          neighborhoodExpandable: nb.expandable ?? false,
           totalMemberCount: nb.total_member_count,
         });
         return;
@@ -813,6 +819,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
           get().savedViewFilters,
         ),
         neighborhoodTruncated: nb.truncated,
+        neighborhoodExpandable: nb.expandable ?? false,
         totalMemberCount: nb.total_member_count,
         neighborhoodCursor: nb.next_cursor ?? null,
         continuations: nb.continuations ?? [],
@@ -867,6 +874,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
           buildAppMembers(mergedRows, mergedRelations, workspaceId),
           get().savedViewFilters,
         ),
+        neighborhoodExpandable: nb.expandable ?? false,
         totalMemberCount: nb.total_member_count,
         neighborhoodCursor: nb.next_cursor ?? null,
         continuations: nb.continuations ?? [],
@@ -980,6 +988,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       neighborhoodCursor: null,
       continuations: [],
       neighborhoodTruncated: false,
+      neighborhoodExpandable: false,
       totalMemberCount: 0,
       pendingLocateMemberId: null,
       undoStack: [],

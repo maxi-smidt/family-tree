@@ -331,6 +331,24 @@ describe("useMemberStore — inline expansion (#989)", () => {
     expect(ids).toEqual(["m1", "m2"]);
   });
 
+  it("expandGeneration records whether yet another generation would reach anyone", async () => {
+    useMemberStore.setState({ neighborhoodExpandable: true });
+    vi.mocked(WorkspaceService.getNeighborhood).mockResolvedValueOnce({
+      members: [MEMBER_2],
+      relations: [],
+      root_id: "m1",
+      truncated: false,
+      total_member_count: 2,
+      next_cursor: null,
+      continuations: [],
+      expandable: false,
+    });
+
+    await useMemberStore.getState().expandGeneration();
+
+    expect(useMemberStore.getState().neighborhoodExpandable).toBe(false);
+  });
+
   it("loadMoreNeighborhood replays the stored cursor and merges the next page", async () => {
     vi.mocked(WorkspaceService.getNeighborhood).mockResolvedValueOnce({
       members: [MEMBER_2],
