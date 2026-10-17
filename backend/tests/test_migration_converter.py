@@ -187,8 +187,10 @@ def test_bridge_pair_drift_creates_a_pending_conflict_and_keeps_one_row(db, owne
     assert conflict.canonical_member_id == survivor_member.id
     section = db.scalar(select(Section).where(Section.name == "B"))
     assert conflict.source_section_id == section.id
-    other_id = conflict.member_b_id if conflict.member_a_id == survivor_member.id else (
-        conflict.member_a_id
+    other_id = (
+        conflict.member_b_id
+        if conflict.member_a_id == survivor_member.id
+        else (conflict.member_a_id)
     )
     assert conflict.field_values["first_name"] == {
         survivor_member.id: "Anna",
@@ -480,3 +482,92 @@ def test_replay_hydrates_the_report_after_an_earlier_partial_crash(db, owner):
     )
     assert report is not None
     assert any(m["source_workspace_id"] == ghost_id for m in report.workspace_mappings)
+
+
+def _position(db, member_id: str) -> tuple[float, float]:
+    member = db.get(Member, member_id)
+    db.refresh(member)
+    return member.position_x, member.position_y
+
+
+def test_absorbed_tree_is_placed_beside_the_survivor_not_on_top_of_it(db, owner):
+    # Both v1 trees were laid out from the origin, so unchanged they'd overlap.
+    big = make_tree(db, owner, name="Big Tree")
+    small = make_tree(db, owner, name="Small Tree")
+    add_member(db, big, "big0", position_x=0, position_y=0)
+    add_member(db, big, "big1", position_x=250, position_y=0)
+    bridge_big = add_member(
+        db, big, "bridge-big", first_name="Anna", position_x=500, position_y=150
+    )
+    bridge_small = add_member(
+        db, small, "bridge-small", first_name="Anna", position_x=100, position_y=0
+    )
+    add_member(db, small, "small-child", position_x=100, position_y=150)
+    add_member(db, small, "small-spouse", position_x=350, position_y=0)
+    _wire_bridge(db, bridge_big, bridge_small)
+    _identity_link(db, bridge_big, bridge_small)
+
+    run = _make_run(db)
+    run_conversion(db, run)
+
+    # The survivor's own layout is untouched.
+    assert _position(db, "big0") == (0, 0)
+    assert _position(db, "bridge-big") == (500, 150)
+    # dx: right of the survivor's right-most node (500 + 220 node width +
+    # 400 gap - 100 source left edge = 1020, snapped to 1025); dy: the bridge
+    # copy (y=0) lines up with the person it merged into (y=150).
+    assert _position(db, "small-spouse") == (350 + 1025, 0 + 150)
+    assert _position(db, "small-child") == (100 + 1025, 150 + 150)
+
+    # A replay of the same run never shifts the tree a second time.
+    run_conversion(db, run)
+    assert _position(db, "small-child") == (100 + 1025, 150 + 150)
+
+
+def test_each_absorbed_tree_lands_right_of_the_ones_before_it(db, owner):
+    # A chain A - B - C: the survivor A plus two absorbed trees, all laid
+    # out from the origin in v1.
+    tree_a = make_tree(db, owner, name="A")
+    tree_b = make_tree(db, owner, name="B")
+    tree_c = make_tree(db, owner, name="C")
+    add_member(db, tree_a, "a0", position_x=0, position_y=0)
+    add_member(db, tree_a, "a1", position_x=250, position_y=0)
+    a_bridge = add_member(
+        db, tree_a, "a-bridge", first_name="Anna", position_x=0, position_y=150
+    )
+    b_to_a = add_member(
+        db, tree_b, "b-to-a", first_name="Anna", position_x=0, position_y=0
+    )
+    b_to_c = add_member(
+        db, tree_b, "b-to-c", first_name="Ben", position_x=250, position_y=150
+    )
+    c_to_b = add_member(
+        db, tree_c, "c-to-b", first_name="Ben", position_x=0, position_y=0
+    )
+    add_member(db, tree_c, "c-child", position_x=0, position_y=150)
+    for left, right in ((a_bridge, b_to_a), (b_to_c, c_to_b)):
+        _wire_bridge(db, left, right)
+        _identity_link(db, left, right)
+
+    run = _make_run(db)
+    summary = run_conversion(db, run)
+    assert summary.workspaces_absorbed == 2
+
+    remaining = set(db.scalars(select(Member.id).where(Member.workspace_id == tree_a.id)))
+    assert _position(db, "a1") == (250, 0)
+    # B and C are absorbed in workspace-id order, so which copy of each
+    # bridge survives varies; whichever does, the three trees' node columns
+    # must not overlap horizontally.
+    spans = []
+    for ids in (
+        {"a0", "a1", "a-bridge"},
+        {"b-to-a", "b-to-c"} & remaining,
+        {"c-to-b", "c-child"} & remaining,
+    ):
+        if not ids:
+            continue  # every node of that tree merged into a bridge partner
+        xs = [_position(db, m)[0] for m in ids]
+        spans.append((min(xs), max(xs) + 220))
+    spans.sort()
+    for (_, left_end), (right_start, _) in zip(spans, spans[1:], strict=False):
+        assert right_start >= left_end + 400

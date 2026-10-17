@@ -12,8 +12,9 @@ media relocation. It:
 2. Gives every workspace exactly one default section holding all of its
    current members, seeds content provenance for its existing content, and —
    for every non-survivor — migrates its membership/invitations/public link
-   onto a section-scoped grant, re-points its content onto the survivor, and
-   removes the now-empty workspace row.
+   onto a section-scoped grant, shifts its people's canvas positions to sit
+   beside the survivor's instead of on top of them, re-points its content
+   onto the survivor, and removes the now-empty workspace row.
 3. Collapses any identity link (legacy bridge or otherwise) whose two
    endpoints land in the same workspace as a result of step 2, via the
    existing same-tree member-merge machinery, recording a durable conflict
@@ -666,6 +667,75 @@ def _absorb_workspace(
     return section
 
 
+# Canvas geometry mirrored from frontend/constants.json, used to place an
+# absorbed tree beside the survivor instead of on top of it.
+_NODE_WIDTH = 220.0
+_GRID_SIZE = 25.0
+# Horizontal space left between the survivor's right-most node and the
+# absorbed tree's left-most node.
+_ABSORBED_TREE_GAP = 400.0
+
+
+def _snap_to_grid(value: float) -> float:
+    return round(value / _GRID_SIZE) * _GRID_SIZE
+
+
+def _place_absorbed_members(
+    db: Session,
+    run_id: str,
+    source_id: str,
+    target_id: str,
+    to_collapse: list[tuple[str, str]],
+) -> None:
+    """Shift ``source_id``'s members so they no longer overlap the survivor.
+
+    Every v1 tree was laid out in its own coordinate space (usually starting
+    near the origin), so absorbing one onto the survivor's canvas unchanged
+    draws both trees on top of each other. The whole tree moves by a single
+    offset, keeping its v1 arrangement intact: horizontally it lands to the
+    right of everything already on the survivor's canvas; vertically its
+    bridge copy is aligned with the person it is about to merge into (so
+    generations stay level), or, with no bridge pair, its top with the
+    survivor's top. Offsets are snapped to the grid, so on-grid nodes stay on
+    it. Must run before ``_repoint_content`` (the source members are still
+    told apart by ``workspace_id``) and only flushes: the idempotency key
+    commits together with the shift, so a replay never shifts twice.
+    """
+    key = f"positions:{source_id}"
+    if _idempotent_target(db, run_id, key) is not None:
+        return
+    src_min_x, src_min_y = db.execute(
+        select(func.min(Member.position_x), func.min(Member.position_y)).where(
+            Member.workspace_id == source_id
+        )
+    ).one()
+    tgt_max_x, tgt_min_y = db.execute(
+        select(func.max(Member.position_x), func.min(Member.position_y)).where(
+            Member.workspace_id == target_id
+        )
+    ).one()
+    if src_min_x is not None and tgt_max_x is not None:
+        dx = tgt_max_x + _NODE_WIDTH + _ABSORBED_TREE_GAP - src_min_x
+        dy = tgt_min_y - src_min_y
+        for keep_id, remove_id in sorted(to_collapse):
+            keep = db.get(Member, keep_id)
+            remove = db.get(Member, remove_id)
+            if keep is not None and remove is not None:
+                dy = keep.position_y - remove.position_y
+                break
+        dx, dy = _snap_to_grid(dx), _snap_to_grid(dy)
+        if dx or dy:
+            db.query(Member).filter(Member.workspace_id == source_id).update(
+                {
+                    Member.position_x: Member.position_x + dx,
+                    Member.position_y: Member.position_y + dy,
+                },
+                synchronize_session="fetch",
+            )
+    _record_idempotent(db, run_id, key, target_type="workspace", target_id=source_id)
+    db.flush()
+
+
 # ---------------------------------------------------------------------------
 # Step 3: bridge-pair collapse
 # ---------------------------------------------------------------------------
@@ -1111,6 +1181,9 @@ def run_conversion(db: Session, run: MigrationRun) -> ConversionSummary:
                 summary.sections_created += 1
 
                 to_collapse = _prepare_bridge_collapses(db, source.id, survivor.id)
+                _place_absorbed_members(
+                    db, run.id, source.id, survivor.id, to_collapse
+                )
                 _repoint_content(db, source.id, survivor.id)
                 for keep_id, remove_id in to_collapse:
                     outcome = _collapse_pair(
