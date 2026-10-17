@@ -16,7 +16,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Member, createMember } from "@/types/member";
 import { Maximize, UserPlus } from "lucide-react";
 import { NODE_WIDTH, NODE_HEIGHT } from "@/constants";
-import { SNAP_GRID } from "@/utils/gridUtils";
+import { GRID_DOT_SIZE, getGridDotOffset, SNAP_GRID } from "@/utils/gridUtils";
 import { EXPANSION_NODE_BUDGET, useMemberStore } from "@/hooks/useMemberStore";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
@@ -45,6 +45,7 @@ import {
 import { AddRelationDialog } from "@/components/view/tree-view/dialog/AddRelationDialog";
 import { NewMemberSectionPrompt } from "@/components/view/tree-view/nav/NewMemberSectionPrompt";
 import { RelationEdge } from "@/components/view/tree-view/edge/RelationEdge";
+import { UnionChildEdge } from "@/components/view/tree-view/edge/UnionChildEdge";
 import { useFlowNodes } from "@/hooks/useFlowNodes";
 import { useFlowEdges } from "@/hooks/useFlowEdges";
 import { useFlowInteractions } from "@/hooks/useFlowInteractions";
@@ -78,7 +79,8 @@ import { getGenerationLineGap } from "@/utils/generationLineSpacing";
 import { buildMemberNodes } from "@/utils/memberNodes";
 
 const nodeTypes = { familyMember: FamilyNode, unionNode: UnionNode };
-const edgeTypes = { relation: RelationEdge };
+const edgeTypes = { relation: RelationEdge, unionChild: UnionChildEdge };
+const GRID_DOT_OFFSET = getGridDotOffset();
 
 interface FlowPanelProps {
   // Chromeless, purely-visual rendering for the public read-only tree view:
@@ -870,7 +872,12 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
           }}
         >
           <SelectionModeController active={inSelectionMode} />
-          <Background color="var(--canvas-dot)" gap={SNAP_GRID} size={1.4} />
+          <Background
+            color="var(--canvas-dot)"
+            gap={SNAP_GRID}
+            size={GRID_DOT_SIZE}
+            offset={GRID_DOT_OFFSET}
+          />
           <GenerationLines
             visible={generationLineGap !== null}
             gap={generationLineGap ?? undefined}
