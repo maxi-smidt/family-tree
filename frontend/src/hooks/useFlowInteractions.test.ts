@@ -8,17 +8,33 @@ import type { WorkerUnionInfo } from "@/workers/treeProcessor.types";
 const removeRelationBidirectional = vi.fn();
 const updateMemberPartial = vi.fn();
 const persistPositions = vi.fn();
+const historyEntry = { undo: vi.fn(), redo: vi.fn() };
+const runHistoryGroup = vi.fn(async (fn: () => Promise<void>) => {
+  await fn();
+  return historyEntry;
+});
+const undoEntry = vi.fn();
+const { toastSuccess, toastError } = vi.hoisted(() => ({
+  toastSuccess: vi.fn(),
+  toastError: vi.fn(),
+}));
 
 vi.mock("@/hooks/useMemberStore", () => ({
   useMemberStore: () => ({
     removeRelationBidirectional,
     updateMemberPartial,
     persistPositions,
+    runHistoryGroup,
+    undoEntry,
   }),
 }));
 
-vi.mock("sonner", () => ({ toast: { error: vi.fn() } }));
-vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
+vi.mock("sonner", () => ({
+  toast: { error: toastError, success: toastSuccess },
+}));
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({ t: (k: string) => k }),
+}));
 
 function makeMember(id: string, overrides: Partial<Member> = {}): Member {
   return {
@@ -64,7 +80,7 @@ describe("useFlowInteractions – removeMemberEdge", () => {
     vi.clearAllMocks();
   });
 
-  it("removes a non-couple relation drawn as a rel: edge", () => {
+  it("removes a non-couple relation drawn as a rel: edge", async () => {
     const a = makeMember("aaaa-1111", {
       relations: [
         {
@@ -81,7 +97,7 @@ describe("useFlowInteractions – removeMemberEdge", () => {
     ];
 
     const { result } = setup([a, b], edges, []);
-    act(() => result.current.onEdgesChange([remove(edgeId)]));
+    await act(async () => result.current.onEdgesChange([remove(edgeId)]));
 
     expect(removeRelationBidirectional).toHaveBeenCalledWith(
       "aaaa-1111",
@@ -91,7 +107,7 @@ describe("useFlowInteractions – removeMemberEdge", () => {
     expect(removeRelationBidirectional).toHaveBeenCalledTimes(1);
   });
 
-  it("removes the couple relation behind a union edge", () => {
+  it("removes the couple relation behind a union edge", async () => {
     const union: WorkerUnionInfo = {
       id: "union-p1-p2",
       partner1Id: "p1",
@@ -104,7 +120,9 @@ describe("useFlowInteractions – removeMemberEdge", () => {
     ];
 
     const { result } = setup([], edges, [union]);
-    act(() => result.current.onEdgesChange([remove("ue:union-p1-p2:left")]));
+    await act(async () =>
+      result.current.onEdgesChange([remove("ue:union-p1-p2:left")]),
+    );
 
     expect(removeRelationBidirectional).toHaveBeenCalledWith(
       "p1",
@@ -114,7 +132,7 @@ describe("useFlowInteractions – removeMemberEdge", () => {
     expect(removeRelationBidirectional).toHaveBeenCalledTimes(1);
   });
 
-  it("detaches a shared child when its union edge is removed", () => {
+  it("detaches a shared child when its union edge is removed", async () => {
     const { result } = setup(
       [],
       [],
@@ -129,7 +147,7 @@ describe("useFlowInteractions – removeMemberEdge", () => {
       ],
     );
 
-    act(() =>
+    await act(async () =>
       result.current.onEdgesChange([remove("ue:union-p1-p2:child:c1")]),
     );
 
@@ -139,7 +157,7 @@ describe("useFlowInteractions – removeMemberEdge", () => {
     });
   });
 
-  it("clears the matching parent slot for a single-parent edge", () => {
+  it("clears the matching parent slot for a single-parent edge", async () => {
     const child = makeMember("child-1", {
       parents: { paternalParent: "dad-1", maternalParent: null },
     });
@@ -148,11 +166,137 @@ describe("useFlowInteractions – removeMemberEdge", () => {
     ];
 
     const { result } = setup([child], edges, []);
-    act(() => result.current.onEdgesChange([remove("e:dad-1:child-1")]));
+    await act(async () =>
+      result.current.onEdgesChange([remove("e:dad-1:child-1")]),
+    );
 
     expect(updateMemberPartial).toHaveBeenCalledWith("child-1", {
       paternalParentId: null,
     });
+  });
+  // Father (left) and mother (right) share a child through the union dot.
+  function familyWithUnion(relationType?: string) {
+    const dad = makeMember("dad", { gender: "m" });
+    const mom = makeMember("mom", { gender: "f" });
+    const kid = makeMember("kid", {
+      parents: { paternalParent: "dad", maternalParent: "mom" },
+    });
+    const union: WorkerUnionInfo = {
+      id: "union-dad-mom",
+      partner1Id: "dad",
+      partner2Id: "mom",
+      childIds: ["kid"],
+      relationType,
+    };
+    const edges: Edge[] = [
+      { id: "ue:union-dad-mom:left", source: "dad", target: "union-dad-mom" },
+      { id: "ue:union-dad-mom:right", source: "union-dad-mom", target: "mom" },
+      {
+        id: "ue:union-dad-mom:child:kid",
+        source: "union-dad-mom",
+        target: "kid",
+      },
+    ];
+    return { members: [dad, mom, kid], edges, union };
+  }
+
+  it("removing the father's union line keeps the mother linked to the child", async () => {
+    const { members, edges, union } = familyWithUnion("married");
+    const { result } = setup(members, edges, [union]);
+
+    await act(async () =>
+      result.current.onEdgesChange([remove("ue:union-dad-mom:left")]),
+    );
+
+    expect(removeRelationBidirectional).toHaveBeenCalledWith(
+      "dad",
+      "mom",
+      "married",
+    );
+    expect(updateMemberPartial).toHaveBeenCalledWith("kid", {
+      paternalParentId: null,
+    });
+    expect(updateMemberPartial).toHaveBeenCalledTimes(1);
+  });
+
+  it("removing the mother's union line keeps the father linked to the child", async () => {
+    const { members, edges, union } = familyWithUnion("married");
+    const { result } = setup(members, edges, [union]);
+
+    await act(async () =>
+      result.current.onEdgesChange([remove("ue:union-dad-mom:right")]),
+    );
+
+    expect(updateMemberPartial).toHaveBeenCalledWith("kid", {
+      maternalParentId: null,
+    });
+    expect(updateMemberPartial).toHaveBeenCalledTimes(1);
+  });
+
+  it("detaches a partner from a union that only exists through shared children", async () => {
+    const { members, edges, union } = familyWithUnion(undefined);
+    const { result } = setup(members, edges, [union]);
+
+    await act(async () =>
+      result.current.onEdgesChange([remove("ue:union-dad-mom:left")]),
+    );
+
+    expect(removeRelationBidirectional).not.toHaveBeenCalled();
+    expect(updateMemberPartial).toHaveBeenCalledWith("kid", {
+      paternalParentId: null,
+    });
+  });
+
+  it("records one undo step and offers Undo in a toast", async () => {
+    const { members, edges, union } = familyWithUnion("married");
+    const { result } = setup(members, edges, [union]);
+
+    await act(async () =>
+      result.current.onEdgesChange([remove("ue:union-dad-mom:left")]),
+    );
+
+    expect(runHistoryGroup).toHaveBeenCalledTimes(1);
+    expect(toastSuccess).toHaveBeenCalledTimes(1);
+    const options = toastSuccess.mock.calls[0][1];
+    options.action.onClick();
+    expect(undoEntry).toHaveBeenCalledWith(historyEntry);
+  });
+
+  it("shows an error toast when removal fails", async () => {
+    removeRelationBidirectional.mockRejectedValueOnce(new Error("boom"));
+    const { members, edges, union } = familyWithUnion("married");
+    const { result } = setup(members, edges, [union]);
+
+    await act(async () =>
+      result.current.onEdgesChange([remove("ue:union-dad-mom:left")]),
+    );
+
+    expect(toastError).toHaveBeenCalledWith("toast-error-edge-remove");
+    expect(toastSuccess).not.toHaveBeenCalled();
+  });
+});
+
+describe("useFlowInteractions – onBeforeDelete", () => {
+  it("allows deleting selected connections on their own", async () => {
+    const { result } = setup([], [], []);
+    const edges: Edge[] = [
+      { id: "e:a:b", source: "a", target: "b", selected: true },
+    ];
+    await expect(
+      result.current.onBeforeDelete({ nodes: [], edges }),
+    ).resolves.toBe(true);
+  });
+
+  it("keeps a member's attached connections out of a member deletion", async () => {
+    const { result } = setup([], [], []);
+    const nodes = [{ id: "a", position: { x: 0, y: 0 }, data: {} }];
+    const edges: Edge[] = [
+      { id: "e:a:b", source: "a", target: "b" },
+      { id: "e:c:d", source: "c", target: "d", selected: true },
+    ];
+    await expect(
+      result.current.onBeforeDelete({ nodes, edges }),
+    ).resolves.toEqual({ nodes, edges: [edges[1]] });
   });
 });
 

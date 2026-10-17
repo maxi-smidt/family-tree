@@ -128,6 +128,15 @@ interface HistoryEntry {
 }
 
 const MAX_HISTORY = 50;
+
+const groupHistoryEntries = (entries: HistoryEntry[]): HistoryEntry => ({
+  undo: async () => {
+    for (const e of [...entries].reverse()) await e.undo();
+  },
+  redo: async () => {
+    for (const e of entries) await e.redo();
+  },
+});
 const MEMBER_DELETE_GRACE_MS = 8000;
 
 interface PendingMemberDeletion {
@@ -305,6 +314,11 @@ interface MemberState {
   undoStack: HistoryEntry[];
   redoStack: HistoryEntry[];
   _pushHistory: (entry: HistoryEntry) => void;
+  // Run several history-recording actions as one undo step; resolves to the
+  // combined entry, or null when nothing was recorded.
+  runHistoryGroup: (fn: () => Promise<void>) => Promise<HistoryEntry | null>;
+  // Undo `entry` only if it is still the latest step (e.g. a toast's Undo).
+  undoEntry: (entry: HistoryEntry) => Promise<void>;
   undo: () => Promise<void>;
   redo: () => Promise<void>;
   searchMembers: (
@@ -424,6 +438,34 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       undoStack: [...undoStack.slice(-(MAX_HISTORY - 1)), entry],
       redoStack: [],
     });
+  },
+
+  runHistoryGroup: async (fn) => {
+    const before = new Set(get().undoStack);
+    try {
+      await fn();
+    } finally {
+      // Fold whatever fn recorded — even if it failed part-way — into one step.
+      const { undoStack } = get();
+      const added = undoStack.filter((e) => !before.has(e));
+      if (added.length > 1) {
+        set({
+          undoStack: [
+            ...undoStack.filter((e) => before.has(e)),
+            groupHistoryEntries(added),
+          ],
+        });
+      }
+    }
+    const { undoStack } = get();
+    const last = undoStack[undoStack.length - 1];
+    return last && !before.has(last) ? last : null;
+  },
+
+  undoEntry: async (entry) => {
+    const { undoStack } = get();
+    if (undoStack[undoStack.length - 1] !== entry) return;
+    await get().undo();
   },
 
   searchMembers: (workspaceId, query, limit) =>

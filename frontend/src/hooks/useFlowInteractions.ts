@@ -37,8 +37,13 @@ export const useFlowInteractions = (
   const { t } = useTranslation(undefined, {
     keyPrefix: "hooks.flow-interactions",
   });
-  const { removeRelationBidirectional, updateMemberPartial, persistPositions } =
-    useMemberStore();
+  const {
+    removeRelationBidirectional,
+    updateMemberPartial,
+    persistPositions,
+    runHistoryGroup,
+    undoEntry,
+  } = useMemberStore();
   const pendingUpdates = useRef<Record<string, { x: number; y: number }>>({});
 
   const memberMap = useRef(new Map<string, Member>()).current;
@@ -101,8 +106,22 @@ export const useFlowInteractions = (
     [setNodes, changeMemberPosition, removeNodesById],
   );
 
+  // Clear `parentId` from whichever parent slot of `childId` it fills.
+  const detachParent = useCallback(
+    async (childId: string, parentId: string) => {
+      const child = memberMap.get(childId);
+      if (!child) return;
+      if (child.parents.paternalParent === parentId) {
+        await updateMemberPartial(childId, { paternalParentId: null });
+      } else if (child.parents.maternalParent === parentId) {
+        await updateMemberPartial(childId, { maternalParentId: null });
+      }
+    },
+    [memberMap, updateMemberPartial],
+  );
+
   const removeMemberEdge = useCallback(
-    (change: EdgeRemoveChange) => {
+    async (change: EdgeRemoveChange) => {
       // Couple relations and two-parent child links are drawn through a union
       // node, so their edge ids are "ue:<unionId>:left|right" (the couple) or
       // "ue:<unionId>:child:<childId>" (a shared child). The union/member ids
@@ -115,7 +134,7 @@ export const useFlowInteractions = (
           if (childId) {
             // The child's parents are exactly this couple, so detaching from
             // the union clears both parent slots.
-            void updateMemberPartial(childId, {
+            await updateMemberPartial(childId, {
               paternalParentId: null,
               maternalParentId: null,
             });
@@ -123,13 +142,29 @@ export const useFlowInteractions = (
           return;
         }
 
+        // A partner's line into the union dot: that partner leaves the union.
+        // The couple relation goes, and they stop being a parent of the
+        // shared children — the other partner stays linked to each child.
         const union = unions.find((u) => u.id === parts[1]);
-        if (union?.relationType) {
-          void removeRelationBidirectional(
+        if (!union) return;
+        const edge = edges.find((e) => e.id === change.id);
+        const partnerId =
+          parts[2] === "left"
+            ? edge?.source
+            : parts[2] === "right"
+              ? edge?.target
+              : undefined;
+        if (union.relationType) {
+          await removeRelationBidirectional(
             union.partner1Id,
             union.partner2Id,
-            union.relationType,
+            union.relationType as RelationType,
           );
+        }
+        if (partnerId) {
+          for (const childId of union.childIds) {
+            await detachParent(childId, partnerId);
+          }
         }
         return;
       }
@@ -144,7 +179,7 @@ export const useFlowInteractions = (
         const sep = rest.indexOf(":");
         if (sep === -1) return;
         const type = rest.slice(sep + 1) as RelationType;
-        void removeRelationBidirectional(edge.source, edge.target, type);
+        await removeRelationBidirectional(edge.source, edge.target, type);
         return;
       }
 
@@ -153,26 +188,59 @@ export const useFlowInteractions = (
       const source = parts[1];
       const target = parts[2];
       if (!source || !target) return;
+      await detachParent(target, source);
+    },
+    [
+      edges,
+      unions,
+      removeRelationBidirectional,
+      updateMemberPartial,
+      detachParent,
+    ],
+  );
 
-      const childMember = memberMap.get(target);
-      if (!childMember) return;
-
-      if (childMember.parents.maternalParent === source) {
-        void updateMemberPartial(target, { maternalParentId: null });
-      } else if (childMember.parents.paternalParent === source) {
-        void updateMemberPartial(target, { paternalParentId: null });
+  const removeMemberEdges = useCallback(
+    async (changes: EdgeRemoveChange[]) => {
+      try {
+        // One keypress is one undo step, however many records it touched.
+        const entry = await runHistoryGroup(async () => {
+          for (const change of changes) await removeMemberEdge(change);
+        });
+        if (entry) {
+          toast.success(t("toast-edge-removed", { count: changes.length }), {
+            action: {
+              label: t("undo"),
+              onClick: () => void undoEntry(entry),
+            },
+          });
+        }
+      } catch {
+        toast.error(t("toast-error-edge-remove"));
       }
     },
-    [memberMap, edges, unions, removeRelationBidirectional, updateMemberPartial],
+    [removeMemberEdge, runHistoryGroup, undoEntry, t],
   );
 
   const onEdgesChange = useCallback(
     (changes: EdgeChange[]) => {
-      const removeChanges = changes.filter((c) => c.type === "remove");
-      removeChanges.forEach(removeMemberEdge);
+      const removeChanges = changes.filter(
+        (c): c is EdgeRemoveChange => c.type === "remove",
+      );
+      if (removeChanges.length > 0) void removeMemberEdges(removeChanges);
       setEdges((edgeSnapshot) => applyEdgeChanges(changes, edgeSnapshot));
     },
-    [edges, removeMemberEdge, setEdges],
+    [removeMemberEdges, setEdges],
+  );
+
+  // Deleting a member drags its connected edges along with it, but the member
+  // deletion has its own confirmation and cleanup. Only edges the user picked
+  // themselves become relationship removals.
+  const onBeforeDelete = useCallback(
+    async ({ nodes, edges }: { nodes: Node[]; edges: Edge[] }) =>
+      nodes.length === 0
+        ? true
+        : { nodes, edges: edges.filter((e) => e.selected) },
+    [],
   );
 
   const createEdgeId = (source: string, target: string) =>
@@ -368,6 +436,7 @@ export const useFlowInteractions = (
   return {
     onNodesChange,
     onEdgesChange,
+    onBeforeDelete,
     onConnect,
     onSelectionChange,
     debouncedSave,

@@ -1386,7 +1386,11 @@
   },
   "hooks": {
     "flow-interactions": {
-      "toast-error-database-create": "Failed to create connection."
+      "toast-error-database-create": "Failed to create connection.",
+      "toast-edge-removed_one": "Connection removed",
+      "toast-edge-removed_other": "{{count}} connections removed",
+      "undo": "Undo",
+      "toast-error-edge-remove": "Failed to remove the connection."
     },
     "member-store": {
       "refresh-error": "Could not sync your changes. Please reload.",
