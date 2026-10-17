@@ -389,3 +389,25 @@
 .ft-tree-canvas .react-flow__attribution a {
   color: inherit;
 }
+
+/* Minimap: a card in the bottom-right corner, lifted clear of the
+   attribution. The mask shades everything outside the visible area. */
+.ft-tree-canvas .react-flow__minimap.ft-tree-minimap {
+  --xy-minimap-background-color: var(--canvas);
+  --xy-minimap-mask-background-color: color-mix(
+    in oklab,
+    var(--foreground) 10%,
+    transparent
+  );
+  --xy-minimap-mask-stroke-color: var(--primary);
+  --xy-minimap-mask-stroke-width: 2;
+  margin: 0 1rem 1.5rem 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 0.875rem;
+  box-shadow: var(--shadow-lg, 0 10px 15px -3px rgb(0 0 0 / 0.1));
+  cursor: pointer;
+}
+.ft-tree-canvas .react-flow__minimap.ft-tree-minimap svg {
+  display: block;
+}

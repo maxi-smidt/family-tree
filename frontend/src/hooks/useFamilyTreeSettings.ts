@@ -24,6 +24,8 @@ interface FamilyTreeSettingsState {
   setIsDiseaseMode: (val: boolean) => void;
   showTaskIndicators: boolean;
   setShowTaskIndicators: (val: boolean) => void;
+  showMinimap: boolean;
+  setShowMinimap: (val: boolean) => void;
   generationLineGaps: Record<string, GenerationLineGap>;
   setGenerationLineGap: (workspaceId: string, gap: number | null) => void;
   visibleRelationTypes: string[];
@@ -40,6 +42,7 @@ export const useFamilyTreeSettings = create<FamilyTreeSettingsState>()(
       isFastMode: false,
       isDiseaseMode: false,
       showTaskIndicators: false,
+      showMinimap: true,
       generationLineGaps: {},
       sidebarOpen: true,
       visibleRelationTypes: ["parent"],
@@ -50,6 +53,7 @@ export const useFamilyTreeSettings = create<FamilyTreeSettingsState>()(
       setIsFastMode: (val: boolean) => set({ isFastMode: val }),
       setIsDiseaseMode: (val: boolean) => set({ isDiseaseMode: val }),
       setShowTaskIndicators: (val: boolean) => set({ showTaskIndicators: val }),
+      setShowMinimap: (val: boolean) => set({ showMinimap: val }),
       setGenerationLineGap: (workspaceId, gap) => {
         if (!isGenerationLineGap(gap)) return;
         set((s) => ({
@@ -67,7 +71,9 @@ export const useFamilyTreeSettings = create<FamilyTreeSettingsState>()(
           };
         }),
       setViewport: (workspaceId, viewport) =>
-        set((s) => ({ viewports: { ...s.viewports, [workspaceId]: viewport } })),
+        set((s) => ({
+          viewports: { ...s.viewports, [workspaceId]: viewport },
+        })),
     }),
     {
       name: "app-ui-settings",
