@@ -23,7 +23,7 @@ from app.services.workspaces.public_links import (
     revoke_section_public_link,
     set_section_public_link_password,
 )
-from tests.conftest import API, add_member, auth, make_tree, make_user
+from tests.conftest import API, add_member, auth, befriend, make_tree, make_user
 
 
 def _section(db, tree, name="Section") -> Section:
@@ -1032,3 +1032,108 @@ def test_passwordless_section_public_link_can_be_unlocked(client, db):
     )
     assert members.status_code == 200, members.text
     assert {m["id"] for m in members.json()} == {"m-in"}
+
+
+# ---------------------------------------------------------------------------
+# Owner-facing section sharing (#1100)
+# ---------------------------------------------------------------------------
+
+
+def _section_rows(client, owner, tree):
+    rows = client.get(f"{API}/workspaces/{tree.id}/access", headers=auth(owner)).json()
+    return [r for r in rows if r["section_id"] is not None]
+
+
+def test_owner_can_share_individual_sections(client, db):
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    befriend(db, alice, bob)
+    tree = make_tree(db, alice)
+    one = _section(db, tree, "One")
+    two = _section(db, tree, "Two")
+
+    res = client.post(
+        f"{API}/workspaces/{tree.id}/access",
+        headers=auth(alice),
+        json={"username": "bob", "role": "viewer", "section_ids": [one.id, two.id]},
+    )
+    assert res.status_code == 200
+    rows = [r for r in res.json() if r["username"] == "bob"]
+    assert {(r["section_id"], r["role"]) for r in rows} == {
+        (one.id, "viewer"),
+        (two.id, "viewer"),
+    }
+    # No workspace-wide row was created.
+    assert all(r["section_id"] is not None for r in rows)
+
+    # Re-sharing one section changes only that grant's role.
+    client.post(
+        f"{API}/workspaces/{tree.id}/access",
+        headers=auth(alice),
+        json={"username": "bob", "role": "editor", "section_ids": [one.id]},
+    )
+    roles = {r["section_id"]: r["role"] for r in _section_rows(client, alice, tree)}
+    assert roles == {one.id: "editor", two.id: "viewer"}
+
+
+def test_share_rejects_a_section_from_another_workspace(client, db):
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    befriend(db, alice, bob)
+    tree = make_tree(db, alice)
+    other = make_tree(db, alice, name="Other")
+    foreign = _section(db, other, "Foreign")
+
+    res = client.post(
+        f"{API}/workspaces/{tree.id}/access",
+        headers=auth(alice),
+        json={"username": "bob", "role": "viewer", "section_ids": [foreign.id]},
+    )
+    assert res.status_code == 404
+    assert db.scalar(select(WorkspaceSectionGrant)) is None
+
+
+def test_section_grant_restrictions_and_revoke_are_per_section(client, db):
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    one = _section(db, tree, "One")
+    two = _section(db, tree, "Two")
+    _grant(db, tree, one, bob, role="viewer")
+    _grant(db, tree, two, bob, role="viewer")
+
+    res = client.patch(
+        f"{API}/workspaces/{tree.id}/access/{bob.id}/restrictions",
+        params={"section_id": one.id},
+        headers=auth(alice),
+        json={"restrictions": ["gallery"]},
+    )
+    assert res.status_code == 200
+    restrictions = {
+        r["section_id"]: r["restrictions"] for r in _section_rows(client, alice, tree)
+    }
+    assert restrictions == {one.id: ["gallery"], two.id: []}
+
+    res = client.delete(
+        f"{API}/workspaces/{tree.id}/access/{bob.id}",
+        params={"section_id": one.id},
+        headers=auth(alice),
+    )
+    assert res.status_code == 204
+    assert [r["section_id"] for r in _section_rows(client, alice, tree)] == [two.id]
+
+
+def test_non_owner_cannot_share_a_section(client, db):
+    alice = make_user(db, "alice")
+    ed = make_user(db, "ed")
+    make_user(db, "bob")
+    tree = make_tree(db, alice)
+    section = _section(db, tree)
+    _grant(db, tree, section, ed, role="editor")
+
+    res = client.post(
+        f"{API}/workspaces/{tree.id}/access",
+        headers=auth(ed),
+        json={"username": "bob", "role": "viewer", "section_ids": [section.id]},
+    )
+    assert res.status_code == 403

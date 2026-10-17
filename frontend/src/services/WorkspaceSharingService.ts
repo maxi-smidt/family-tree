@@ -20,7 +20,13 @@ function getAccess(workspaceId: string): Promise<WorkspaceAccess[]> {
 }
 
 function getCandidates(workspaceId: string): Promise<ShareCandidate[]> {
-  return api.get<ShareCandidate[]>(`/workspaces/${workspaceId}/access/candidates`);
+  return api.get<ShareCandidate[]>(
+    `/workspaces/${workspaceId}/access/candidates`,
+  );
+}
+
+function sectionQuery(sectionId?: string | null): string {
+  return sectionId ? `?section_id=${encodeURIComponent(sectionId)}` : "";
 }
 
 export const WorkspaceSharingService = {
@@ -44,24 +50,33 @@ export const WorkspaceSharingService = {
     workspaceId: string,
     username: string,
     role: ShareRole,
+    sectionIds?: string[],
   ): Promise<WorkspaceAccess[]> {
     return api.post<WorkspaceAccess[]>(`/workspaces/${workspaceId}/access`, {
       username,
       role,
+      section_ids: sectionIds?.length ? sectionIds : null,
     });
   },
 
-  revokeAccess(workspaceId: string, userId: string): Promise<void> {
-    return api.del<void>(`/workspaces/${workspaceId}/access/${userId}`);
+  revokeAccess(
+    workspaceId: string,
+    userId: string,
+    sectionId?: string | null,
+  ): Promise<void> {
+    return api.del<void>(
+      `/workspaces/${workspaceId}/access/${userId}${sectionQuery(sectionId)}`,
+    );
   },
 
   updateMemberRestrictions(
     workspaceId: string,
     userId: string,
     restrictions: string[],
+    sectionId?: string | null,
   ): Promise<WorkspaceAccess[]> {
     return api.patch<WorkspaceAccess[]>(
-      `/workspaces/${workspaceId}/access/${userId}/restrictions`,
+      `/workspaces/${workspaceId}/access/${userId}/restrictions${sectionQuery(sectionId)}`,
       { restrictions },
     );
   },
@@ -71,33 +86,46 @@ export const WorkspaceSharingService = {
     username: string,
     retainRole?: ShareRole,
   ): Promise<WorkspaceTransferResult> {
-    return api.post<WorkspaceTransferResult>(`/workspaces/${workspaceId}/transfer`, {
-      username,
-      retain_role: retainRole ?? null,
-    });
+    return api.post<WorkspaceTransferResult>(
+      `/workspaces/${workspaceId}/transfer`,
+      {
+        username,
+        retain_role: retainRole ?? null,
+      },
+    );
   },
 
   revertTransfer(workspaceId: string): Promise<WorkspaceTransferResult> {
-    return api.post<WorkspaceTransferResult>(`/workspaces/${workspaceId}/transfer/revert`, {});
+    return api.post<WorkspaceTransferResult>(
+      `/workspaces/${workspaceId}/transfer/revert`,
+      {},
+    );
   },
 
   listInvitations(workspaceId: string): Promise<WorkspaceInvitation[]> {
-    return api.get<WorkspaceInvitation[]>(`/workspaces/${workspaceId}/invitations`);
+    return api.get<WorkspaceInvitation[]>(
+      `/workspaces/${workspaceId}/invitations`,
+    );
   },
 
   createInvitation(
     workspaceId: string,
     opts: { email?: string; role: ShareRole; expiresInDays?: number },
   ): Promise<WorkspaceInvitation> {
-    return api.post<WorkspaceInvitation>(`/workspaces/${workspaceId}/invitations`, {
-      email: opts.email ?? null,
-      role: opts.role,
-      expires_in_days: opts.expiresInDays ?? null,
-    });
+    return api.post<WorkspaceInvitation>(
+      `/workspaces/${workspaceId}/invitations`,
+      {
+        email: opts.email ?? null,
+        role: opts.role,
+        expires_in_days: opts.expiresInDays ?? null,
+      },
+    );
   },
 
   revokeInvitation(workspaceId: string, invitationId: string): Promise<void> {
-    return api.del<void>(`/workspaces/${workspaceId}/invitations/${invitationId}`);
+    return api.del<void>(
+      `/workspaces/${workspaceId}/invitations/${invitationId}`,
+    );
   },
 
   previewInvite(token: string): Promise<InvitationPreview> {
@@ -108,23 +136,34 @@ export const WorkspaceSharingService = {
     return api.post<InvitationAcceptResult>(`/invites/${token}/accept`, {});
   },
 
-  setPublicAccess(workspaceId: string, publicRole: "viewer" | null): Promise<Workspace> {
+  setPublicAccess(
+    workspaceId: string,
+    publicRole: "viewer" | null,
+  ): Promise<Workspace> {
     return api.patch<Workspace>(`/workspaces/${workspaceId}/public`, {
       public_role: publicRole,
     });
   },
 
-  setPublicPassword(workspaceId: string, password: string | null): Promise<Workspace> {
-    return api.put<Workspace>(`/workspaces/${workspaceId}/public/password`, { password });
+  setPublicPassword(
+    workspaceId: string,
+    password: string | null,
+  ): Promise<Workspace> {
+    return api.put<Workspace>(`/workspaces/${workspaceId}/public/password`, {
+      password,
+    });
   },
 
   unlockPublicTree(
     workspaceId: string,
     password: string,
   ): Promise<{ token: string }> {
-    return api.post<{ token: string }>(`/workspaces/${workspaceId}/public/unlock`, {
-      password,
-    });
+    return api.post<{ token: string }>(
+      `/workspaces/${workspaceId}/public/unlock`,
+      {
+        password,
+      },
+    );
   },
 
   grantAccessBatch(
@@ -133,11 +172,14 @@ export const WorkspaceSharingService = {
     role: ShareRole,
     workspaceIds: string[],
   ): Promise<WorkspaceAccess[]> {
-    return api.post<WorkspaceAccess[]>(`/workspaces/${workspaceId}/access/batch`, {
-      username,
-      role,
-      workspace_ids: workspaceIds,
-    });
+    return api.post<WorkspaceAccess[]>(
+      `/workspaces/${workspaceId}/access/batch`,
+      {
+        username,
+        role,
+        workspace_ids: workspaceIds,
+      },
+    );
   },
 
   revokeAccessBatch(
