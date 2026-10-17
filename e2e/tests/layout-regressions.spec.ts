@@ -47,7 +47,10 @@ for (const viewport of [
       await page.getByRole("menuitem", { name: "Share", exact: true }).click();
       await page.setViewportSize(viewport);
 
-      const dialog = page.getByRole("dialog");
+      // The access picker is a popover, which is a dialog too: name this one.
+      const dialog = page.getByRole("dialog", {
+        name: `Share "${tree.name}"`,
+      });
       await expectWithinViewport(dialog, page);
       await expect
         .poll(() =>
@@ -60,17 +63,22 @@ for (const viewport of [
       // A long account name must not push its role/revoke controls offscreen.
       const recipientRow = dialog
         .getByText(recipient.username, { exact: true })
-        .locator("..");
-      const role = recipientRow.getByRole("combobox");
+        .locator("xpath=../..");
+      // A role-only API grant shows every area at View, which is no preset
+      // (Viewer hides Health and Research tasks), so it reads as Custom.
+      const access = recipientRow.getByRole("button", { name: /^Access: / });
       const revoke = recipientRow.getByRole("button", {
         name: "Remove access",
       });
-      await role.scrollIntoViewIfNeeded();
-      await expectWithinViewport(role, page);
+      await access.scrollIntoViewIfNeeded();
+      await expectWithinViewport(access, page);
       await expectWithinViewport(revoke, page);
-      await role.click();
-      await page.getByRole("option", { name: "Editor", exact: true }).click();
-      await expect(role).toHaveText("Editor");
+      await expect(access).toHaveAccessibleName("Access: Custom");
+      await access.click();
+      await page.getByRole("button", { name: "Editor", exact: true }).click();
+      await expect(access).toHaveAccessibleName("Access: Editor");
+      await page.keyboard.press("Escape");
+      await expect(dialog).toBeVisible();
       await expect
         .poll(async () => {
           const access = await adminApi.get<
@@ -94,7 +102,11 @@ for (const viewport of [
         name: "Transfer",
         exact: true,
       });
+      // Closing the owner list can leave the dialog scrolled a little, so
+      // bring each control back into view before checking it fits.
+      await target.scrollIntoViewIfNeeded();
       await expectWithinViewport(target, page);
+      await transfer.scrollIntoViewIfNeeded();
       await expectWithinViewport(transfer, page);
       await expect
         .poll(() =>
