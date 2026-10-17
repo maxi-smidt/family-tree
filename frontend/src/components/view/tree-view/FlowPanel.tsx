@@ -27,6 +27,7 @@ import {
 import { ToolbarSeparator } from "@/components/view/tree-view/CanvasToolbar";
 import GenerationLines from "@/components/view/tree-view/GenerationLines";
 import { CanvasSearch } from "@/components/view/tree-view/CanvasSearch";
+import { TreeMinimap } from "@/components/view/tree-view/TreeMinimap";
 import { ContinuationControls } from "@/components/view/tree-view/ContinuationControls";
 import { useCanvasHistory } from "@/hooks/useCanvasHistory";
 import { WorkspaceNavigationPanel } from "@/components/view/tree-view/nav/WorkspaceNavigationPanel";
@@ -152,6 +153,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     viewports,
     setViewport,
     generationLineGaps,
+    showMinimap,
   } = useFamilyTreeSettings();
   const savedRelationTypes = useMemberStore(
     (s) => s.savedViewFilters.visibleRelationTypes,
@@ -997,6 +999,9 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
                 )}
               </div>
             </Panel>
+          )}
+          {(!isMobile || publicView) && showMinimap && members.length > 0 && (
+            <TreeMinimap />
           )}
           {!publicView && windowed && (
             <ContinuationControls

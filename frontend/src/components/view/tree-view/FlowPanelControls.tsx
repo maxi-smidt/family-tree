@@ -18,6 +18,7 @@ import {
   Lock,
   LockOpen,
   Loader2,
+  Map as MapIcon,
   Maximize,
   Minus,
   Plus,
@@ -69,6 +70,8 @@ export const FlowPanelControls = ({
   const redo = useMemberStore((s) => s.redo);
   const undoStack = useMemberStore((s) => s.undoStack);
   const redoStack = useMemberStore((s) => s.redoStack);
+  const showMinimap = useFamilyTreeSettings((s) => s.showMinimap);
+  const setShowMinimap = useFamilyTreeSettings((s) => s.setShowMinimap);
 
   return (
     <>
@@ -135,6 +138,20 @@ export const FlowPanelControls = ({
             </ToolbarButton>
           </TooltipTrigger>
           <TooltipContent side="top">{t("fit-view")}</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <ToolbarButton
+              active={showMinimap}
+              onClick={() => setShowMinimap(!showMinimap)}
+              aria-label={showMinimap ? t("hide-minimap") : t("show-minimap")}
+            >
+              <MapIcon />
+            </ToolbarButton>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            {showMinimap ? t("hide-minimap") : t("show-minimap")}
+          </TooltipContent>
         </Tooltip>
       </ToolbarGroup>
       <ToolbarSeparator />
