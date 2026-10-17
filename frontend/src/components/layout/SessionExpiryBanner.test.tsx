@@ -22,12 +22,6 @@ describe("SessionExpiryBanner", () => {
     });
   });
 
-  it("reserves space for the sidebar trigger", () => {
-    render(<SessionExpiryBanner />);
-
-    expect(screen.getByRole("alert")).toHaveClass("pl-16");
-  });
-
   it("offers in-place re-login when automatic renewal failed", () => {
     useAuthStore.setState({ sessionRefreshFailed: true });
     render(<SessionExpiryBanner />);

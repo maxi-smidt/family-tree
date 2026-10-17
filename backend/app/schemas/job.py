@@ -10,7 +10,7 @@ class JobOut(BaseModel):
     type: str
     status: str
     progress_pct: int
-    result_tree_id: str | None = None
+    result_workspace_id: str | None = None
     error: str | None = None
     created_at: str
 

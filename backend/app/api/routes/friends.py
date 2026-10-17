@@ -1,7 +1,7 @@
 """Friend requests, the accepted-friends graph, and private friend avatars.
 
-Authenticated users only. Tree sharing with a registered user is gated on an
-accepted friendship (enforced in ``trees.py``); this router is how those
+Authenticated users only. Workspace sharing with a registered user is gated on an
+accepted friendship (enforced in ``workspaces.py``); this router is how those
 friendships are formed and torn down. Profile images are exposed only through
 the accepted-friend route below, never through the general tree-media route.
 """
@@ -16,15 +16,15 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.db.base import utcnow_iso
 from app.db.session import get_db
-from app.models import Friendship, Tree, User
+from app.models import Friendship, User, Workspace
 from app.schemas.friendship import FriendOut, FriendRequestCreate, UserSearchResult
 from app.schemas.notification import (
     FriendRequestAcceptedPayload,
     FriendRequestReceivedPayload,
-    TreeUnsharedPayload,
+    WorkspaceUnsharedPayload,
 )
 from app.services.collaboration import friendships, notification_service
-from app.services.event_bus import event_bus, publish_tree_event
+from app.services.event_bus import event_bus, publish_workspace_event
 from app.services.media.storage import profile_image_path
 from app.services.unit_of_work import UnitOfWork
 
@@ -48,32 +48,34 @@ def _friendships_for(db: Session, user_id: str, *, status: str) -> list[Friendsh
 
 
 def _notify_revoked_memberships(
-    db: Session, revoked: list[tuple[Tree, str]]
+    db: Session, revoked: list[tuple[Workspace, str]]
 ) -> None:
     """Notify users who lost tree access through an unfriend/block.
 
-    Mirrors the explicit unshare route (``trees.revoke_access``): the activity
+    Mirrors the explicit unshare route (``workspaces.revoke_access``): the activity
     entry (logged by ``revoke_shared_memberships`` before commit) is
-    broadcast via ``activity.entry_added``, a realtime ``tree.access_changed``
+    broadcast via ``activity.entry_added``, a realtime ``workspace.access_changed``
     event so open sessions react immediately, plus a durable inbox
     notification. Must run after the membership deletion is committed —
-    ``publish_tree_event`` computes its audience from the committed rows and
+    ``publish_workspace_event`` computes its audience from the committed rows and
     reaches the revoked user via ``extra_user_ids``.
     """
     for tree, revoked_user_id in revoked:
-        publish_tree_event(
+        publish_workspace_event(
             db,
             tree,
-            "tree.access_changed",
-            {"tree_id": tree.id},
+            "workspace.access_changed",
+            {"workspace_id": tree.id},
             extra_user_ids=[revoked_user_id],
         )
-        publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+        publish_workspace_event(
+            db, tree, "activity.entry_added", {"workspace_id": tree.id}
+        )
         notification_service.create_notification(
             db,
             revoked_user_id,
             "tree_unshared",
-            TreeUnsharedPayload(tree_id=tree.id, tree_name=tree.name),
+            WorkspaceUnsharedPayload(workspace_id=tree.id, workspace_name=tree.name),
         )
 
 
@@ -95,8 +97,7 @@ def list_incoming(
 ):
     rows = db.scalars(
         select(Friendship).where(
-            (Friendship.status == "pending")
-            & (Friendship.addressee_id == user.id)
+            (Friendship.status == "pending") & (Friendship.addressee_id == user.id)
         )
     ).all()
     return [friendships.to_friend_out(db, row, user.id) for row in rows]
@@ -109,8 +110,7 @@ def list_outgoing(
 ):
     rows = db.scalars(
         select(Friendship).where(
-            (Friendship.status == "pending")
-            & (Friendship.requester_id == user.id)
+            (Friendship.status == "pending") & (Friendship.requester_id == user.id)
         )
     ).all()
     return [friendships.to_friend_out(db, row, user.id) for row in rows]
@@ -144,9 +144,7 @@ def search_users(
         friendship = friendships.get_friendship(db, user.id, match.id)
         direction = None
         if friendship is not None and friendship.status == "pending":
-            direction = (
-                "incoming" if friendship.addressee_id == user.id else "outgoing"
-            )
+            direction = "incoming" if friendship.addressee_id == user.id else "outgoing"
         results.append(
             UserSearchResult(
                 user_id=match.id,
@@ -270,7 +268,7 @@ def remove_friend(
     db: Session = Depends(get_db),
 ):
     """Unfriend or cancel an outgoing request. Removing an accepted friendship
-    also revokes any trees shared between the two users (both directions)."""
+    also revokes any workspaces shared between the two users (both directions)."""
     friendship = friendships.get_friendship(db, user.id, user_id)
     if friendship is None:
         return

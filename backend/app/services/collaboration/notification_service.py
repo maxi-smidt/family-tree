@@ -16,10 +16,17 @@ from app.models import Notification
 from app.schemas.notification import (
     FriendRequestAcceptedPayload,
     FriendRequestReceivedPayload,
+    IdentityLinkClaimDecidedPayload,
+    IdentityLinkClaimReceivedPayload,
+    IdentityLinkDecidedPayload,
+    IdentityLinkLegacyMigratedPayload,
+    IdentityLinkProposedPayload,
     InvitationReceivedPayload,
+    MigrationConflictPendingPayload,
+    MigrationReportReadyPayload,
     NotificationPayload,
-    TreeSharedPayload,
-    TreeUnsharedPayload,
+    WorkspaceSharedPayload,
+    WorkspaceUnsharedPayload,
 )
 from app.services.event_bus import event_bus
 from app.services.event_payloads import NotificationCreatedData
@@ -53,7 +60,7 @@ def create_notification(
     db: Session,
     user_id: str,
     type: Literal["tree_unshared"],
-    payload: TreeUnsharedPayload,
+    payload: WorkspaceUnsharedPayload,
 ) -> None: ...
 @overload
 def create_notification(
@@ -74,7 +81,56 @@ def create_notification(
     db: Session,
     user_id: str,
     type: Literal["tree_shared"],
-    payload: TreeSharedPayload,
+    payload: WorkspaceSharedPayload,
+) -> None: ...
+@overload
+def create_notification(
+    db: Session,
+    user_id: str,
+    type: Literal["identity_link_proposed"],
+    payload: IdentityLinkProposedPayload,
+) -> None: ...
+@overload
+def create_notification(
+    db: Session,
+    user_id: str,
+    type: Literal["identity_link_decided"],
+    payload: IdentityLinkDecidedPayload,
+) -> None: ...
+@overload
+def create_notification(
+    db: Session,
+    user_id: str,
+    type: Literal["identity_link_claim_received"],
+    payload: IdentityLinkClaimReceivedPayload,
+) -> None: ...
+@overload
+def create_notification(
+    db: Session,
+    user_id: str,
+    type: Literal["identity_link_claim_decided"],
+    payload: IdentityLinkClaimDecidedPayload,
+) -> None: ...
+@overload
+def create_notification(
+    db: Session,
+    user_id: str,
+    type: Literal["identity_link_legacy_migrated"],
+    payload: IdentityLinkLegacyMigratedPayload,
+) -> None: ...
+@overload
+def create_notification(
+    db: Session,
+    user_id: str,
+    type: Literal["migration_report_ready"],
+    payload: MigrationReportReadyPayload,
+) -> None: ...
+@overload
+def create_notification(
+    db: Session,
+    user_id: str,
+    type: Literal["migration_conflict_pending"],
+    payload: MigrationConflictPendingPayload,
 ) -> None: ...
 def create_notification(
     db: Session,

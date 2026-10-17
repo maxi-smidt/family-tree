@@ -53,6 +53,22 @@ export const useListSettings = create<ListSettingsState>()(
           pageSize: 25,
         }),
     }),
-    { name: "app-list-settings", version: 1 },
+    {
+      name: "app-list-settings",
+      version: 2,
+      // v2 introduced the combined Name and Lifespan columns; earlier column
+      // layouts are reset to the new defaults, keeping the page size.
+      migrate: (persisted, version) => {
+        const prev = (persisted ?? {}) as Partial<ListSettingsState>;
+        if (version < 2) {
+          return {
+            order: ALL_COLUMN_IDS,
+            hidden: DEFAULT_HIDDEN_COLUMNS,
+            pageSize: prev.pageSize ?? 25,
+          } as ListSettingsState;
+        }
+        return prev as ListSettingsState;
+      },
+    },
   ),
 );

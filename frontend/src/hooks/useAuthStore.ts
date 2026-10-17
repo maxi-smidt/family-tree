@@ -2,18 +2,27 @@ import { create } from "zustand";
 import {
   ApiError,
   api,
+  FRONTEND_SCHEMA_EPOCH,
   getAuthToken,
+  onSchemaEpochMismatch,
+  onStartupInProgress,
   onUnauthorized,
   setAuthToken,
+  STARTUP_IN_PROGRESS_DETAIL,
 } from "@/services/api";
-import { TreeSharingService } from "@/services/TreeSharingService";
+import { WorkspaceSharingService } from "@/services/WorkspaceSharingService";
 import { AuthService, TwoFactorSetup } from "@/services/AuthService";
-import { Tree } from "@/types/tree";
+import { Workspace } from "@/types/workspace";
 import { AuthConfig, LoginResponse, TokenResponse, User } from "@/types/user";
 import { decodeJwtExp } from "@/lib/utils";
 
 type AuthStatus =
-  "loading" | "authenticated" | "unauthenticated" | "unreachable";
+  | "loading"
+  | "authenticated"
+  | "unauthenticated"
+  | "unreachable"
+  | "upgrade-required"
+  | "starting";
 type AccountOperation =
   | "idle"
   | "setting-up-two-factor"
@@ -34,7 +43,7 @@ interface AuthState {
   reloginRequired: boolean;
   /** Token stored from an #invite= URL hash; consumed after login/register. */
   pendingInviteToken: string | null;
-  /** Tree ID from a #public= URL hash; enables anonymous public tree viewing. */
+  /** Workspace ID from a #public= URL hash; enables anonymous public tree viewing. */
   pendingPublicTreeId: string | null;
   /** Set after password check when the account has TOTP enabled. */
   totpRequired: boolean;
@@ -68,11 +77,11 @@ interface AuthState {
   updateProfile: (firstName: string, lastName: string) => Promise<void>;
   uploadProfileImage: (file: File) => Promise<void>;
   removeProfileImage: () => Promise<void>;
-  loadOwnedTrees: () => Promise<Tree[]>;
+  loadOwnedTrees: () => Promise<Workspace[]>;
   loadOwnershipTransferTargets: (
-    treeId: string,
+    workspaceId: string,
   ) => Promise<Array<{ user_id: string; username: string }>>;
-  transferTreeOwnership: (treeId: string, username: string) => Promise<void>;
+  transferTreeOwnership: (workspaceId: string, username: string) => Promise<void>;
   register: (
     username: string,
     password: string,
@@ -166,6 +175,19 @@ async function checkAuthSession(): Promise<void> {
       });
       return;
     }
+    if (
+      error instanceof ApiError &&
+      error.status === 503 &&
+      error.message === STARTUP_IN_PROGRESS_DETAIL
+    ) {
+      // onStartupInProgress (registered below) already set status:
+      // "starting" for the backend's own startup-migration gate — leave it
+      // in place instead of falling through to the generic unreachable
+      // retry screen. Any other 503 (e.g. a degraded-Redis /health/ready
+      // response reaching some other caller) falls through below like any
+      // other unreachable error.
+      return;
+    }
     useAuthStore.setState({ status: "unreachable" });
   }
 }
@@ -215,8 +237,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ pendingInviteToken: inviteToken });
       window.history.replaceState(null, "", window.location.pathname);
     } else if (hash.startsWith("#public=")) {
-      const treeId = decodeURIComponent(hash.slice("#public=".length));
-      set({ pendingPublicTreeId: treeId });
+      const workspaceId = decodeURIComponent(hash.slice("#public=".length));
+      set({ pendingPublicTreeId: workspaceId });
       window.history.replaceState(null, "", window.location.pathname);
     }
 
@@ -227,6 +249,18 @@ export const useAuthStore = create<AuthState>((set) => ({
         AUTH_CHECK_TIMEOUT_MS,
       );
       set({ config });
+      // A backend that reports a different epoch than this build never
+      // shares its wire contract — stop before /auth/me instead of signing
+      // the user in against routes/shapes it doesn't have. A backend that
+      // omits the field entirely (predates #1012) is treated as unknown,
+      // not a mismatch.
+      if (
+        config.schema_epoch !== undefined &&
+        config.schema_epoch !== FRONTEND_SCHEMA_EPOCH
+      ) {
+        set({ status: "upgrade-required" });
+        return;
+      }
     } catch {
       // backend unreachable; keep going so the login screen can still render
     }
@@ -385,12 +419,12 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   loadOwnedTrees: () => AuthService.getOwnedTrees(),
 
-  loadOwnershipTransferTargets: (treeId: string) =>
-    AuthService.getOwnershipTransferTargets(treeId),
+  loadOwnershipTransferTargets: (workspaceId: string) =>
+    AuthService.getOwnershipTransferTargets(workspaceId),
 
-  transferTreeOwnership: (treeId: string, username: string) =>
+  transferTreeOwnership: (workspaceId: string, username: string) =>
     runAccountOperation(set, "deleting-account", () =>
-      AuthService.transferOwnership(treeId, username),
+      AuthService.transferOwnership(workspaceId, username),
     ),
 
   register: async (
@@ -418,9 +452,9 @@ export const useAuthStore = create<AuthState>((set) => ({
     const { pendingInviteToken } = useAuthStore.getState();
     if (!pendingInviteToken) return null;
     try {
-      const result = await TreeSharingService.acceptInvite(pendingInviteToken);
+      const result = await WorkspaceSharingService.acceptInvite(pendingInviteToken);
       set({ pendingInviteToken: null });
-      return result.tree_id;
+      return result.workspace_id;
     } catch {
       set({ pendingInviteToken: null });
       return null;
@@ -455,4 +489,18 @@ onUnauthorized(() => {
   if (status === "authenticated" && !reloginRequired) {
     useAuthStore.setState({ reloginRequired: true });
   }
+});
+
+// A mid-session backend upgrade/rollback shows up as this instead of the
+// init()-time check above — same terminal, non-retrying state either way.
+onSchemaEpochMismatch(() => {
+  useAuthStore.setState({ status: "upgrade-required" });
+});
+
+// Fires from any request while the backend's own startup migration is still
+// running (#1020) — the session/token is left untouched, so once it
+// finishes the next auth check (see MaintenanceScreen) picks up right where
+// the user left off instead of forcing a fresh sign-in.
+onStartupInProgress(() => {
+  useAuthStore.setState({ status: "starting" });
 });

@@ -7,7 +7,7 @@
 
 interface TaskStoreActions {
   clear: () => void;
-  refresh: (treeId: string) => void;
+  refresh: (workspaceId: string) => void;
 }
 
 let actions: TaskStoreActions | undefined;
@@ -22,6 +22,6 @@ export const clearTaskStore = (): void => {
   actions?.clear();
 };
 
-export const refreshTaskStore = (treeId: string): void => {
-  actions?.refresh(treeId);
+export const refreshTaskStore = (workspaceId: string): void => {
+  actions?.refresh(workspaceId);
 };

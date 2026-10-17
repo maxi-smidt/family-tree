@@ -1,6 +1,6 @@
 """Friend requests and the accepted-friends graph.
 
-Unfriend/block's shared-tree revocation side effects (TreeMembership deletion,
+Unfriend/block's shared-tree revocation side effects (WorkspaceMembership deletion,
 SSE events, notifications) are covered in test_unfriend_revoke_events.py.
 """
 

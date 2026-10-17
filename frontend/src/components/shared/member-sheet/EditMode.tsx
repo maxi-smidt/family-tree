@@ -1,4 +1,5 @@
 import { Input } from "@/components/ui/input";
+import { canEditArea } from "@/utils/accessLevels";
 import { LocationInput } from "@/components/shared/LocationInput";
 import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
 import { ApiError } from "@/services/api";
@@ -6,7 +7,7 @@ import { getQuotaBucket, quotaToastKey } from "@/lib/quotaError";
 import { MarkdownEditor } from "@/components/shared/member-sheet/MarkdownEditor";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import {
   ChangeEvent,
   FormEvent,
@@ -30,6 +31,7 @@ import { Gender, Member } from "@/types/member";
 import { GalleryImage } from "@/types/gallery";
 import { ImageCropDialog } from "@/components/shared/member-sheet/dialog/ImageCropDialog";
 import { GalleryPickerDialog } from "@/components/shared/member-sheet/dialog/GalleryPickerDialog";
+import { IdentityLinksPanel } from "@/components/shared/member-sheet/IdentityLinksPanel";
 import { fetchMediaObjectUrl } from "@/hooks/useMediaUrl";
 import { toast } from "sonner";
 import debounce from "lodash.debounce";
@@ -57,7 +59,6 @@ import { MemberTasks } from "./MemberTasks";
 import { MemberDocuments } from "./MemberDocuments";
 import { MemberPicker } from "./MemberPicker";
 import { MemberPhotos } from "./MemberPhotos";
-import { LinkedTreeField } from "./LinkedTreeField";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
 import { MemberSheetTab } from "@/utils/memberSheetState";
@@ -109,16 +110,23 @@ export const EditMode = ({
   });
   const { updateMemberPartial, members } = useMemberStore();
   const { galleryImages } = useGalleryStore();
-  const restrictions = useTreeStore((s) => s.selectedTree?.restrictions ?? []);
-  const currentTreeId = useTreeStore((s) => s.selectedTree?.id);
+  const restrictions = useWorkspaceStore(
+    (s) => s.selectedTree?.restrictions ?? [],
+  );
+  const currentTreeId = useWorkspaceStore((s) => s.selectedTree?.id);
+  // Portraits belong to the Photos area (#1101).
+  const canEditPhotos = useWorkspaceStore((s) =>
+    canEditArea(s.selectedTree, "gallery"),
+  );
   const eventsEnabled = !restrictions.includes("events");
   const storiesEnabled = !restrictions.includes("stories");
   const documentsEnabled = !restrictions.includes("sources");
   const galleryEnabled = !restrictions.includes("gallery");
   const tasksEnabled = !restrictions.includes("tasks");
   const diseasesEnabled = !restrictions.includes("diseases");
-  const mapEnabled = !restrictions.includes("map");
-  const biographyEnabled = !restrictions.includes("biography");
+  // The map follows events, and the notes follow stories (#1101).
+  const mapEnabled = eventsEnabled;
+  const biographyEnabled = storiesEnabled;
 
   const [formData, setFormData] = useState<Member>(member);
   const [initialData, setInitialData] = useState<Member>(member);
@@ -192,8 +200,7 @@ export const EditMode = ({
       JSON.stringify(formData.placesLived) !==
         JSON.stringify(initialData.placesLived) ||
       formData.parents.paternalParent !== initialData.parents.paternalParent ||
-      formData.parents.maternalParent !== initialData.parents.maternalParent ||
-      (formData.linkedTreeId ?? null) !== (initialData.linkedTreeId ?? null);
+      formData.parents.maternalParent !== initialData.parents.maternalParent;
 
     setIsDirty(dirty);
     onDirtyChange?.(dirty);
@@ -363,9 +370,9 @@ export const EditMode = ({
 
       setSaveStatus("saving");
       try {
-        const treeId = editorTreeIdRef.current;
-        if (!treeId) return false;
-        const result = await updateMemberPartial(
+        const workspaceId = editorTreeIdRef.current;
+        if (!workspaceId) return false;
+        await updateMemberPartial(
           editorMemberIdRef.current,
           {
             academicTitle: snapshot.academicTitle || null,
@@ -390,19 +397,11 @@ export const EditMode = ({
                 : null,
             paternalParentId: snapshot.parents.paternalParent,
             maternalParentId: snapshot.parents.maternalParent,
-            ...(snapshot.linkedTreeId !== undefined
-              ? { linkedTreeId: snapshot.linkedTreeId }
-              : {}),
           },
-          treeId,
+          workspaceId,
         );
         if (!opts?.autosave && isCurrent()) {
           toast.success(t("toast-success"));
-        }
-        // Bridge person whose counterpart tree the editor may not write: the
-        // save worked but the linked copy drifted — say so.
-        if (isCurrent() && result?.bridgeSync === "skipped_no_access") {
-          toast.info(t("toast-bridge-sync-skipped"));
         }
         // Settle the dirty baseline on the snapshot that was actually
         // persisted — if the user kept typing during the in-flight save,
@@ -518,22 +517,23 @@ export const EditMode = ({
     useCallback(() => save(), [save]),
   );
 
-  const avatarImage = formData.imageData ? (
-    <AuthenticatedImage
-      src={formData.imageData}
-      className="size-24 rounded-full object-cover mx-auto bg-gray-100"
-      alt="Profile"
-      fallback={
-        <div className="size-24 flex justify-center items-center rounded-full mx-auto bg-muted text-2xl font-bold text-muted-foreground">
-          <User size={48} />
-        </div>
-      }
-    />
-  ) : (
-    <div className="size-24 flex justify-center items-center rounded-full mx-auto bg-muted text-2xl font-bold text-muted-foreground">
-      <User size={48} />
-    </div>
-  );
+  const avatarImage =
+    formData.imageData && galleryEnabled ? (
+      <AuthenticatedImage
+        src={formData.imageData}
+        className="size-24 rounded-full object-cover mx-auto bg-gray-100"
+        alt="Profile"
+        fallback={
+          <div className="size-24 flex justify-center items-center rounded-full mx-auto bg-muted text-2xl font-bold text-muted-foreground">
+            <User size={48} />
+          </div>
+        }
+      />
+    ) : (
+      <div className="size-24 flex justify-center items-center rounded-full mx-auto bg-muted text-2xl font-bold text-muted-foreground">
+        <User size={48} />
+      </div>
+    );
   const avatarOverlayClassName =
     "absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer";
   const showGalleryPicker =
@@ -544,7 +544,7 @@ export const EditMode = ({
       <div className="nodrag">
         <div className="relative mb-4 w-fit mx-auto group">
           {avatarImage}
-          {showGalleryPicker ? (
+          {!canEditPhotos ? null : showGalleryPicker ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
@@ -624,9 +624,10 @@ export const EditMode = ({
                   {t("academic-title-field")}
                 </FieldLabel>
                 <Input
+                  size="sm"
                   id="academicTitle"
                   value={formData.academicTitle || ""}
-                  className="h-7 text-xs! shadow-none"
+                  className="shadow-none"
                   placeholder={t("academic-title-placeholder")}
                   onChange={(e) =>
                     handleChange("academicTitle", e.target.value)
@@ -646,25 +647,13 @@ export const EditMode = ({
                   onValueChange={(val) => handleGenderChange(val as Gender)}
                   className="justify-start"
                 >
-                  <ToggleGroupItem
-                    value="m"
-                    aria-label={t("gender-male")}
-                    className="h-7 min-w-7 text-xs"
-                  >
+                  <ToggleGroupItem value="m" aria-label={t("gender-male")}>
                     <Mars />
                   </ToggleGroupItem>
-                  <ToggleGroupItem
-                    value="f"
-                    aria-label={t("gender-female")}
-                    className="h-7 min-w-7 text-xs"
-                  >
+                  <ToggleGroupItem value="f" aria-label={t("gender-female")}>
                     <Venus />
                   </ToggleGroupItem>
-                  <ToggleGroupItem
-                    value="o"
-                    aria-label={t("gender-other")}
-                    className="h-7 min-w-7 text-xs"
-                  >
+                  <ToggleGroupItem value="o" aria-label={t("gender-other")}>
                     <VenusAndMars />
                   </ToggleGroupItem>
                 </ToggleGroup>
@@ -679,6 +668,7 @@ export const EditMode = ({
                     {t("firstname-field")}
                   </FieldLabel>
                   <Input
+                    size="sm"
                     ref={firstNameRef}
                     id="firstName"
                     required
@@ -688,7 +678,7 @@ export const EditMode = ({
                       errors.firstName ? "firstName-error" : undefined
                     }
                     value={formData.firstName}
-                    className="h-7 text-xs! shadow-none"
+                    className="shadow-none"
                     placeholder={t("firstname-placeholder")}
                     onChange={(e) => {
                       handleChange("firstName", e.target.value);
@@ -709,6 +699,7 @@ export const EditMode = ({
                     {t("lastname-field")}
                   </FieldLabel>
                   <Input
+                    size="sm"
                     ref={lastNameRef}
                     id="lastName"
                     required
@@ -718,7 +709,7 @@ export const EditMode = ({
                       errors.lastName ? "lastName-error" : undefined
                     }
                     value={formData.lastName}
-                    className="h-7 text-xs! shadow-none"
+                    className="shadow-none"
                     placeholder={t("lastname-field")}
                     onChange={(e) => {
                       handleChange("lastName", e.target.value);
@@ -736,9 +727,10 @@ export const EditMode = ({
                     {t("middle-names-field")}
                   </FieldLabel>
                   <Input
+                    size="sm"
                     id="middleNames"
                     value={formData.middleNames || ""}
-                    className="h-7 text-xs! shadow-none"
+                    className="shadow-none"
                     placeholder={t("middle-names-field")}
                     onChange={(e) =>
                       handleChange("middleNames", e.target.value)
@@ -751,9 +743,10 @@ export const EditMode = ({
                     {t("maiden-field")}
                   </FieldLabel>
                   <Input
+                    size="sm"
                     id="maidenName"
                     value={formData.maidenName || ""}
-                    className="h-7 text-xs! shadow-none"
+                    className="shadow-none"
                     placeholder={t("lastname-field")}
                     onChange={(e) => handleChange("maidenName", e.target.value)}
                   />
@@ -765,9 +758,10 @@ export const EditMode = ({
                   {t("baptismal-name-field")}
                 </FieldLabel>
                 <Input
+                  size="sm"
                   id="baptismalName"
                   value={formData.baptismalName || ""}
-                  className="h-7 text-xs! shadow-none"
+                  className="shadow-none"
                   placeholder={t("baptismal-name-field")}
                   onChange={(e) =>
                     handleChange("baptismalName", e.target.value)
@@ -775,6 +769,12 @@ export const EditMode = ({
                 />
               </Field>
             </FieldGroup>
+
+            {!isNew && (
+              <div className="mt-4 pt-4 border-t">
+                <IdentityLinksPanel member={member} />
+              </div>
+            )}
           </TabsContent>
 
           {/* Life tab */}
@@ -786,7 +786,8 @@ export const EditMode = ({
                     {t("born-field")}
                   </FieldLabel>
                   <PartialDatePicker
-                    className="h-7 text-xs shadow-none border-input"
+                    size="sm"
+                    className="shadow-none border-input"
                     value={formData.date.birth}
                     onChange={(date) => handleDateChange("birth", date)}
                     placeholder={t("date-placeholder")}
@@ -800,7 +801,7 @@ export const EditMode = ({
                   <LocationInput
                     id="birthplace"
                     value={formData.birthplace}
-                    className="h-7 text-xs! shadow-none"
+                    size="sm"
                     placeholder={t("location-placeholder")}
                     geocodeEnabled={mapEnabled}
                     onChange={(value) => handleChange("birthplace", value)}
@@ -836,7 +837,8 @@ export const EditMode = ({
                       {t("death-field")}
                     </FieldLabel>
                     <PartialDatePicker
-                      className="h-7 text-xs shadow-none border-input"
+                      size="sm"
+                      className="shadow-none border-input"
                       value={formData.date.death}
                       onChange={(date) => handleDateChange("death", date)}
                       placeholder={t("date-placeholder")}
@@ -851,7 +853,7 @@ export const EditMode = ({
                       <LocationInput
                         id="cemetery"
                         value={formData.cemetery}
-                        className="h-7 text-xs! shadow-none"
+                        size="sm"
                         placeholder={t("location-placeholder")}
                         onChange={(value) => handleChange("cemetery", value)}
                       />
@@ -882,7 +884,7 @@ export const EditMode = ({
                   <LocationInput
                     id="hometown"
                     value={formData.hometown}
-                    className="h-7 text-xs! shadow-none"
+                    size="sm"
                     placeholder={t("location-placeholder")}
                     onChange={(value) => handleChange("hometown", value)}
                   />
@@ -917,7 +919,7 @@ export const EditMode = ({
                       >
                         <LocationInput
                           value={place.location}
-                          className="h-7 text-xs! shadow-none"
+                          size="sm"
                           placeholder={t("location-placeholder")}
                           onChange={(value) => {
                             const next = formData.placesLived.map((p, i) =>
@@ -944,8 +946,9 @@ export const EditMode = ({
                         />
                         <div className="flex gap-1">
                           <Input
+                            size="sm"
                             value={place.from || ""}
-                            className="h-7 text-xs! shadow-none"
+                            className="shadow-none"
                             placeholder={t("places-lived-from")}
                             onChange={(e) => {
                               const next = formData.placesLived.map((p, i) =>
@@ -957,8 +960,9 @@ export const EditMode = ({
                             }}
                           />
                           <Input
+                            size="sm"
                             value={place.to || ""}
-                            className="h-7 text-xs! shadow-none"
+                            className="shadow-none"
                             placeholder={t("places-lived-to")}
                             onChange={(e) => {
                               const next = formData.placesLived.map((p, i) =>
@@ -1036,15 +1040,6 @@ export const EditMode = ({
                     noResultsText={t("parent-no-results")}
                   />
                 </Field>
-
-                <LinkedTreeField
-                  currentTreeId={currentTreeId}
-                  value={formData.linkedTreeId ?? null}
-                  memberName={`${formData.firstName} ${formData.lastName}`}
-                  memberId={isNew ? undefined : formData.id}
-                  formDirty={isDirty}
-                  onChange={(treeId) => handleChange("linkedTreeId", treeId)}
-                />
               </FieldGroup>
             </TabsContent>
           )}

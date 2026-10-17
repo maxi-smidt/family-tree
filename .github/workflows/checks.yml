@@ -127,6 +127,55 @@ jobs:
         # Tests are isolation-safe: each gets its own SQLite DB via tmp_path.
         run: uv run pytest -n auto
 
+  backend-postgres:
+    name: "Backend (real-Postgres migration suite)"
+    needs: changes
+    if: ${{ inputs.run-all || github.event_name != 'pull_request' || needs.changes.outputs.backend == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    # tests/test_migration_postgres.py (#998) needs a real Postgres — the
+    # rest of the suite runs on SQLite (see the "backend" job above) and
+    # never exercises the real `alembic upgrade head` path or a real
+    # advisory lock. Throwaway credentials, matching docker-compose.dev.yml.
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: familytree
+          POSTGRES_PASSWORD: familytree
+          POSTGRES_DB: familytree
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U familytree"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: "Checkout Code"
+        uses: actions/checkout@v7
+
+      - name: "Set up uv"
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - name: "Install dependencies"
+        run: uv sync --frozen
+
+      - name: "Real-Postgres migration & recovery suite (#998)"
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: familytree
+          POSTGRES_PASSWORD: familytree
+          POSTGRES_DB: familytree
+        run: uv run pytest tests/test_migration_postgres.py -v
+
   compose-config:
     name: "Compose backend env propagation"
     runs-on: ubuntu-latest
@@ -230,7 +279,7 @@ jobs:
   # Aggregate gate exposed to callers as outputs.passed / outputs.frontend_result.
   result:
     name: "Aggregate result"
-    needs: [changes, frontend, backend, compose-config, version-policy]
+    needs: [changes, frontend, backend, backend-postgres, compose-config, version-policy]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -241,14 +290,15 @@ jobs:
       - name: "Require all checks to pass"
         id: gate
         run: |
-          echo "changes=${{ needs.changes.result }} frontend=${{ needs.frontend.result }} backend=${{ needs.backend.result }} compose-config=${{ needs.compose-config.result }} version-policy=${{ needs.version-policy.result }}"
+          echo "changes=${{ needs.changes.result }} frontend=${{ needs.frontend.result }} backend=${{ needs.backend.result }} backend-postgres=${{ needs.backend-postgres.result }} compose-config=${{ needs.compose-config.result }} version-policy=${{ needs.version-policy.result }}"
           # Change-detection must succeed, else we'd skip everything and pass blindly.
           if [ "${{ needs.changes.result }}" != "success" ]; then
             echo "Change detection failed."
             exit 1
           fi
-          # frontend/backend may be legitimately "skipped" when their area was untouched.
-          for res in "${{ needs.frontend.result }}" "${{ needs.backend.result }}"; do
+          # frontend/backend(-postgres) may be legitimately "skipped" when
+          # their area was untouched.
+          for res in "${{ needs.frontend.result }}" "${{ needs.backend.result }}" "${{ needs.backend-postgres.result }}"; do
             if [ "$res" != "success" ] && [ "$res" != "skipped" ]; then
               echo "A build/test job failed ($res)."
               exit 1

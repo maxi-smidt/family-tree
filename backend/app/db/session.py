@@ -6,6 +6,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import settings
+from app.services.provenance import install_provenance_hooks
+
+# Registered on the Session class itself, so every session in the process —
+# request-scoped, background job, or test — stamps content provenance.
+install_provenance_hooks()
 
 engine = create_engine(
     settings.sqlalchemy_database_uri,

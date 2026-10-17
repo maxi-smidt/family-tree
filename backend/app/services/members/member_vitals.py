@@ -13,26 +13,24 @@ from sqlalchemy.orm import Session
 
 from app.core.exceptions import NotFoundError
 from app.db.base import utcnow_iso
-from app.models import Event, EventMemberLink, Member, Relation, Tree, TreeMembership
+from app.models import Event, EventMemberLink, Member, Relation, Workspace
 from app.models.user import User
+from app.services.workspaces.grants import restricts_domain
 
 
-def event_updates_allowed(db: Session, tree: Tree, user: User) -> bool:
+def event_updates_allowed(db: Session, tree: Workspace, user: User) -> bool:
     """Whether this editor can update the derived vital-event mirror.
 
     Member dates are core data, while Events is optional and can be hidden for
     an editor. A restricted Events domain must never turn a member save into a
     partial failure.
     """
-    membership = db.get(TreeMembership, (tree.id, user.id))
-    return not (
-        membership and membership.restrictions and "events" in membership.restrictions
-    )
+    return not restricts_domain(db, tree.id, user.id, "events")
 
 
 def sync_vital_event(
     db: Session,
-    tree: Tree,
+    tree: Workspace,
     member: Member,
     event_type: str,
     date: str | None,
@@ -44,7 +42,7 @@ def sync_vital_event(
             select(Event)
             .join(EventMemberLink, EventMemberLink.event_id == Event.id)
             .where(
-                Event.tree_id == tree.id,
+                Event.workspace_id == tree.id,
                 Event.event_type == event_type,
                 EventMemberLink.member_id == member.id,
             )
@@ -64,7 +62,7 @@ def sync_vital_event(
             return
         event = Event(
             id=str(uuid4()),
-            tree_id=tree.id,
+            workspace_id=tree.id,
             event_type=event_type,
             date=date,
             location=location,
@@ -79,7 +77,7 @@ def sync_vital_event(
 
 def sync_parent_slots(
     db: Session,
-    tree: Tree,
+    tree: Workspace,
     member: Member,
     paternal_changed: bool,
     paternal_parent_id: str | None,
@@ -96,7 +94,7 @@ def sync_parent_slots(
     relations = list(
         db.scalars(
             select(Relation).where(
-                Relation.tree_id == tree.id,
+                Relation.workspace_id == tree.id,
                 Relation.from_member_id == member.id,
                 Relation.relation_type == "parent",
             )
@@ -106,7 +104,9 @@ def sync_parent_slots(
     parents = {
         parent.id: parent
         for parent in db.scalars(
-            select(Member).where(Member.tree_id == tree.id, Member.id.in_(parent_ids))
+            select(Member).where(
+                Member.workspace_id == tree.id, Member.id.in_(parent_ids)
+            )
         ).all()
     }
 
@@ -145,7 +145,7 @@ def sync_parent_slots(
             parent = db.scalar(
                 select(Member).where(
                     Member.id == replacement,
-                    Member.tree_id == tree.id,
+                    Member.workspace_id == tree.id,
                 )
             )
         if parent is None:
@@ -153,7 +153,7 @@ def sync_parent_slots(
         if db.get(Relation, (tree.id, member.id, replacement, "parent")) is None:
             db.add(
                 Relation(
-                    tree_id=tree.id,
+                    workspace_id=tree.id,
                     from_member_id=member.id,
                     to_member_id=replacement,
                     relation_type="parent",

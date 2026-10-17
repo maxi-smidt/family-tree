@@ -17,7 +17,7 @@ import { Story, StoryInput } from "@/types/story";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { useTranslation } from "react-i18next";
 import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
-import { getMemberOptions } from "@/utils/memberUtils";
+import { birthNameContext, getMemberOptions } from "@/utils/memberUtils";
 import { DocumentLinkField } from "./DocumentLinkField";
 import { PartialDatePicker } from "@/components/ui/partial-date-picker";
 
@@ -136,8 +136,8 @@ export const StoryDialog = ({
 
   useUnsavedGuard("story", isDirty, save);
 
-  const memberOptions = getMemberOptions(members, (name) =>
-    i18n.t("common.nee", { name }),
+  const memberOptions = getMemberOptions(members, (name, gender) =>
+    i18n.t("common.nee", { name, context: birthNameContext(gender) }),
   );
 
   return (

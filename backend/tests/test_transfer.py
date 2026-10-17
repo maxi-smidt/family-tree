@@ -1,14 +1,14 @@
-"""Tree ownership transfer and undo."""
+"""Workspace ownership transfer and undo."""
 
 from datetime import UTC, datetime, timedelta
 
-from app.models import Tree, TreeMembership
+from app.models import Workspace, WorkspaceMembership
 from tests.conftest import API, auth, befriend, make_tree, make_user, share
 
 
 def _transfer(client, actor, tree, username, **kwargs):
     return client.post(
-        f"{API}/trees/{tree.id}/transfer",
+        f"{API}/workspaces/{tree.id}/transfer",
         headers=auth(actor),
         json={"username": username, **kwargs},
     )
@@ -16,7 +16,7 @@ def _transfer(client, actor, tree, username, **kwargs):
 
 def _revert(client, actor, tree):
     return client.post(
-        f"{API}/trees/{tree.id}/transfer/revert",
+        f"{API}/workspaces/{tree.id}/transfer/revert",
         headers=auth(actor),
     )
 
@@ -38,8 +38,8 @@ def test_owner_can_transfer_to_member(client, db):
     assert res.json()["undo_available_until"] is not None
 
     db.expunge_all()
-    assert db.get(Tree, tree.id).owner_id == bob.id
-    assert db.get(TreeMembership, (tree.id, bob.id)) is None
+    assert db.get(Workspace, tree.id).owner_id == bob.id
+    assert db.get(WorkspaceMembership, (tree.id, bob.id)) is None
 
 
 def test_owner_can_transfer_to_non_member(client, db):
@@ -70,7 +70,7 @@ def test_admin_can_transfer_any_tree(client, db):
     res = _transfer(client, admin, tree, "bob")
     assert res.status_code == 200
     db.expunge_all()
-    assert db.get(Tree, tree.id).owner_id == bob.id
+    assert db.get(Workspace, tree.id).owner_id == bob.id
 
 
 def test_non_owner_non_admin_cannot_transfer(client, db):
@@ -107,6 +107,7 @@ def test_transfer_to_unknown_user_404(client, db):
 
 # --- retain_role ---
 
+
 def test_retain_role_viewer_creates_membership(client, db):
     owner = make_user(db, "owner")
     bob = make_user(db, "bob")
@@ -120,7 +121,7 @@ def test_retain_role_viewer_creates_membership(client, db):
     assert access["owner"] == "viewer"
 
     db.expunge_all()
-    m = db.get(TreeMembership, (tree.id, owner.id))
+    m = db.get(WorkspaceMembership, (tree.id, owner.id))
     assert m is not None
     assert m.role == "viewer"
 
@@ -147,6 +148,7 @@ def test_invalid_retain_role_rejected(client, db):
 
 # --- revert ---
 
+
 def test_previous_owner_can_revert_within_window(client, db):
     owner = make_user(db, "owner")
     bob = make_user(db, "bob")
@@ -160,7 +162,7 @@ def test_previous_owner_can_revert_within_window(client, db):
     assert _access_by_username(res) == {"owner": "owner"}
 
     db.expunge_all()
-    t = db.get(Tree, tree.id)
+    t = db.get(Workspace, tree.id)
     assert t.owner_id == owner.id
     assert t.previous_owner_id is None
 
@@ -178,7 +180,7 @@ def test_revert_removes_retained_membership(client, db):
 
     db.expunge_all()
     # The retained-access membership should be gone after undo.
-    assert db.get(TreeMembership, (tree.id, owner.id)) is None
+    assert db.get(WorkspaceMembership, (tree.id, owner.id)) is None
 
 
 def test_revert_revokes_new_owner_access(client, db):
@@ -190,11 +192,13 @@ def test_revert_revokes_new_owner_access(client, db):
     _transfer(client, owner, tree, "bob")
     assert _revert(client, owner, tree).status_code == 200
 
-    bob_trees = client.get(f"{API}/trees", headers=auth(bob))
+    bob_trees = client.get(f"{API}/workspaces", headers=auth(bob))
     assert bob_trees.status_code == 200
     assert all(t["id"] != tree.id for t in bob_trees.json())
-    assert client.get(f"{API}/trees/{tree.id}", headers=auth(bob)).status_code == 403
-    assert client.delete(f"{API}/trees/{tree.id}", headers=auth(bob)).status_code == 403
+    assert client.get(f"{API}/workspaces/{tree.id}", headers=auth(bob)).status_code == 403
+    assert (
+        client.delete(f"{API}/workspaces/{tree.id}", headers=auth(bob)).status_code == 403
+    )
 
 
 def test_previous_owner_does_not_inherit_new_owner_future_trees(client, db):
@@ -208,10 +212,12 @@ def test_previous_owner_does_not_inherit_new_owner_future_trees(client, db):
         == 200
     )
 
-    created = client.post(f"{API}/trees", headers=auth(bob), json={"name": "Bob New"})
+    created = client.post(
+        f"{API}/workspaces", headers=auth(bob), json={"name": "Bob New"}
+    )
     assert created.status_code == 201
 
-    owner_trees = client.get(f"{API}/trees", headers=auth(owner))
+    owner_trees = client.get(f"{API}/workspaces", headers=auth(owner))
     assert owner_trees.status_code == 200
     by_id = {t["id"]: t for t in owner_trees.json()}
     assert by_id[transferred.id]["role"] == "viewer"
@@ -240,7 +246,7 @@ def test_revert_after_window_returns_410(client, db):
 
     # Backdate the transfer timestamp to beyond the undo window.
     db.expunge_all()
-    t = db.get(Tree, tree.id)
+    t = db.get(Workspace, tree.id)
     past = datetime.now(UTC) - timedelta(seconds=120)
     t.ownership_transferred_at = past.isoformat()
     db.commit()
@@ -267,7 +273,7 @@ def test_admin_can_revert_any_transfer(client, db):
     res = _revert(client, admin, tree)
     assert res.status_code == 200
     db.expunge_all()
-    assert db.get(Tree, tree.id).owner_id == owner.id
+    assert db.get(Workspace, tree.id).owner_id == owner.id
 
 
 def test_new_owner_cannot_delete_during_undo_window(client, db):
@@ -278,7 +284,7 @@ def test_new_owner_cannot_delete_during_undo_window(client, db):
 
     _transfer(client, owner, tree, "bob")
 
-    res = client.delete(f"{API}/trees/{tree.id}", headers=auth(bob))
+    res = client.delete(f"{API}/workspaces/{tree.id}", headers=auth(bob))
     assert res.status_code == 409
 
 
@@ -291,5 +297,5 @@ def test_delete_blocked_during_undo_window_even_for_admin(client, db):
 
     _transfer(client, owner, tree, "bob")
 
-    res = client.delete(f"{API}/trees/{tree.id}", headers=auth(admin))
+    res = client.delete(f"{API}/workspaces/{tree.id}", headers=auth(admin))
     assert res.status_code == 409

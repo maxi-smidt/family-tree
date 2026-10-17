@@ -13,9 +13,9 @@ from urllib.parse import urlsplit
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import InvalidInputError
-from app.models import DocumentFile, DocumentUpload, Tree
+from app.models import DocumentFile, DocumentUpload, Workspace
 from app.schemas.content import DocumentSave
-from app.services.media.storage_usage import check_tree_quota
+from app.services.media.storage_usage import check_workspace_quota
 
 
 def external_link_url(raw_url: str) -> str:
@@ -26,9 +26,7 @@ def external_link_url(raw_url: str) -> str:
     ``javascript:``/``data:`` payload or an internal media reference.
     """
     url = raw_url.strip()
-    if not url or "\\" in url or any(
-        char.isspace() or ord(char) == 127 for char in url
-    ):
+    if not url or "\\" in url or any(char.isspace() or ord(char) == 127 for char in url):
         raise InvalidInputError("Invalid link URL")
     try:
         parsed = urlsplit(url)
@@ -46,9 +44,7 @@ def external_link_url(raw_url: str) -> str:
     return url
 
 
-def _document_file_on(
-    db: Session, document_id: str, file_id: str
-) -> DocumentFile | None:
+def _document_file_on(db: Session, document_id: str, file_id: str) -> DocumentFile | None:
     """Return the file iff it exists and belongs to *document_id*, else None."""
     row = db.get(DocumentFile, file_id)
     if row is None or row.document_id != document_id:
@@ -92,7 +88,7 @@ class DocumentSavePlan:
 def build_save_plan(
     db: Session,
     *,
-    tree: Tree,
+    tree: Workspace,
     document_id: str,
     is_create: bool,
     payload: DocumentSave,
@@ -121,7 +117,7 @@ def build_save_plan(
         if _document_file_on(db, document_id, upload_id) is not None:
             continue
         upload = db.get(DocumentUpload, upload_id)
-        if upload is None or upload.tree_id != tree.id:
+        if upload is None or upload.workspace_id != tree.id:
             continue
         attachments.append(upload)
 
@@ -146,10 +142,10 @@ def build_save_plan(
 
     # A create adds a metadata row; the attached bytes were already
     # quota-checked when they were staged, so no media check is needed here.
-    # check_tree_quota raises QuotaExceeded, mapped to its HTTP response by
+    # check_workspace_quota raises QuotaExceeded, mapped to its HTTP response by
     # the centralized handler.
     if is_create:
-        check_tree_quota(db, tree, _estimated_document_bytes(payload))
+        check_workspace_quota(db, tree, _estimated_document_bytes(payload))
 
     delete_urls = [row.url for row in removed_rows if row.kind == "file"]
 

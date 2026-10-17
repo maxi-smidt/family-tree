@@ -34,7 +34,7 @@ def test_subscribe_returns_queue():
 
 def test_dispatch_fans_out_to_multiple_subscribers():
     bus = EventBus()
-    event = {"type": "tree.deleted", "data": {"tree_id": "t1"}}
+    event = {"type": "workspace.deleted", "data": {"workspace_id": "t1"}}
 
     async def _run():
         q1 = await bus.subscribe("user-1")
@@ -49,7 +49,7 @@ def test_dispatch_fans_out_to_multiple_subscribers():
 
 def test_dispatch_targets_only_relevant_users():
     bus = EventBus()
-    event = {"type": "tree.deleted", "data": {"tree_id": "t1"}}
+    event = {"type": "workspace.deleted", "data": {"workspace_id": "t1"}}
 
     async def _run():
         q_target = await bus.subscribe("user-1")
@@ -107,4 +107,4 @@ def test_full_queue_does_not_raise():
 def test_publish_without_loop_does_not_raise():
     bus = EventBus()
     # _loop is None by default; publish must be a no-op
-    bus.publish(["user-1"], "tree.deleted", {"tree_id": "t1"})
+    bus.publish(["user-1"], "workspace.deleted", {"workspace_id": "t1"})

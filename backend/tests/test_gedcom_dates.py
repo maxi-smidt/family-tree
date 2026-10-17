@@ -86,6 +86,7 @@ class TestFromGedcomDate:
 # Fuzzy date round-trip through the full serialize/parse pipeline (#343)
 # ---------------------------------------------------------------------------
 
+
 class TestFuzzyDateRoundTrip:
     """Fuzzy / qualified dates must survive a full serialize → parse cycle
     without losing the qualifier prefix.

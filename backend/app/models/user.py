@@ -39,15 +39,9 @@ class User(Base):
     # from logging in). ``deletion_scheduled_for`` is the absolute purge deadline,
     # frozen when deletion is requested so later changes to the grace-period
     # setting never move existing deadlines.
-    deletion_requested_at: Mapped[str | None] = mapped_column(
-        String(40), nullable=True
-    )
-    deletion_scheduled_for: Mapped[str | None] = mapped_column(
-        String(40), nullable=True
-    )
-    deletion_requested_by: Mapped[str | None] = mapped_column(
-        String(36), nullable=True
-    )
+    deletion_requested_at: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    deletion_scheduled_for: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    deletion_requested_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
 
     tab_preferences: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     preferences: Mapped[dict | None] = mapped_column(JSON, nullable=True)

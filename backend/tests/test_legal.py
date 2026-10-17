@@ -6,7 +6,7 @@ its immutable version-history extension.
   sets user.preferences["legal_accepted_version"].
 - /auth/me reflects legal_accepted true after accept, false again after the
   admin bumps legal_version.
-- get_writable_tree 403s before acceptance and succeeds after.
+- get_writable_workspace 403s before acceptance and succeeds after.
 - legal_acceptance_required=false disables the gate entirely.
 - Every distinct published document body is snapshotted immutably into
   ``legal_document_versions`` (content-hash de-duplicated), and acceptances
@@ -191,19 +191,19 @@ def test_deleting_acceptance_row_retriggers_gate(client, db):
     )
 
 
-def test_get_writable_tree_blocks_before_acceptance(client, db):
+def test_get_writable_workspace_blocks_before_acceptance(client, db):
     alice = make_user(db, "alice", legal_accepted=False)
     tree = make_tree(db, alice)
 
     res = client.post(
-        f"{API}/trees/{tree.id}/members",
+        f"{API}/workspaces/{tree.id}/members",
         headers=auth(alice),
         json=_member_payload(),
     )
     assert res.status_code == 403
 
 
-def test_get_writable_tree_allows_after_acceptance(client, db):
+def test_get_writable_workspace_allows_after_acceptance(client, db):
     alice = make_user(db, "alice", legal_accepted=False)
     tree = make_tree(db, alice)
 
@@ -211,7 +211,7 @@ def test_get_writable_tree_allows_after_acceptance(client, db):
     assert accept.status_code == 200
 
     res = client.post(
-        f"{API}/trees/{tree.id}/members",
+        f"{API}/workspaces/{tree.id}/members",
         headers=auth(alice),
         json=_member_payload(),
     )
@@ -235,7 +235,7 @@ def test_legal_acceptance_not_required_disables_gate(client, db):
     assert me.json()["legal_accepted"] is True
 
     res = client.post(
-        f"{API}/trees/{tree.id}/members",
+        f"{API}/workspaces/{tree.id}/members",
         headers=auth(alice),
         json=_member_payload(),
     )
@@ -445,9 +445,7 @@ def test_resaving_unchanged_text_does_not_bump_or_duplicate(client, db):
     assert resp2.json()["legal_version"] == "1"  # unchanged
 
     rows = (
-        db.query(LegalDocumentVersion)
-        .filter_by(document_type="terms", locale="de")
-        .all()
+        db.query(LegalDocumentVersion).filter_by(document_type="terms", locale="de").all()
     )
     assert len(rows) == count_after_first
     matching = [r for r in rows if r.body == fixed_body]
@@ -542,9 +540,7 @@ def test_list_legal_versions_returns_newest_first(client, db):
     assert resp.status_code == 200
     body = resp.json()
     terms_rows = [
-        r
-        for r in body
-        if r["document_type"] == "terms" and r["locale"] == "de"
+        r for r in body if r["document_type"] == "terms" and r["locale"] == "de"
     ]
     assert len(terms_rows) == 2
     # Newest first.
@@ -568,9 +564,7 @@ def test_get_legal_version_detail_requires_admin_and_returns_body(client, db):
     listing = client.get(f"{API}/legal/versions", headers=auth(admin))
     version_id = listing.json()[0]["id"]
 
-    forbidden = client.get(
-        f"{API}/legal/versions/{version_id}", headers=auth(alice)
-    )
+    forbidden = client.get(f"{API}/legal/versions/{version_id}", headers=auth(alice))
     assert forbidden.status_code == 403
 
     detail = client.get(f"{API}/legal/versions/{version_id}", headers=auth(admin))

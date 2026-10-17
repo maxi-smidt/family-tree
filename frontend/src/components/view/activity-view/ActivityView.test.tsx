@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
 import { fireEvent, renderWithProviders, screen, within } from "@/test/utils";
 import { useActivityStore } from "@/hooks/useActivityStore";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { ApiError } from "@/services/api";
 import { Activity } from "@/types/activity";
 import { ActivityView } from "./ActivityView";
@@ -13,7 +13,7 @@ vi.mock("sonner", () => ({
 
 const DELETE_ENTRY: Activity = {
   id: "a1",
-  treeId: "tree-1",
+  workspaceId: "tree-1",
   actorId: "u1",
   actorUsername: "alice",
   action: "delete",
@@ -46,7 +46,7 @@ function setActivityState(
 
 describe("ActivityView undo", () => {
   beforeEach(() => {
-    useTreeStore.setState({
+    useWorkspaceStore.setState({
       selectedTree: { id: "tree-1", role: "owner" } as never,
     });
     setActivityState();
@@ -58,7 +58,7 @@ describe("ActivityView undo", () => {
   });
 
   it("hides the undo button for a viewer", () => {
-    useTreeStore.setState({
+    useWorkspaceStore.setState({
       selectedTree: { id: "tree-1", role: "viewer" } as never,
     });
     renderWithProviders(<ActivityView />);

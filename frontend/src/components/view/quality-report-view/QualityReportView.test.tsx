@@ -5,12 +5,12 @@ import { useMemberStore } from "@/hooks/useMemberStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useQualityReportStore } from "@/hooks/useQualityReportStore";
 import { useTaskStore } from "@/hooks/useTaskStore";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { QualityReportView } from "./QualityReportView";
 
 describe("QualityReportView research tasks", () => {
   beforeEach(() => {
-    useTreeStore.setState({
+    useWorkspaceStore.setState({
       selectedTree: { id: "tree-1", role: "owner" } as never,
     });
     useMemberStore.setState({
@@ -51,7 +51,7 @@ describe("QualityReportView research tasks", () => {
   it("opens the linked member from an open research task", () => {
     render(<QualityReportView />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Ada Lovelace" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open Ada Lovelace" }));
 
     expect(useMemberSheetStore.getState().setOpenSheet).toHaveBeenCalledWith(
       "tree-1",

@@ -1,15 +1,15 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useMemberStore } from "@/hooks/useMemberStore";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useQualityReportStore } from "@/hooks/useQualityReportStore";
-import { TreeService } from "@/services/TreeService";
+import { WorkspaceService } from "@/services/WorkspaceService";
 import { type Member, type MemberDB } from "@/types/member";
 import { type DuplicatePair, type MemberMergePreview } from "@/types/merge";
 import { MergeMembersDialog } from "./MergeMembersDialog";
 
-vi.mock("@/services/TreeService", () => ({
-  TreeService: {
+vi.mock("@/services/WorkspaceService", () => ({
+  WorkspaceService: {
     getMemberMergePreview: vi.fn(),
   },
 }));
@@ -64,8 +64,6 @@ const MEMBER_A: MemberDB = {
   isCollapsed: 0,
   positionX: 0,
   positionY: 0,
-  linkedTreeId: null,
-  linkedMemberId: null,
 };
 
 function memberB(overrides: Partial<MemberDB>): MemberDB {
@@ -103,8 +101,8 @@ function preview(overrides: Partial<MemberMergePreview>): MemberMergePreview {
 describe("MergeMembersDialog", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    useTreeStore.setState({
-      selectedTree: { id: "tree-1", name: "Tree", role: "editor" },
+    useWorkspaceStore.setState({
+      selectedTree: { id: "tree-1", name: "Workspace", role: "editor" },
     });
     useMemberStore.setState({
       members: [makeAppMember({ id: "a1" }), makeAppMember({ id: "b1" })],
@@ -113,7 +111,7 @@ describe("MergeMembersDialog", () => {
   });
 
   it("loads the preview for the first two members and shows transfer counts", async () => {
-    vi.mocked(TreeService.getMemberMergePreview).mockResolvedValue(
+    vi.mocked(WorkspaceService.getMemberMergePreview).mockResolvedValue(
       preview({
         transfer: {
           relations: 2,
@@ -138,7 +136,7 @@ describe("MergeMembersDialog", () => {
 
     await screen.findByRole("dialog");
     await waitFor(() =>
-      expect(TreeService.getMemberMergePreview).toHaveBeenCalledWith(
+      expect(WorkspaceService.getMemberMergePreview).toHaveBeenCalledWith(
         "tree-1",
         "a1",
         "b1",
@@ -150,7 +148,7 @@ describe("MergeMembersDialog", () => {
   });
 
   it("swaps keep/remove when the swap control is used", async () => {
-    vi.mocked(TreeService.getMemberMergePreview).mockResolvedValue(preview({}));
+    vi.mocked(WorkspaceService.getMemberMergePreview).mockResolvedValue(preview({}));
 
     render(
       <MergeMembersDialog
@@ -163,7 +161,7 @@ describe("MergeMembersDialog", () => {
 
     await screen.findByRole("dialog");
     await waitFor(() =>
-      expect(TreeService.getMemberMergePreview).toHaveBeenCalledWith(
+      expect(WorkspaceService.getMemberMergePreview).toHaveBeenCalledWith(
         "tree-1",
         "a1",
         "b1",
@@ -173,7 +171,7 @@ describe("MergeMembersDialog", () => {
     fireEvent.click(screen.getByTitle("Swap"));
 
     await waitFor(() =>
-      expect(TreeService.getMemberMergePreview).toHaveBeenCalledWith(
+      expect(WorkspaceService.getMemberMergePreview).toHaveBeenCalledWith(
         "tree-1",
         "b1",
         "a1",
@@ -182,7 +180,7 @@ describe("MergeMembersDialog", () => {
   });
 
   it("confirms the merge with the resolved field choices", async () => {
-    vi.mocked(TreeService.getMemberMergePreview).mockResolvedValue(
+    vi.mocked(WorkspaceService.getMemberMergePreview).mockResolvedValue(
       preview({
         pair: pair({
           member_a: { ...MEMBER_A, birthplace: "Vienna" },
@@ -231,7 +229,7 @@ describe("MergeMembersDialog", () => {
   });
 
   it("shows an error message and disables Merge when the preview fails to load", async () => {
-    vi.mocked(TreeService.getMemberMergePreview).mockRejectedValue(
+    vi.mocked(WorkspaceService.getMemberMergePreview).mockRejectedValue(
       new Error("network error"),
     );
 
@@ -254,7 +252,7 @@ describe("MergeMembersDialog", () => {
   });
 
   it("shows the cycle warning and disables Merge when the preview flags one", async () => {
-    vi.mocked(TreeService.getMemberMergePreview).mockResolvedValue(
+    vi.mocked(WorkspaceService.getMemberMergePreview).mockResolvedValue(
       preview({ would_create_cycle: true }),
     );
 
@@ -277,7 +275,7 @@ describe("MergeMembersDialog", () => {
   });
 
   it("shows a picker when more than two members share the finding", async () => {
-    vi.mocked(TreeService.getMemberMergePreview).mockResolvedValue(preview({}));
+    vi.mocked(WorkspaceService.getMemberMergePreview).mockResolvedValue(preview({}));
     useMemberStore.setState((s) => ({
       members: [...s.members, makeAppMember({ id: "c1" })],
     }));

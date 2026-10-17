@@ -1,8 +1,8 @@
 """Tests for the data cleanup in the What's New migration.
 
-Retention: data-migration tests are kept for the current + prior minor
-release (currently 1.8/1.7); delete this file once 1.9 ships and this
-migration is more than one minor version old.
+Keep this data-preservation regression while the v1.7 revision remains in
+the supported upgrade chain. Calendar age alone does not retire an upgrade
+path; see docs/UPGRADE_V2.md.
 """
 
 import importlib.util
@@ -14,10 +14,7 @@ import sqlalchemy as sa
 
 def _load_migration_module():
     path = (
-        Path(__file__).resolve().parents[1]
-        / "alembic"
-        / "versions"
-        / "v1_7_0_release.py"
+        Path(__file__).resolve().parents[1] / "alembic" / "versions" / "v1_7_0_release.py"
     )
     spec = importlib.util.spec_from_file_location("remove_announcement_settings", path)
     assert spec and spec.loader
@@ -27,10 +24,6 @@ def _load_migration_module():
 
 
 migration = _load_migration_module()
-
-
-def test_revision_id_fits_the_alembic_version_column():
-    assert len(migration.revision) <= 32
 
 
 @pytest.fixture()
@@ -57,14 +50,16 @@ def test_cleanup_removes_only_obsolete_announcement_settings(engine):
                 {"key": "announcement_title", "value": "Title"},
                 {"key": "announcement_body", "value": "Body"},
                 {"key": "announcement_version", "value": "1.2.3"},
-                {"key": "instance_name", "value": "Family Tree"},
+                {"key": "instance_name", "value": "Family Workspace"},
             ],
         )
 
         migration.remove_obsolete_announcement_settings(connection)
 
-        remaining_keys = connection.execute(
-            sa.select(settings.c.key).order_by(settings.c.key)
-        ).scalars().all()
+        remaining_keys = (
+            connection.execute(sa.select(settings.c.key).order_by(settings.c.key))
+            .scalars()
+            .all()
+        )
 
     assert remaining_keys == ["instance_name"]

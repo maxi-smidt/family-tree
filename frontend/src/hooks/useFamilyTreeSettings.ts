@@ -24,12 +24,14 @@ interface FamilyTreeSettingsState {
   setIsDiseaseMode: (val: boolean) => void;
   showTaskIndicators: boolean;
   setShowTaskIndicators: (val: boolean) => void;
+  showMinimap: boolean;
+  setShowMinimap: (val: boolean) => void;
   generationLineGaps: Record<string, GenerationLineGap>;
-  setGenerationLineGap: (treeId: string, gap: number | null) => void;
+  setGenerationLineGap: (workspaceId: string, gap: number | null) => void;
   visibleRelationTypes: string[];
   toggleRelationType: (type: string) => void;
   viewports: Record<string, Viewport>;
-  setViewport: (treeId: string, viewport: Viewport) => void;
+  setViewport: (workspaceId: string, viewport: Viewport) => void;
 }
 
 export const useFamilyTreeSettings = create<FamilyTreeSettingsState>()(
@@ -40,6 +42,7 @@ export const useFamilyTreeSettings = create<FamilyTreeSettingsState>()(
       isFastMode: false,
       isDiseaseMode: false,
       showTaskIndicators: false,
+      showMinimap: true,
       generationLineGaps: {},
       sidebarOpen: true,
       visibleRelationTypes: ["parent"],
@@ -50,10 +53,11 @@ export const useFamilyTreeSettings = create<FamilyTreeSettingsState>()(
       setIsFastMode: (val: boolean) => set({ isFastMode: val }),
       setIsDiseaseMode: (val: boolean) => set({ isDiseaseMode: val }),
       setShowTaskIndicators: (val: boolean) => set({ showTaskIndicators: val }),
-      setGenerationLineGap: (treeId, gap) => {
+      setShowMinimap: (val: boolean) => set({ showMinimap: val }),
+      setGenerationLineGap: (workspaceId, gap) => {
         if (!isGenerationLineGap(gap)) return;
         set((s) => ({
-          generationLineGaps: { ...s.generationLineGaps, [treeId]: gap },
+          generationLineGaps: { ...s.generationLineGaps, [workspaceId]: gap },
         }));
       },
       toggleRelationType: (type) =>
@@ -66,8 +70,10 @@ export const useFamilyTreeSettings = create<FamilyTreeSettingsState>()(
               : [...state.visibleRelationTypes, type],
           };
         }),
-      setViewport: (treeId, viewport) =>
-        set((s) => ({ viewports: { ...s.viewports, [treeId]: viewport } })),
+      setViewport: (workspaceId, viewport) =>
+        set((s) => ({
+          viewports: { ...s.viewports, [workspaceId]: viewport },
+        })),
     }),
     {
       name: "app-ui-settings",

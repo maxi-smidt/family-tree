@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 interface LocationInputProps extends Omit<
   React.ComponentProps<"input">,
-  "value" | "onChange"
+  "value" | "onChange" | "size"
 > {
   /** Current location string. */
   value: string | null | undefined;
@@ -21,6 +21,8 @@ interface LocationInputProps extends Omit<
   trailing?: React.ReactNode;
   /** className for the resolution hint. */
   hintClassName?: string;
+  /** Shared control size (see Input). */
+  size?: "default" | "sm";
 }
 
 // A place-name text field with built-in geocoding: renders the input plus a

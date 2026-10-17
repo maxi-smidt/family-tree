@@ -9,7 +9,7 @@ import {
 import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
 import { FamilyNodeContent } from "@/components/view/tree-view/node/FamilyNodeContent";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
 import { useTaskStore } from "@/hooks/useTaskStore";
@@ -17,6 +17,8 @@ import { compareTasks } from "@/types/task";
 import { useDocumentStore } from "@/hooks/useDocumentStore";
 import { useState } from "react";
 import { ImageLightbox } from "./ImageLightbox";
+import { IdentityLinksPanel } from "./IdentityLinksPanel";
+import { MemberFamily } from "./MemberFamily";
 import { LinkedDocumentList } from "./LinkedDocumentList";
 import { DocumentFileList } from "./DocumentFiles";
 import { useTranslation } from "react-i18next";
@@ -35,12 +37,18 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MemberSheetTab } from "@/utils/memberSheetState";
+import { useIsMobile } from "@/hooks/useMobile";
+import { cn } from "@/lib/utils";
+import { MemberProfileHero } from "./MemberProfileHero";
 
 type Props = {
   member: Member;
   onShowLocationOnMap?: (location: string, memberId: string) => void;
   activeTab: MemberSheetTab;
   onTabChange: (tab: MemberSheetTab) => void;
+  isNew?: boolean;
+  /** Open another member in the panel (family chips). */
+  onOpenMember?: (memberId: string) => void;
 };
 
 export const ViewMode = ({
@@ -48,6 +56,8 @@ export const ViewMode = ({
   onShowLocationOnMap,
   activeTab,
   onTabChange,
+  isNew = false,
+  onOpenMember,
 }: Props) => {
   const { t, i18n } = useTranslation(undefined, {
     keyPrefix: "sheet.view-mode",
@@ -56,15 +66,19 @@ export const ViewMode = ({
   const { getEventsByMember } = useEventStore();
   const { getStoriesByMember } = useStoryStore();
   const { getTasksByMember } = useTaskStore();
-  const restrictions = useTreeStore((s) => s.selectedTree?.restrictions ?? []);
+  const restrictions = useWorkspaceStore(
+    (s) => s.selectedTree?.restrictions ?? [],
+  );
   const galleryEnabled = !restrictions.includes("gallery");
   const eventsEnabled = !restrictions.includes("events");
   const storiesEnabled = !restrictions.includes("stories");
   const documentsEnabled = !restrictions.includes("sources");
   const diseasesEnabled = !restrictions.includes("diseases");
   const tasksEnabled = !restrictions.includes("tasks");
-  const mapEnabled = !restrictions.includes("map");
-  const biographyEnabled = !restrictions.includes("biography");
+  // The map follows events, and the notes follow stories (#1101).
+  const mapEnabled = eventsEnabled;
+  const biographyEnabled = storiesEnabled;
+  const isMobile = useIsMobile();
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [startIndex, setStartIndex] = useState(0);
 
@@ -120,15 +134,25 @@ export const ViewMode = ({
 
   return (
     <div className="w-full">
-      <div className="flex justify-center mb-4">
-        <FamilyNodeContent member={member} largeImage />
-      </div>
+      {isMobile ? (
+        <MemberProfileHero member={member} />
+      ) : (
+        <div className="flex justify-center mb-4">
+          <FamilyNodeContent member={member} largeImage />
+        </div>
+      )}
 
       <Tabs
         value={visibleTab}
         onValueChange={(tab) => onTabChange(tab as MemberSheetTab)}
       >
-        <TabsList variant="line" className="w-full justify-start mb-3">
+        <TabsList
+          variant={isMobile ? "default" : "line"}
+          className={cn(
+            "w-full",
+            isMobile ? "mb-5 h-10 rounded-xl" : "mb-3 justify-start",
+          )}
+        >
           <TabsTrigger value="identity">{t("tab-identity")}</TabsTrigger>
           {hasLifeContent && (
             <TabsTrigger value="life">{t("tab-life")}</TabsTrigger>
@@ -138,28 +162,48 @@ export const ViewMode = ({
 
         {/* Identity tab */}
         <TabsContent value="identity">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {!isNew && (
+            <MemberFamily
+              member={member}
+              onOpenMember={onOpenMember}
+              layout={isMobile ? "rows" : "chips"}
+            />
+          )}
+          <h3 className="mb-3 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+            {t("details-heading")}
+          </h3>
+          <div
+            className={cn(
+              "grid gap-x-6 gap-y-4",
+              isMobile
+                ? "grid-cols-2 rounded-2xl border bg-card p-4"
+                : "grid-cols-1 sm:grid-cols-2",
+            )}
+          >
             {member.academicTitle && (
-              <Item variant="muted" className="sm:col-span-2">
+              <Item
+                variant="field"
+                className={isMobile ? "col-span-2" : "sm:col-span-2"}
+              >
                 <ItemContent>
                   <ItemTitle>{t("academic-title-item")}</ItemTitle>
                   <ItemDescription>{member.academicTitle}</ItemDescription>
                 </ItemContent>
               </Item>
             )}
-            <Item variant="muted">
+            <Item variant="field">
               <ItemContent>
                 <ItemTitle>{t("firstname-item")}</ItemTitle>
                 <ItemDescription>{member.firstName}</ItemDescription>
               </ItemContent>
             </Item>
-            <Item variant="muted">
+            <Item variant="field">
               <ItemContent>
                 <ItemTitle>{t("lastname-item")}</ItemTitle>
                 <ItemDescription>{member.lastName}</ItemDescription>
               </ItemContent>
             </Item>
-            <Item variant="muted">
+            <Item variant="field">
               <ItemContent>
                 <ItemTitle>{t("middle-names-item")}</ItemTitle>
                 <ItemDescription>
@@ -167,7 +211,7 @@ export const ViewMode = ({
                 </ItemDescription>
               </ItemContent>
             </Item>
-            <Item variant="muted">
+            <Item variant="field">
               <ItemContent>
                 <ItemTitle>{t("maiden-item")}</ItemTitle>
                 <ItemDescription>
@@ -175,7 +219,7 @@ export const ViewMode = ({
                 </ItemDescription>
               </ItemContent>
             </Item>
-            <Item variant="muted">
+            <Item variant="field">
               <ItemContent>
                 <ItemTitle>{t("baptismal-name-item")}</ItemTitle>
                 <ItemDescription>
@@ -183,7 +227,7 @@ export const ViewMode = ({
                 </ItemDescription>
               </ItemContent>
             </Item>
-            <Item variant="muted">
+            <Item variant="field">
               <ItemContent>
                 <ItemTitle>{t("gender-item")}</ItemTitle>
                 <ItemDescription className="capitalize">
@@ -191,7 +235,7 @@ export const ViewMode = ({
                 </ItemDescription>
               </ItemContent>
             </Item>
-            <Item variant="muted">
+            <Item variant="field">
               <ItemContent>
                 <ItemTitle>{t("dob-item")}</ItemTitle>
                 <ItemDescription>
@@ -199,7 +243,7 @@ export const ViewMode = ({
                 </ItemDescription>
               </ItemContent>
             </Item>
-            <Item variant="muted">
+            <Item variant="field">
               <ItemContent>
                 <ItemTitle>{t("dod-item")}</ItemTitle>
                 <ItemDescription>
@@ -214,6 +258,12 @@ export const ViewMode = ({
               </ItemContent>
             </Item>
           </div>
+
+          {!isNew && (
+            <div className="mt-4 pt-4 border-t">
+              <IdentityLinksPanel member={member} />
+            </div>
+          )}
         </TabsContent>
 
         {/* Life tab — only shown when there's content */}
@@ -221,7 +271,7 @@ export const ViewMode = ({
           <TabsContent value="life">
             <div className="space-y-3">
               {biographyEnabled && member.additionalData && (
-                <Item variant="muted">
+                <Item variant="field">
                   <ItemContent>
                     <ItemTitle>{t("notes-item")}</ItemTitle>
                     <div className="text-muted-foreground text-sm font-normal">
@@ -235,7 +285,7 @@ export const ViewMode = ({
                 (mapEnabled && member.hometown) ||
                 (mapEnabled && member.cemetery) ||
                 (mapEnabled && member.placesLived.length > 0)) && (
-                <Item variant="muted">
+                <Item variant="field">
                   <ItemContent>
                     <ItemTitle>{t("locations-section")}</ItemTitle>
                     <div className="space-y-2 mt-1">

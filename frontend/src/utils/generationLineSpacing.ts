@@ -1,16 +1,18 @@
 import { GRID_SIZE } from "@/constants";
 
-// Generation-line spacing must remain a multiple of the 50px layout snap grid
+// Generation-line spacing must remain a multiple of the layout snap grid
 // so the NODE_HEIGHT / 2 phase in GenerationLines keeps node centers on rules.
 export const GENERATION_LINE_GAP_STEP = GRID_SIZE;
-export const DEFAULT_GENERATION_LINE_GAP = 500;
+
+// Half the spacing used for the old 145px cards, to suit the compact 68px ones.
+export const DEFAULT_GENERATION_LINE_GAP = 250;
 
 export const GENERATION_LINE_SPACING_OPTIONS = [
   { value: "none", gap: null },
-  { value: "xs", gap: 250 },
-  { value: "s", gap: 500 },
-  { value: "m", gap: 750 },
-  { value: "l", gap: 1000 },
+  { value: "xs", gap: 125 },
+  { value: "s", gap: 250 },
+  { value: "m", gap: 375 },
+  { value: "l", gap: 500 },
 ] as const;
 
 export type GenerationLineSpacing =

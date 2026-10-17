@@ -16,7 +16,7 @@ class BackgroundJob(Base):
     # "pending" | "running" | "done" | "failed"
     status: Mapped[str] = mapped_column(String(20), default="pending")
     progress_pct: Mapped[int] = mapped_column(Integer, default=0)
-    result_tree_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    result_workspace_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[str] = mapped_column(String(40), default=utcnow_iso, index=True)
     updated_at: Mapped[str] = mapped_column(String(40), default=utcnow_iso)

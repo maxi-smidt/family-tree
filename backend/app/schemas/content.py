@@ -116,8 +116,7 @@ class GalleryLinksSet(BaseModel):
             raise ValueError("Send either links or member_ids, not both")
         if self.links is None:
             self.links = [
-                GalleryLinkIn(member_id=member_id)
-                for member_id in self.member_ids or []
+                GalleryLinkIn(member_id=member_id) for member_id in self.member_ids or []
             ]
         member_ids = [link.member_id for link in self.links]
         if len(member_ids) != len(set(member_ids)):

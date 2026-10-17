@@ -1,11 +1,11 @@
 import { useEffect } from "react";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 
 export function useDeferredStoreLoad(
   initialized: boolean,
-  refresh: (treeId: string) => void | Promise<void>,
+  refresh: (workspaceId: string) => void | Promise<void>,
 ): void {
-  const selectedTree = useTreeStore((s) => s.selectedTree);
+  const selectedTree = useWorkspaceStore((s) => s.selectedTree);
   useEffect(() => {
     if (!initialized && selectedTree) void refresh(selectedTree.id);
   }, [initialized, selectedTree, refresh]);

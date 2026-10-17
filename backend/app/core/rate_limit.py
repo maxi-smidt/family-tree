@@ -1,4 +1,5 @@
-"""In-memory rate limiting for sensitive endpoints (e.g. login).
+"""In-memory rate limiting for sensitive or expensive endpoints (e.g. login,
+the neighborhood graph traversal).
 
 Process-local and intentionally simple — it fits the single-instance,
 self-hosted deployment this app targets. (A multi-replica setup would need a
@@ -91,7 +92,7 @@ class RateLimiter:
                 return None
             return max(0.0, hits[0] + self.window_seconds - now)
 
-    def record_failure(self, key: str) -> None:
+    def record_hit(self, key: str) -> None:
         now = time.monotonic()
         with self._lock:
             self._maybe_sweep(now)
@@ -117,4 +118,40 @@ login_rate_limiter = RateLimiter(
 public_unlock_rate_limiter = RateLimiter(
     settings.PUBLIC_UNLOCK_MAX_ATTEMPTS,
     settings.PUBLIC_UNLOCK_RATE_LIMIT_WINDOW_SECONDS,
+)
+
+# Per-IP aggregate budget across every workspace/grant — see #993.
+public_unlock_aggregate_rate_limiter = RateLimiter(
+    settings.PUBLIC_UNLOCK_AGGREGATE_MAX_ATTEMPTS,
+    settings.PUBLIC_UNLOCK_AGGREGATE_RATE_LIMIT_WINDOW_SECONDS,
+)
+
+# Every call to the neighborhood graph endpoint counts here, not just
+# failures — it throttles request *volume* (scripted replay/paginate loops),
+# not repeated bad input. See #1032.
+neighborhood_rate_limiter = RateLimiter(
+    settings.NEIGHBORHOOD_MAX_REQUESTS,
+    settings.NEIGHBORHOOD_RATE_LIMIT_WINDOW_SECONDS,
+)
+
+# GET .../search (#1024) — same request-volume throttle as the neighborhood
+# endpoint, keyed by principal + workspace.
+search_rate_limiter = RateLimiter(
+    settings.SEARCH_MAX_REQUESTS,
+    settings.SEARCH_RATE_LIMIT_WINDOW_SECONDS,
+)
+
+# Identity-link proposals (#985), keyed by proposer + target workspace, so
+# spamming one target with proposals is bounded without limiting a proposer
+# who is legitimately linking members across several different workspaces.
+identity_link_propose_rate_limiter = RateLimiter(
+    settings.IDENTITY_LINK_PROPOSE_MAX_ATTEMPTS,
+    settings.IDENTITY_LINK_PROPOSE_RATE_LIMIT_WINDOW_SECONDS,
+)
+
+# A second, coarser budget keyed by client IP alone, across every target —
+# mirrors public_unlock_aggregate_rate_limiter above.
+identity_link_propose_aggregate_rate_limiter = RateLimiter(
+    settings.IDENTITY_LINK_PROPOSE_AGGREGATE_MAX_ATTEMPTS,
+    settings.IDENTITY_LINK_PROPOSE_AGGREGATE_RATE_LIMIT_WINDOW_SECONDS,
 )

@@ -1,3 +1,4 @@
+import { contentOriginArgs } from "@/hooks/contentOrigin";
 import { create } from "zustand";
 import {
   Document,
@@ -6,8 +7,8 @@ import {
   DocumentSavePayload,
   mapDocumentFromDB,
 } from "@/types/document";
-import { TreeService } from "@/services/TreeService";
-import { activeTreeId, isActiveTree } from "@/hooks/useTreeStore";
+import { WorkspaceService } from "@/services/WorkspaceService";
+import { activeTreeId, isActiveTree } from "@/hooks/useWorkspaceStore";
 import { useStorageStore } from "@/hooks/useStorageStore";
 import { invalidateActivityView } from "@/hooks/invalidateDerivedViews";
 
@@ -33,7 +34,7 @@ export class DocumentUploadError extends Error {
 interface DocumentState {
   documents: Document[];
   initialized: boolean;
-  refreshDocuments: (treeId?: string) => Promise<void>;
+  refreshDocuments: (workspaceId?: string) => Promise<void>;
   getDocumentsForMember: (memberId: string) => Document[];
   addDocument: (
     input: DocumentInput,
@@ -62,11 +63,12 @@ interface DocumentState {
  *  fails, the payload is never built and a `DocumentUploadError` naming every
  *  failure is thrown instead, so a save never attaches a partial file set. */
 async function stageAndBuildPayload(
-  treeId: string,
+  workspaceId: string,
   input: DocumentInput,
   memberIds: string[],
   ops: DocumentFileOps,
   onFileProgress?: (uploaded: number, total: number) => void,
+  originArgs: [] | [string] = [],
 ): Promise<DocumentSavePayload> {
   const total = ops.addedFiles.length;
   if (total > 0) onFileProgress?.(0, total);
@@ -74,10 +76,11 @@ async function stageAndBuildPayload(
   const failed: { index: number; filename: string }[] = [];
   for (const [i, f] of ops.addedFiles.entries()) {
     try {
-      const staged = await TreeService.stageDocumentUpload(
-        treeId,
+      const staged = await WorkspaceService.stageDocumentUpload(
+        workspaceId,
         f.file,
         f.filename,
+        ...originArgs,
       );
       attachedUploadIds.push(staged.id);
     } catch {
@@ -111,15 +114,15 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   documents: [],
   initialized: false,
 
-  refreshDocuments: async (treeId = activeTreeId()) => {
-    if (!treeId) {
+  refreshDocuments: async (workspaceId = activeTreeId()) => {
+    if (!workspaceId) {
       set({ documents: [] });
       return;
     }
 
-    const rows = await TreeService.getDocuments(treeId);
+    const rows = await WorkspaceService.getDocuments(workspaceId);
 
-    if (!isActiveTree(treeId)) return; // tree switched/disconnected mid-flight
+    if (!isActiveTree(workspaceId)) return; // tree switched/disconnected mid-flight
 
     set({ documents: rows.map(mapDocumentFromDB), initialized: true });
   },
@@ -134,8 +137,10 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     fileOps: DocumentFileOps = NO_OPS,
     onFileProgress?: (uploaded: number, total: number) => void,
   ) => {
-    const treeId = activeTreeId();
-    if (!treeId) return null;
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return null;
+
+    const originArgs = contentOriginArgs(workspaceId);
 
     // Stage the files, then create the document with its metadata, people
     // links and attachments in one atomic request. A client-generated id makes
@@ -143,15 +148,21 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     // behind, so there is no orphaned row to roll back.
     const documentId = crypto.randomUUID();
     const payload = await stageAndBuildPayload(
-      treeId,
+      workspaceId,
       input,
       memberIds,
       fileOps,
       onFileProgress,
+      originArgs,
     );
-    const row = await TreeService.saveDocument(treeId, documentId, payload);
+    const row = await WorkspaceService.saveDocument(
+      workspaceId,
+      documentId,
+      payload,
+      ...originArgs,
+    );
 
-    await get().refreshDocuments(treeId);
+    await get().refreshDocuments(workspaceId);
     if (touchesMedia(fileOps)) useStorageStore.getState().refreshStorageUsage();
     invalidateActivityView();
     return mapDocumentFromDB(row);
@@ -164,32 +175,40 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     fileOps: DocumentFileOps = NO_OPS,
     onFileProgress?: (uploaded: number, total: number) => void,
   ) => {
-    const treeId = activeTreeId();
-    if (!treeId) return;
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return;
+
+    const originArgs = contentOriginArgs(workspaceId);
 
     // Stage new files first, then apply the metadata, member and file changes
     // in one atomic request; old files are removed only once it commits, so a
     // failed edit leaves the previous valid document untouched.
     const payload = await stageAndBuildPayload(
-      treeId,
+      workspaceId,
       input,
       memberIds,
       fileOps,
       onFileProgress,
+      originArgs,
     );
-    await TreeService.saveDocument(treeId, id, payload);
+    await WorkspaceService.saveDocument(
+      workspaceId,
+      id,
+      payload,
+      ...originArgs,
+    );
 
-    await get().refreshDocuments(treeId);
+    await get().refreshDocuments(workspaceId);
     if (touchesMedia(fileOps)) useStorageStore.getState().refreshStorageUsage();
     invalidateActivityView();
   },
 
   removeDocument: async (id: string) => {
-    const treeId = activeTreeId();
-    if (!treeId) return;
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return;
 
-    await TreeService.removeDocument(treeId, id);
-    await get().refreshDocuments(treeId);
+    await WorkspaceService.removeDocument(workspaceId, id);
+    await get().refreshDocuments(workspaceId);
     useStorageStore.getState().refreshStorageUsage();
     invalidateActivityView();
   },

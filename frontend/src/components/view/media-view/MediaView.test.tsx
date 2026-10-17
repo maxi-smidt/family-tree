@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { MediaView } from "./MediaView";
 
 vi.mock("@/components/view/gallery-view/GalleryView", () => ({
@@ -12,7 +12,7 @@ vi.mock("@/components/view/documents-view/DocumentsView", () => ({
 
 describe("MediaView", () => {
   beforeEach(() => {
-    useTreeStore.setState({
+    useWorkspaceStore.setState({
       selectedTree: { id: "tree-1", role: "owner", restrictions: [] } as never,
     });
   });
@@ -24,7 +24,7 @@ describe("MediaView", () => {
   });
 
   it("falls back to Documents when Gallery is unavailable", () => {
-    useTreeStore.setState({
+    useWorkspaceStore.setState({
       selectedTree: {
         id: "tree-1",
         role: "owner",
@@ -38,7 +38,7 @@ describe("MediaView", () => {
   });
 
   it("falls back to Gallery when Documents is unavailable", () => {
-    useTreeStore.setState({
+    useWorkspaceStore.setState({
       selectedTree: {
         id: "tree-1",
         role: "owner",

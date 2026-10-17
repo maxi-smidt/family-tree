@@ -11,6 +11,7 @@
 import { describe, it, expect } from "vitest";
 import { getLayoutedElements } from "./layoutUtils";
 import { Member } from "@/types/member";
+import { GRID_SIZE } from "@/constants";
 
 const ROBERT: Member = {
   id: "robert",
@@ -116,13 +117,13 @@ describe("getLayoutedElements — GEDCOM import topology", () => {
     }
   });
 
-  it("positions are snapped to the 50px grid", () => {
+  it("positions are snapped to the layout grid", () => {
     const members = [ROBERT, MARY, JOE];
     const positions = getLayoutedElements(members);
 
     for (const [id, pos] of Object.entries(positions)) {
-      expect(pos.x % 50, `${id}.x not on grid`).toBe(0);
-      expect(pos.y % 50, `${id}.y not on grid`).toBe(0);
+      expect(pos.x % GRID_SIZE, `${id}.x not on grid`).toBe(0);
+      expect(pos.y % GRID_SIZE, `${id}.y not on grid`).toBe(0);
     }
   });
 

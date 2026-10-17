@@ -1,26 +1,22 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { canEditArea } from "@/utils/accessLevels";
 import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
-import {
-  AlertCircle,
-  AlertTriangle,
-  Circle,
-  ClipboardList,
-  Plus,
-  ArrowDownToLine,
-  ArrowUpFromLine,
-  CheckCircle2,
-  GitMerge,
-  RefreshCw,
-  RotateCcw,
-  ShieldCheck,
-  X,
-} from "lucide-react";
-import { ApiError } from "@/services/api";
+import { Check, CheckCircle2, GitMerge, Plus, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { StatTile } from "@/components/shared/StatTile";
+import { MemberChip } from "@/components/shared/MemberChip";
+import { cn } from "@/lib/utils";
+import type { Member } from "@/types/member";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { useQualityReportStore } from "@/hooks/useQualityReportStore";
 import { useTaskStore } from "@/hooks/useTaskStore";
@@ -28,7 +24,7 @@ import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { TaskDialog } from "@/components/shared/member-sheet/TaskDialog";
 import { MergeMembersDialog } from "@/components/view/quality-report-view/MergeMembersDialog";
 import type { QualityIssue } from "@/types/quality";
@@ -42,32 +38,43 @@ const ISSUE_TYPE_KEY: Record<string, string> = {
   relationship_cycle: "issue-relationship-cycle",
   duplicate_candidate: "issue-duplicate-candidate",
   disconnected_member: "issue-disconnected-member",
-  bridge_person_drift: "issue-bridge-person-drift",
   event_after_death: "issue-event-after-death",
 };
 
-function memberLabel(
-  memberId: string,
-  members: ReturnType<typeof useMemberStore.getState>["members"],
-): string {
-  const m = members.find((x) => x.id === memberId);
-  if (!m) return memberId;
-  const name = [m.firstName, m.lastName].filter(Boolean).join(" ");
-  return name || memberId;
+/** Linked people as clickable chips; ids that no longer resolve are skipped. */
+function PeopleChips({ ids }: { ids: string[] }) {
+  const members = useMemberStore((s) => s.members);
+  const openMember = useOpenMember();
+  const people = ids
+    .map((id) => members.find((m) => m.id === id))
+    .filter((m): m is Member => !!m);
+  if (people.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {people.map((member) => (
+        <MemberChip
+          key={member.id}
+          member={member}
+          fullName
+          onOpen={openMember}
+        />
+      ))}
+    </div>
+  );
 }
 
 function useOpenMember(): (memberId: string) => void {
-  const treeId = useTreeStore((state) => state.selectedTree?.id);
+  const workspaceId = useWorkspaceStore((state) => state.selectedTree?.id);
   const setOpenSheet = useMemberSheetStore((state) => state.setOpenSheet);
   const navigateTo = useNavigationStore((state) => state.navigateTo);
 
   return useCallback(
     (memberId: string) => {
-      if (!treeId) return;
-      setOpenSheet(treeId, { memberId, tab: "records", mode: "view" });
+      if (!workspaceId) return;
+      setOpenSheet(workspaceId, { memberId, tab: "records", mode: "view" });
       navigateTo("tree-view");
     },
-    [navigateTo, setOpenSheet, treeId],
+    [navigateTo, setOpenSheet, workspaceId],
   );
 }
 
@@ -79,132 +86,57 @@ function IssueCard({
   canWrite: boolean;
 }) {
   const { t } = useTranslation(undefined, { keyPrefix: "quality-report-view" });
-  const { members } = useMemberStore();
-  const openMember = useOpenMember();
-  const { dismissIssue, restoreIssue, resolveBridgeDrift } =
-    useQualityReportStore();
-  const [resolving, setResolving] = useState(false);
+  const { dismissIssue, restoreIssue } = useQualityReportStore();
   const [mergeOpen, setMergeOpen] = useState(false);
 
-  // Bridge-person drift is directly fixable from the note: adopt one side.
-  // Requires write access to the linked tree too — the backend answers 403
-  // otherwise, surfaced as a dedicated toast.
-  const isBridgeDrift = issue.issue_type === "bridge_person_drift";
   const isDuplicate = issue.issue_type === "duplicate_candidate";
-  const handleResolveDrift = async (direction: "push" | "pull") => {
-    setResolving(true);
-    try {
-      await resolveBridgeDrift(issue.member_ids[0], direction);
-      toast.success(t("resolve-drift-success"));
-    } catch (err: unknown) {
-      if (err instanceof ApiError && err.status === 403) {
-        toast.error(t("resolve-drift-no-access"));
-      } else {
-        toast.error(t("resolve-drift-error"));
-      }
-    } finally {
-      setResolving(false);
-    }
-  };
-
   const isError = issue.severity === "error";
-  const Icon = isError ? AlertCircle : AlertTriangle;
-  const iconClass = isError
-    ? "text-destructive"
-    : "text-yellow-500 dark:text-yellow-400";
   const typeLabel = t(ISSUE_TYPE_KEY[issue.issue_type] ?? "issue-unknown");
 
   return (
-    <Card
-      className={`p-4 flex flex-row gap-4 items-center ${issue.dismissed ? "opacity-60" : ""}`}
-    >
-      <div className="mt-0.5 flex-shrink-0">
-        <Icon className={`w-5 h-5 ${iconClass}`} />
-      </div>
-      <div className="flex-1 min-w-0 space-y-2">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-medium text-sm">{typeLabel}</span>
-          <Badge
-            variant={isError ? "destructive" : "outline"}
-            className="text-xs"
-          >
-            {t(`severity-${issue.severity}`)}
-          </Badge>
-          {issue.dismissed && (
-            <Badge variant="secondary" className="text-xs">
-              {t("dismissed-badge")}
-            </Badge>
-          )}
-        </div>
-        <p className="text-sm text-muted-foreground">{issue.description}</p>
-        {issue.member_ids.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {issue.member_ids.map((id) => (
-              <button
-                key={id}
-                className="text-xs px-2 py-0.5 rounded-full bg-muted hover:bg-muted/70 transition-colors font-mono cursor-pointer"
-                onClick={() => openMember(id)}
-                title={t("view-member")}
-              >
-                {memberLabel(id, members)}
-              </button>
-            ))}
-          </div>
-        )}
-        {isBridgeDrift && canWrite && !issue.dismissed && (
-          <div className="flex flex-wrap gap-2 pt-1">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={resolving}
-              onClick={() => void handleResolveDrift("push")}
-            >
-              <ArrowUpFromLine />
-              {t("resolve-drift-push")}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={resolving}
-              onClick={() => void handleResolveDrift("pull")}
-            >
-              <ArrowDownToLine />
-              {t("resolve-drift-pull")}
-            </Button>
-          </div>
-        )}
-        {isDuplicate && canWrite && !issue.dismissed && (
-          <div className="flex flex-wrap gap-2 pt-1">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setMergeOpen(true)}
-            >
-              <GitMerge />
-              {t("merge-action")}
-            </Button>
-          </div>
+    <Card className={cn("gap-3 px-5", issue.dismissed && "opacity-60")}>
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant={isError ? "danger" : "info"}>
+          {t(`severity-${issue.severity}`)}
+        </Badge>
+        <h3 className="text-[15px] font-bold">{typeLabel}</h3>
+        {issue.dismissed && (
+          <Badge variant="muted">{t("dismissed-badge")}</Badge>
         )}
       </div>
+      <p className="text-sm text-muted-foreground">{issue.description}</p>
+      <PeopleChips ids={issue.member_ids} />
       {canWrite && (
-        <div className="flex-shrink-0">
+        <div className="flex flex-wrap gap-2 border-t pt-3">
           {issue.dismissed ? (
             <Button
               variant="ghost"
-              size="icon"
-              title={t("restore")}
+              size="sm"
               onClick={() => restoreIssue(issue.id)}
             >
-              <RotateCcw className="w-4 h-4" />
+              {t("restore")}
             </Button>
+          ) : isDuplicate ? (
+            <>
+              <Button size="sm" onClick={() => setMergeOpen(true)}>
+                <GitMerge />
+                {t("merge-action")}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => dismissIssue(issue.id)}
+              >
+                {t("not-duplicate")}
+              </Button>
+            </>
           ) : (
             <Button
               variant="ghost"
-              size="icon"
-              title={t("dismiss")}
+              size="sm"
               onClick={() => dismissIssue(issue.id)}
             >
-              <X className="w-4 h-4" />
+              {t("dismiss")}
             </Button>
           )}
         </div>
@@ -221,99 +153,102 @@ function IssueCard({
   );
 }
 
-function OpenTasksSection({ canWrite }: { canWrite: boolean }) {
+function ResearchTasksCard({ canWrite }: { canWrite: boolean }) {
   const { t } = useTranslation(undefined, { keyPrefix: "quality-report-view" });
-  const { members } = useMemberStore();
-  const openMember = useOpenMember();
   const { tasks, setTaskDone, refreshTasks, initialized } = useTaskStore();
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   useDeferredStoreLoad(initialized, refreshTasks);
 
-  const openTasks = useMemo(() => tasks.filter((task) => !task.done), [tasks]);
-  if (openTasks.length === 0 && !canWrite) return null;
+  // Open tasks first, then the most recently finished few for context.
+  const visible = useMemo(() => {
+    const open = tasks.filter((task) => !task.done);
+    const done = tasks
+      .filter((task) => task.done)
+      .sort((a, b) => (b.doneAt ?? "").localeCompare(a.doneAt ?? ""))
+      .slice(0, 3);
+    return [...open, ...done];
+  }, [tasks]);
+  const openCount = tasks.filter((task) => !task.done).length;
 
   return (
-    <div className="mb-6">
-      <div className="flex items-center justify-between gap-2 mb-3">
-        <div className="flex items-center gap-2">
-          <ClipboardList className="w-4 h-4 text-muted-foreground" />
-          <h3 className="font-medium text-sm">
-            {t("open-tasks-title", { count: openTasks.length })}
-          </h3>
-        </div>
+    <Card className="gap-3 self-start">
+      <CardHeader>
+        <CardTitle>
+          <h2>{t("open-tasks-title", { count: openCount })}</h2>
+        </CardTitle>
         {canWrite && (
-          <Button
-            size="sm"
-            variant="outline"
-            type="button"
-            onClick={() => setIsTaskDialogOpen(true)}
-          >
-            <Plus />
-            {t("open-tasks-add")}
-          </Button>
-        )}
-      </div>
-      {openTasks.length === 0 ? (
-        <p className="text-sm text-muted-foreground italic">
-          {t("open-tasks-empty")}
-        </p>
-      ) : (
-        <div className="flex flex-col gap-2">
-          {openTasks.map((task) => (
-            <Card
-              key={task.id}
-              className="p-3 flex flex-row gap-3 items-center"
+          <CardAction>
+            <Button
+              size="sm"
+              variant="outline"
+              type="button"
+              onClick={() => setIsTaskDialogOpen(true)}
             >
-              {canWrite ? (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="flex-shrink-0"
-                  title={t("open-tasks-mark-done")}
-                  onClick={() => void setTaskDone(task.id, true)}
+              <Plus />
+              {t("open-tasks-add")}
+            </Button>
+          </CardAction>
+        )}
+      </CardHeader>
+      <CardContent>
+        {visible.length === 0 ? (
+          <p className="py-2 text-sm text-muted-foreground">
+            {t("open-tasks-empty")}
+          </p>
+        ) : (
+          <ul className="divide-y">
+            {visible.map((task) => (
+              <li key={task.id} className="flex items-start gap-3 py-3">
+                <button
+                  type="button"
+                  role="checkbox"
+                  aria-checked={task.done}
+                  disabled={!canWrite}
+                  title={task.done ? undefined : t("open-tasks-mark-done")}
+                  aria-label={t(
+                    task.done ? "open-tasks-mark-open" : "open-tasks-mark-done",
+                  )}
+                  onClick={() => void setTaskDone(task.id, !task.done)}
+                  className={cn(
+                    "mt-0.5 grid size-5 shrink-0 place-items-center rounded-md border border-input bg-card transition-colors hover:border-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-50",
+                    task.done &&
+                      "border-primary bg-primary text-primary-foreground",
+                  )}
                 >
-                  <Circle className="w-4 h-4 text-muted-foreground" />
-                </Button>
-              ) : (
-                <Circle className="w-4 h-4 text-muted-foreground flex-shrink-0 ml-2" />
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium">{task.title}</p>
-                {task.notes && (
-                  <p className="text-xs text-muted-foreground mt-0.5 whitespace-pre-wrap">
-                    {task.notes}
+                  {task.done && <Check className="size-3.5" />}
+                </button>
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <p
+                    className={cn(
+                      "text-sm font-semibold",
+                      task.done && "text-muted-foreground line-through",
+                    )}
+                  >
+                    {task.title}
                   </p>
-                )}
-              </div>
-              {task.linkedMemberIds.length > 0 ? (
-                <div className="flex flex-wrap gap-1 justify-end flex-shrink-0">
-                  {task.linkedMemberIds.map((memberId) => (
-                    <button
-                      key={memberId}
-                      className="text-xs px-2 py-0.5 rounded-full bg-muted hover:bg-muted/70 transition-colors font-mono cursor-pointer"
-                      onClick={() => openMember(memberId)}
-                      title={t("view-member")}
-                    >
-                      {memberLabel(memberId, members)}
-                    </button>
-                  ))}
+                  {task.notes && (
+                    <p className="text-xs whitespace-pre-wrap text-muted-foreground">
+                      {task.notes}
+                    </p>
+                  )}
+                  {task.linkedMemberIds.length > 0 ? (
+                    <PeopleChips ids={task.linkedMemberIds} />
+                  ) : (
+                    <Badge variant="muted">{t("open-tasks-tree-level")}</Badge>
+                  )}
                 </div>
-              ) : (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground flex-shrink-0">
-                  {t("open-tasks-tree-level")}
-                </span>
-              )}
-            </Card>
-          ))}
-        </div>
-      )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
       {isTaskDialogOpen && (
         <TaskDialog
           open={isTaskDialogOpen}
           onOpenChange={setIsTaskDialogOpen}
         />
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -323,8 +258,14 @@ export const QualityReportView = () => {
   });
   const { report, isLoading, showDismissed, refreshReport, setShowDismissed } =
     useQualityReportStore();
-  const canWrite = useTreeStore((s) => s.selectedTree?.role !== "viewer");
-  const restrictions = useTreeStore((s) => s.selectedTree?.restrictions);
+  const tasks = useTaskStore((s) => s.tasks);
+  const canWrite = useWorkspaceStore((s) =>
+    canEditArea(s.selectedTree, "tree"),
+  );
+  const canWriteTasks = useWorkspaceStore((s) =>
+    canEditArea(s.selectedTree, "tasks"),
+  );
+  const restrictions = useWorkspaceStore((s) => s.selectedTree?.restrictions);
   const tasksEnabled = !restrictions?.includes("tasks");
 
   useEffect(() => {
@@ -340,6 +281,8 @@ export const QualityReportView = () => {
   const warningCount = activeIssues.filter(
     (i) => i.severity === "warning",
   ).length;
+  const openTaskCount = tasks.filter((task) => !task.done).length;
+  const doneTaskCount = tasks.length - openTaskCount;
 
   const displayedIssues = showDismissed ? allIssues : activeIssues;
   const sortedIssues = [...displayedIssues].sort((a, b) => {
@@ -351,65 +294,95 @@ export const QualityReportView = () => {
   return (
     <ViewLayout
       title={t("title")}
+      subtitle={
+        report ? t("subtitle", { count: report.total_members ?? 0 }) : undefined
+      }
       action={
-        dismissedCount > 0 ? (
-          <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
-            {t("show-dismissed", { count: dismissedCount })}
-            <Switch
-              checked={showDismissed}
-              onCheckedChange={setShowDismissed}
-            />
-          </label>
-        ) : undefined
+        <>
+          {dismissedCount > 0 && (
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+              <Switch
+                checked={showDismissed}
+                onCheckedChange={setShowDismissed}
+              />
+              {t("show-dismissed", { count: dismissedCount })}
+            </label>
+          )}
+          <Button
+            variant="outline"
+            onClick={() => refreshReport()}
+            disabled={isLoading}
+          >
+            <RefreshCw className={cn(isLoading && "animate-spin")} />
+            {t("recheck")}
+          </Button>
+        </>
       }
     >
-      {tasksEnabled && <OpenTasksSection canWrite={canWrite} />}
-
-      {activeIssues.length > 0 && (
-        <div className="flex items-center gap-3 mb-4">
-          {errorCount > 0 && (
-            <span className="flex items-center gap-1 text-sm text-destructive">
-              <AlertCircle className="w-4 h-4" />
-              {t("count-errors", { count: errorCount })}
+      <div className="grid grid-cols-1 gap-5 pb-4 md:grid-cols-3">
+        <StatTile
+          label={t("kpi-errors")}
+          value={
+            <span className={cn(errorCount > 0 && "text-destructive")}>
+              {errorCount}
             </span>
-          )}
-          {warningCount > 0 && (
-            <span className="flex items-center gap-1 text-sm text-yellow-600 dark:text-yellow-400">
-              <AlertTriangle className="w-4 h-4" />
-              {t("count-warnings", { count: warningCount })}
+          }
+          note={t("kpi-errors-note")}
+        />
+        <StatTile
+          label={t("kpi-warnings")}
+          value={
+            <span className={cn(warningCount > 0 && "text-warning")}>
+              {warningCount}
             </span>
-          )}
-        </div>
-      )}
+          }
+          note={t("kpi-warnings-note")}
+        />
+        {tasksEnabled && (
+          <StatTile
+            label={t("kpi-tasks")}
+            value={openTaskCount}
+            note={t("kpi-tasks-note", { count: doneTaskCount })}
+          />
+        )}
 
-      {isLoading && !report ? (
-        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 text-center">
-          <RefreshCw className="w-8 h-8 text-muted-foreground animate-spin" />
-          <p className="text-sm text-muted-foreground">{t("loading")}</p>
-        </div>
-      ) : displayedIssues.length === 0 ? (
-        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 text-center">
-          <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center">
-            {report ? (
-              <CheckCircle2 className="w-7 h-7 text-green-500" />
-            ) : (
-              <ShieldCheck className="w-7 h-7 text-muted-foreground opacity-40" />
-            )}
+        <section
+          className={cn(
+            "flex min-w-0 flex-col gap-3",
+            tasksEnabled ? "md:col-span-2" : "md:col-span-3",
+          )}
+        >
+          <h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+            {t("issues-heading")}
+          </h2>
+          {isLoading && !report ? (
+            <>
+              <Skeleton className="h-36 rounded-2xl" />
+              <Skeleton className="h-36 rounded-2xl" />
+            </>
+          ) : displayedIssues.length === 0 ? (
+            <Card className="flex-row items-center gap-3 px-5">
+              <CheckCircle2 className="size-5 shrink-0 text-primary" />
+              <div>
+                <p className="text-sm font-semibold">{t("no-issues")}</p>
+                <p className="text-sm text-muted-foreground">
+                  {t("no-issues-description")}
+                </p>
+              </div>
+            </Card>
+          ) : (
+            sortedIssues.map((issue) => (
+              <IssueCard key={issue.id} issue={issue} canWrite={canWrite} />
+            ))
+          )}
+        </section>
+
+        {tasksEnabled && (
+          <div className="md:pt-7">
+            <ResearchTasksCard canWrite={canWriteTasks} />
           </div>
-          <div>
-            <p className="font-medium">{t("no-issues")}</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              {t("no-issues-description")}
-            </p>
-          </div>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-3 pb-4">
-          {sortedIssues.map((issue) => (
-            <IssueCard key={issue.id} issue={issue} canWrite={canWrite} />
-          ))}
-        </div>
-      )}
+        )}
+      </div>
     </ViewLayout>
   );
 };

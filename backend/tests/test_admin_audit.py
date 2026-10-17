@@ -14,8 +14,16 @@ def _entries(db):
     return list(db.scalars(select(AdminAuditLog)).all())
 
 
-def _add(db, *, subject_type="tree", subject_label=None, action="update",
-         actor_username="alice", created_at=None, details=None):
+def _add(
+    db,
+    *,
+    subject_type="tree",
+    subject_label=None,
+    action="update",
+    actor_username="alice",
+    created_at=None,
+    details=None,
+):
     """Insert an audit row directly, controlling created_at for ordering."""
     row = AdminAuditLog(
         actor_username=actor_username,
@@ -35,7 +43,7 @@ def test_tree_deletion_survives_its_tree(client, db):
     owner = make_user(db, "owner")
     tree = make_tree(db, owner, name="Family archive")
 
-    response = client.delete(f"{API}/trees/{tree.id}", headers=auth(owner))
+    response = client.delete(f"{API}/workspaces/{tree.id}", headers=auth(owner))
 
     assert response.status_code == 204
     entry = _entries(db)[0]
@@ -49,7 +57,7 @@ def test_admin_audit_endpoint_is_read_only_and_admin_only(client, db):
     admin = make_user(db, "admin", is_admin=True)
     user = make_user(db, "user")
     tree = make_tree(db, user)
-    client.delete(f"{API}/trees/{tree.id}", headers=auth(user))
+    client.delete(f"{API}/workspaces/{tree.id}", headers=auth(user))
 
     denied = client.get(f"{API}/admin/audit-log", headers=auth(user))
     allowed = client.get(f"{API}/admin/audit-log", headers=auth(admin))
@@ -165,8 +173,13 @@ def test_subject_types_facet_lists_distinct_values(client, db):
 
 def test_export_returns_csv_with_all_matching_rows(client, db):
     admin = make_user(db, "admin", is_admin=True)
-    _add(db, subject_type="user", subject_label="bob", actor_username="root",
-         details={"is_admin": True})
+    _add(
+        db,
+        subject_type="user",
+        subject_label="bob",
+        actor_username="root",
+        details={"is_admin": True},
+    )
     _add(db, subject_type="backup", subject_label="nightly", actor_username="root")
 
     response = client.get(
@@ -222,10 +235,10 @@ def test_backup_failure_is_audited(db, monkeypatch):
     admin = make_user(db, "admin", is_admin=True)
     monkeypatch.setattr(backup_service, "_ensure_backup_dir", lambda: None)
 
-    def _boom(_db):
+    def _boom(_db, _filepath):
         raise RuntimeError("disk exploded")
 
-    monkeypatch.setattr(backup_service, "_collect_bundle", _boom)
+    monkeypatch.setattr(backup_service, "_write_streaming_archive", _boom)
 
     record = backup_service.create_backup(db, trigger="manual", actor=admin)
 
@@ -243,23 +256,21 @@ def test_public_access_and_password_changes_are_audited(client, db):
     tree = make_tree(db, owner, name="Public roots")
 
     made_public = client.patch(
-        f"{API}/trees/{tree.id}/public",
+        f"{API}/workspaces/{tree.id}/public",
         json={"public_role": "viewer"},
         headers=auth(owner),
     )
     assert made_public.status_code == 200
 
     set_password = client.put(
-        f"{API}/trees/{tree.id}/public/password",
+        f"{API}/workspaces/{tree.id}/public/password",
         json={"password": "hunter2pass"},
         headers=auth(owner),
     )
     assert set_password.status_code == 200
 
     events = db.scalars(
-        select(AdminAuditLog).where(
-            AdminAuditLog.subject_type == "tree_public_access"
-        )
+        select(AdminAuditLog).where(AdminAuditLog.subject_type == "tree_public_access")
     ).all()
     assert len(events) == 2
     details = [e.details for e in events]

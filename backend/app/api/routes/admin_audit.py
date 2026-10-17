@@ -84,9 +84,7 @@ def list_admin_audit_log(
     conditions = _audit_filters(
         action=action, subject_type=subject_type, actor=actor, start=start, end=end
     )
-    total = db.scalar(
-        select(func.count()).select_from(AdminAuditLog).where(*conditions)
-    )
+    total = db.scalar(select(func.count()).select_from(AdminAuditLog).where(*conditions))
     items = list(
         db.scalars(
             select(AdminAuditLog)

@@ -2,12 +2,12 @@ import { create } from "zustand";
 import { api } from "@/services/api";
 
 interface PendingJob {
-  resolve: (treeId: string) => void;
+  resolve: (workspaceId: string) => void;
   reject: (err: Error) => void;
 }
 
 interface EarlyResult {
-  treeId?: string;
+  workspaceId?: string;
   error?: string;
 }
 
@@ -20,10 +20,10 @@ interface JobStoreState {
   activeJobId: string | null;
   activeJobPct: number;
 
-  /** Register a job and return a Promise that resolves with its result_tree_id. */
+  /** Register a job and return a Promise that resolves with its result_workspace_id. */
   trackJob: (jobId: string) => Promise<string>;
   onProgress: (jobId: string, pct: number) => void;
-  onDone: (jobId: string, treeId: string) => void;
+  onDone: (jobId: string, workspaceId: string) => void;
   onFailed: (jobId: string, error: string) => void;
 }
 
@@ -38,8 +38,8 @@ export const useJobStore = create<JobStoreState>((set) => ({
       const early = _early.get(jobId);
       if (early) {
         _early.delete(jobId);
-        if (early.treeId !== undefined) {
-          resolve(early.treeId);
+        if (early.workspaceId !== undefined) {
+          resolve(early.workspaceId);
         } else {
           reject(new Error(early.error ?? "Job failed"));
         }
@@ -55,7 +55,7 @@ export const useJobStore = create<JobStoreState>((set) => ({
       };
 
       _pending.set(jobId, {
-        resolve: (treeId: string) => settle(() => resolve(treeId)),
+        resolve: (workspaceId: string) => settle(() => resolve(workspaceId)),
         reject: (err: Error) => settle(() => reject(err)),
       });
       set({ activeJobId: jobId, activeJobPct: 0 });
@@ -69,14 +69,14 @@ export const useJobStore = create<JobStoreState>((set) => ({
           try {
             const job = await api.get<{
               status: string;
-              result_tree_id?: string;
+              result_workspace_id?: string;
               error?: string;
             }>(`/jobs/${jobId}`);
-            if (job.status === "done" && job.result_tree_id) {
+            if (job.status === "done" && job.result_workspace_id) {
               settle(() => {
                 _pending.delete(jobId);
                 set({ activeJobId: null, activeJobPct: 0 });
-                resolve(job.result_tree_id!);
+                resolve(job.result_workspace_id!);
               });
             } else if (job.status === "failed") {
               settle(() => {
@@ -96,15 +96,15 @@ export const useJobStore = create<JobStoreState>((set) => ({
     set((s) => (s.activeJobId === jobId ? { activeJobPct: pct } : {}));
   },
 
-  onDone: (jobId: string, treeId: string) => {
+  onDone: (jobId: string, workspaceId: string) => {
     const pending = _pending.get(jobId);
     if (pending) {
       _pending.delete(jobId);
       set({ activeJobId: null, activeJobPct: 0 });
-      pending.resolve(treeId);
+      pending.resolve(workspaceId);
     } else {
       // trackJob hasn't been called yet — stash the result.
-      _early.set(jobId, { treeId });
+      _early.set(jobId, { workspaceId });
     }
   },
 

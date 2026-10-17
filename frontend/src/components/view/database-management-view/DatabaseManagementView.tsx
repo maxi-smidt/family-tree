@@ -1,17 +1,13 @@
 import { useState } from "react";
 import { useJobStore } from "@/hooks/useJobStore";
-import { useTreeStore } from "@/hooks/useTreeStore";
-import { pickFile, useTreeManager } from "@/hooks/useTreeManager";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
+import { pickFile, useWorkspaceManager } from "@/hooks/useWorkspaceManager";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Card } from "@/components/ui/card";
+import { WorkspaceMonogram } from "@/components/shared/WorkspaceMonogram";
+import { cn } from "@/lib/utils";
+import { formatDate } from "@/utils/dateUtils";
 import {
   Plus,
   Trash2,
@@ -24,15 +20,9 @@ import {
   Users,
   Copy,
   GitMerge,
-  Hash,
   FileUp,
   FileDown,
-  Layers,
-  AlertTriangle,
-  RefreshCw,
   MoreHorizontal,
-  Scissors,
-  Network,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -42,45 +32,33 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { CreateDatabaseDialog } from "@/components/shared/dialog/CreateDatabaseDialog";
 import { RemoveDatabaseDialog } from "@/components/view/database-management-view/dialog/RemoveDatabaseDialog";
 import { ShareTreeDialog } from "@/components/view/database-management-view/dialog/ShareTreeDialog";
 import { MergeTreesDialog } from "@/components/view/database-management-view/dialog/MergeTreesDialog";
 import { DuplicateTreeDialog } from "@/components/view/database-management-view/dialog/DuplicateTreeDialog";
-import { ExtractSubtreeDialog } from "@/components/view/database-management-view/dialog/ExtractSubtreeDialog";
-import { LinkedTreesGraphDialog } from "@/components/view/database-management-view/dialog/LinkedTreesGraphDialog";
-import { VirtualViewDialog } from "@/components/view/database-management-view/dialog/VirtualViewDialog";
 import { PasswordDialog } from "@/components/shared/dialog/PasswordDialog";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-import { Tree } from "@/types/tree";
+import { Workspace } from "@/types/workspace";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 
 export const DatabaseManagementView = () => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "database-management-view",
   });
-  const trees = useTreeStore((s) => s.trees);
-  const virtualViews = useTreeStore((s) => s.virtualViews);
-  const selectedTree = useTreeStore((s) => s.selectedTree);
-  const selectTree = useTreeStore((s) => s.selectTree);
-  const renameTree = useTreeStore((s) => s.renameTree);
-  const deleteVirtualView = useTreeStore((s) => s.deleteVirtualView);
-  const renameVirtualView = useTreeStore((s) => s.renameVirtualView);
-  const recomputeMatches = useTreeStore((s) => s.recomputeMatches);
-  const loadTrees = useTreeStore((s) => s.loadTrees);
+  const workspaces = useWorkspaceStore((s) => s.workspaces);
+  const selectedTree = useWorkspaceStore((s) => s.selectedTree);
+  const selectTree = useWorkspaceStore((s) => s.selectTree);
+  const renameTree = useWorkspaceStore((s) => s.renameTree);
+  const loadTrees = useWorkspaceStore((s) => s.loadTrees);
   const {
     exportDatabase,
     importDatabase,
     inspectImport,
     exportGedcom,
     importGedcom,
-  } = useTreeManager();
+  } = useWorkspaceManager();
   const [isImporting, setIsImporting] = useState(false);
   const importPct = useJobStore((s) => s.activeJobPct);
 
@@ -89,14 +67,8 @@ export const DatabaseManagementView = () => {
   const [isRemoveDatabaseDialogOpen, setIsRemoveDatabaseDialogOpen] =
     useState(false);
   const [isMergeDialogOpen, setIsMergeDialogOpen] = useState(false);
-  const [isVirtualViewDialogOpen, setIsVirtualViewDialogOpen] = useState(false);
-  const [editingVirtualView, setEditingVirtualView] = useState<Tree | null>(
-    null,
-  );
-  const [duplicateTree, setDuplicateTree] = useState<Tree | null>(null);
-  const [extractTree, setExtractTree] = useState<Tree | null>(null);
-  const [linkGraphTree, setLinkGraphTree] = useState<Tree | null>(null);
-  const [shareTree, setShareTree] = useState<Tree | null>(null);
+  const [duplicateTree, setDuplicateTree] = useState<Workspace | null>(null);
+  const [shareTree, setShareTree] = useState<Workspace | null>(null);
   const [passwordDialogState, setPasswordDialogState] = useState<{
     isOpen: boolean;
     mode: "export" | "import";
@@ -151,7 +123,7 @@ export const DatabaseManagementView = () => {
     }
   };
 
-  const handleExportDatabase = async (database: Tree) => {
+  const handleExportDatabase = async (database: Workspace) => {
     const password = await askPassword("export");
     if (password === undefined) return; // cancelled
     try {
@@ -177,7 +149,7 @@ export const DatabaseManagementView = () => {
     }
   };
 
-  const handleExportGedcom = async (database: Tree) => {
+  const handleExportGedcom = async (database: Workspace) => {
     try {
       await exportGedcom(database);
     } catch (err) {
@@ -186,7 +158,7 @@ export const DatabaseManagementView = () => {
     }
   };
 
-  const handleStartRename = (database: Tree) => {
+  const handleStartRename = (database: Workspace) => {
     setEditingDatabaseId(database.id);
     setEditingName(database.name);
   };
@@ -196,7 +168,7 @@ export const DatabaseManagementView = () => {
     setEditingName("");
   };
 
-  const handleSaveRename = async (database: Tree) => {
+  const handleSaveRename = async (database: Workspace) => {
     if (!editingName.trim()) {
       toast.error(t("toast-rename-empty"));
       return;
@@ -212,7 +184,7 @@ export const DatabaseManagementView = () => {
     }
   };
 
-  const handleSelectDatabase = async (database: Tree) => {
+  const handleSelectDatabase = async (database: Workspace) => {
     if (selectedTree?.id !== database.id) {
       try {
         await selectTree(database);
@@ -223,7 +195,7 @@ export const DatabaseManagementView = () => {
     }
   };
 
-  const handleCopyId = async (database: Tree) => {
+  const handleCopyId = async (database: Workspace) => {
     try {
       await navigator.clipboard.writeText(database.id);
       toast.success(t("toast-id-copied"));
@@ -233,7 +205,7 @@ export const DatabaseManagementView = () => {
     }
   };
 
-  const handleOpenRemoveDialog = async (database: Tree) => {
+  const handleOpenRemoveDialog = async (database: Workspace) => {
     try {
       await selectTree(database);
     } catch {
@@ -243,555 +215,286 @@ export const DatabaseManagementView = () => {
     setIsRemoveDatabaseDialogOpen(true);
   };
 
-  const handleDeleteVirtualView = async (view: Tree) => {
-    await deleteVirtualView(view);
-    toast.success(t("toast-virtual-view-deleted"));
-  };
+  const ownedDatabases = workspaces.filter((d) => d.role === "owner");
+  const sharedDatabases = workspaces.filter((d) => d.role !== "owner");
 
-  const handleRecomputeMatches = async (view: Tree) => {
-    try {
-      const { mergedMemberCount } = await recomputeMatches(view);
-      toast.success(t("toast-recompute-success", { count: mergedMemberCount }));
-    } catch {
-      toast.error(t("toast-recompute-error"));
-    }
-  };
-
-  const handleSelectVirtualView = async (view: Tree) => {
-    if (selectedTree?.id !== view.id) {
-      try {
-        await selectTree(view);
-      } catch {
-        toast.error(t("toast-select-error"));
-      }
-    }
-  };
-
-  const handleRenameVirtualView = async (view: Tree, name: string) => {
-    if (!name.trim()) {
-      toast.error(t("toast-rename-empty"));
-      return;
-    }
-    try {
-      await renameVirtualView(view, name.trim());
-      toast.success(t("toast-rename-success"));
-      setEditingDatabaseId(null);
-      setEditingName("");
-    } catch (err) {
-      console.error(err);
-      toast.error(t("toast-rename-error"));
-    }
-  };
-
-  const ownedDatabases = trees.filter((d) => d.role === "owner");
-  const sharedDatabases = trees.filter((d) => d.role !== "owner");
-
-  const renderStatusCell = (database: Tree) => {
-    if (database.role === "owner") {
-      if (database.shared_count && database.shared_count > 0) {
-        return (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Badge variant="secondary" className="gap-1">
-                <Users className="h-3 w-3" />
-                {database.shared_count}
-              </Badge>
-            </TooltipTrigger>
-            <TooltipContent>
+  const renderStatus = (database: Workspace, isSelected: boolean) => (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {isSelected && <Badge variant="success">{t("open-now")}</Badge>}
+      {database.role === "owner" ? (
+        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+          {database.shared_count && database.shared_count > 0 ? (
+            <>
+              <Users className="size-3.5" />
               {t("shared-with-count", { count: database.shared_count })}
-            </TooltipContent>
-          </Tooltip>
-        );
-      }
-      return (
-        <span className="text-muted-foreground text-sm">{t("not-shared")}</span>
-      );
-    }
-    return <Badge variant="outline">{t(`role-${database.role}`)}</Badge>;
+            </>
+          ) : (
+            t("not-shared")
+          )}
+        </span>
+      ) : (
+        <Badge variant="info">{t(`role-${database.role}`)}</Badge>
+      )}
+    </div>
+  );
+
+  const renderActionsMenu = (database: Workspace) => {
+    const isOwned = database.role === "owner";
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={t("row-actions-button")}
+          >
+            <MoreHorizontal />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {isOwned && (
+            <DropdownMenuItem onSelect={() => setShareTree(database)}>
+              <Share2 />
+              {t("share-button")}
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem onSelect={() => setDuplicateTree(database)}>
+            <Copy />
+            {t("duplicate-button")}
+          </DropdownMenuItem>
+          {database.role !== "viewer" && (
+            <DropdownMenuItem
+              disabled={editingDatabaseId !== null}
+              onSelect={() => handleStartRename(database)}
+            >
+              <Edit2 />
+              {t("rename-button")}
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem onSelect={() => void handleCopyId(database)}>
+            <Copy />
+            {t("copy-id-button")}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onSelect={() => void handleExportDatabase(database)}
+          >
+            <HardDriveUpload />
+            {t("export-button")}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => void handleExportGedcom(database)}>
+            <FileUp />
+            {t("export-gedcom-button")}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            variant="destructive"
+            disabled={!isOwned}
+            onSelect={() => void handleOpenRemoveDialog(database)}
+          >
+            <Trash2 />
+            {t("delete-button")}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
   };
 
-  const renderRow = (database: Tree) => {
+  const renderCard = (database: Workspace) => {
     const isOwned = database.role === "owner";
     const isSelected = selectedTree?.id === database.id;
+    const isEditing = editingDatabaseId === database.id;
     return (
-      <TableRow
-        key={database.id}
-        onClick={() => handleSelectDatabase(database)}
-        className={`group cursor-pointer ${isSelected ? "bg-muted" : ""}`}
-      >
-        <TableCell
-          className={
+      <li key={database.id}>
+        <Card
+          data-slot="workspace-card"
+          aria-current={isSelected ? "true" : undefined}
+          className={cn(
+            "h-full gap-4 px-5 transition-colors",
             isSelected
-              ? "border-l-2 border-l-primary"
-              : "border-l-2 border-l-transparent"
-          }
-        >
-          <input
-            type="radio"
-            checked={isSelected}
-            onChange={() => handleSelectDatabase(database)}
-            className="cursor-pointer"
-            aria-label={t("select-tree")}
-          />
-        </TableCell>
-        <TableCell>
-          {editingDatabaseId === database.id ? (
-            <div
-              className="flex items-center gap-2"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Input
-                value={editingName}
-                onChange={(e) => setEditingName(e.target.value)}
-                className="h-8"
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    void handleSaveRename(database);
-                  } else if (e.key === "Escape") {
-                    handleCancelRename();
-                  }
-                }}
-              />
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleSaveRename(database)}
-              >
-                <Check className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="sm" onClick={handleCancelRename}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-0.5">
-              <span className="font-medium">{database.name}</span>
-              {isSelected && (
-                <button
-                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors w-fit font-mono"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    void handleCopyId(database);
-                  }}
-                  title={t("copy-id-button")}
-                  aria-label={t("copy-id-button")}
-                >
-                  <Hash className="size-3 shrink-0" />
-                  {database.id}
-                </button>
-              )}
-            </div>
+              ? "border-primary ring-1 ring-primary"
+              : "hover:border-input",
           )}
-        </TableCell>
-        <TableCell>{renderStatusCell(database)}</TableCell>
-        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-          <div className="flex justify-end">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-label={t("row-actions-button")}
-                >
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {isOwned && (
-                  <DropdownMenuItem onSelect={() => setShareTree(database)}>
-                    <Share2 className="h-4 w-4" />
-                    {t("share-button")}
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem onSelect={() => setDuplicateTree(database)}>
-                  <Copy className="h-4 w-4" />
-                  {t("duplicate-button")}
-                </DropdownMenuItem>
-                {isOwned && (
-                  <DropdownMenuItem onSelect={() => setExtractTree(database)}>
-                    <Scissors className="h-4 w-4" />
-                    {t("extract-subtree-button")}
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem onSelect={() => setLinkGraphTree(database)}>
-                  <Network className="h-4 w-4" />
-                  {t("linked-trees-graph-button")}
-                </DropdownMenuItem>
-                {database.role !== "viewer" && (
-                  <DropdownMenuItem
-                    disabled={editingDatabaseId !== null}
-                    onSelect={() => handleStartRename(database)}
+        >
+          <div className="flex items-start gap-3">
+            <WorkspaceMonogram
+              name={database.name}
+              size="lg"
+              muted={!isSelected}
+            />
+            <div className="min-w-0 flex-1">
+              {isEditing ? (
+                <div className="flex items-center gap-1">
+                  <Input
+                    size="sm"
+                    value={editingName}
+                    onChange={(e) => setEditingName(e.target.value)}
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        void handleSaveRename(database);
+                      } else if (e.key === "Escape") {
+                        handleCancelRename();
+                      }
+                    }}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={t("rename-save")}
+                    onClick={() => handleSaveRename(database)}
                   >
-                    <Edit2 className="h-4 w-4" />
-                    {t("rename-button")}
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem
-                  onSelect={() => void handleExportDatabase(database)}
-                >
-                  <HardDriveUpload className="h-4 w-4" />
-                  {t("export-button")}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={() => void handleExportGedcom(database)}
-                >
-                  <FileUp className="h-4 w-4" />
-                  {t("export-gedcom-button")}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  disabled={!isOwned}
-                  onSelect={() => void handleOpenRemoveDialog(database)}
-                  className="text-destructive focus:text-destructive"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  {t("delete-button")}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                    <Check />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={t("rename-cancel")}
+                    onClick={handleCancelRename}
+                  >
+                    <X />
+                  </Button>
+                </div>
+              ) : (
+                <h3 className="truncate text-base font-bold">
+                  {database.name}
+                </h3>
+              )}
+              <div className="mt-1">{renderStatus(database, isSelected)}</div>
+            </div>
+            {renderActionsMenu(database)}
           </div>
-        </TableCell>
-      </TableRow>
+          <div className="mt-auto flex items-center justify-between gap-3 border-t pt-3">
+            <span className="truncate text-xs text-muted-foreground">
+              {database.created_at
+                ? t("created-on", { date: formatDate(database.created_at) })
+                : ""}
+            </span>
+            {isSelected ? (
+              isOwned ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShareTree(database)}
+                >
+                  <Share2 />
+                  {t("share-button")}
+                </Button>
+              ) : null
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void handleSelectDatabase(database)}
+              >
+                {t("open-button")}
+              </Button>
+            )}
+          </div>
+        </Card>
+      </li>
     );
   };
 
   const renderSection = (
     heading: string,
-    rows: Tree[],
+    rows: Workspace[],
     emptyLabel: string,
-    statusHeader: string,
+    trailing?: React.ReactNode,
   ) => (
-    <section className="flex min-h-0 flex-1 flex-col gap-2">
-      <h3 className="shrink-0 text-sm font-semibold">
-        {heading}{" "}
-        <span className="text-muted-foreground font-normal">
-          ({rows.length})
+    <section className="flex flex-col gap-3">
+      <h2 className="flex items-baseline gap-2">
+        <span className="text-lg font-bold tracking-tight">{heading}</span>
+        <span className="text-xs font-semibold text-muted-foreground">
+          {t("workspace-count", { count: rows.length })}
         </span>
-      </h3>
-      <div className="min-h-0 flex-1 overflow-auto rounded-lg border">
-        <Table containerClassName="overflow-visible">
-          <TableHeader className="sticky top-0 z-10 bg-background">
-            <TableRow>
-              <TableHead className="w-12"></TableHead>
-              <TableHead>{t("table-name")}</TableHead>
-              <TableHead>{statusHeader}</TableHead>
-              <TableHead className="text-right">{t("table-actions")}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={4}
-                  className="text-center text-muted-foreground"
-                >
-                  {emptyLabel}
-                </TableCell>
-              </TableRow>
-            ) : (
-              rows.map(renderRow)
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      </h2>
+      {rows.length === 0 && !trailing ? (
+        <p className="text-sm text-muted-foreground">{emptyLabel}</p>
+      ) : (
+        <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {rows.map(renderCard)}
+          {trailing}
+        </ul>
+      )}
     </section>
   );
 
   return (
     <ViewLayout
       title={t("title")}
-      contentClassName="flex min-h-0 flex-col overflow-hidden"
+      subtitle={t("subtitle")}
+      // The scroller clips at its edge, so give the cards' selection and
+      // focus rings room without shifting them out of line with the header.
+      contentClassName="-mx-1 -mt-1 px-1 pt-1"
       action={
-        <div className="flex gap-2">
+        <>
+          <Button
+            variant="outline"
+            onClick={() => setIsMergeDialogOpen(true)}
+            disabled={workspaces.length < 2}
+          >
+            <GitMerge />
+            {t("merge-button")}
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" data-tutorial="new-tree">
-                <Plus className="h-4 w-4" />
-                {t("new-menu-button")}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onSelect={() => setIsCreateDatabaseDialogOpen(true)}
-              >
-                <Plus className="h-4 w-4" />
-                {t("create-button")}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={trees.length < 2}
-                onSelect={() => {
-                  setEditingVirtualView(null);
-                  setIsVirtualViewDialogOpen(true);
-                }}
-              >
-                <Layers className="h-4 w-4" />
-                {t("virtual-view-button")}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" data-tutorial="import-menu">
-                <HardDriveDownload className="h-4 w-4" />
+              <Button variant="outline" data-tutorial="import-menu">
+                <HardDriveDownload />
                 {t("import-menu-button")}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onSelect={() => void handleImportDatabase()}>
-                <HardDriveDownload className="h-4 w-4" />
+                <HardDriveDownload />
                 {t("import-button")}
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => void handleImportGedcom()}>
-                <FileDown className="h-4 w-4" />
+                <FileDown />
                 {t("import-gedcom-button")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-
           <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsMergeDialogOpen(true)}
-            disabled={trees.length < 2}
+            data-tutorial="new-tree"
+            onClick={() => setIsCreateDatabaseDialogOpen(true)}
           >
-            <GitMerge className="h-4 w-4" />
-            {t("merge-button")}
+            <Plus />
+            {t("new-workspace")}
           </Button>
-        </div>
+        </>
       }
     >
-      <div className="flex min-h-0 flex-1 flex-col gap-6">
+      <div className="flex flex-col gap-8 pb-4">
         {isImporting && (
-          <div className="h-2 shrink-0 overflow-hidden rounded-full bg-muted">
+          <div className="h-1.5 shrink-0 overflow-hidden rounded-full bg-muted">
             <div
               className="h-full bg-primary transition-[width] duration-300 ease-in-out"
               style={{ width: `${importPct}%` }}
             />
           </div>
         )}
-        <div className="flex min-h-0 flex-1 flex-col gap-6">
-          {renderSection(
-            t("owned-section"),
-            ownedDatabases,
-            t("no-owned"),
-            t("table-sharing"),
-          )}
-          {renderSection(
-            t("shared-section"),
-            sharedDatabases,
-            t("no-shared"),
-            t("table-your-role"),
-          )}
-          <section className="flex min-h-0 flex-1 flex-col gap-2">
-            <h3 className="shrink-0 text-sm font-semibold">
-              {t("virtual-views-section")}{" "}
-              <span className="text-muted-foreground font-normal">
-                ({virtualViews.length})
+        {renderSection(
+          t("owned-section"),
+          ownedDatabases,
+          t("no-owned"),
+          <li>
+            <button
+              type="button"
+              onClick={() => setIsCreateDatabaseDialogOpen(true)}
+              className="flex h-full min-h-40 w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-5 text-center text-muted-foreground transition-colors hover:border-primary hover:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            >
+              <span className="grid size-9 place-items-center rounded-full bg-muted">
+                <Plus className="size-4" />
               </span>
-            </h3>
-            <div className="min-h-0 flex-1 overflow-auto rounded-lg border">
-              <Table containerClassName="overflow-visible">
-                <TableHeader className="sticky top-0 z-10 bg-background">
-                  <TableRow>
-                    <TableHead className="w-12"></TableHead>
-                    <TableHead>{t("table-name")}</TableHead>
-                    <TableHead>{t("table-sources")}</TableHead>
-                    <TableHead className="text-right">
-                      {t("table-actions")}
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {virtualViews.length === 0 ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={4}
-                        className="text-center text-muted-foreground"
-                      >
-                        {t("no-virtual-views")}
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    virtualViews.map((view) => {
-                      const isSelected = selectedTree?.id === view.id;
-                      const hasInaccessible = view.sources?.some(
-                        (s) => !s.accessible,
-                      );
-                      return (
-                        <TableRow
-                          key={view.id}
-                          onClick={() => handleSelectVirtualView(view)}
-                          className={`group cursor-pointer ${isSelected ? "bg-muted" : ""}`}
-                        >
-                          <TableCell
-                            className={
-                              isSelected
-                                ? "border-l-2 border-l-primary"
-                                : "border-l-2 border-l-transparent"
-                            }
-                          >
-                            <input
-                              type="radio"
-                              checked={isSelected}
-                              onChange={() => handleSelectVirtualView(view)}
-                              className="cursor-pointer"
-                              aria-label={t("select-tree")}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            {editingDatabaseId === view.id ? (
-                              <div
-                                className="flex items-center gap-2"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <Input
-                                  value={editingName}
-                                  onChange={(e) =>
-                                    setEditingName(e.target.value)
-                                  }
-                                  className="h-8"
-                                  autoFocus
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Enter") {
-                                      void handleRenameVirtualView(
-                                        view,
-                                        editingName,
-                                      );
-                                    } else if (e.key === "Escape") {
-                                      handleCancelRename();
-                                    }
-                                  }}
-                                />
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() =>
-                                    handleRenameVirtualView(view, editingName)
-                                  }
-                                >
-                                  <Check className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={handleCancelRename}
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-1.5 font-medium">
-                                <Layers className="h-4 w-4 text-muted-foreground shrink-0" />
-                                {view.name}
-                              </div>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex flex-wrap gap-1">
-                              {view.sources?.map((src) => (
-                                <Tooltip key={src.tree_id}>
-                                  <TooltipTrigger asChild>
-                                    <Badge
-                                      variant={
-                                        src.accessible ? "secondary" : "outline"
-                                      }
-                                      className="gap-1"
-                                    >
-                                      {!src.accessible && (
-                                        <AlertTriangle className="h-3 w-3 text-destructive" />
-                                      )}
-                                      {src.is_virtual && (
-                                        <Layers className="h-3 w-3" />
-                                      )}
-                                      {src.tree_name}
-                                    </Badge>
-                                  </TooltipTrigger>
-                                  {!src.accessible && (
-                                    <TooltipContent>
-                                      {t("source-inaccessible")}
-                                    </TooltipContent>
-                                  )}
-                                </Tooltip>
-                              ))}
-                              {hasInaccessible && (
-                                <span className="text-xs text-destructive self-center">
-                                  {t("view-degraded")}
-                                </span>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell
-                            className="text-right"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <div className="flex justify-end">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    aria-label={t("row-actions-button")}
-                                  >
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem
-                                    onSelect={() => {
-                                      setEditingVirtualView(view);
-                                      setIsVirtualViewDialogOpen(true);
-                                    }}
-                                  >
-                                    <Edit2 className="h-4 w-4" />
-                                    {t("edit-sources-button")}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onSelect={() =>
-                                      void handleRecomputeMatches(view)
-                                    }
-                                  >
-                                    <RefreshCw className="h-4 w-4" />
-                                    {t("recompute-button")}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    disabled={editingDatabaseId !== null}
-                                    onSelect={() => handleStartRename(view)}
-                                  >
-                                    <Hash className="h-4 w-4" />
-                                    {t("rename-button")}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    onSelect={() =>
-                                      void handleDeleteVirtualView(view)
-                                    }
-                                    className="text-destructive focus:text-destructive"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                    {t("delete-virtual-view-button")}
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </section>
-        </div>
-      </div>
-
-      <div className="shrink-0 text-sm text-muted-foreground">
-        {t("selected-label")}{" "}
-        <span className="font-medium">
-          {selectedTree?.name || t("none-selected")}
-        </span>
+              <span className="text-sm font-semibold text-foreground">
+                {t("new-card-title")}
+              </span>
+              <span className="max-w-60 text-xs">{t("new-card-body")}</span>
+            </button>
+          </li>,
+        )}
+        {renderSection(t("shared-section"), sharedDatabases, t("no-shared"))}
       </div>
 
       <CreateDatabaseDialog
@@ -811,14 +514,6 @@ export const DatabaseManagementView = () => {
       <DuplicateTreeDialog
         tree={duplicateTree}
         onClose={() => setDuplicateTree(null)}
-      />
-      <ExtractSubtreeDialog
-        tree={extractTree}
-        onClose={() => setExtractTree(null)}
-      />
-      <LinkedTreesGraphDialog
-        tree={linkGraphTree}
-        onClose={() => setLinkGraphTree(null)}
       />
       {shareTree && (
         <ShareTreeDialog
@@ -843,14 +538,6 @@ export const DatabaseManagementView = () => {
           passwordDialogState?.resolve(undefined);
           setPasswordDialogState(null);
         }}
-      />
-      <VirtualViewDialog
-        isOpen={isVirtualViewDialogOpen}
-        onClose={() => {
-          setIsVirtualViewDialogOpen(false);
-          setEditingVirtualView(null);
-        }}
-        view={editingVirtualView}
       />
     </ViewLayout>
   );

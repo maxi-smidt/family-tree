@@ -10,7 +10,7 @@ def test_owner_can_share_and_revoke(client, db):
     tree = make_tree(db, owner)
 
     shared = client.post(
-        f"{API}/trees/{tree.id}/access",
+        f"{API}/workspaces/{tree.id}/access",
         headers=auth(owner),
         json={"username": "bob", "role": "viewer"},
     )
@@ -19,10 +19,10 @@ def test_owner_can_share_and_revoke(client, db):
     assert roles == {"owner": "owner", "bob": "viewer"}
 
     revoked = client.delete(
-        f"{API}/trees/{tree.id}/access/{bob.id}", headers=auth(owner)
+        f"{API}/workspaces/{tree.id}/access/{bob.id}", headers=auth(owner)
     )
     assert revoked.status_code == 204
-    after = client.get(f"{API}/trees/{tree.id}/access", headers=auth(owner)).json()
+    after = client.get(f"{API}/workspaces/{tree.id}/access", headers=auth(owner)).json()
     assert {m["username"] for m in after} == {"owner"}
 
 
@@ -31,7 +31,7 @@ def test_share_rejects_invalid_role(client, db):
     make_user(db, "bob")
     tree = make_tree(db, owner)
     res = client.post(
-        f"{API}/trees/{tree.id}/access",
+        f"{API}/workspaces/{tree.id}/access",
         headers=auth(owner),
         json={"username": "bob", "role": "superuser"},
     )
@@ -46,7 +46,7 @@ def test_non_owner_cannot_share(client, db):
     share(db, tree, editor, "editor")
 
     res = client.post(
-        f"{API}/trees/{tree.id}/access",
+        f"{API}/workspaces/{tree.id}/access",
         headers=auth(editor),
         json={"username": "bob", "role": "viewer"},
     )
@@ -63,17 +63,18 @@ def test_share_candidates_are_friends_minus_members(client, db):
     tree = make_tree(db, owner)
     share(db, tree, bob, "editor")
 
-    res = client.get(f"{API}/trees/{tree.id}/access/candidates", headers=auth(owner))
+    res = client.get(f"{API}/workspaces/{tree.id}/access/candidates", headers=auth(owner))
     assert res.status_code == 200
     # bob is already a member; carol is a friend without access; dave is neither.
     assert {c["username"] for c in res.json()} == {"carol"}
 
 
-def test_shared_editor_has_no_default_restrictions(client, db):
+def test_shared_editor_only_hides_health_by_default(client, db):
     """A directly-shared editor must be able to edit stories, events, etc.
 
     Regression: DEFAULT_RESTRICTIONS previously included every content domain,
     making freshly-shared editors unable to access anything beyond the tree.
+    Since #1101 only health data is hidden by default.
     """
     owner = make_user(db, "owner")
     bob = make_user(db, "bob")
@@ -81,17 +82,17 @@ def test_shared_editor_has_no_default_restrictions(client, db):
     tree = make_tree(db, owner)
 
     res = client.post(
-        f"{API}/trees/{tree.id}/access",
+        f"{API}/workspaces/{tree.id}/access",
         headers=auth(owner),
         json={"username": "bob", "role": "editor"},
     )
     assert res.status_code == 200
     bob_entry = next(m for m in res.json() if m["username"] == "bob")
-    assert bob_entry["restrictions"] == []
+    assert bob_entry["restrictions"] == ["diseases"]
 
     # Editor must be able to create a story without a 404 from require_domain.
     story_res = client.post(
-        f"{API}/trees/{tree.id}/stories",
+        f"{API}/workspaces/{tree.id}/stories",
         headers=auth(bob),
         json={"id": "s1", "title": "A tale", "created_at": _TS, "updated_at": _TS},
     )
@@ -104,7 +105,7 @@ def test_share_requires_friendship(client, db):
     tree = make_tree(db, owner)
 
     res = client.post(
-        f"{API}/trees/{tree.id}/access",
+        f"{API}/workspaces/{tree.id}/access",
         headers=auth(owner),
         json={"username": "stranger", "role": "viewer"},
     )

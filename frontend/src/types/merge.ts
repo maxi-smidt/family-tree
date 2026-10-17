@@ -24,7 +24,7 @@ export interface MergePreviewResult {
 }
 
 /**
- * Resolution for a single duplicate pair, sent in the POST /trees/merge body.
+ * Resolution for a single duplicate pair, sent in the POST /workspaces/merge body.
  */
 export interface MergeResolution {
   member_a_id: string;

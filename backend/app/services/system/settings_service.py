@@ -286,7 +286,7 @@ def user_has_accepted_legal(db: Session, user: User) -> bool:
     """Whether ``user`` has accepted the currently published legal version.
 
     Used both to expose ``legal_accepted`` on ``/me`` (informational) and to
-    hard-enforce the gate in ``get_writable_tree`` (blocking). When
+    hard-enforce the gate in ``get_writable_workspace`` (blocking). When
     ``legal_acceptance_required`` is off, every user is considered accepted.
 
     The ``legal_acceptances`` table is the single source of truth: acceptance
@@ -336,29 +336,19 @@ def get_settings_out(db: Session) -> SettingsOut:
         ),
         image_storage_mode=media_limits.image_storage_mode,
         image_storage_allowed_modes=media_limits.image_storage_allowed_modes,
-        legal_acceptance_required=get_bool_setting(
-            db, "legal_acceptance_required", True
-        ),
+        legal_acceptance_required=get_bool_setting(db, "legal_acceptance_required", True),
         legal_version=get_setting(db, "legal_version", "1") or "1",
         legal_terms_body_de=get_setting(db, legal_body_setting_key("terms", "de"), "")
         or "",
         legal_terms_body_en=get_setting(db, legal_body_setting_key("terms", "en"), "")
         or "",
-        legal_privacy_body_de=get_setting(
-            db, legal_body_setting_key("privacy", "de"), ""
-        )
+        legal_privacy_body_de=get_setting(db, legal_body_setting_key("privacy", "de"), "")
         or "",
-        legal_privacy_body_en=get_setting(
-            db, legal_body_setting_key("privacy", "en"), ""
-        )
+        legal_privacy_body_en=get_setting(db, legal_body_setting_key("privacy", "en"), "")
         or "",
-        legal_imprint_body_de=get_setting(
-            db, legal_body_setting_key("imprint", "de"), ""
-        )
+        legal_imprint_body_de=get_setting(db, legal_body_setting_key("imprint", "de"), "")
         or "",
-        legal_imprint_body_en=get_setting(
-            db, legal_body_setting_key("imprint", "en"), ""
-        )
+        legal_imprint_body_en=get_setting(db, legal_body_setting_key("imprint", "en"), "")
         or "",
     )
 

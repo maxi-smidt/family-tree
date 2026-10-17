@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useReactFlow, getNodesBounds } from "@xyflow/react";
 import { toPng } from "html-to-image";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 
 const EXPORT_PADDING_PX = 40;
 const EXPORT_PIXEL_RATIO = 2;
@@ -51,7 +51,7 @@ function inlineSvgStyles(container: HTMLElement): () => void {
 export function useTreeExport() {
   const [isExporting, setIsExporting] = useState(false);
   const { getNodes } = useReactFlow();
-  const treeName = useTreeStore((s) => s.selectedTree?.name);
+  const workspaceName = useWorkspaceStore((s) => s.selectedTree?.name);
 
   async function exportImage() {
     const nodes = getNodes();
@@ -108,7 +108,7 @@ export function useTreeExport() {
       });
 
       const a = document.createElement("a");
-      a.setAttribute("download", `${treeName ?? "family-tree"}.png`);
+      a.setAttribute("download", `${workspaceName ?? "family-tree"}.png`);
       a.setAttribute("href", dataUrl);
       a.click();
     } finally {

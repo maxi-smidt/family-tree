@@ -1,5 +1,5 @@
 import { api } from "@/services/api";
-import { ShareCandidate, Tree, TreeAccess } from "@/types/tree";
+import { ShareCandidate, Workspace, WorkspaceAccess } from "@/types/workspace";
 import { TotpSetupResponse, User } from "@/types/user";
 
 export interface TwoFactorSetup {
@@ -57,17 +57,17 @@ export const AuthService = {
     });
   },
 
-  async getOwnedTrees(): Promise<Tree[]> {
-    const trees = await api.get<Tree[]>("/trees");
-    return trees.filter((tree) => tree.role === "owner");
+  async getOwnedTrees(): Promise<Workspace[]> {
+    const workspaces = await api.get<Workspace[]>("/workspaces");
+    return workspaces.filter((tree) => tree.role === "owner");
   },
 
   async getOwnershipTransferTargets(
-    treeId: string,
+    workspaceId: string,
   ): Promise<Array<{ user_id: string; username: string }>> {
     const [accessList, candidates] = await Promise.all([
-      api.get<TreeAccess[]>(`/trees/${treeId}/access`),
-      api.get<ShareCandidate[]>(`/trees/${treeId}/access/candidates`),
+      api.get<WorkspaceAccess[]>(`/workspaces/${workspaceId}/access`),
+      api.get<ShareCandidate[]>(`/workspaces/${workspaceId}/access/candidates`),
     ]);
     return [
       ...accessList
@@ -80,7 +80,7 @@ export const AuthService = {
     ].sort((left, right) => left.username.localeCompare(right.username));
   },
 
-  transferOwnership(treeId: string, username: string): Promise<void> {
-    return api.post<void>(`/trees/${treeId}/transfer`, { username });
+  transferOwnership(workspaceId: string, username: string): Promise<void> {
+    return api.post<void>(`/workspaces/${workspaceId}/transfer`, { username });
   },
 };

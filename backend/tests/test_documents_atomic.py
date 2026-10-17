@@ -41,7 +41,7 @@ def _stage(client, user, tree, content=_HELLO, filename="scan.txt", checksum=Non
     if checksum is not None:
         data["checksum"] = checksum
     return client.post(
-        f"{API}/trees/{tree.id}/documents/uploads",
+        f"{API}/workspaces/{tree.id}/documents/uploads",
         headers=auth(user),
         data=data,
         files={"file": (filename, content, "text/plain")},
@@ -51,22 +51,18 @@ def _stage(client, user, tree, content=_HELLO, filename="scan.txt", checksum=Non
 def _save(client, user, tree, doc_id, **body):
     payload = {"title": "Doc", "member_ids": ["m1"], **body}
     return client.put(
-        f"{API}/trees/{tree.id}/documents/{doc_id}",
+        f"{API}/workspaces/{tree.id}/documents/{doc_id}",
         headers=auth(user),
         json=payload,
     )
 
 
-def _media_files(media_root, tree_id):
+def _media_files(media_root, workspace_id):
     """Committed/staged files in the tree dir (excluding in-flight temp files)."""
-    tree_dir = media_root / tree_id
+    tree_dir = media_root / workspace_id
     if not tree_dir.is_dir():
         return []
-    return [
-        p
-        for p in tree_dir.iterdir()
-        if p.is_file() and not p.name.startswith(".")
-    ]
+    return [p for p in tree_dir.iterdir() if p.is_file() and not p.name.startswith(".")]
 
 
 def _rel(url):
@@ -74,9 +70,7 @@ def _rel(url):
 
 
 def _docs(client, user, tree):
-    return client.get(
-        f"{API}/trees/{tree.id}/documents", headers=auth(user)
-    ).json()
+    return client.get(f"{API}/workspaces/{tree.id}/documents", headers=auth(user)).json()
 
 
 # ---------------------------------------------------------------------------
@@ -125,7 +119,10 @@ def test_save_attaches_upload_link_and_members(client, db, media_root):
     upload_id = _stage(client, user, tree).json()["id"]
 
     res = _save(
-        client, user, tree, "doc-1",
+        client,
+        user,
+        tree,
+        "doc-1",
         title="Birth record",
         member_ids=["m1", "m2"],
         attached_upload_ids=[upload_id],
@@ -153,7 +150,10 @@ def test_save_replaces_file_staging_before_removal(client, db, media_root):
 
     new_id = _stage(client, user, tree, content=_WORLD, filename="new.txt").json()["id"]
     res = _save(
-        client, user, tree, "doc-1",
+        client,
+        user,
+        tree,
+        "doc-1",
         attached_upload_ids=[new_id],
         removed_file_ids=[old_id],
     )
@@ -172,7 +172,10 @@ def test_save_renames_and_removes_without_touching_kept_files(client, db, media_
     _save(client, user, tree, "doc-1", attached_upload_ids=[keep_id, drop_id])
 
     res = _save(
-        client, user, tree, "doc-1",
+        client,
+        user,
+        tree,
+        "doc-1",
         removed_file_ids=[drop_id],
         renamed_files=[{"id": keep_id, "filename": "renamed.txt"}],
     )
@@ -235,7 +238,10 @@ def test_invalid_link_leaves_previous_document_intact(client, db, media_root):
     _save(client, user, tree, "doc-1", title="Doc")
 
     res = _save(
-        client, user, tree, "doc-1",
+        client,
+        user,
+        tree,
+        "doc-1",
         title="Changed",
         added_links=[{"id": "bad", "url": "javascript:alert(1)", "filename": None}],
     )
@@ -253,7 +259,7 @@ def test_cross_tree_document_id_rejected(client, db):
     _save(client, user, tree, "doc-1")
 
     res = client.put(
-        f"{API}/trees/{other.id}/documents/doc-1",
+        f"{API}/workspaces/{other.id}/documents/doc-1",
         headers=auth(user),
         json={"title": "X", "member_ids": ["o1"]},
     )
@@ -280,7 +286,10 @@ def test_db_commit_failure_compensates_and_keeps_prior_document(
 
     with pytest.raises(RuntimeError, match="commit boom"):
         _save(
-            client, user, tree, "doc-1",
+            client,
+            user,
+            tree,
+            "doc-1",
             title="Changed",
             attached_upload_ids=[new_id],
             removed_file_ids=[old_id],

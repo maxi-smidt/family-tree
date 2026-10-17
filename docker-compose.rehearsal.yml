@@ -1,0 +1,37 @@
+# Packaged v1 -> v2 upgrade rehearsal only (#1022) — layers a throwaway,
+# host-reachable Postgres onto docker-compose.prod.yml and publishes the
+# backend's port directly, so the release workflow can seed a legacy fixture
+# straight into Postgres and drive the candidate backend image's health
+# endpoints from the runner without needing the frontend/nginx in front of it:
+#
+#   docker compose -f docker-compose.prod.yml -f docker-compose.rehearsal.yml up -d db
+#   ... seed the fixture directly against localhost:5433 ...
+#   docker compose -f docker-compose.prod.yml -f docker-compose.rehearsal.yml up -d backend
+#
+# All credentials and ports here are throwaway values, safe for CI only.
+
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: familytree
+      POSTGRES_PASSWORD: familytree
+      POSTGRES_DB: familytree
+      # See docker-compose.smoke.yml for why this is required on postgres:18+.
+      PGDATA: /var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U familytree"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    tmpfs:
+      - /var/lib/postgresql/data # ephemeral: wiped on every compose down
+
+  backend:
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8001:8000"

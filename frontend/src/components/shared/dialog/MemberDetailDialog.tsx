@@ -169,8 +169,8 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
                   disableNameLink
                 />
               </div>
-              <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Item variant="muted">
+              <div className="flex-1 w-full grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+                <Item variant="field">
                   <ItemContent>
                     <ItemTitle>{t("firstname")}</ItemTitle>
                     <ItemDescription className="text-foreground">
@@ -178,7 +178,7 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
                     </ItemDescription>
                   </ItemContent>
                 </Item>
-                <Item variant="muted">
+                <Item variant="field">
                   <ItemContent>
                     <ItemTitle>{t("lastname")}</ItemTitle>
                     <ItemDescription className="text-foreground">
@@ -187,7 +187,7 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
                   </ItemContent>
                 </Item>
                 {currentMember.maidenName && (
-                  <Item variant="muted">
+                  <Item variant="field">
                     <ItemContent>
                       <ItemTitle>{t("maiden")}</ItemTitle>
                       <ItemDescription className="text-foreground">
@@ -196,7 +196,7 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
                     </ItemContent>
                   </Item>
                 )}
-                <Item variant="muted">
+                <Item variant="field">
                   <ItemContent>
                     <ItemTitle>{t("gender")}</ItemTitle>
                     <ItemDescription className="capitalize text-foreground">
@@ -204,7 +204,7 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
                     </ItemDescription>
                   </ItemContent>
                 </Item>
-                <Item variant="muted">
+                <Item variant="field">
                   <ItemContent>
                     <ItemTitle>{t("dob")}</ItemTitle>
                     <ItemDescription className="text-foreground">
@@ -212,7 +212,7 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
                     </ItemDescription>
                   </ItemContent>
                 </Item>
-                <Item variant="muted">
+                <Item variant="field">
                   <ItemContent>
                     <ItemTitle>{t("dod")}</ItemTitle>
                     <ItemDescription className="text-foreground">
@@ -228,7 +228,7 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
             </div>
 
             {currentMember.additionalData && (
-              <Item variant="muted">
+              <Item variant="field">
                 <ItemContent>
                   <ItemTitle>{t("notes")}</ItemTitle>
                   <ItemDescription className="whitespace-pre-wrap line-clamp-none">
@@ -239,7 +239,7 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
             )}
 
             {hasLocations && (
-              <Item variant="muted">
+              <Item variant="field">
                 <ItemContent>
                   <ItemTitle>{t("locations")}</ItemTitle>
                   <div className="space-y-2 mt-1">
@@ -295,7 +295,7 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {paternalParent && (
-                      <Item variant="muted">
+                      <Item variant="field">
                         <ItemContent>
                           <ItemTitle>{t("paternal-parent")}</ItemTitle>
                           <ItemDescription className="text-foreground">
@@ -305,7 +305,7 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
                       </Item>
                     )}
                     {maternalParent && (
-                      <Item variant="muted">
+                      <Item variant="field">
                         <ItemContent>
                           <ItemTitle>{t("maternal-parent")}</ItemTitle>
                           <ItemDescription className="text-foreground">
@@ -315,7 +315,7 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
                       </Item>
                     )}
                     {children.length > 0 && (
-                      <Item variant="muted">
+                      <Item variant="field">
                         <ItemContent>
                           <ItemTitle>
                             {t("children")} ({children.length})
@@ -332,7 +332,7 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
                       </Item>
                     )}
                     {siblings.length > 0 && (
-                      <Item variant="muted">
+                      <Item variant="field">
                         <ItemContent>
                           <ItemTitle>
                             {t("siblings")} ({siblings.length})

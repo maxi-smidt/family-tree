@@ -6,7 +6,11 @@ import { Member, MemberDB, MemberSearchHitDB } from "@/types/member";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
-import { memberMatchesSearch, formatMemberSubLabel } from "@/utils/memberUtils";
+import {
+  birthNameContext,
+  memberMatchesSearch,
+  formatMemberSubLabel,
+} from "@/utils/memberUtils";
 import { toast } from "sonner";
 
 const MAX_CURRENT_RESULTS = 8;
@@ -29,8 +33,8 @@ interface OtherTreeSearchResult {
 type SearchResult = CurrentSearchResult | OtherTreeSearchResult;
 
 interface OtherTreeGroup {
-  treeId: string;
-  treeName: string;
+  workspaceId: string;
+  workspaceName: string;
   members: MemberSearchHitDB[];
 }
 
@@ -40,9 +44,9 @@ interface CanvasSearchProps {
   className?: string;
   /** Present only when the tree is in windowed (focused) mode. */
   windowed?: boolean;
-  treeId?: string;
+  workspaceId?: string;
   onFocusRoot?: (memberId: string) => void;
-  onOpenOtherTree: (treeId: string, memberId: string) => Promise<void>;
+  onOpenOtherTree: (workspaceId: string, memberId: string) => Promise<void>;
 }
 
 function memberName(member: CurrentSearchMember | MemberSearchHitDB): string {
@@ -58,14 +62,14 @@ function memberBirthDate(
 /**
  * Search box rendered on the tree canvas. The current tree always finishes
  * first; only then does a second, capped request look through the user's
- * other readable trees.
+ * other readable workspaces.
  */
 export const CanvasSearch = ({
   members,
   onLocate,
   className,
   windowed = false,
-  treeId,
+  workspaceId,
   onFocusRoot,
   onOpenOtherTree,
 }: CanvasSearchProps) => {
@@ -100,7 +104,7 @@ export const CanvasSearch = ({
 
   // A windowed tree needs a server request to complete its current-tree
   // results. Once that is complete (or a normal tree's local pass is ready),
-  // start the second search for other readable trees.
+  // start the second search for other readable workspaces.
   useEffect(() => {
     const normalizedQuery = query.trim();
     const requestId = ++searchRequestRef.current;
@@ -120,7 +124,7 @@ export const CanvasSearch = ({
       try {
         const results = await searchOtherTrees(
           normalizedQuery,
-          treeId,
+          workspaceId,
           MAX_RESULTS_PER_OTHER_TREE,
           MAX_OTHER_TREE_RESULTS,
         );
@@ -132,7 +136,7 @@ export const CanvasSearch = ({
       }
     };
 
-    if (!windowed || !treeId) {
+    if (!windowed || !workspaceId) {
       setServerResults([]);
       setIsSearchingCurrent(false);
       const timer = setTimeout(() => {
@@ -146,7 +150,7 @@ export const CanvasSearch = ({
       void (async () => {
         try {
           const results = await searchMembers(
-            treeId,
+            workspaceId,
             normalizedQuery,
             MAX_CURRENT_RESULTS,
           );
@@ -160,7 +164,7 @@ export const CanvasSearch = ({
       })();
     }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [query, searchMembers, searchOtherTrees, treeId, windowed]);
+  }, [query, searchMembers, searchOtherTrees, workspaceId, windowed]);
 
   const currentResults: CurrentSearchMember[] = windowed
     ? serverResults
@@ -168,13 +172,13 @@ export const CanvasSearch = ({
   const otherTreeGroups = useMemo(() => {
     const groups = new Map<string, OtherTreeGroup>();
     for (const member of otherTreeResults) {
-      const existing = groups.get(member.treeId);
+      const existing = groups.get(member.workspaceId);
       if (existing) {
         existing.members.push(member);
       } else {
-        groups.set(member.treeId, {
-          treeId: member.treeId,
-          treeName: member.treeName,
+        groups.set(member.workspaceId, {
+          workspaceId: member.workspaceId,
+          workspaceName: member.workspaceName,
           members: [member],
         });
       }
@@ -217,7 +221,7 @@ export const CanvasSearch = ({
 
   const selectOtherTree = async (member: MemberSearchHitDB) => {
     try {
-      await onOpenOtherTree(member.treeId, member.id);
+      await onOpenOtherTree(member.workspaceId, member.id);
       setQuery("");
       setIsOpen(false);
     } catch {
@@ -271,16 +275,22 @@ export const CanvasSearch = ({
     const sublabel = formatMemberSubLabel(
       member.maidenName,
       memberBirthDate(member),
-      (maidenName) => t("nee", { name: maidenName }),
+      (maidenName) =>
+        t("nee", {
+          name: maidenName,
+          context: birthNameContext(member.gender),
+        }),
     );
     const isOtherTree = kind === "other";
-    const treeName = isOtherTree ? (member as MemberSearchHitDB).treeName : "";
+    const workspaceName = isOtherTree
+      ? (member as MemberSearchHitDB).workspaceName
+      : "";
 
     return (
       <li
         key={
           isOtherTree
-            ? `${(member as MemberSearchHitDB).treeId}:${member.id}`
+            ? `${(member as MemberSearchHitDB).workspaceId}:${member.id}`
             : member.id
         }
       >
@@ -299,7 +309,7 @@ export const CanvasSearch = ({
           }
           aria-label={
             isOtherTree
-              ? t("open-other-tree", { tree: treeName, member: name })
+              ? t("open-other-tree", { tree: workspaceName, member: name })
               : undefined
           }
         >
@@ -377,18 +387,18 @@ export const CanvasSearch = ({
           {hasOtherTreeSection && (
             <li className="border-t">
               <div className="px-3 pb-1 pt-2 text-xs font-medium text-muted-foreground">
-                {t("other-trees")}
+                {t("other-workspaces")}
               </div>
               {isSearchingOtherTrees ? (
                 <div className="px-3 py-2 text-sm text-muted-foreground">
-                  {t("other-trees-searching")}
+                  {t("other-workspaces-searching")}
                 </div>
               ) : (
                 <ul>
                   {otherTreeGroups.map((group) => (
-                    <li key={group.treeId}>
+                    <li key={group.workspaceId}>
                       <div className="px-3 pb-1 pt-2 text-xs text-muted-foreground">
-                        {group.treeName}
+                        {group.workspaceName}
                       </div>
                       <ul>
                         {group.members.map((member) => {

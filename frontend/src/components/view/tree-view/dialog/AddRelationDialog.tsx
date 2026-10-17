@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useState } from "react";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { PARENT_RELATION_TYPE, RelationType } from "@/types/member";
 import { resolveRelationLabel } from "@/utils/relationLabelUtils";
 import { useTranslation } from "react-i18next";
@@ -35,7 +35,7 @@ export const AddRelationDialog = ({
   const { t: tRelation } = useTranslation(undefined, {
     keyPrefix: "common.relation-types",
   });
-  const { relationTypes } = useTreeStore();
+  const { relationTypes } = useWorkspaceStore();
   const [selectedType, setSelectedType] = useState<RelationType>("partner");
 
   const handleConfirm = () => {

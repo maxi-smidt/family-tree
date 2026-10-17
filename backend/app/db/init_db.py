@@ -13,6 +13,7 @@ from app.core.config import settings
 from app.core.security import hash_password
 from app.db.session import SessionLocal
 from app.models import RelationType, User
+from app.services.migration.orchestrator import run_startup_migration
 from app.services.system.backups.backup_service import reconcile_interrupted_restore
 from app.services.system.settings_service import ensure_defaults
 
@@ -26,6 +27,14 @@ BACKEND_DIR = Path(__file__).resolve().parents[2]
 # that the normal upgrade can apply post-squash migrations on top.
 BASELINE_REVISION = "v1_0_0_baseline"
 
+# The v2.0.0 schema was squashed into one revision. A database built from the
+# pre-squash v2 chain and sitting at its old head already has exactly that
+# schema, so it is restamped onto the squashed revision instead of the
+# baseline (rebuilding v2 on top of v2 tables would fail).
+SQUASHED_V2_HEADS: dict[str, str] = {
+    "v2_0_0_idempotency_target_id": "v2_0_0_workspaces",
+}
+
 # Seeded into the instance-wide registry on startup. Admins manage the registry
 # afterwards, so startup only tops up built-in defaults that are missing.
 DEFAULT_RELATION_TYPES: list[str] = [
@@ -36,6 +45,15 @@ DEFAULT_RELATION_TYPES: list[str] = [
     "step-parent",
     "other",
 ]
+
+
+def _current_heads() -> tuple[str, ...]:
+    engine = create_engine(settings.sqlalchemy_database_uri)
+    try:
+        with engine.connect() as conn:
+            return tuple(MigrationContext.configure(conn).get_current_heads())
+    finally:
+        engine.dispose()
 
 
 def _stored_revision_is_unknown(cfg: Config) -> bool:
@@ -49,12 +67,7 @@ def _stored_revision_is_unknown(cfg: Config) -> bool:
     script = ScriptDirectory.from_config(cfg)
     known_ids = {rev.revision for rev in script.walk_revisions()}
 
-    engine = create_engine(settings.sqlalchemy_database_uri)
-    try:
-        with engine.connect() as conn:
-            current_heads = MigrationContext.configure(conn).get_current_heads()
-    finally:
-        engine.dispose()
+    current_heads = _current_heads()
 
     if not current_heads:
         return False  # fresh DB; upgrade head will create the schema normally
@@ -66,6 +79,16 @@ def run_migrations() -> None:
     cfg = Config(str(BACKEND_DIR / "alembic.ini"))
     cfg.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
     cfg.set_main_option("sqlalchemy.url", settings.sqlalchemy_database_uri)
+
+    current_heads = _current_heads()
+    if len(current_heads) == 1 and current_heads[0] in SQUASHED_V2_HEADS:
+        squashed = SQUASHED_V2_HEADS[current_heads[0]]
+        logger.warning(
+            "Database is at pre-squash v2 revision %s. Restamping it as %s.",
+            current_heads[0],
+            squashed,
+        )
+        command.stamp(cfg, squashed, purge=True)
 
     if _stored_revision_is_unknown(cfg):
         logger.warning(
@@ -87,6 +110,15 @@ def init_db() -> None:
     settings.APP_DATA_PATH.mkdir(parents=True, exist_ok=True)
 
     run_migrations()
+
+    # The v2 startup migration (#994) must settle before anything else below
+    # touches the database or media tree: it holds an exclusive advisory lock
+    # for as long as a v1->v2 conversion is pending or in progress, so a
+    # sibling worker process blocks here too instead of racing ahead into
+    # restore reconciliation, seeding, or (once lifespan reaches `yield`)
+    # normal requests and background jobs.
+    with SessionLocal() as db:
+        run_startup_migration(db)
 
     # Reconcile any restore interrupted by a crash before the media root is
     # (re)created below — an empty directory here would block the rollback

@@ -5,6 +5,10 @@ const API_URL = process.env.E2E_API_URL ?? `${BASE_URL}/api`;
 
 export default defineConfig({
   testDir: "./tests",
+  // tests/migrated/** needs a stack booted from the seeded-v1 fixture (see
+  // playwright.migrated.config.ts) — running it here against the ordinary
+  // fresh-install stack would just fail to find any of that data.
+  testIgnore: ["**/migrated/**"],
   globalSetup: "./fixtures/global-setup.ts",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,

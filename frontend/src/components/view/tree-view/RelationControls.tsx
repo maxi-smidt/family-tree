@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button";
+import { ToolbarButton } from "@/components/view/tree-view/CanvasToolbar";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { Settings2 } from "lucide-react";
 import {
   Tooltip,
@@ -27,23 +27,23 @@ export const RelationControls = () => {
     keyPrefix: "common.relation-types",
   });
   const { visibleRelationTypes, toggleRelationType } = useFamilyTreeSettings();
-  const { relationTypes } = useTreeStore();
+  const { relationTypes } = useWorkspaceStore();
 
   return (
     <DropdownMenu>
       <Tooltip>
         <TooltipTrigger asChild>
           <DropdownMenuTrigger asChild>
-            <Button variant="secondary" size="icon" aria-label={t("select-relation")}>
+            <ToolbarButton aria-label={t("select-relation")}>
               <Settings2 className="h-4 w-4" />
-            </Button>
+            </ToolbarButton>
           </DropdownMenuTrigger>
         </TooltipTrigger>
-        <TooltipContent side="left">{t("select-relation")}</TooltipContent>
+        <TooltipContent side="top">{t("select-relation")}</TooltipContent>
       </Tooltip>
       <DropdownMenuContent
         className="w-56"
-        side="left"
+        side="top"
         onCloseAutoFocus={(e) => e.preventDefault()}
       >
         <DropdownMenuLabel>{t("select-relation")}</DropdownMenuLabel>

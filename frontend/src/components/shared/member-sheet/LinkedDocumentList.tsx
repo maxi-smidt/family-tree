@@ -31,7 +31,7 @@ export const LinkedDocumentList = ({
         type="button"
         variant="ghost"
         size="sm"
-        className="h-7 gap-1.5 px-2 text-muted-foreground"
+        className="gap-1.5 px-2 text-muted-foreground"
         onClick={() => setExpanded((prev) => !prev)}
         aria-expanded={expanded}
         aria-label={expanded ? t("hide") : t("show")}

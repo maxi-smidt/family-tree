@@ -1,4 +1,6 @@
 export type ListColumnId =
+  | "name"
+  | "lifespan"
   | "photo"
   | "firstName"
   | "lastName"
@@ -11,29 +13,32 @@ export type ListColumnId =
   | "cemetery"
   | "age"
   | "childrenCount"
-  | "status"
-  | "sourceTree";
+  | "status";
 
 export const ALL_COLUMN_IDS: ListColumnId[] = [
+  "name",
+  "lifespan",
+  "birth",
+  "death",
+  "birthplace",
+  "hometown",
   "photo",
   "firstName",
   "lastName",
   "maidenName",
   "gender",
-  "birth",
-  "death",
-  "birthplace",
-  "hometown",
   "cemetery",
   "age",
   "childrenCount",
   "status",
-  "sourceTree",
 ];
 
 export const DEFAULT_HIDDEN_COLUMNS: ListColumnId[] = [
   "photo",
-  "hometown",
+  "firstName",
+  "lastName",
+  "maidenName",
+  "gender",
   "cemetery",
   "age",
   "childrenCount",
@@ -47,6 +52,8 @@ export interface ColumnDef {
 }
 
 export const COLUMN_MAP: Record<ListColumnId, ColumnDef> = {
+  name: { titleKey: "table.name", sortable: true, sortKey: "name" },
+  lifespan: { titleKey: "table.lifespan", sortable: true, sortKey: "age" },
   photo: { titleKey: "table.photo" },
   firstName: {
     titleKey: "table.first-name",
@@ -72,5 +79,4 @@ export const COLUMN_MAP: Record<ListColumnId, ColumnDef> = {
     sortKey: "childrenCount",
   },
   status: { titleKey: "table.status" },
-  sourceTree: { titleKey: "table.source-tree" },
 };

@@ -6,6 +6,12 @@
 
 import { API_URL } from "../playwright.config";
 
+// The backend's SchemaEpochMiddleware (#1012) fails closed any mutation that
+// doesn't declare the wire contract it was written against — mirrors
+// frontend/src/services/api.ts's FRONTEND_SCHEMA_EPOCH. Bump both together.
+export const SCHEMA_EPOCH_HEADER = "X-Schema-Epoch";
+export const CURRENT_SCHEMA_EPOCH = "2";
+
 export interface ApiClient {
   token: string;
   get<T = unknown>(path: string): Promise<T>;
@@ -45,10 +51,11 @@ export async function waitForJob(
     if (!res.ok) throw new Error(`GET /jobs/${jobId} → ${res.status}`);
     const job = (await res.json()) as {
       status: string;
-      result_tree_id?: string;
+      result_workspace_id?: string;
       error?: string;
     };
-    if (job.status === "done" && job.result_tree_id) return job.result_tree_id;
+    if (job.status === "done" && job.result_workspace_id)
+      return job.result_workspace_id;
     if (job.status === "failed") throw new Error(`Job failed: ${job.error}`);
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
@@ -61,6 +68,7 @@ export function makeApiClient(token: string): ApiClient {
   const headers = () => ({
     "Content-Type": "application/json",
     Authorization: `Bearer ${token}`,
+    [SCHEMA_EPOCH_HEADER]: CURRENT_SCHEMA_EPOCH,
   });
 
   async function request<T>(

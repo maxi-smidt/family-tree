@@ -1,29 +1,33 @@
 import { type MouseEvent, useEffect, useMemo, useState } from "react";
+import { canEditArea } from "@/utils/accessLevels";
 import { useTranslation } from "react-i18next";
 import {
   BookOpen,
   CalendarDays,
   ChevronDown,
-  ChevronUp,
+  FileImage,
   FileText,
   Link as LinkIcon,
   Pencil,
   Plus,
-  Search,
   Trash2,
-  UserRound,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { SearchInput } from "@/components/shared/SearchInput";
+import { MemberChip } from "@/components/shared/MemberChip";
+import { cn } from "@/lib/utils";
+import type { Member } from "@/types/member";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
@@ -37,7 +41,7 @@ import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { type Document, type DocumentFile } from "@/types/document";
 import { formatDate } from "@/utils/dateUtils";
 
@@ -45,13 +49,27 @@ type LinkFilter = "all" | "unlinked";
 
 function DocumentsSkeleton() {
   return (
-    <div className="space-y-3">
+    <div className="shrink-0 overflow-hidden rounded-2xl border bg-card">
       {Array.from({ length: 5 }).map((_, index) => (
-        <Skeleton key={index} className="h-32 w-full" />
+        <div
+          key={index}
+          className="flex items-center gap-3 border-b px-5 py-3.5 last:border-0"
+        >
+          <Skeleton className="size-9 rounded-lg" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-1/3" />
+            <Skeleton className="h-3 w-1/5" />
+          </div>
+        </div>
       ))}
     </div>
   );
 }
+
+const isUnlinked = (document: Document) =>
+  document.memberIds.length === 0 &&
+  document.eventIds.length === 0 &&
+  document.storyIds.length === 0;
 
 export const DocumentsView = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "documents-view" });
@@ -68,8 +86,8 @@ export const DocumentsView = () => {
     initialized: storiesInitialized,
     refreshStories,
   } = useStoryStore();
-  const isReady = useTreeStore((state) => state.isReady);
-  const selectedTree = useTreeStore((state) => state.selectedTree);
+  const isReady = useWorkspaceStore((state) => state.isReady);
+  const selectedTree = useWorkspaceStore((state) => state.selectedTree);
   const restrictions = selectedTree?.restrictions ?? [];
   const canAccessEvents = !restrictions.includes("events");
   const canAccessStories = !restrictions.includes("stories");
@@ -107,11 +125,7 @@ export const DocumentsView = () => {
   const filteredDocuments = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLocaleLowerCase();
     return documents.filter((document) => {
-      const unlinked =
-        document.memberIds.length === 0 &&
-        document.eventIds.length === 0 &&
-        document.storyIds.length === 0;
-      if (linkFilter === "unlinked" && !unlinked) return false;
+      if (linkFilter === "unlinked" && !isUnlinked(document)) return false;
       if (!normalizedSearch) return true;
 
       return [
@@ -122,14 +136,22 @@ export const DocumentsView = () => {
     });
   }, [documents, linkFilter, searchTerm]);
 
+  const unlinkedCount = useMemo(
+    () => documents.filter(isUnlinked).length,
+    [documents],
+  );
+  const peopleCovered = useMemo(
+    () => new Set(documents.flatMap((d) => d.memberIds)).size,
+    [documents],
+  );
+
   const pageCount = Math.ceil(filteredDocuments.length / pageSize);
   const activePage = Math.min(page, Math.max(pageCount - 1, 0));
   const pagedDocuments = filteredDocuments.slice(
     activePage * pageSize,
     (activePage + 1) * pageSize,
   );
-  const canWrite =
-    selectedTree?.role === "owner" || selectedTree?.role === "editor";
+  const canWrite = !!selectedTree && canEditArea(selectedTree, "sources");
 
   const handleDelete = async () => {
     if (!documentToDelete) return;
@@ -150,6 +172,11 @@ export const DocumentsView = () => {
   return (
     <ViewLayout
       title={t("title")}
+      subtitle={
+        documents.length > 0
+          ? t("subtitle", { count: documents.length, people: peopleCovered })
+          : undefined
+      }
       action={
         canWrite ? (
           <Button onClick={handleAdd}>
@@ -159,56 +186,72 @@ export const DocumentsView = () => {
         ) : undefined
       }
       toolbar={
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          <div className="relative w-full sm:w-72">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
+        documents.length === 0 ? undefined : (
+          <div className="flex flex-wrap items-center gap-2">
+            <ToggleGroup
+              type="single"
+              variant="chip"
+              size="sm"
+              spacing={2}
+              value={linkFilter}
+              onValueChange={(value) =>
+                value && setLinkFilter(value as LinkFilter)
+              }
+              aria-label={t("filter-label")}
+            >
+              <ToggleGroupItem value="all">
+                {t("filter-all")}
+                <span className="tabular-nums opacity-60">
+                  {documents.length}
+                </span>
+              </ToggleGroupItem>
+              <ToggleGroupItem value="unlinked">
+                {t("filter-unlinked")}
+                <span className="tabular-nums opacity-60">{unlinkedCount}</span>
+              </ToggleGroupItem>
+            </ToggleGroup>
+            <div className="hidden flex-1 sm:block" />
+            <SearchInput
+              size="sm"
+              containerClassName="w-full sm:w-64"
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
+              onClear={() => setSearchTerm("")}
               placeholder={t("search-placeholder")}
-              className="pl-8"
             />
           </div>
-          <Select
-            value={linkFilter}
-            onValueChange={(value: LinkFilter) => setLinkFilter(value)}
-          >
-            <SelectTrigger className="w-44">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t("filter-all")}</SelectItem>
-              <SelectItem value="unlinked">{t("filter-unlinked")}</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        )
       }
     >
       {!isReady || !initialized ? (
         <DocumentsSkeleton />
       ) : documents.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center rounded-lg border p-6 text-center">
-          <FileText className="mb-3 h-10 w-10 text-muted-foreground" />
-          <h2 className="font-medium">{t("empty-title")}</h2>
-          <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-            {t("empty-description")}
-          </p>
+        <Empty className="flex-1 border">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <FileText />
+            </EmptyMedia>
+            <EmptyTitle>{t("empty-title")}</EmptyTitle>
+            <EmptyDescription>{t("empty-description")}</EmptyDescription>
+          </EmptyHeader>
           {canWrite && (
-            <Button className="mt-4" onClick={handleAdd}>
-              <Plus />
-              {t("add")}
-            </Button>
+            <EmptyContent>
+              <Button onClick={handleAdd}>
+                <Plus />
+                {t("add")}
+              </Button>
+            </EmptyContent>
           )}
-        </div>
+        </Empty>
       ) : filteredDocuments.length === 0 ? (
         <p className="py-8 text-center text-sm text-muted-foreground">
           {t("no-results")}
         </p>
       ) : (
         <>
-          <div className="space-y-3">
+          <ul className="shrink-0 divide-y overflow-hidden rounded-2xl border bg-card shadow-xs">
             {pagedDocuments.map((document) => (
-              <DocumentCard
+              <DocumentRow
                 key={document.id}
                 document={document}
                 canWrite={canWrite}
@@ -220,7 +263,7 @@ export const DocumentsView = () => {
                 onDelete={() => setDocumentToDelete(document)}
               />
             ))}
-          </div>
+          </ul>
           <ListPagination
             page={activePage}
             pageSize={pageSize}
@@ -249,10 +292,10 @@ export const DocumentsView = () => {
   );
 };
 
-interface DocumentCardProps {
+interface DocumentRowProps {
   document: Document;
   canWrite: boolean;
-  membersById: Map<string, { firstName: string; lastName: string }>;
+  membersById: Map<string, Member>;
   eventsById: Map<string, { eventType: string; date: string }>;
   storiesById: Map<string, { title: string }>;
   canNavigateTimeline: boolean;
@@ -260,7 +303,40 @@ interface DocumentCardProps {
   onDelete: () => void;
 }
 
-function DocumentCard({
+/** The tile on the left of a row: tinted by what the document mostly is. */
+function DocumentKindTile({ document }: { document: Document }) {
+  const file = document.files.find((f) => f.kind === "file");
+  const mime = file?.mimeType ?? "";
+  const kind = file
+    ? mime.startsWith("image/")
+      ? "image"
+      : mime === "application/pdf"
+        ? "pdf"
+        : "file"
+    : document.files.length > 0
+      ? "link"
+      : "empty";
+  const Icon =
+    kind === "image" ? FileImage : kind === "link" ? LinkIcon : FileText;
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "grid size-9 shrink-0 place-items-center rounded-lg",
+        kind === "pdf" && "bg-destructive-soft text-destructive",
+        kind === "image" && "bg-warning-soft text-warning",
+        kind === "link" && "bg-primary-soft text-primary",
+        (kind === "file" || kind === "empty") && "bg-gender-m-bg text-gender-m",
+      )}
+    >
+      <Icon className="size-4" />
+    </span>
+  );
+}
+
+const MAX_ROW_PEOPLE = 2;
+
+function DocumentRow({
   document,
   canWrite,
   membersById,
@@ -269,29 +345,22 @@ function DocumentCard({
   canNavigateTimeline,
   onEdit,
   onDelete,
-}: DocumentCardProps) {
+}: DocumentRowProps) {
   const { t } = useTranslation(undefined, { keyPrefix: "documents-view" });
-  const treeId = useTreeStore((state) => state.selectedTree?.id);
+  const workspaceId = useWorkspaceStore((state) => state.selectedTree?.id);
   const setOpenSheet = useMemberSheetStore((state) => state.setOpenSheet);
   const navigateTo = useNavigationStore((state) => state.navigateTo);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const attachments = document.files.filter((file) => file.kind === "file");
   const externalLinks = document.files.filter((file) => file.kind === "link");
-  const fileCount = attachments.length;
-  const linkCount = externalLinks.length;
   const detailsLabel = detailsOpen ? t("hide-details") : t("show-details");
-  const unlinked =
-    document.memberIds.length === 0 &&
-    document.eventIds.length === 0 &&
-    document.storyIds.length === 0;
+  const people = document.memberIds
+    .map((id) => membersById.get(id))
+    .filter((m): m is Member => !!m);
 
   const openDocument = () => {
-    const file = document.files.find((item) => item.kind === "file");
-    const link = document.files.find((item) => item.kind === "link");
-    const attachment = file ?? link;
-    if (attachment) {
-      openFile(attachment);
-    }
+    const attachment = attachments[0] ?? externalLinks[0];
+    if (attachment) openFile(attachment);
   };
 
   const openFile = (file: DocumentFile) => {
@@ -303,8 +372,8 @@ function DocumentCard({
   };
 
   const openMember = (memberId: string) => {
-    if (!treeId) return;
-    setOpenSheet(treeId, { memberId, tab: "records", mode: "view" });
+    if (!workspaceId) return;
+    setOpenSheet(workspaceId, { memberId, tab: "records", mode: "view" });
   };
 
   const renderAttachment = (file: DocumentFile) => (
@@ -313,14 +382,10 @@ function DocumentCard({
       type="button"
       variant="outline"
       size="sm"
-      className="h-7 max-w-60 gap-1 px-2"
+      className="max-w-60"
       onClick={() => openFile(file)}
     >
-      {file.kind === "file" ? (
-        <FileText className="h-3.5 w-3.5 shrink-0" />
-      ) : (
-        <LinkIcon className="h-3.5 w-3.5 shrink-0" />
-      )}
+      {file.kind === "file" ? <FileText /> : <LinkIcon />}
       <span className="truncate">{file.filename ?? file.url}</span>
     </Button>
   );
@@ -328,9 +393,16 @@ function DocumentCard({
   const isInteractiveTarget = (event: MouseEvent) =>
     (event.target as HTMLElement).closest("button, a, input") !== null;
 
+  const meta = [
+    attachments.length > 0 && t("file-count", { count: attachments.length }),
+    externalLinks.length > 0 &&
+      t("link-count", { count: externalLinks.length }),
+  ].filter(Boolean);
+
   return (
-    <Card
-      className="cursor-pointer p-4 transition-colors hover:bg-muted/40"
+    <li
+      data-slot="document-row"
+      className="cursor-pointer px-5 py-3 transition-colors hover:bg-muted/40"
       onClick={(event) => {
         if (isInteractiveTarget(event)) return;
         setDetailsOpen((open) => !open);
@@ -341,191 +413,171 @@ function DocumentCard({
       }}
       title={t("open-hint")}
     >
-      <div className="flex items-start gap-3">
-        <FileText className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h2 className="truncate font-medium">{document.title}</h2>
-              {document.documentDate && (
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {formatDate(document.documentDate)}
-                </p>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="flex min-w-0 flex-[2_1_16rem] items-center gap-3">
+          <DocumentKindTile document={document} />
+          <div className="min-w-0">
+            <h2 className="truncate text-sm font-semibold">{document.title}</h2>
+            <p className="truncate text-xs text-muted-foreground">
+              {meta.length > 0 ? meta.join(" · ") : t("no-files")}
+            </p>
+          </div>
+        </div>
+        <div className="flex min-w-0 flex-[1_1_12rem] flex-wrap items-center gap-1.5">
+          {people.slice(0, MAX_ROW_PEOPLE).map((member) => (
+            <MemberChip
+              key={member.id}
+              member={member}
+              hideLife
+              onOpen={openMember}
+            />
+          ))}
+          {people.length > MAX_ROW_PEOPLE && (
+            <span className="text-xs text-muted-foreground">
+              +{people.length - MAX_ROW_PEOPLE}
+            </span>
+          )}
+          {isUnlinked(document) && (
+            <Badge variant="warning">{t("unlinked")}</Badge>
+          )}
+        </div>
+        <span className="w-28 shrink-0 text-sm tabular-nums">
+          {document.documentDate ? formatDate(document.documentDate) : "—"}
+        </span>
+        <div className="ml-auto flex shrink-0 items-center gap-0.5">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-expanded={detailsOpen}
+            aria-label={detailsLabel}
+            title={detailsLabel}
+            onClick={() => setDetailsOpen((open) => !open)}
+          >
+            <ChevronDown
+              className={cn(
+                "transition-transform",
+                detailsOpen && "rotate-180",
               )}
-            </div>
-            <div className="ml-auto flex shrink-0 items-center gap-1">
+            />
+          </Button>
+          {canWrite && (
+            <>
               <Button
                 type="button"
-                variant="outline"
-                size="icon"
-                aria-expanded={detailsOpen}
-                aria-label={detailsLabel}
-                title={detailsLabel}
-                onClick={() => setDetailsOpen((open) => !open)}
+                variant="ghost"
+                size="icon-sm"
+                aria-label={t("edit")}
+                title={t("edit")}
+                onClick={onEdit}
               >
-                {detailsOpen ? (
-                  <ChevronUp className="h-4 w-4" />
-                ) : (
-                  <ChevronDown className="h-4 w-4" />
-                )}
+                <Pencil />
               </Button>
-              {canWrite && (
-                <>
-                  <div className="mx-1 h-5 border-l" aria-hidden="true" />
-                  <div className="flex gap-1">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label={t("edit")}
-                      title={t("edit")}
-                      onClick={onEdit}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="text-destructive hover:text-destructive"
-                      aria-label={t("delete")}
-                      title={t("delete")}
-                      onClick={onDelete}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
-            <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1">
-              <FileText className="h-3.5 w-3.5" />
-              {t("file-count", { count: fileCount })}
-            </span>
-            <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1">
-              <LinkIcon className="h-3.5 w-3.5" />
-              {t("link-count", { count: linkCount })}
-            </span>
-            {document.memberIds.length > 0 ? (
-              <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1">
-                <UserRound className="h-3.5 w-3.5" />
-                {t("linked-people-count", {
-                  count: document.memberIds.length,
-                })}
-              </span>
-            ) : (
-              unlinked && (
-                <span className="inline-flex items-center rounded-md bg-muted px-2 py-1">
-                  {t("unlinked")}
-                </span>
-              )
-            )}
-          </div>
-          {detailsOpen && (
-            <>
-              {document.description && (
-                <p className="mt-2 line-clamp-2 whitespace-pre-wrap text-sm text-muted-foreground">
-                  {document.description}
-                </p>
-              )}
-              {attachments.length > 0 && (
-                <div className="mt-3">
-                  <p className="text-xs font-medium text-muted-foreground">
-                    {t("attachments")}
-                  </p>
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {attachments.map(renderAttachment)}
-                  </div>
-                </div>
-              )}
-              {externalLinks.length > 0 && (
-                <div className="mt-3">
-                  <p className="text-xs font-medium text-muted-foreground">
-                    {t("external-links")}
-                  </p>
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {externalLinks.map(renderAttachment)}
-                  </div>
-                </div>
-              )}
-              {document.memberIds.length > 0 && (
-                <div className="mt-3">
-                  <p className="text-xs font-medium text-muted-foreground">
-                    {t("linked-people-heading")}
-                  </p>
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {document.memberIds.map((memberId) => {
-                      const member = membersById.get(memberId);
-                      const name = member
-                        ? `${member.firstName} ${member.lastName}`.trim()
-                        : t("unknown-member");
-                      return (
-                        <Button
-                          key={memberId}
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-7 max-w-48 gap-1 px-2"
-                          onClick={() => openMember(memberId)}
-                        >
-                          <UserRound className="h-3.5 w-3.5 shrink-0" />
-                          <span className="truncate">{name}</span>
-                        </Button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-              {(document.eventIds.length > 0 ||
-                document.storyIds.length > 0) && (
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {document.eventIds.map((eventId) => {
-                    const event = eventsById.get(eventId);
-                    const label = event
-                      ? `${event.eventType} · ${formatDate(event.date)}`
-                      : t("unknown-event");
-                    return (
-                      <Button
-                        key={eventId}
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-7 max-w-60 gap-1 px-2"
-                        disabled={!canNavigateTimeline}
-                        onClick={() => navigateTo("timeline-view")}
-                      >
-                        <CalendarDays className="h-3.5 w-3.5 shrink-0" />
-                        <span className="truncate">{label}</span>
-                      </Button>
-                    );
-                  })}
-                  {document.storyIds.map((storyId) => {
-                    const story = storiesById.get(storyId);
-                    return (
-                      <Button
-                        key={storyId}
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-7 max-w-60 gap-1 px-2"
-                        disabled={!canNavigateTimeline}
-                        onClick={() => navigateTo("timeline-view")}
-                      >
-                        <BookOpen className="h-3.5 w-3.5 shrink-0" />
-                        <span className="truncate">
-                          {story?.title || t("unknown-story")}
-                        </span>
-                      </Button>
-                    );
-                  })}
-                </div>
-              )}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="text-muted-foreground hover:bg-destructive-soft hover:text-destructive"
+                aria-label={t("delete")}
+                title={t("delete")}
+                onClick={onDelete}
+              >
+                <Trash2 />
+              </Button>
             </>
           )}
         </div>
       </div>
-    </Card>
+      {detailsOpen && (
+        <div className="mt-3 space-y-3 pl-12">
+          {document.description && (
+            <p className="whitespace-pre-wrap text-sm text-muted-foreground">
+              {document.description}
+            </p>
+          )}
+          {attachments.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground">
+                {t("attachments")}
+              </p>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {attachments.map(renderAttachment)}
+              </div>
+            </div>
+          )}
+          {externalLinks.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground">
+                {t("external-links")}
+              </p>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {externalLinks.map(renderAttachment)}
+              </div>
+            </div>
+          )}
+          {people.length > MAX_ROW_PEOPLE && (
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground">
+                {t("linked-people-heading")}
+              </p>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {people.map((member) => (
+                  <MemberChip
+                    key={member.id}
+                    member={member}
+                    fullName
+                    hideLife
+                    onOpen={openMember}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+          {(document.eventIds.length > 0 || document.storyIds.length > 0) && (
+            <div className="flex flex-wrap gap-1.5">
+              {document.eventIds.map((eventId) => {
+                const event = eventsById.get(eventId);
+                const label = event
+                  ? `${event.eventType} · ${formatDate(event.date)}`
+                  : t("unknown-event");
+                return (
+                  <Button
+                    key={eventId}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="max-w-60"
+                    disabled={!canNavigateTimeline}
+                    onClick={() => navigateTo("timeline-view")}
+                  >
+                    <CalendarDays />
+                    <span className="truncate">{label}</span>
+                  </Button>
+                );
+              })}
+              {document.storyIds.map((storyId) => {
+                const story = storiesById.get(storyId);
+                return (
+                  <Button
+                    key={storyId}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="max-w-60"
+                    disabled={!canNavigateTimeline}
+                    onClick={() => navigateTo("timeline-view")}
+                  >
+                    <BookOpen />
+                    <span className="truncate">
+                      {story?.title || t("unknown-story")}
+                    </span>
+                  </Button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </li>
   );
 }

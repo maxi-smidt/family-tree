@@ -52,11 +52,11 @@ vi.mock("@/services/api", () => ({
   },
 }));
 
-vi.mock("@/hooks/useTreeStore", () => {
+vi.mock("@/hooks/useWorkspaceStore", () => {
   const loadTrees = vi.fn().mockResolvedValue(undefined);
   const state: { selectedTree?: { id: string; name: string } } = {};
   return {
-    useTreeStore: {
+    useWorkspaceStore: {
       getState: () => ({
         loadTrees,
         selectedTree: state.selectedTree,
@@ -135,63 +135,63 @@ describe("realtime", () => {
     stopRealtime();
   });
 
-  it("dispatching tree.ownership_changed triggers loadTrees", async () => {
-    const { useTreeStore } = await import("@/hooks/useTreeStore");
-    const loadTrees = useTreeStore.getState().loadTrees;
+  it("dispatching workspace.ownership_changed triggers loadTrees", async () => {
+    const { useWorkspaceStore } = await import("@/hooks/useWorkspaceStore");
+    const loadTrees = useWorkspaceStore.getState().loadTrees;
 
     const { startRealtime, stopRealtime } = await import("./realtime");
     startRealtime();
     await waitForEventSource();
 
-    FakeEventSource.instance!.dispatch("tree.ownership_changed", {
-      tree_id: "t1",
+    FakeEventSource.instance!.dispatch("workspace.ownership_changed", {
+      workspace_id: "t1",
     });
 
     expect(loadTrees).toHaveBeenCalled();
     stopRealtime();
   });
 
-  it("dispatching tree.access_changed triggers loadTrees", async () => {
-    const { useTreeStore } = await import("@/hooks/useTreeStore");
-    const loadTrees = useTreeStore.getState().loadTrees;
+  it("dispatching workspace.access_changed triggers loadTrees", async () => {
+    const { useWorkspaceStore } = await import("@/hooks/useWorkspaceStore");
+    const loadTrees = useWorkspaceStore.getState().loadTrees;
 
     const { startRealtime, stopRealtime } = await import("./realtime");
     startRealtime();
     await waitForEventSource();
 
-    FakeEventSource.instance!.dispatch("tree.access_changed", {
-      tree_id: "t1",
+    FakeEventSource.instance!.dispatch("workspace.access_changed", {
+      workspace_id: "t1",
     });
 
     expect(loadTrees).toHaveBeenCalled();
     stopRealtime();
   });
 
-  it("dispatching tree.deleted triggers loadTrees", async () => {
-    const { useTreeStore } = await import("@/hooks/useTreeStore");
-    const loadTrees = useTreeStore.getState().loadTrees;
+  it("dispatching workspace.deleted triggers loadTrees", async () => {
+    const { useWorkspaceStore } = await import("@/hooks/useWorkspaceStore");
+    const loadTrees = useWorkspaceStore.getState().loadTrees;
 
     const { startRealtime, stopRealtime } = await import("./realtime");
     startRealtime();
     await waitForEventSource();
 
-    FakeEventSource.instance!.dispatch("tree.deleted", { tree_id: "t1" });
+    FakeEventSource.instance!.dispatch("workspace.deleted", { workspace_id: "t1" });
 
     expect(loadTrees).toHaveBeenCalled();
     stopRealtime();
   });
 
-  it("toasts when the active tree disappears after tree.access_changed (#814)", async () => {
-    const { useTreeStore } = await import("@/hooks/useTreeStore");
+  it("toasts when the active tree disappears after workspace.access_changed (#814)", async () => {
+    const { useWorkspaceStore } = await import("@/hooks/useWorkspaceStore");
     const { toast } = await import("sonner");
     const state = (
-      useTreeStore as unknown as {
+      useWorkspaceStore as unknown as {
         __state: { selectedTree?: { id: string; name: string } };
       }
     ).__state;
     state.selectedTree = { id: "t1", name: "Family" };
     // loadTrees drops the stale selection (access revoked server-side).
-    vi.mocked(useTreeStore.getState().loadTrees).mockImplementationOnce(
+    vi.mocked(useWorkspaceStore.getState().loadTrees).mockImplementationOnce(
       async () => {
         state.selectedTree = undefined;
       },
@@ -201,19 +201,19 @@ describe("realtime", () => {
     startRealtime();
     await waitForEventSource();
 
-    FakeEventSource.instance!.dispatch("tree.access_changed", {
-      tree_id: "t1",
+    FakeEventSource.instance!.dispatch("workspace.access_changed", {
+      workspace_id: "t1",
     });
 
     await vi.waitFor(() => expect(toast.error).toHaveBeenCalled());
     stopRealtime();
   });
 
-  it("does not toast when the active tree survives tree.access_changed", async () => {
-    const { useTreeStore } = await import("@/hooks/useTreeStore");
+  it("does not toast when the active tree survives workspace.access_changed", async () => {
+    const { useWorkspaceStore } = await import("@/hooks/useWorkspaceStore");
     const { toast } = await import("sonner");
     const state = (
-      useTreeStore as unknown as {
+      useWorkspaceStore as unknown as {
         __state: { selectedTree?: { id: string; name: string } };
       }
     ).__state;
@@ -224,12 +224,12 @@ describe("realtime", () => {
     await waitForEventSource();
 
     // Someone else's membership changed — our tree is unaffected.
-    FakeEventSource.instance!.dispatch("tree.access_changed", {
-      tree_id: "t1",
+    FakeEventSource.instance!.dispatch("workspace.access_changed", {
+      workspace_id: "t1",
     });
 
     await vi.waitFor(() =>
-      expect(useTreeStore.getState().loadTrees).toHaveBeenCalled(),
+      expect(useWorkspaceStore.getState().loadTrees).toHaveBeenCalled(),
     );
     // Give the async reload a chance to (not) toast.
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -244,8 +244,8 @@ describe("realtime", () => {
     startRealtime();
     await waitForEventSource();
 
-    FakeEventSource.instance!.dispatch("tree.content_changed", {
-      tree_id: "t1",
+    FakeEventSource.instance!.dispatch("workspace.content_changed", {
+      workspace_id: "t1",
       domain: "unknown",
       actor_user_id: "editor-1",
     });
@@ -311,7 +311,7 @@ describe("realtime", () => {
     stopRealtime();
   });
 
-  it("dispatching job.done calls onDone with job_id and tree_id", async () => {
+  it("dispatching job.done calls onDone with job_id and workspace_id", async () => {
     const { useJobStore } = await import("@/hooks/useJobStore");
     const { onDone } = useJobStore.getState();
 
@@ -321,7 +321,7 @@ describe("realtime", () => {
 
     FakeEventSource.instance!.dispatch("job.done", {
       job_id: "job-1",
-      tree_id: "tree-42",
+      workspace_id: "tree-42",
     });
 
     expect(onDone).toHaveBeenCalledWith("job-1", "tree-42");

@@ -34,5 +34,5 @@ class PresenceUser(BaseModel):
 class PresenceRoster(BaseModel):
     """The full set of users currently active in a tree."""
 
-    tree_id: str
+    workspace_id: str
     users: list[PresenceUser]

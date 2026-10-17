@@ -1,4 +1,4 @@
-import { SlidersHorizontal, ChevronUp, ChevronDown } from "lucide-react";
+import { Columns2, ChevronUp, ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,23 +11,17 @@ import { Switch } from "@/components/ui/switch";
 import { useListSettings, normalizeOrder } from "@/hooks/useListSettings";
 import { COLUMN_MAP } from "./columns";
 
-interface Props {
-  isVirtual: boolean;
-}
-
-export function ListCustomizePopover({ isVirtual }: Props) {
+export function ListCustomizePopover() {
   const { t } = useTranslation(undefined, { keyPrefix: "list-view.view" });
   const { order, hidden, toggleColumn, moveColumn, reset } = useListSettings();
 
-  const normalizedOrder = normalizeOrder(order).filter(
-    (id) => id !== "sourceTree" || isVirtual,
-  );
+  const normalizedOrder = normalizeOrder(order);
 
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
-          <SlidersHorizontal className="w-3.5 h-3.5" />
+        <Button variant="outline" size="sm">
+          <Columns2 />
           {t("customize")}
         </Button>
       </PopoverTrigger>
@@ -37,7 +31,7 @@ export function ListCustomizePopover({ isVirtual }: Props) {
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 px-2 text-xs text-muted-foreground"
+            className="px-2 text-muted-foreground"
             onClick={reset}
           >
             {t("customize-reset")}
@@ -63,15 +57,15 @@ export function ListCustomizePopover({ isVirtual }: Props) {
                 />
                 <label
                   htmlFor={`col-switch-${id}`}
-                  className="flex-1 text-xs cursor-pointer truncate"
+                  className="flex-1 cursor-pointer truncate text-sm"
                 >
                   {t(def.titleKey)}
                 </label>
                 <div className="flex gap-0.5 shrink-0">
                   <Button
                     variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
+                    size="icon-sm"
+
                     disabled={isFirst}
                     onClick={() => moveColumn(id, "up")}
                     aria-label={t("move-up")}
@@ -80,8 +74,8 @@ export function ListCustomizePopover({ isVirtual }: Props) {
                   </Button>
                   <Button
                     variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
+                    size="icon-sm"
+
                     disabled={isLast}
                     onClick={() => moveColumn(id, "down")}
                     aria-label={t("move-down")}

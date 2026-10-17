@@ -24,6 +24,7 @@ from app.services.interchange.gedcom.gedcom_records import (
     parse_lines,
 )
 from app.services.interchange.gedcom.genealogy_date import sort_key
+from app.services.members.member_search import normalize_member_name
 
 
 def parse_gedcom(text: str) -> GedcomParseResult:
@@ -75,6 +76,7 @@ def parse_gedcom(text: str) -> GedcomParseResult:
 # Pass 1: INDI records
 # ---------------------------------------------------------------------------
 
+
 def _new_member() -> GedcomMember:
     return {
         "id": str(uuid4()),
@@ -89,6 +91,7 @@ def _new_member() -> GedcomMember:
         "date_of_death": None,
         "date_of_birth_sort": None,
         "date_of_death_sort": None,
+        "name_normalized": "",
         "deceased": False,
         "birthplace": None,
         "hometown": None,
@@ -249,6 +252,9 @@ def _parse_individuals(
 
         member["date_of_birth_sort"] = sort_key(member["date_of_birth"])
         member["date_of_death_sort"] = sort_key(member["date_of_death"])
+        member["name_normalized"] = normalize_member_name(
+            member["first_name"], member["last_name"], member["maiden_name"]
+        )
         members.append(member)
 
     return xref_to_member_id, members
@@ -257,6 +263,7 @@ def _parse_individuals(
 # ---------------------------------------------------------------------------
 # Pass 2: FAM records
 # ---------------------------------------------------------------------------
+
 
 def _parse_families(
     top_records: list[GedcomRecord], xref_to_member_id: dict[str, str]
@@ -311,11 +318,13 @@ def _parse_families(
             pair = frozenset(spouse_ids)
             if pair not in seen_couple_pairs:
                 seen_couple_pairs.add(pair)
-                relations.append({
-                    "from_member_id": spouse_ids[0],
-                    "to_member_id": spouse_ids[1],
-                    "relation_type": couple_type,
-                })
+                relations.append(
+                    {
+                        "from_member_id": spouse_ids[0],
+                        "to_member_id": spouse_ids[1],
+                        "relation_type": couple_type,
+                    }
+                )
 
         # Parent-child relations: from=child, to=parent.
         for child_id in chil_ids:
@@ -323,11 +332,13 @@ def _parse_families(
                 pair = (child_id, parent_id)
                 if pair not in seen_parent_pairs:
                     seen_parent_pairs.add(pair)
-                    relations.append({
-                        "from_member_id": child_id,
-                        "to_member_id": parent_id,
-                        "relation_type": "parent",
-                    })
+                    relations.append(
+                        {
+                            "from_member_id": child_id,
+                            "to_member_id": parent_id,
+                            "relation_type": "parent",
+                        }
+                    )
 
     return relations
 
@@ -335,6 +346,7 @@ def _parse_families(
 # ---------------------------------------------------------------------------
 # Pass 3: _REL records
 # ---------------------------------------------------------------------------
+
 
 def _parse_generic_relations(
     top_records: list[GedcomRecord],

@@ -2,10 +2,10 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import type { GalleryImage, GalleryImageDB } from "@/types/gallery";
 import type { Member } from "@/types/member";
-import type { Tree } from "@/types/tree";
+import type { Workspace } from "@/types/workspace";
 import { MemberPhotos } from "./MemberPhotos";
 
 vi.mock("sonner", () => ({
@@ -15,7 +15,7 @@ vi.mock("sonner", () => ({
   },
 }));
 
-const TREE: Tree = { id: "tree-1", name: "Tree", role: "owner" };
+const TREE: Workspace = { id: "tree-1", name: "Workspace", role: "owner" };
 const MEMBER: Member = {
   id: "member-1",
   gender: "f",
@@ -86,7 +86,7 @@ describe("MemberPhotos", () => {
       addGalleryImage,
     });
     useMemberStore.setState({ members: [MEMBER] });
-    useTreeStore.setState({ selectedTree: TREE });
+    useWorkspaceStore.setState({ selectedTree: TREE });
   });
 
   it("opens face tagging after an edit-view photo upload", async () => {

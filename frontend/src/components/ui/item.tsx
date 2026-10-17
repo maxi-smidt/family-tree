@@ -38,12 +38,15 @@ const itemVariants = cva(
         default: "bg-transparent",
         outline: "border-border",
         muted: "bg-muted/50",
+        // A read-only label/value pair: quiet label above a prominent value.
+        field: "bg-transparent",
       },
       size: {
         default: "p-4 gap-4 ",
         sm: "py-3 px-4 gap-2.5",
       },
     },
+    compoundVariants: [{ variant: "field", class: "gap-0 p-0" }],
     defaultVariants: {
       variant: "default",
       size: "default",
@@ -121,7 +124,7 @@ function ItemTitle({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="item-title"
       className={cn(
-        "flex w-fit items-center gap-2 text-sm leading-snug font-medium",
+        "flex w-fit items-center gap-2 text-sm leading-snug font-medium group-data-[variant=field]/item:text-xs group-data-[variant=field]/item:font-normal group-data-[variant=field]/item:text-muted-foreground",
         className,
       )}
       {...props}
@@ -134,7 +137,7 @@ function ItemDescription({ className, ...props }: React.ComponentProps<"p">) {
     <p
       data-slot="item-description"
       className={cn(
-        "text-muted-foreground line-clamp-2 text-sm leading-normal font-normal text-balance",
+        "text-muted-foreground line-clamp-2 text-sm leading-normal font-normal text-balance group-data-[variant=field]/item:text-[15px] group-data-[variant=field]/item:font-medium group-data-[variant=field]/item:text-foreground",
         "[&>a:hover]:text-primary [&>a]:underline [&>a]:underline-offset-4",
         className,
       )}

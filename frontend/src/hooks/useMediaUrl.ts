@@ -82,7 +82,7 @@ function mediaHeaders(): Record<string, string> {
   const token = getAuthToken();
   const publicToken = getPublicTreeToken();
   if (token) headers.Authorization = `Bearer ${token}`;
-  if (publicToken) headers["X-Public-Tree-Token"] = publicToken;
+  if (publicToken) headers["X-Public-Workspace-Token"] = publicToken;
   return headers;
 }
 

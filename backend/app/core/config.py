@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     )
 
     # --- General -----------------------------------------------------------
-    APP_NAME: str = "Family Tree"
+    APP_NAME: str = "Family Workspace"
     APP_VERSION: str = "dev"
     APP_REVISION: str = "dev"
     APP_BUILD_DATE: str = ""
@@ -77,6 +77,16 @@ class Settings(BaseSettings):
     DB_MAX_OVERFLOW: int = 10
     DB_POOL_RECYCLE: int = 1800  # seconds (30 min)
 
+    # Caps how long the neighborhood graph traversal (#983) may run in
+    # Postgres before it is cancelled; a section filter or budget within the
+    # documented ceilings should never come close to this. No-op on SQLite
+    # (tests).
+    NEIGHBORHOOD_QUERY_TIMEOUT_MS: int = 5000
+
+    # Same guard as NEIGHBORHOOD_QUERY_TIMEOUT_MS, for the workspace search
+    # endpoint (#1024).
+    SEARCH_QUERY_TIMEOUT_MS: int = 5000
+
     # Number of uvicorn worker processes (mirrors the WORKERS env the Docker
     # CMD passes to `uvicorn --workers`). Read here purely so the app can warn
     # at startup when WORKERS > 1 without REDIS_URL — a config that silently
@@ -113,9 +123,40 @@ class Settings(BaseSettings):
     LOGIN_MAX_ATTEMPTS: int = 5
     LOGIN_RATE_LIMIT_WINDOW_SECONDS: int = 900  # 15 minutes
 
-    # Brute-force protection for password-gated public-tree unlocks.
+    # Brute-force protection for password-gated public-tree unlocks, keyed by
+    # client IP + workspace + grant (so a workspace's several independent
+    # public links (#993) each get their own budget).
     PUBLIC_UNLOCK_MAX_ATTEMPTS: int = 5
     PUBLIC_UNLOCK_RATE_LIMIT_WINDOW_SECONDS: int = 900  # 15 minutes
+
+    # A second, coarser budget keyed by client IP alone, across every
+    # workspace/grant, so spraying attempts across many targets from one IP
+    # is still bounded even though each individual target stays under its
+    # own limit.
+    PUBLIC_UNLOCK_AGGREGATE_MAX_ATTEMPTS: int = 30
+    PUBLIC_UNLOCK_AGGREGATE_RATE_LIMIT_WINDOW_SECONDS: int = 900  # 15 minutes
+
+    # Request-volume throttle for GET .../members/neighborhood (#1032), keyed
+    # by user id (or client IP for anonymous/public callers) + workspace.
+    # Generous enough that normal canvas panning and inline expansion (#989)
+    # never come close; it exists to bound a scripted replay/paginate loop.
+    NEIGHBORHOOD_MAX_REQUESTS: int = 120
+    NEIGHBORHOOD_RATE_LIMIT_WINDOW_SECONDS: int = 60
+
+    # Same throttle, for GET .../search (#1024), keyed the same way.
+    SEARCH_MAX_REQUESTS: int = 120
+    SEARCH_RATE_LIMIT_WINDOW_SECONDS: int = 60
+
+    # Identity-link proposals (#985): how long a proposed link waits for the
+    # other workspace's owner before a background sweep marks it expired.
+    IDENTITY_LINK_PROPOSAL_EXPIRY_DAYS: int = 30
+
+    # Abuse protection for proposing a link, keyed by proposer + target
+    # workspace (below) and, in aggregate, by client IP alone.
+    IDENTITY_LINK_PROPOSE_MAX_ATTEMPTS: int = 10
+    IDENTITY_LINK_PROPOSE_RATE_LIMIT_WINDOW_SECONDS: int = 3600  # 1 hour
+    IDENTITY_LINK_PROPOSE_AGGREGATE_MAX_ATTEMPTS: int = 50
+    IDENTITY_LINK_PROPOSE_AGGREGATE_RATE_LIMIT_WINDOW_SECONDS: int = 3600  # 1 hour
 
     # Seed admin account, created on first start if no users exist.
     FIRST_ADMIN_USERNAME: str = "admin"
@@ -174,24 +215,32 @@ def get_settings() -> Settings:
 
 settings = get_settings()
 
+_INSECURE_SECRETS = {
+    "change-me-in-production",
+    "change-me-please-generate-a-long-random-value",
+    "dev-secret-change-me",
+    "e2e-secret-not-for-production",
+}
+
+
+def is_secret_key_weak(secret: str) -> bool:
+    """Shared with the migration preflight (#994): a backup encrypted with a
+    placeholder/short key is only as safe as that key, regardless of
+    ``ENVIRONMENT``."""
+    secret = secret.strip()
+    return (
+        len(secret) < 32
+        or secret.lower() in _INSECURE_SECRETS
+        or secret.lower().startswith("change-me")
+    )
+
 
 def validate_production_credentials(config: Settings = settings) -> None:
     """Refuse to start production with known placeholders or weak secrets."""
     if config.ENVIRONMENT.lower() != "production":
         return
 
-    secret = config.SECRET_KEY.strip()
-    insecure_secrets = {
-        "change-me-in-production",
-        "change-me-please-generate-a-long-random-value",
-        "dev-secret-change-me",
-        "e2e-secret-not-for-production",
-    }
-    if (
-        len(secret) < 32
-        or secret.lower() in insecure_secrets
-        or secret.lower().startswith("change-me")
-    ):
+    if is_secret_key_weak(config.SECRET_KEY):
         raise RuntimeError(
             "SECRET_KEY must be a unique random value of at least 32 characters "
             "in production"

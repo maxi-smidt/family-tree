@@ -44,6 +44,10 @@ export interface AuthConfig {
     image_storage_mode: ImageStorageMode;
     image_storage_allowed_modes: ImageStorageMode[];
   };
+  /** The backend's current wire-contract epoch (#1012). Optional so a
+   *  backend that predates this field is treated as "unknown", not a
+   *  mismatch — see useAuthStore's init(). */
+  schema_epoch?: number;
 }
 
 export interface TokenResponse {

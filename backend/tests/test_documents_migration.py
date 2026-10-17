@@ -24,10 +24,7 @@ import sqlalchemy as sa
 
 def _load_migration_module():
     path = (
-        Path(__file__).resolve().parents[1]
-        / "alembic"
-        / "versions"
-        / "v1_7_0_release.py"
+        Path(__file__).resolve().parents[1] / "alembic" / "versions" / "v1_7_0_release.py"
     )
     spec = importlib.util.spec_from_file_location("v1_7_0_release_under_test", path)
     module = importlib.util.module_from_spec(spec)
@@ -47,13 +44,15 @@ def _build_schema() -> sa.MetaData:
     """
     meta = sa.MetaData()
     sa.Table(
-        "members", meta,
+        "members",
+        meta,
         sa.Column("id", sa.String(36), primary_key=True),
         sa.Column("first_name", sa.String(255)),
         sa.Column("last_name", sa.String(255)),
     )
     sa.Table(
-        "sources", meta,
+        "sources",
+        meta,
         sa.Column("id", sa.String(36), primary_key=True),
         sa.Column("tree_id", sa.String(36)),
         sa.Column("title", sa.String(255)),
@@ -66,7 +65,8 @@ def _build_schema() -> sa.MetaData:
         sa.Column("updated_at", sa.String(40)),
     )
     sa.Table(
-        "source_evidence", meta,
+        "source_evidence",
+        meta,
         sa.Column("id", sa.String(36), primary_key=True),
         sa.Column("tree_id", sa.String(36)),
         sa.Column("source_id", sa.String(36)),
@@ -78,7 +78,8 @@ def _build_schema() -> sa.MetaData:
         sa.Column("created_at", sa.String(40)),
     )
     sa.Table(
-        "citations", meta,
+        "citations",
+        meta,
         sa.Column("id", sa.String(36), primary_key=True),
         sa.Column("tree_id", sa.String(36)),
         sa.Column("source_id", sa.String(36)),
@@ -89,7 +90,8 @@ def _build_schema() -> sa.MetaData:
         sa.Column("created_at", sa.String(40)),
     )
     sa.Table(
-        "story_attachments", meta,
+        "story_attachments",
+        meta,
         sa.Column("id", sa.String(36), primary_key=True),
         sa.Column("tree_id", sa.String(36)),
         sa.Column("story_id", sa.String(36)),
@@ -100,7 +102,8 @@ def _build_schema() -> sa.MetaData:
         sa.Column("created_at", sa.String(40)),
     )
     sa.Table(
-        "documents", meta,
+        "documents",
+        meta,
         sa.Column("id", sa.String(36), primary_key=True),
         sa.Column("tree_id", sa.String(36)),
         sa.Column("title", sa.String(255)),
@@ -110,7 +113,8 @@ def _build_schema() -> sa.MetaData:
         sa.Column("updated_at", sa.String(40)),
     )
     sa.Table(
-        "document_files", meta,
+        "document_files",
+        meta,
         sa.Column("id", sa.String(36), primary_key=True),
         sa.Column("tree_id", sa.String(36)),
         sa.Column("document_id", sa.String(36)),
@@ -122,12 +126,14 @@ def _build_schema() -> sa.MetaData:
         sa.Column("created_at", sa.String(40)),
     )
     sa.Table(
-        "document_member_link", meta,
+        "document_member_link",
+        meta,
         sa.Column("document_id", sa.String(36), primary_key=True),
         sa.Column("member_id", sa.String(36), primary_key=True),
     )
     sa.Table(
-        "story_document_link", meta,
+        "story_document_link",
+        meta,
         sa.Column("story_id", sa.String(36), primary_key=True),
         sa.Column("document_id", sa.String(36), primary_key=True),
     )
@@ -155,16 +161,26 @@ def _seed_populated_tree(conn, meta_reflect: sa.MetaData) -> None:
         m["sources"].insert(),
         [
             {
-                "id": "s1", "tree_id": "t1", "title": "Census 1900",
-                "author": "A. Historian", "publication_info": "Vol 3",
-                "repository": "National Archives", "source_date": "1900",
-                "notes": "Handwritten ledger", "created_at": "2024-01-01T00:00:00Z",
+                "id": "s1",
+                "tree_id": "t1",
+                "title": "Census 1900",
+                "author": "A. Historian",
+                "publication_info": "Vol 3",
+                "repository": "National Archives",
+                "source_date": "1900",
+                "notes": "Handwritten ledger",
+                "created_at": "2024-01-01T00:00:00Z",
                 "updated_at": "2024-02-01T00:00:00Z",
             },
             {
-                "id": "s2", "tree_id": "t1", "title": "Parish Register",
-                "author": None, "publication_info": None, "repository": None,
-                "source_date": None, "notes": None,
+                "id": "s2",
+                "tree_id": "t1",
+                "title": "Parish Register",
+                "author": None,
+                "publication_info": None,
+                "repository": None,
+                "source_date": None,
+                "notes": None,
                 "created_at": "2024-01-03T00:00:00Z",
                 "updated_at": "2024-01-03T00:00:00Z",
             },
@@ -174,15 +190,25 @@ def _seed_populated_tree(conn, meta_reflect: sa.MetaData) -> None:
         m["source_evidence"].insert(),
         [
             {
-                "id": "e1", "tree_id": "t1", "source_id": "s1", "kind": "file",
-                "filename": "scan.jpg", "url": "/api/media/t1/abc123.jpg",
-                "mime_type": "image/jpeg", "size": 1234,
+                "id": "e1",
+                "tree_id": "t1",
+                "source_id": "s1",
+                "kind": "file",
+                "filename": "scan.jpg",
+                "url": "/api/media/t1/abc123.jpg",
+                "mime_type": "image/jpeg",
+                "size": 1234,
                 "created_at": "2024-01-01T00:00:00Z",
             },
             {
-                "id": "e2", "tree_id": "t1", "source_id": "s1", "kind": "link",
-                "filename": "Ancestry record", "url": "https://example.com/rec",
-                "mime_type": None, "size": None,
+                "id": "e2",
+                "tree_id": "t1",
+                "source_id": "s1",
+                "kind": "link",
+                "filename": "Ancestry record",
+                "url": "https://example.com/rec",
+                "mime_type": None,
+                "size": None,
                 "created_at": "2024-01-02T00:00:00Z",
             },
         ],
@@ -191,20 +217,35 @@ def _seed_populated_tree(conn, meta_reflect: sa.MetaData) -> None:
         m["citations"].insert(),
         [
             {
-                "id": "c1", "tree_id": "t1", "source_id": "s1", "member_id": "m1",
-                "fact_type": "birth", "page": "42", "detail": "line 3",
+                "id": "c1",
+                "tree_id": "t1",
+                "source_id": "s1",
+                "member_id": "m1",
+                "fact_type": "birth",
+                "page": "42",
+                "detail": "line 3",
                 "created_at": "2024-01-01T00:00:00Z",
             },
             {
-                "id": "c2", "tree_id": "t1", "source_id": "s1", "member_id": "m2",
-                "fact_type": "death", "page": None, "detail": None,
+                "id": "c2",
+                "tree_id": "t1",
+                "source_id": "s1",
+                "member_id": "m2",
+                "fact_type": "death",
+                "page": None,
+                "detail": None,
                 "created_at": "2024-01-01T00:00:00Z",
             },
             # Second citation for the same (source, member): must collapse to one
             # document→member link, not two.
             {
-                "id": "c3", "tree_id": "t1", "source_id": "s1", "member_id": "m1",
-                "fact_type": "marriage", "page": "7", "detail": None,
+                "id": "c3",
+                "tree_id": "t1",
+                "source_id": "s1",
+                "member_id": "m1",
+                "fact_type": "marriage",
+                "page": "7",
+                "detail": None,
                 "created_at": "2024-01-01T00:00:00Z",
             },
         ],
@@ -213,9 +254,13 @@ def _seed_populated_tree(conn, meta_reflect: sa.MetaData) -> None:
         m["story_attachments"].insert(),
         [
             {
-                "id": "a1", "tree_id": "t1", "story_id": "st1",
-                "filename": "family-photo.png", "url": "/api/media/t1/xyz789.png",
-                "mime_type": "image/png", "size": 999,
+                "id": "a1",
+                "tree_id": "t1",
+                "story_id": "st1",
+                "filename": "family-photo.png",
+                "url": "/api/media/t1/xyz789.png",
+                "mime_type": "image/png",
+                "size": 999,
                 "created_at": "2024-03-01T00:00:00Z",
             },
         ],
@@ -307,9 +352,12 @@ def test_migration_on_empty_legacy_schema_is_a_noop(engine):
 
     docs = _reflect(engine).tables
     with engine.connect() as conn:
-        assert conn.execute(
-            sa.select(sa.func.count()).select_from(docs["documents"])
-        ).scalar_one() == 0
+        assert (
+            conn.execute(
+                sa.select(sa.func.count()).select_from(docs["documents"])
+            ).scalar_one()
+            == 0
+        )
 
 
 def test_verify_fails_when_a_document_is_missing(engine):

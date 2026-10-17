@@ -131,8 +131,7 @@ def test_profile_image_is_available_only_to_accepted_friends(
     assert client.get(profile_url, headers=auth(carol)).status_code == 404
 
     assert (
-        client.delete(f"{API}/friends/{alice.id}", headers=auth(bob)).status_code
-        == 204
+        client.delete(f"{API}/friends/{alice.id}", headers=auth(bob)).status_code == 204
     )
     assert client.get(profile_url, headers=auth(bob)).status_code == 404
 

@@ -29,12 +29,14 @@ _PNG_BYTES = base64.b64decode(
 )
 
 
-def _activity_rows(db, tree_id):
-    return db.scalars(select(ActivityLog).where(ActivityLog.tree_id == tree_id)).all()
+def _activity_rows(db, workspace_id):
+    return db.scalars(
+        select(ActivityLog).where(ActivityLog.workspace_id == workspace_id)
+    ).all()
 
 
-def _last_delete_entry(db, tree_id, target_type: str | None = None) -> ActivityLog:
-    rows = [r for r in _activity_rows(db, tree_id) if r.action == "delete"]
+def _last_delete_entry(db, workspace_id, target_type: str | None = None) -> ActivityLog:
+    rows = [r for r in _activity_rows(db, workspace_id) if r.action == "delete"]
     if target_type is not None:
         rows = [r for r in rows if r.target_type == target_type]
     assert rows, "expected at least one delete row"
@@ -42,24 +44,24 @@ def _last_delete_entry(db, tree_id, target_type: str | None = None) -> ActivityL
 
 
 def _write_media_file(
-    settings, tree_id: str, filename: str, content: bytes = b"data"
+    settings, workspace_id: str, filename: str, content: bytes = b"data"
 ) -> str:
     from app.services.media.storage import MEDIA_URL_PREFIX
 
-    tree_dir = settings.media_root / tree_id
+    tree_dir = settings.media_root / workspace_id
     tree_dir.mkdir(parents=True, exist_ok=True)
     (tree_dir / filename).write_bytes(content)
-    return f"{MEDIA_URL_PREFIX}/{tree_id}/{filename}"
+    return f"{MEDIA_URL_PREFIX}/{workspace_id}/{filename}"
 
 
-def _undo(client, tree_id, entry_id, user):
+def _undo(client, workspace_id, entry_id, user):
     return client.post(
-        f"{API}/trees/{tree_id}/activity/{entry_id}/undo", headers=auth(user)
+        f"{API}/workspaces/{workspace_id}/activity/{entry_id}/undo", headers=auth(user)
     )
 
 
 # ---------------------------------------------------------------------------
-# Member: full cascade + bridge
+# Member: full cascade
 # ---------------------------------------------------------------------------
 
 
@@ -78,7 +80,7 @@ def test_undo_member_delete_restores_full_cascade(client, db):
     add_member(db, tree, "m2", first_name="Bob")
     db.add(
         Relation(
-            tree_id=tree.id,
+            workspace_id=tree.id,
             from_member_id="m1",
             to_member_id="m2",
             relation_type="parent",
@@ -87,38 +89,46 @@ def test_undo_member_delete_restores_full_cascade(client, db):
     db.add(
         MemberDisease(
             id="d1",
-            tree_id=tree.id,
+            workspace_id=tree.id,
             member_id="m1",
             name="Anemia",
             carrier_status="affected",
         )
     )
     db.add(
-        MemberTask(id="task1", tree_id=tree.id, title="Find birth record", created_at="t")
+        MemberTask(
+            id="task1", workspace_id=tree.id, title="Find birth record", created_at="t"
+        )
     )
     db.add(MemberTaskLink(task_id="task1", member_id="m1"))
     db.add(
-        Event(id="e1", tree_id=tree.id, event_type="birth", date="1815", created_at="t")
+        Event(
+            id="e1", workspace_id=tree.id, event_type="birth", date="1815", created_at="t"
+        )
     )
     db.add(EventMemberLink(event_id="e1", member_id="m1"))
     db.add(
-        Story(id="s1", tree_id=tree.id, title="A Story", created_at="t", updated_at="t")
+        Story(
+            id="s1", workspace_id=tree.id, title="A Story", created_at="t", updated_at="t"
+        )
     )
     db.add(StoryMemberLink(story_id="s1", member_id="m1"))
-    db.add(GalleryImage(id="g1", tree_id=tree.id, title="Photo"))
+    db.add(GalleryImage(id="g1", workspace_id=tree.id, title="Photo"))
     db.add(
         GalleryMemberLink(
             gallery_image_id="g1", member_id="m1", x=0.1, y=0.2, w=0.3, h=0.4
         )
     )
     db.add(
-        Document(id="doc1", tree_id=tree.id, title="Deed", created_at="t", updated_at="t")
+        Document(
+            id="doc1", workspace_id=tree.id, title="Deed", created_at="t", updated_at="t"
+        )
     )
     db.add(DocumentMemberLink(document_id="doc1", member_id="m1"))
     db.commit()
     del member
 
-    res = client.delete(f"{API}/trees/{tree.id}/members/m1", headers=auth(owner))
+    res = client.delete(f"{API}/workspaces/{tree.id}/members/m1", headers=auth(owner))
     assert res.status_code == 204
     entry = _last_delete_entry(db, tree.id, "member")
 
@@ -158,61 +168,6 @@ def test_undo_member_delete_restores_full_cascade(client, db):
     assert details["undo_of"] == entry.id
 
 
-def test_undo_bridge_member_delete_relinks_counterpart(client, db):
-    owner = make_user(db, "alice")
-    tree = make_tree(db, owner)
-    other = make_tree(db, owner, name="Linked")
-    add_member(db, tree, "m1", first_name="Ada")
-    add_member(db, other, "c1", first_name="Ada")
-    db.get(Member, "m1").linked_tree_id = other.id
-    db.get(Member, "m1").linked_member_id = "c1"
-    db.get(Member, "c1").linked_tree_id = tree.id
-    db.get(Member, "c1").linked_member_id = "m1"
-    db.commit()
-
-    res = client.delete(f"{API}/trees/{tree.id}/members/m1", headers=auth(owner))
-    assert res.status_code == 204
-    entry = _last_delete_entry(db, tree.id, "member")
-
-    res = _undo(client, tree.id, entry.id, owner)
-    assert res.status_code == 200
-    assert res.json()["skipped"] == []
-
-    m1 = db.get(Member, "m1")
-    c1 = db.get(Member, "c1")
-    assert m1.linked_tree_id == other.id
-    assert m1.linked_member_id == "c1"
-    assert c1.linked_tree_id == tree.id
-    assert c1.linked_member_id == "m1"
-
-
-def test_undo_bridge_member_delete_skips_gone_counterpart(client, db):
-    owner = make_user(db, "alice")
-    tree = make_tree(db, owner)
-    other = make_tree(db, owner, name="Linked")
-    add_member(db, tree, "m1", first_name="Ada")
-    add_member(db, other, "c1", first_name="Ada")
-    db.get(Member, "m1").linked_tree_id = other.id
-    db.get(Member, "m1").linked_member_id = "c1"
-    db.get(Member, "c1").linked_tree_id = tree.id
-    db.get(Member, "c1").linked_member_id = "m1"
-    db.commit()
-
-    res = client.delete(f"{API}/trees/{tree.id}/members/m1", headers=auth(owner))
-    assert res.status_code == 204
-    entry = _last_delete_entry(db, tree.id, "member")
-
-    # The bridge counterpart is gone by the time we undo.
-    res = client.delete(f"{API}/trees/{other.id}/members/c1", headers=auth(owner))
-    assert res.status_code == 204
-
-    res = _undo(client, tree.id, entry.id, owner)
-    assert res.status_code == 200
-    body = res.json()
-    assert db.get(Member, "m1") is not None
-    assert any(s["table"] == "members" for s in body["skipped"])
-
-
 def test_undo_member_delete_ignores_same_id_member_in_another_tree(client, db):
     """Member ids are client-suppliable, so an existence check must be
     tree-scoped: a same-id row that only exists in an unrelated tree must
@@ -224,7 +179,7 @@ def test_undo_member_delete_ignores_same_id_member_in_another_tree(client, db):
     add_member(db, tree, "m2", first_name="Bob")
     db.add(
         Relation(
-            tree_id=tree.id,
+            workspace_id=tree.id,
             from_member_id="m1",
             to_member_id="m2",
             relation_type="parent",
@@ -232,13 +187,13 @@ def test_undo_member_delete_ignores_same_id_member_in_another_tree(client, db):
     )
     db.commit()
 
-    res = client.delete(f"{API}/trees/{tree.id}/members/m1", headers=auth(owner))
+    res = client.delete(f"{API}/workspaces/{tree.id}/members/m1", headers=auth(owner))
     assert res.status_code == 204
     entry = _last_delete_entry(db, tree.id, "member")
 
     # m2 is gone from `tree`, but a *different* member with the same id now
     # exists in an unrelated tree.
-    res = client.delete(f"{API}/trees/{tree.id}/members/m2", headers=auth(owner))
+    res = client.delete(f"{API}/workspaces/{tree.id}/members/m2", headers=auth(owner))
     assert res.status_code == 204
     add_member(db, other, "m2", first_name="Someone Else")
 
@@ -263,7 +218,7 @@ def test_undo_member_delete_skips_relation_to_deleted_member(client, db):
     add_member(db, tree, "m2", first_name="Bob")
     db.add(
         Relation(
-            tree_id=tree.id,
+            workspace_id=tree.id,
             from_member_id="m1",
             to_member_id="m2",
             relation_type="parent",
@@ -271,12 +226,12 @@ def test_undo_member_delete_skips_relation_to_deleted_member(client, db):
     )
     db.commit()
 
-    res = client.delete(f"{API}/trees/{tree.id}/members/m1", headers=auth(owner))
+    res = client.delete(f"{API}/workspaces/{tree.id}/members/m1", headers=auth(owner))
     assert res.status_code == 204
     entry = _last_delete_entry(db, tree.id, "member")
 
     # m2 disappears before the undo is attempted.
-    res = client.delete(f"{API}/trees/{tree.id}/members/m2", headers=auth(owner))
+    res = client.delete(f"{API}/workspaces/{tree.id}/members/m2", headers=auth(owner))
     assert res.status_code == 204
 
     res = _undo(client, tree.id, entry.id, owner)
@@ -301,7 +256,7 @@ def test_undo_relation_delete(client, db):
     add_member(db, tree, "m2")
     db.add(
         Relation(
-            tree_id=tree.id,
+            workspace_id=tree.id,
             from_member_id="m1",
             to_member_id="m2",
             relation_type="parent",
@@ -310,7 +265,7 @@ def test_undo_relation_delete(client, db):
     db.commit()
 
     res = client.delete(
-        f"{API}/trees/{tree.id}/relations",
+        f"{API}/workspaces/{tree.id}/relations",
         params={"from_member_id": "m1", "to_member_id": "m2", "relation_type": "parent"},
         headers=auth(owner),
     )
@@ -330,7 +285,7 @@ def test_undo_relation_delete_conflicts_when_endpoint_gone(client, db):
     add_member(db, tree, "m2")
     db.add(
         Relation(
-            tree_id=tree.id,
+            workspace_id=tree.id,
             from_member_id="m1",
             to_member_id="m2",
             relation_type="parent",
@@ -339,14 +294,14 @@ def test_undo_relation_delete_conflicts_when_endpoint_gone(client, db):
     db.commit()
 
     res = client.delete(
-        f"{API}/trees/{tree.id}/relations",
+        f"{API}/workspaces/{tree.id}/relations",
         params={"from_member_id": "m1", "to_member_id": "m2", "relation_type": "parent"},
         headers=auth(owner),
     )
     assert res.status_code == 204
     entry = _last_delete_entry(db, tree.id, "relation")
 
-    res = client.delete(f"{API}/trees/{tree.id}/members/m2", headers=auth(owner))
+    res = client.delete(f"{API}/workspaces/{tree.id}/members/m2", headers=auth(owner))
     assert res.status_code == 204
 
     res = _undo(client, tree.id, entry.id, owner)
@@ -360,7 +315,7 @@ def test_undo_disease_delete(client, db):
     db.add(
         MemberDisease(
             id="d1",
-            tree_id=tree.id,
+            workspace_id=tree.id,
             member_id="m1",
             name="Anemia",
             carrier_status="carrier",
@@ -368,7 +323,7 @@ def test_undo_disease_delete(client, db):
     )
     db.commit()
 
-    res = client.delete(f"{API}/trees/{tree.id}/diseases/d1", headers=auth(owner))
+    res = client.delete(f"{API}/workspaces/{tree.id}/diseases/d1", headers=auth(owner))
     assert res.status_code == 204
     entry = _last_delete_entry(db, tree.id, "disease")
 
@@ -388,16 +343,20 @@ def test_undo_event_delete(client, db):
     tree = make_tree(db, owner)
     add_member(db, tree, "m1", first_name="Ada")
     db.add(
-        Event(id="e1", tree_id=tree.id, event_type="birth", date="1900", created_at="t")
+        Event(
+            id="e1", workspace_id=tree.id, event_type="birth", date="1900", created_at="t"
+        )
     )
     db.add(EventMemberLink(event_id="e1", member_id="m1"))
     db.add(
-        Document(id="doc1", tree_id=tree.id, title="Deed", created_at="t", updated_at="t")
+        Document(
+            id="doc1", workspace_id=tree.id, title="Deed", created_at="t", updated_at="t"
+        )
     )
     db.add(EventDocumentLink(event_id="e1", document_id="doc1"))
     db.commit()
 
-    res = client.delete(f"{API}/trees/{tree.id}/events/e1", headers=auth(owner))
+    res = client.delete(f"{API}/workspaces/{tree.id}/events/e1", headers=auth(owner))
     assert res.status_code == 204
     entry = _last_delete_entry(db, tree.id, "event")
 
@@ -417,12 +376,14 @@ def test_undo_story_delete(client, db):
     tree = make_tree(db, owner)
     add_member(db, tree, "m1", first_name="Ada")
     db.add(
-        Story(id="s1", tree_id=tree.id, title="A Story", created_at="t", updated_at="t")
+        Story(
+            id="s1", workspace_id=tree.id, title="A Story", created_at="t", updated_at="t"
+        )
     )
     db.add(StoryMemberLink(story_id="s1", member_id="m1"))
     db.commit()
 
-    res = client.delete(f"{API}/trees/{tree.id}/stories/s1", headers=auth(owner))
+    res = client.delete(f"{API}/workspaces/{tree.id}/stories/s1", headers=auth(owner))
     assert res.status_code == 204
     entry = _last_delete_entry(db, tree.id, "story")
 
@@ -447,7 +408,7 @@ def test_undo_gallery_image_delete_untrashes_media(client, db, tmp_path, monkeyp
     add_member(db, tree, "m1", first_name="Ada")
 
     created = client.post(
-        f"{API}/trees/{tree.id}/gallery/images",
+        f"{API}/workspaces/{tree.id}/gallery/images",
         headers=auth(owner),
         data={"id": "img1", "title": "A Photo", "uploaded_at": "2000-01-01T00:00:00Z"},
         files={"image": ("a.png", _PNG_BYTES, "image/png")},
@@ -457,13 +418,15 @@ def test_undo_gallery_image_delete_untrashes_media(client, db, tmp_path, monkeyp
     stored_path = settings.media_root / tree.id / image_url.rsplit("/", 1)[-1]
 
     res = client.put(
-        f"{API}/trees/{tree.id}/gallery/images/img1/links",
+        f"{API}/workspaces/{tree.id}/gallery/images/img1/links",
         headers=auth(owner),
         json={"member_ids": ["m1"]},
     )
     assert res.status_code == 204
 
-    res = client.delete(f"{API}/trees/{tree.id}/gallery/images/img1", headers=auth(owner))
+    res = client.delete(
+        f"{API}/workspaces/{tree.id}/gallery/images/img1", headers=auth(owner)
+    )
     assert res.status_code == 204
     assert not stored_path.is_file()
     entry = _last_delete_entry(db, tree.id, "gallery_image")
@@ -489,7 +452,7 @@ def test_undo_gallery_image_delete_degrades_when_media_purged(
     tree = make_tree(db, owner)
 
     created = client.post(
-        f"{API}/trees/{tree.id}/gallery/images",
+        f"{API}/workspaces/{tree.id}/gallery/images",
         headers=auth(owner),
         data={"id": "img1", "title": "A Photo", "uploaded_at": "2000-01-01T00:00:00Z"},
         files={"image": ("a.png", _PNG_BYTES, "image/png")},
@@ -497,7 +460,9 @@ def test_undo_gallery_image_delete_degrades_when_media_purged(
     assert created.status_code == 201
     image_url = created.json()["imageData"]
 
-    res = client.delete(f"{API}/trees/{tree.id}/gallery/images/img1", headers=auth(owner))
+    res = client.delete(
+        f"{API}/workspaces/{tree.id}/gallery/images/img1", headers=auth(owner)
+    )
     assert res.status_code == 204
     trashed_path = settings.media_root / tree.id / ".trash" / image_url.rsplit("/", 1)[-1]
     assert trashed_path.is_file()
@@ -521,12 +486,14 @@ def test_undo_document_delete_untrashes_files(client, db, tmp_path, monkeypatch)
     url = _write_media_file(settings, tree.id, "file1.pdf")
 
     db.add(
-        Document(id="doc1", tree_id=tree.id, title="Deed", created_at="t", updated_at="t")
+        Document(
+            id="doc1", workspace_id=tree.id, title="Deed", created_at="t", updated_at="t"
+        )
     )
     db.add(
         DocumentFile(
             id="f1",
-            tree_id=tree.id,
+            workspace_id=tree.id,
             document_id="doc1",
             kind="file",
             filename="file1.pdf",
@@ -539,7 +506,7 @@ def test_undo_document_delete_untrashes_files(client, db, tmp_path, monkeypatch)
     db.add(DocumentMemberLink(document_id="doc1", member_id="m1"))
     db.commit()
 
-    res = client.delete(f"{API}/trees/{tree.id}/documents/doc1", headers=auth(owner))
+    res = client.delete(f"{API}/workspaces/{tree.id}/documents/doc1", headers=auth(owner))
     assert res.status_code == 204
     stored_path = settings.media_root / tree.id / "file1.pdf"
     assert not stored_path.is_file()
@@ -566,12 +533,14 @@ def test_undo_document_file_delete_untrashes_media(client, db, tmp_path, monkeyp
     url = _write_media_file(settings, tree.id, "file1.pdf")
 
     db.add(
-        Document(id="doc1", tree_id=tree.id, title="Deed", created_at="t", updated_at="t")
+        Document(
+            id="doc1", workspace_id=tree.id, title="Deed", created_at="t", updated_at="t"
+        )
     )
     db.add(
         DocumentFile(
             id="f1",
-            tree_id=tree.id,
+            workspace_id=tree.id,
             document_id="doc1",
             kind="file",
             filename="file1.pdf",
@@ -584,7 +553,7 @@ def test_undo_document_file_delete_untrashes_media(client, db, tmp_path, monkeyp
     db.commit()
 
     res = client.delete(
-        f"{API}/trees/{tree.id}/documents/doc1/files/f1", headers=auth(owner)
+        f"{API}/workspaces/{tree.id}/documents/doc1/files/f1", headers=auth(owner)
     )
     assert res.status_code == 204
     entry = _last_delete_entry(db, tree.id, "document_file")
@@ -606,7 +575,7 @@ def test_undo_twice_conflicts(client, db):
     tree = make_tree(db, owner)
     add_member(db, tree, "m1", first_name="Ada")
 
-    res = client.delete(f"{API}/trees/{tree.id}/members/m1", headers=auth(owner))
+    res = client.delete(f"{API}/workspaces/{tree.id}/members/m1", headers=auth(owner))
     assert res.status_code == 204
     entry = _last_delete_entry(db, tree.id, "member")
 
@@ -621,7 +590,7 @@ def test_undo_rejects_non_delete_action(client, db):
     add_member(db, tree, "m1", first_name="Ada")
 
     res = client.patch(
-        f"{API}/trees/{tree.id}/members/m1",
+        f"{API}/workspaces/{tree.id}/members/m1",
         headers=auth(owner),
         json={"firstName": "Beatrice"},
     )
@@ -637,7 +606,7 @@ def test_undo_rejects_unsupported_snapshot_version(client, db):
     owner = make_user(db, "alice")
     tree = make_tree(db, owner)
     row = ActivityLog(
-        tree_id=tree.id,
+        workspace_id=tree.id,
         actor_id=owner.id,
         actor_username=owner.username,
         action="delete",
@@ -657,7 +626,7 @@ def test_undo_rejects_missing_snapshot(client, db):
     owner = make_user(db, "alice")
     tree = make_tree(db, owner)
     row = ActivityLog(
-        tree_id=tree.id,
+        workspace_id=tree.id,
         actor_id=owner.id,
         actor_username=owner.username,
         action="delete",
@@ -687,7 +656,7 @@ def test_undo_cross_tree_entry_not_found(client, db):
     other = make_tree(db, owner, name="Other")
     add_member(db, tree, "m1", first_name="Ada")
 
-    res = client.delete(f"{API}/trees/{tree.id}/members/m1", headers=auth(owner))
+    res = client.delete(f"{API}/workspaces/{tree.id}/members/m1", headers=auth(owner))
     assert res.status_code == 204
     entry = _last_delete_entry(db, tree.id, "member")
 
@@ -702,7 +671,7 @@ def test_viewer_cannot_undo(client, db):
     add_member(db, tree, "m1", first_name="Ada")
     share(db, tree, viewer, role="viewer")
 
-    res = client.delete(f"{API}/trees/{tree.id}/members/m1", headers=auth(owner))
+    res = client.delete(f"{API}/workspaces/{tree.id}/members/m1", headers=auth(owner))
     assert res.status_code == 204
     entry = _last_delete_entry(db, tree.id, "member")
 

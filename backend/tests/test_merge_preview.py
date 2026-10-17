@@ -11,7 +11,7 @@ import pytest
 from app.core.exceptions import DomainError
 from app.models import Member, Relation
 from app.schemas.merge import MergeResolution
-from app.services.trees.merge import compute_merge_preview, merge_trees
+from app.services.workspaces.merge import compute_merge_preview, merge_trees
 from tests.conftest import add_member, make_tree, make_user, share
 
 # ---------------------------------------------------------------------------
@@ -24,10 +24,28 @@ def test_preview_exact_duplicates(db):
     ta = make_tree(db, user, "A")
     tb = make_tree(db, user, "B")
 
-    add_member(db, ta, "a1", first_name="Henry", last_name="Miller", gender="m",
-               date_of_birth="1920", additional_data="Note A", birthplace="Berlin")
-    add_member(db, tb, "b1", first_name="Henry", last_name="Miller", gender="m",
-               date_of_birth="1920", additional_data="Note B", birthplace="Hamburg")
+    add_member(
+        db,
+        ta,
+        "a1",
+        first_name="Henry",
+        last_name="Miller",
+        gender="m",
+        date_of_birth="1920",
+        additional_data="Note A",
+        birthplace="Berlin",
+    )
+    add_member(
+        db,
+        tb,
+        "b1",
+        first_name="Henry",
+        last_name="Miller",
+        gender="m",
+        date_of_birth="1920",
+        additional_data="Note B",
+        birthplace="Hamburg",
+    )
 
     preview = compute_merge_preview(db, user, ta.id, tb.id)
 
@@ -46,11 +64,25 @@ def test_preview_possible_candidate(db):
     ta = make_tree(db, user, "A")
     tb = make_tree(db, user, "B")
 
-    add_member(db, ta, "a1", first_name="Anna", last_name="Schmidt", gender="f",
-               date_of_birth="1950")
+    add_member(
+        db,
+        ta,
+        "a1",
+        first_name="Anna",
+        last_name="Schmidt",
+        gender="f",
+        date_of_birth="1950",
+    )
     # Same name+gender but different birth date → possible
-    add_member(db, tb, "b1", first_name="Anna", last_name="Schmidt", gender="f",
-               date_of_birth="1951")
+    add_member(
+        db,
+        tb,
+        "b1",
+        first_name="Anna",
+        last_name="Schmidt",
+        gender="f",
+        date_of_birth="1951",
+    )
 
     preview = compute_merge_preview(db, user, ta.id, tb.id)
 
@@ -122,10 +154,26 @@ def test_merge_field_choice_b(db):
     ta = make_tree(db, user, "A")
     tb = make_tree(db, user, "B")
 
-    add_member(db, ta, "a1", first_name="Tom", last_name="Doe", gender="m",
-               date_of_birth="1930", birthplace="Berlin")
-    add_member(db, tb, "b1", first_name="Tom", last_name="Doe", gender="m",
-               date_of_birth="1930", birthplace="Hamburg")
+    add_member(
+        db,
+        ta,
+        "a1",
+        first_name="Tom",
+        last_name="Doe",
+        gender="m",
+        date_of_birth="1930",
+        birthplace="Berlin",
+    )
+    add_member(
+        db,
+        tb,
+        "b1",
+        first_name="Tom",
+        last_name="Doe",
+        gender="m",
+        date_of_birth="1930",
+        birthplace="Hamburg",
+    )
 
     resolutions = [
         MergeResolution(
@@ -137,7 +185,7 @@ def test_merge_field_choice_b(db):
     ]
     merged = merge_trees(db, user, "M", ta.id, tb.id, resolutions)
 
-    members = db.query(Member).filter(Member.tree_id == merged.id).all()
+    members = db.query(Member).filter(Member.workspace_id == merged.id).all()
     assert len(members) == 1
     assert members[0].birthplace == "Hamburg"
 
@@ -152,10 +200,26 @@ def test_merge_combine_additional_data(db):
     ta = make_tree(db, user, "A")
     tb = make_tree(db, user, "B")
 
-    add_member(db, ta, "a1", first_name="Karl", last_name="Bauer", gender="m",
-               date_of_birth="1940", additional_data="Note A")
-    add_member(db, tb, "b1", first_name="Karl", last_name="Bauer", gender="m",
-               date_of_birth="1940", additional_data="Note B")
+    add_member(
+        db,
+        ta,
+        "a1",
+        first_name="Karl",
+        last_name="Bauer",
+        gender="m",
+        date_of_birth="1940",
+        additional_data="Note A",
+    )
+    add_member(
+        db,
+        tb,
+        "b1",
+        first_name="Karl",
+        last_name="Bauer",
+        gender="m",
+        date_of_birth="1940",
+        additional_data="Note B",
+    )
 
     resolutions = [
         MergeResolution(
@@ -167,7 +231,7 @@ def test_merge_combine_additional_data(db):
     ]
     merged = merge_trees(db, user, "M", ta.id, tb.id, resolutions)
 
-    members = db.query(Member).filter(Member.tree_id == merged.id).all()
+    members = db.query(Member).filter(Member.workspace_id == merged.id).all()
     assert len(members) == 1
     combined = members[0].additional_data or ""
     assert "Note A" in combined
@@ -184,17 +248,26 @@ def test_merge_keep_both_exact_duplicate(db):
     ta = make_tree(db, user, "A")
     tb = make_tree(db, user, "B")
 
-    add_member(db, ta, "a1", first_name="Eva", last_name="Lang", gender="f",
-               date_of_birth="1955")
+    add_member(
+        db, ta, "a1", first_name="Eva", last_name="Lang", gender="f", date_of_birth="1955"
+    )
     # Relations involving a1 in tree A
-    add_member(db, ta, "a2", first_name="Max", last_name="Lang", gender="m",
-               date_of_birth="1950")
-    db.add(Relation(tree_id=ta.id, from_member_id="a1", to_member_id="a2",
-                    relation_type="partner"))
+    add_member(
+        db, ta, "a2", first_name="Max", last_name="Lang", gender="m", date_of_birth="1950"
+    )
+    db.add(
+        Relation(
+            workspace_id=ta.id,
+            from_member_id="a1",
+            to_member_id="a2",
+            relation_type="partner",
+        )
+    )
     db.commit()
 
-    add_member(db, tb, "b1", first_name="Eva", last_name="Lang", gender="f",
-               date_of_birth="1955")
+    add_member(
+        db, tb, "b1", first_name="Eva", last_name="Lang", gender="f", date_of_birth="1955"
+    )
 
     resolutions = [
         MergeResolution(
@@ -205,13 +278,13 @@ def test_merge_keep_both_exact_duplicate(db):
     ]
     merged = merge_trees(db, user, "M", ta.id, tb.id, resolutions)
 
-    members = db.query(Member).filter(Member.tree_id == merged.id).all()
+    members = db.query(Member).filter(Member.workspace_id == merged.id).all()
     eva_members = [m for m in members if (m.first_name or "").lower() == "eva"]
     # Both Evas should exist
     assert len(eva_members) == 2
 
     # Relations from tree A should still be intact
-    relations = db.query(Relation).filter(Relation.tree_id == merged.id).all()
+    relations = db.query(Relation).filter(Relation.workspace_id == merged.id).all()
     assert len(relations) >= 1
 
 
@@ -225,11 +298,25 @@ def test_merge_possible_candidate_with_merge_resolution(db):
     ta = make_tree(db, user, "A")
     tb = make_tree(db, user, "B")
 
-    add_member(db, ta, "a1", first_name="Lena", last_name="Bauer", gender="f",
-               date_of_birth="1960")
+    add_member(
+        db,
+        ta,
+        "a1",
+        first_name="Lena",
+        last_name="Bauer",
+        gender="f",
+        date_of_birth="1960",
+    )
     # Same name+gender but different year
-    add_member(db, tb, "b1", first_name="Lena", last_name="Bauer", gender="f",
-               date_of_birth="1961")
+    add_member(
+        db,
+        tb,
+        "b1",
+        first_name="Lena",
+        last_name="Bauer",
+        gender="f",
+        date_of_birth="1961",
+    )
 
     resolutions = [
         MergeResolution(
@@ -241,6 +328,6 @@ def test_merge_possible_candidate_with_merge_resolution(db):
     ]
     merged = merge_trees(db, user, "M", ta.id, tb.id, resolutions)
 
-    members = db.query(Member).filter(Member.tree_id == merged.id).all()
+    members = db.query(Member).filter(Member.workspace_id == merged.id).all()
     assert len(members) == 1
     assert members[0].date_of_birth == "1961"

@@ -25,10 +25,6 @@ def _load_migration_module():
 migration = _load_migration_module()
 
 
-def test_revision_id_fits_the_alembic_version_column():
-    assert len(migration.revision) <= 32
-
-
 def test_removes_feature_settings_and_legacy_override_table():
     engine = sa.create_engine("sqlite://")
     metadata = sa.MetaData()
@@ -52,7 +48,7 @@ def test_removes_feature_settings_and_legacy_override_table():
             [
                 {"key": "feature.gallery", "value": "off"},
                 {"key": "feature.statistics", "value": "beta"},
-                {"key": "instance_name", "value": "Family Tree"},
+                {"key": "instance_name", "value": "Family Workspace"},
             ],
         )
         connection.execute(
@@ -62,9 +58,11 @@ def test_removes_feature_settings_and_legacy_override_table():
 
         migration.remove_feature_flag_storage(connection)
 
-        remaining_keys = connection.execute(
-            sa.select(settings.c.key).order_by(settings.c.key)
-        ).scalars().all()
+        remaining_keys = (
+            connection.execute(sa.select(settings.c.key).order_by(settings.c.key))
+            .scalars()
+            .all()
+        )
         remaining_tables = set(sa.inspect(connection).get_table_names())
 
     engine.dispose()

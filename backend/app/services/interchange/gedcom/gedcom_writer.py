@@ -36,7 +36,7 @@ class _Family:
 
 
 def serialize_to_gedcom(
-    tree_name: str,
+    workspace_name: str,
     members: list[GedcomMember],
     relations: list[GedcomRelation],
     documents: list[GedcomDocument] | None = None,
@@ -48,7 +48,7 @@ def serialize_to_gedcom(
 
     Parameters
     ----------
-    tree_name:
+    workspace_name:
         Display name of the tree (used in HEAD FILE and FAM logic).
     members:
         List of member dicts matching the ``Member`` model columns.
@@ -65,7 +65,7 @@ def serialize_to_gedcom(
     citations = citations or []
 
     lines: list[str] = []
-    _write_header(lines, tree_name, app_version)
+    _write_header(lines, workspace_name, app_version)
 
     member_xref = _assign_member_xrefs(members)
     source_xref, member_citations, files_by_document = _build_citation_index(
@@ -101,12 +101,13 @@ def serialize_to_gedcom(
 # HEAD
 # ---------------------------------------------------------------------------
 
-def _write_header(lines: list[str], tree_name: str, app_version: str | None) -> None:
+
+def _write_header(lines: list[str], workspace_name: str, app_version: str | None) -> None:
     today = date.today()
     day_str = f"{today.day:02d} {MONTHS[today.month - 1]} {today.year}"
     lines.append("0 HEAD")
     lines.append("1 SOUR FamilyTree")
-    lines.append("2 NAME Family Tree")
+    lines.append("2 NAME Family Workspace")
     if app_version:
         lines.append(f"2 VERS {app_version}")
     lines.append("1 GEDC")
@@ -117,12 +118,13 @@ def _write_header(lines: list[str], tree_name: str, app_version: str | None) -> 
     # GEDCOM 5.5.1 requires a submitter reference in the header (cardinality
     # {1:1}) backed by a SUBM record; emitted at the end before TRLR.
     lines.append(f"1 SUBM {SUBMITTER_XREF}")
-    lines.append(f"1 FILE {tree_name}")
+    lines.append(f"1 FILE {workspace_name}")
 
 
 # ---------------------------------------------------------------------------
 # Xref / citation index assignment
 # ---------------------------------------------------------------------------
+
 
 def _assign_member_xrefs(members: list[GedcomMember]) -> dict[str, str]:
     return {member["id"]: f"@I{idx}@" for idx, member in enumerate(members, start=1)}
@@ -162,6 +164,7 @@ def _build_citation_index(
 # ---------------------------------------------------------------------------
 # Family grouping
 # ---------------------------------------------------------------------------
+
 
 def _build_families(relations: list[GedcomRelation]) -> dict[frozenset, _Family]:
     """Group parent/couple relations into FAM groups keyed by spouse-id set."""
@@ -227,6 +230,7 @@ def _build_family_membership(
 # ---------------------------------------------------------------------------
 # INDI records
 # ---------------------------------------------------------------------------
+
 
 def _write_individuals(
     lines: list[str],
@@ -365,6 +369,7 @@ def _write_individual(
 # FAM records
 # ---------------------------------------------------------------------------
 
+
 def _write_families(
     lines: list[str],
     sorted_families: list[tuple[frozenset, _Family]],
@@ -446,6 +451,7 @@ def _write_family(
 # Generic _REL records (sibling, other, custom)
 # ---------------------------------------------------------------------------
 
+
 def _write_generic_relations(
     lines: list[str], relations: list[GedcomRelation], member_xref: dict[str, str]
 ) -> None:
@@ -481,6 +487,7 @@ def _write_generic_relations(
 # ---------------------------------------------------------------------------
 # SOUR records (one per Document)
 # ---------------------------------------------------------------------------
+
 
 def _write_sources(
     lines: list[str],

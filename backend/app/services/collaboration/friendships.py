@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.base import utcnow_iso
-from app.models import Friendship, Tree, TreeMembership, User
+from app.models import Friendship, User, Workspace, WorkspaceMembership
 from app.schemas.friendship import FriendOut
 from app.services.activity.activity import record_activity
 from app.services.unit_of_work import UnitOfWork
@@ -21,10 +21,8 @@ def get_friendship(db: Session, a_id: str, b_id: str) -> Friendship | None:
     return db.scalar(
         select(Friendship).where(
             or_(
-                (Friendship.requester_id == a_id)
-                & (Friendship.addressee_id == b_id),
-                (Friendship.requester_id == b_id)
-                & (Friendship.addressee_id == a_id),
+                (Friendship.requester_id == a_id) & (Friendship.addressee_id == b_id),
+                (Friendship.requester_id == b_id) & (Friendship.addressee_id == a_id),
             )
         )
     )
@@ -55,13 +53,13 @@ def accepted_friend_ids(db: Session, user_id: str) -> set[str]:
 
 def revoke_shared_memberships(
     db: Session, actor: User, other_id: str
-) -> list[tuple[Tree, str]]:
+) -> list[tuple[Workspace, str]]:
     """Drop any tree memberships shared between the two users, both directions.
 
     Keeps the invariant *shared ⇒ friends* true after an unfriend: a membership
     on a tree ``actor`` owns granted to ``other_id`` (or vice-versa) is removed.
     Logs a "share removed" activity entry on each affected tree, same as the
-    explicit unshare route (``trees.revoke_access``) — ``actor`` is the
+    explicit unshare route (``workspaces.revoke_access``) — ``actor`` is the
     initiator of the unfriend/block even on the tree they don't own, since
     they're still the one causing the loss of access there.
 
@@ -69,12 +67,14 @@ def revoke_shared_memberships(
     notify the revoked users once the deletion is committed.
     """
     rows = db.execute(
-        select(TreeMembership, Tree)
-        .join(Tree, Tree.id == TreeMembership.tree_id)
+        select(WorkspaceMembership, Workspace)
+        .join(Workspace, Workspace.id == WorkspaceMembership.workspace_id)
         .where(
             or_(
-                (Tree.owner_id == actor.id) & (TreeMembership.user_id == other_id),
-                (Tree.owner_id == other_id) & (TreeMembership.user_id == actor.id),
+                (Workspace.owner_id == actor.id)
+                & (WorkspaceMembership.user_id == other_id),
+                (Workspace.owner_id == other_id)
+                & (WorkspaceMembership.user_id == actor.id),
             )
         )
     ).all()
@@ -83,7 +83,7 @@ def revoke_shared_memberships(
         revoked_user = db.get(User, membership.user_id)
         record_activity(
             db,
-            tree_id=tree.id,
+            workspace_id=tree.id,
             actor=actor,
             action="delete",
             target_type="share",

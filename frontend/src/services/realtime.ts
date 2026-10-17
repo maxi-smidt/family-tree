@@ -21,9 +21,10 @@ import { useDocumentStore } from "@/hooks/useDocumentStore";
 import { useNotificationStore } from "@/hooks/useNotificationStore";
 import { useStorageStore } from "@/hooks/useStorageStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
+import { useSectionStore } from "@/hooks/useSectionStore";
 import { refreshTaskStore } from "@/hooks/taskStoreRegistry";
 import { usePresenceStore } from "@/hooks/usePresenceStore";
-import { isActiveTree, useTreeStore } from "@/hooks/useTreeStore";
+import { isActiveTree, useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { PresenceUserDB } from "@/types/presence";
 import { NotificationDB } from "@/types/notification";
 
@@ -71,13 +72,13 @@ async function connect(): Promise<void> {
   // detect that here and say why the canvas just switched/emptied, instead
   // of failing silently (#813/#814).
   const reload = async () => {
-    const before = useTreeStore.getState().selectedTree;
+    const before = useWorkspaceStore.getState().selectedTree;
     try {
-      await useTreeStore.getState().loadTrees();
+      await useWorkspaceStore.getState().loadTrees();
     } catch {
       // A replacement selection may fail to open; the next event retries.
     }
-    const after = useTreeStore.getState().selectedTree;
+    const after = useWorkspaceStore.getState().selectedTree;
     if (before && after?.id !== before.id) {
       toast.error(i18n.t("tree-view.access-revoked", { name: before.name }));
     }
@@ -85,9 +86,9 @@ async function connect(): Promise<void> {
 
   const onTreeListChanged = () => void reload();
 
-  eventSource.addEventListener("tree.ownership_changed", onTreeListChanged);
-  eventSource.addEventListener("tree.access_changed", onTreeListChanged);
-  eventSource.addEventListener("tree.deleted", onTreeListChanged);
+  eventSource.addEventListener("workspace.ownership_changed", onTreeListChanged);
+  eventSource.addEventListener("workspace.access_changed", onTreeListChanged);
+  eventSource.addEventListener("workspace.deleted", onTreeListChanged);
 
   eventSource.addEventListener("backup.completed", () => {
     useAdminViewStore.getState().bumpBackupTick();
@@ -109,30 +110,31 @@ async function connect(): Promise<void> {
   });
 
   eventSource.addEventListener("activity.entry_added", (e) => {
-    const data = JSON.parse((e as MessageEvent).data) as { tree_id: string };
-    if (!isActiveTree(data.tree_id)) return;
-    void useActivityStore.getState().refreshActivity(data.tree_id);
+    const data = JSON.parse((e as MessageEvent).data) as { workspace_id: string };
+    if (!isActiveTree(data.workspace_id)) return;
+    void useActivityStore.getState().refreshActivity(data.workspace_id);
   });
 
-  const domainRefreshers: Record<string, (treeId: string) => void> = {
+  const domainRefreshers: Record<string, (workspaceId: string) => void> = {
     member: (id) => void useMemberStore.getState().refreshMembers(id),
     event: (id) => void useEventStore.getState().refreshEvents(id),
     story: (id) => void useStoryStore.getState().refreshStories(id),
     task: refreshTaskStore,
     document: (id) => void useDocumentStore.getState().refreshDocuments(id),
     gallery: (id) => void useGalleryStore.getState().refreshGalleryImages(id),
+    section: (id) => void useSectionStore.getState().refreshSections(id),
   };
-  eventSource.addEventListener("tree.content_changed", (e) => {
+  eventSource.addEventListener("workspace.content_changed", (e) => {
     const data = JSON.parse((e as MessageEvent).data) as {
-      tree_id: string;
+      workspace_id: string;
       domain: string;
       actor_user_id?: string;
     };
-    if (!isActiveTree(data.tree_id)) return;
+    if (!isActiveTree(data.workspace_id)) return;
     if (data.actor_user_id) {
       usePresenceStore.getState().markActivity(data.actor_user_id);
     }
-    domainRefreshers[data.domain]?.(data.tree_id);
+    domainRefreshers[data.domain]?.(data.workspace_id);
   });
 
   eventSource.addEventListener("friend.request_received", (e) => {
@@ -148,12 +150,12 @@ async function connect(): Promise<void> {
 
   eventSource.addEventListener("invitation.received", (e) => {
     const data = JSON.parse((e as MessageEvent).data) as {
-      tree_id: string;
-      tree_name: string;
+      workspace_id: string;
+      workspace_name: string;
     };
-    void useTreeStore.getState().loadTrees();
+    void useWorkspaceStore.getState().loadTrees();
     toast.info(
-      i18n.t("dialog.share-tree.invitation-received", { name: data.tree_name }),
+      i18n.t("dialog.share-tree.invitation-received", { name: data.workspace_name }),
     );
   });
 
@@ -167,23 +169,23 @@ async function connect(): Promise<void> {
 
   eventSource.addEventListener("presence.updated", (e) => {
     const data = JSON.parse((e as MessageEvent).data) as {
-      tree_id: string;
+      workspace_id: string;
       users: PresenceUserDB[];
     };
-    if (!isActiveTree(data.tree_id)) return;
-    usePresenceStore.getState().setRoster(data.tree_id, data.users);
+    if (!isActiveTree(data.workspace_id)) return;
+    usePresenceStore.getState().setRoster(data.workspace_id, data.users);
   });
 
-  eventSource.addEventListener("tree.layout_changed", (e) => {
+  eventSource.addEventListener("workspace.layout_changed", (e) => {
     const data = JSON.parse((e as MessageEvent).data) as {
-      tree_id: string;
+      workspace_id: string;
       actor_user_id?: string;
     };
-    if (!isActiveTree(data.tree_id)) return;
+    if (!isActiveTree(data.workspace_id)) return;
     if (data.actor_user_id) {
       usePresenceStore.getState().markActivity(data.actor_user_id);
     }
-    void useMemberStore.getState().refreshMembers(data.tree_id);
+    void useMemberStore.getState().refreshMembers(data.workspace_id);
   });
 
   eventSource.addEventListener("job.progress", (e) => {
@@ -197,9 +199,9 @@ async function connect(): Promise<void> {
   eventSource.addEventListener("job.done", (e) => {
     const data = JSON.parse((e as MessageEvent).data) as {
       job_id: string;
-      tree_id: string;
+      workspace_id: string;
     };
-    useJobStore.getState().onDone(data.job_id, data.tree_id);
+    useJobStore.getState().onDone(data.job_id, data.workspace_id);
   });
 
   eventSource.addEventListener("job.failed", (e) => {
@@ -212,12 +214,12 @@ async function connect(): Promise<void> {
 
   eventSource.addEventListener("storage.warning", (e) => {
     const data = JSON.parse((e as MessageEvent).data) as {
-      tree_id: string;
+      workspace_id: string;
       used_bytes: number;
       quota_bytes: number;
     };
-    if (!isActiveTree(data.tree_id)) return;
-    void useStorageStore.getState().refreshStorageUsage(data.tree_id);
+    if (!isActiveTree(data.workspace_id)) return;
+    void useStorageStore.getState().refreshStorageUsage(data.workspace_id);
     toast.warning(i18n.t("storage-usage.quota-warning"));
   });
 

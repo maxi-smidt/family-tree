@@ -27,11 +27,9 @@ from app.services.media.storage import (
     UnsupportedImageType,
     cleanup_document_upload_temps,
     cleanup_image_upload_temps,
-    copy_media_to_tree,
+    copy_media_to_workspace,
     delete_media,
-    media_disk_usage,
     media_url_to_data_url,
-    move_media_to_tree,
     process_image_field,
     purge_expired_media_trash,
     store_data_url,
@@ -142,9 +140,7 @@ def test_media_helpers_cannot_escape_media_root(tmp_path, monkeypatch):
     traversal_url = f"{MEDIA_URL_PREFIX}/../secret.txt"
 
     assert media_url_to_data_url(traversal_url) is None
-    assert copy_media_to_tree(traversal_url, _OTHER_TREE_ID) is None
-    assert move_media_to_tree(traversal_url, _OTHER_TREE_ID) is None
-    assert media_disk_usage(traversal_url) == 0
+    assert copy_media_to_workspace(traversal_url, _OTHER_TREE_ID) is None
     delete_media(traversal_url)
     assert secret.read_text() == "do not read"
 
@@ -161,7 +157,6 @@ def test_media_symlink_outside_tree_is_rejected(tmp_path, monkeypatch):
     url = f"{MEDIA_URL_PREFIX}/{_TREE_ID}/linked.txt"
 
     assert media_url_to_data_url(url) is None
-    assert media_disk_usage(url) == 0
 
 
 def test_originals_symlink_cannot_reach_outside_tree(tmp_path, monkeypatch):
@@ -179,7 +174,6 @@ def test_originals_symlink_cannot_reach_outside_tree(tmp_path, monkeypatch):
     (tree_dir / "originals").symlink_to(outside_dir, target_is_directory=True)
     url = f"{MEDIA_URL_PREFIX}/{_TREE_ID}/{display.name}"
 
-    assert media_disk_usage(url) == len(b"display")
     delete_media(url)
     assert outside.read_bytes() == b"private-original"
 
@@ -289,7 +283,7 @@ def test_original_mode_stores_raw_bytes(tmp_path, monkeypatch):
     assert url.startswith(f"{MEDIA_URL_PREFIX}/{_TREE_ID}/")
     assert url.endswith(".png")
     # Raw bytes are unchanged — no re-encode.
-    rel = url[len(MEDIA_URL_PREFIX) + 1:]
+    rel = url[len(MEDIA_URL_PREFIX) + 1 :]
     assert (settings.media_root / rel).read_bytes() == png
     # No originals/ subdir created in original-only mode.
     assert not (settings.media_root / _TREE_ID / "originals").exists()
@@ -319,7 +313,7 @@ def test_delete_media_removes_both_display_and_original(tmp_path, monkeypatch):
     orig_file = settings.media_root / _TREE_ID / "originals" / f"{stem}.png"
     assert orig_file.is_file()
     delete_media(url)
-    rel = url[len(MEDIA_URL_PREFIX) + 1:]
+    rel = url[len(MEDIA_URL_PREFIX) + 1 :]
     assert not (settings.media_root / rel).exists(), "display file must be gone"
     assert not orig_file.exists(), "original must be gone"
 
@@ -434,13 +428,13 @@ def test_purge_expired_media_trash_no_trash_dir_is_safe(tmp_path, monkeypatch):
     assert purge_expired_media_trash(60) == 0
 
 
-def test_copy_media_to_tree_copies_original_subdir(tmp_path, monkeypatch):
+def test_copy_media_to_workspace_copies_original_subdir(tmp_path, monkeypatch):
     from app.core.config import settings
 
     monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
     png = _make_png(4, 4)
     url = store_data_url(_TREE_ID, _data_url("image/png", png), _LIMITS, mode="both")
-    new_url = copy_media_to_tree(url, _OTHER_TREE_ID)
+    new_url = copy_media_to_workspace(url, _OTHER_TREE_ID)
     assert new_url is not None
     new_stem = new_url.rsplit("/", 1)[-1].removesuffix(".webp")
     dest_orig = settings.media_root / _OTHER_TREE_ID / "originals" / f"{new_stem}.png"
@@ -665,11 +659,15 @@ def test_streamed_images_complete_under_concurrent_near_limit_uploads(
     async def upload_pair():
         return await asyncio.gather(
             store_image_upload(
-                _TREE_ID, _image_upload("a.png", "image/png", png_a), limits,
+                _TREE_ID,
+                _image_upload("a.png", "image/png", png_a),
+                limits,
                 mode="original",
             ),
             store_image_upload(
-                _TREE_ID, _image_upload("b.png", "image/png", png_b), limits,
+                _TREE_ID,
+                _image_upload("b.png", "image/png", png_b),
+                limits,
                 mode="original",
             ),
         )

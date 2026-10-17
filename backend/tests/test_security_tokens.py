@@ -21,7 +21,7 @@ def test_jwt_purposes_are_not_interchangeable():
 
     assert decode_access_token(access)["sub"] == "user-1"
     assert decode_totp_session_token(totp) == "user-1"
-    assert decode_public_tree_token(public) == ("tree-1", 3)
+    assert decode_public_tree_token(public) == ("tree-1", 3, "workspace")
     assert decode_sse_ticket_token(sse) == "user-1"
 
     for token in (totp, public, sse):

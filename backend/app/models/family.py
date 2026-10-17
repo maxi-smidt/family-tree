@@ -1,6 +1,6 @@
 """Core genealogy tables."""
 
-from sqlalchemy import Boolean, Float, ForeignKey, String, Text
+from sqlalchemy import Boolean, Float, ForeignKey, Index, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, validates
 
 from app.db.base import Base
@@ -8,10 +8,17 @@ from app.db.base import Base
 
 class Member(Base):
     __tablename__ = "members"
+    __table_args__ = (
+        # Redundant as a uniqueness rule (``id`` is already the PK), but it is
+        # the parent key ``IdentityLink`` points at, letting the database
+        # reject a link whose endpoint's workspace doesn't match the member it
+        # names — see ``models.identity_link.IdentityLink``.
+        UniqueConstraint("workspace_id", "id", name="uq_member_workspace_id_id"),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    tree_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("trees.id", ondelete="CASCADE"), index=True
+    workspace_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
     )
 
     gender: Mapped[str | None] = mapped_column(String(1), nullable=True)
@@ -39,26 +46,31 @@ class Member(Base):
     deceased: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     adopted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_collapsed: Mapped[bool] = mapped_column(Boolean, default=False)
-    # Optional pointer to another tree that details this person's own family
-    # (the "tree-in-tree" link). SET NULL so deleting the target tree just
-    # clears the link rather than cascading.
-    linked_tree_id: Mapped[str | None] = mapped_column(
-        String(36),
-        ForeignKey("trees.id", ondelete="SET NULL"),
-        nullable=True,
-        index=True,
-    )
-    # The counterpart row in the linked tree representing the same person (the
-    # "bridge person"). Navigation into the linked tree centers on it. SET NULL
-    # so deleting the counterpart degrades the link to tree-level only.
-    linked_member_id: Mapped[str | None] = mapped_column(
-        String(36),
-        ForeignKey("members.id", ondelete="SET NULL"),
-        nullable=True,
-        index=True,
-    )
     position_x: Mapped[float] = mapped_column(Float, default=0)
     position_y: Mapped[float] = mapped_column(Float, default=0)
+    # Derived from first/last/maiden name (see ``_derive_name_normalized``
+    # below); never set directly. Backs the indexed, visibility-safe
+    # workspace search (#1024) — a trigram index over this single column
+    # replaces three unindexed per-field ``ILIKE`` scans.
+    name_normalized: Mapped[str] = mapped_column(
+        String(800), default="", server_default=""
+    )
+
+    @validates("first_name", "last_name", "maiden_name")
+    def _derive_name_normalized(self, key: str, value: str | None) -> str | None:
+        # Lazy import: same reasoning as ``_derive_date_sort`` below.
+        from app.services.members.member_search import (
+            normalize_member_name,  # noqa: PLC0415
+        )
+
+        parts = {
+            "first_name": self.first_name,
+            "last_name": self.last_name,
+            "maiden_name": self.maiden_name,
+        }
+        parts[key] = value
+        self.name_normalized = normalize_member_name(**parts)
+        return value
 
     @validates("date_of_birth", "date_of_death")
     def _derive_date_sort(self, key: str, value: str | None) -> str | None:
@@ -82,9 +94,26 @@ class Member(Base):
 
 class Relation(Base):
     __tablename__ = "relations"
+    __table_args__ = (
+        # The neighborhood traversal steps a generation at a time, filtering by
+        # workspace + relation type on one endpoint at a time; these keep both
+        # directions an index lookup instead of a scan (#983).
+        Index(
+            "ix_relations_workspace_type_from",
+            "workspace_id",
+            "relation_type",
+            "from_member_id",
+        ),
+        Index(
+            "ix_relations_workspace_type_to",
+            "workspace_id",
+            "relation_type",
+            "to_member_id",
+        ),
+    )
 
-    tree_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("trees.id", ondelete="CASCADE"), primary_key=True
+    workspace_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("workspaces.id", ondelete="CASCADE"), primary_key=True
     )
     from_member_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("members.id", ondelete="CASCADE"), primary_key=True
@@ -112,8 +141,8 @@ class MemberDisease(Base):
     __tablename__ = "member_diseases"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    tree_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("trees.id", ondelete="CASCADE"), index=True
+    workspace_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
     )
     member_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("members.id", ondelete="CASCADE"), index=True

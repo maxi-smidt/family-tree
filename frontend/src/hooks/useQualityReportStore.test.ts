@@ -1,26 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useQualityReportStore } from "./useQualityReportStore";
-import { useTreeStore } from "./useTreeStore";
+import { useWorkspaceStore } from "./useWorkspaceStore";
 import { useMemberStore } from "./useMemberStore";
 import { useEventStore } from "./useEventStore";
 import { useStoryStore } from "./useStoryStore";
 import { useGalleryStore } from "./useGalleryStore";
 import { useDocumentStore } from "./useDocumentStore";
 import { registerTaskStoreActions } from "./taskStoreRegistry";
-import { TreeService } from "@/services/TreeService";
+import { WorkspaceService } from "@/services/WorkspaceService";
 import { QualityReport } from "@/types/quality";
-import { Tree } from "@/types/tree";
+import { Workspace } from "@/types/workspace";
 
-vi.mock("@/services/TreeService");
+vi.mock("@/services/WorkspaceService");
 
 const TREE_ID = "tree-qr";
 
-function makeTree(): Tree {
-  return { id: TREE_ID, name: "QR Tree", role: "owner" };
+function makeTree(): Workspace {
+  return { id: TREE_ID, name: "QR Workspace", role: "owner" };
 }
 
 const REPORT: QualityReport = {
-  tree_id: TREE_ID,
+  workspace_id: TREE_ID,
   total_members: 2,
   issues: [
     {
@@ -41,7 +41,7 @@ beforeEach(() => {
     isLoading: false,
     showDismissed: false,
   });
-  useTreeStore.setState({ selectedTree: undefined });
+  useWorkspaceStore.setState({ selectedTree: undefined });
 });
 
 describe("useQualityReportStore — refreshReport", () => {
@@ -51,12 +51,12 @@ describe("useQualityReportStore — refreshReport", () => {
     await useQualityReportStore.getState().refreshReport();
 
     expect(useQualityReportStore.getState().report).toBeNull();
-    expect(TreeService.getQualityReport).not.toHaveBeenCalled();
+    expect(WorkspaceService.getQualityReport).not.toHaveBeenCalled();
   });
 
   it("fetches the report from the service", async () => {
-    useTreeStore.setState({ selectedTree: makeTree() });
-    vi.mocked(TreeService.getQualityReport).mockResolvedValue(REPORT);
+    useWorkspaceStore.setState({ selectedTree: makeTree() });
+    vi.mocked(WorkspaceService.getQualityReport).mockResolvedValue(REPORT);
 
     await useQualityReportStore.getState().refreshReport();
 
@@ -66,16 +66,16 @@ describe("useQualityReportStore — refreshReport", () => {
 
 describe("useQualityReportStore — dismissIssue / restoreIssue", () => {
   it("dismisses an issue then refreshes the report", async () => {
-    useTreeStore.setState({ selectedTree: makeTree() });
-    vi.mocked(TreeService.dismissQualityIssue).mockResolvedValue(undefined);
-    vi.mocked(TreeService.getQualityReport).mockResolvedValue({
+    useWorkspaceStore.setState({ selectedTree: makeTree() });
+    vi.mocked(WorkspaceService.dismissQualityIssue).mockResolvedValue(undefined);
+    vi.mocked(WorkspaceService.getQualityReport).mockResolvedValue({
       ...REPORT,
       issues: [{ ...REPORT.issues[0], dismissed: true }],
     });
 
     await useQualityReportStore.getState().dismissIssue("issue-1");
 
-    expect(TreeService.dismissQualityIssue).toHaveBeenCalledWith(
+    expect(WorkspaceService.dismissQualityIssue).toHaveBeenCalledWith(
       TREE_ID,
       "issue-1",
     );
@@ -85,13 +85,13 @@ describe("useQualityReportStore — dismissIssue / restoreIssue", () => {
   });
 
   it("restores an issue then refreshes the report", async () => {
-    useTreeStore.setState({ selectedTree: makeTree() });
-    vi.mocked(TreeService.restoreQualityIssue).mockResolvedValue(undefined);
-    vi.mocked(TreeService.getQualityReport).mockResolvedValue(REPORT);
+    useWorkspaceStore.setState({ selectedTree: makeTree() });
+    vi.mocked(WorkspaceService.restoreQualityIssue).mockResolvedValue(undefined);
+    vi.mocked(WorkspaceService.getQualityReport).mockResolvedValue(REPORT);
 
     await useQualityReportStore.getState().restoreIssue("issue-1");
 
-    expect(TreeService.restoreQualityIssue).toHaveBeenCalledWith(
+    expect(WorkspaceService.restoreQualityIssue).toHaveBeenCalledWith(
       TREE_ID,
       "issue-1",
     );
@@ -103,18 +103,18 @@ describe("useQualityReportStore — dismissIssue / restoreIssue", () => {
   it("does nothing when no tree is selected", async () => {
     await useQualityReportStore.getState().dismissIssue("issue-1");
 
-    expect(TreeService.dismissQualityIssue).not.toHaveBeenCalled();
+    expect(WorkspaceService.dismissQualityIssue).not.toHaveBeenCalled();
   });
 });
 
 describe("useQualityReportStore — mergeMembers", () => {
   it("refreshes members and any already-initialized domain stores (#812)", async () => {
-    useTreeStore.setState({ selectedTree: makeTree() });
+    useWorkspaceStore.setState({ selectedTree: makeTree() });
     useQualityReportStore.setState({ report: REPORT, showDismissed: true });
-    vi.mocked(TreeService.mergeMembers).mockResolvedValue(
-      {} as Awaited<ReturnType<typeof TreeService.mergeMembers>>,
+    vi.mocked(WorkspaceService.mergeMembers).mockResolvedValue(
+      {} as Awaited<ReturnType<typeof WorkspaceService.mergeMembers>>,
     );
-    vi.mocked(TreeService.getQualityReport).mockResolvedValue(REPORT);
+    vi.mocked(WorkspaceService.getQualityReport).mockResolvedValue(REPORT);
 
     const refreshMembers = vi.fn().mockResolvedValue(undefined);
     useMemberStore.setState({ refreshMembers });
@@ -135,7 +135,7 @@ describe("useQualityReportStore — mergeMembers", () => {
 
     await useQualityReportStore.getState().mergeMembers("keep", "remove", {});
 
-    expect(TreeService.mergeMembers).toHaveBeenCalledWith(TREE_ID, {
+    expect(WorkspaceService.mergeMembers).toHaveBeenCalledWith(TREE_ID, {
       keep_id: "keep",
       remove_id: "remove",
       fields: {},
@@ -157,7 +157,7 @@ describe("useQualityReportStore — mergeMembers", () => {
 
   it("does nothing when no tree is selected", async () => {
     await useQualityReportStore.getState().mergeMembers("keep", "remove", {});
-    expect(TreeService.mergeMembers).not.toHaveBeenCalled();
+    expect(WorkspaceService.mergeMembers).not.toHaveBeenCalled();
   });
 });
 

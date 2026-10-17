@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { useMemberEditors, usePresenceStore } from "./usePresenceStore";
-import { useTreeStore } from "./useTreeStore";
+import { useWorkspaceStore } from "./useWorkspaceStore";
 import { useAuthStore } from "./useAuthStore";
 import { PresenceUserDB } from "@/types/presence";
-import { Tree } from "@/types/tree";
+import { Workspace } from "@/types/workspace";
 import { User } from "@/types/user";
 
-const TREE: Tree = { id: "t1", name: "Tree", role: "owner" };
+const TREE: Workspace = { id: "t1", name: "Workspace", role: "owner" };
 
 const ROWS: PresenceUserDB[] = [
   {
@@ -28,7 +28,7 @@ const ROWS: PresenceUserDB[] = [
 
 beforeEach(() => {
   usePresenceStore.getState().clear();
-  useTreeStore.setState({ selectedTree: TREE });
+  useWorkspaceStore.setState({ selectedTree: TREE });
   useAuthStore.setState({ user: { id: "me" } as unknown as User });
 });
 

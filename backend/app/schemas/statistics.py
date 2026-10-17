@@ -1,31 +1,6 @@
-"""Schemas for statistics reports and custom-widget aggregations."""
+"""Schemas for built-in statistics reports."""
 
-from typing import Literal
-
-from pydantic import BaseModel, Field
-
-from app.schemas.base import FamilyTreeBaseModel
-
-# These are deliberately closed registries.  The aggregation endpoint maps
-# every accepted value to explicit Python code; it never accepts a field name
-# or query fragment from the client.  ``test_statistics_widgets.py`` checks
-# that they stay in lock-step with the frontend widget registries.
-WidgetChartType = Literal["bar", "pie", "line", "area"]
-WidgetDimensionId = Literal[
-    "gender",
-    "birth-decade",
-    "death-decade",
-    "birth-year",
-    "age-at-death",
-    "birthplace",
-    "hometown",
-    "cemetery",
-    "first-name",
-    "last-name",
-    "deceased-status",
-    "academic-title",
-]
-WidgetMeasureId = Literal["count", "avg-lifespan", "avg-age"]
+from pydantic import BaseModel
 
 
 class GenderDistribution(BaseModel):
@@ -51,8 +26,28 @@ class NameCount(BaseModel):
     count: int
 
 
+class MemberYear(BaseModel):
+    """A person pinned to a year — e.g. the earliest recorded birth."""
+
+    member_id: str
+    first_name: str | None = None
+    last_name: str | None = None
+    year: int
+    place: str | None = None
+
+
+class LifeSpan(BaseModel):
+    member_id: str
+    first_name: str | None = None
+    last_name: str | None = None
+    gender: str | None = None
+    birth_year: int
+    death_year: int
+    age: int
+
+
 class StatisticsReport(BaseModel):
-    tree_id: str
+    workspace_id: str
     total_members: int
     members_with_birth_date: int
     members_with_death_date: int
@@ -62,49 +57,11 @@ class StatisticsReport(BaseModel):
     lifespan_distribution: list[AgeGroup]
     top_first_names: list[NameCount]
     top_last_names: list[NameCount]
-
-
-class CombinedStatisticsReport(StatisticsReport):
-    """Statistics aggregated across the anchor tree and its linked trees.
-
-    Same shape as ``StatisticsReport`` (``tree_id`` stays the anchor tree's
-    id) plus how many trees were folded in and which ones, so the frontend
-    can show "across N trees" without a second request.
-    """
-
-    tree_count: int
-    included_tree_ids: list[str]
-
-
-class CustomWidgetAggregateConfig(FamilyTreeBaseModel):
-    """The safe, serializable portion of a custom-widget configuration."""
-
-    id: str = Field(min_length=1, max_length=128)
-    chart_type: WidgetChartType
-    dimension_id: WidgetDimensionId
-    measure_id: WidgetMeasureId
-    breakdown_id: WidgetDimensionId | None = None
-
-
-class CustomWidgetAggregateRequest(FamilyTreeBaseModel):
-    """Batch widget pivots so one scope change produces one API request."""
-
-    scope: Literal["tree", "linked"] = "tree"
-    widgets: list[CustomWidgetAggregateConfig] = Field(min_length=1, max_length=100)
-
-
-class CustomWidgetAggregateRow(BaseModel):
-    """One raw category with values keyed by its raw series ids."""
-
-    category: str
-    values: dict[str, float]
-
-
-class CustomWidgetAggregation(BaseModel):
-    id: str
-    data: list[CustomWidgetAggregateRow]
-    series: list[str]
-
-
-class CustomWidgetAggregateResponse(BaseModel):
-    widgets: list[CustomWidgetAggregation]
+    # Added for the statistics overview; defaults keep older cached reports
+    # and older clients valid.
+    living_count: int = 0
+    members_with_birthplace: int = 0
+    members_with_photo: int = 0
+    earliest_birth: MemberYear | None = None
+    top_birthplaces: list[NameCount] = []
+    longest_lives: list[LifeSpan] = []

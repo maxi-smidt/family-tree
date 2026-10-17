@@ -29,10 +29,7 @@ export function UploadQueueItem({
 
       {/* Name and status */}
       <div className="min-w-0 flex-1">
-        <p
-          className="truncate text-sm font-medium"
-          title={item.name}
-        >
+        <p className="truncate text-sm font-medium" title={item.name}>
           {item.name}
         </p>
         <div className="mt-0.5">
@@ -59,7 +56,9 @@ export function UploadQueueItem({
               title={item.errorKey ? t(item.errorKey) : undefined}
             >
               <AlertCircle className="size-3" aria-hidden />
-              {item.errorKey ? t(item.errorKey) : t("upload-queue.status-failed")}
+              {item.errorKey
+                ? t(item.errorKey)
+                : t("upload-queue.status-failed")}
             </span>
           )}
         </div>

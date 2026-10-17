@@ -67,9 +67,13 @@ services:
 
   frontend:
     image: ghcr.io/maxi-smidt/family-tree-frontend:${APP_IMAGE_TAG:-latest}
+    # Not service_healthy: nginx must be up (serving the SPA's maintenance
+    # screen) for as long as a v2 startup migration keeps the backend's
+    # /health/ready failing, potentially minutes (#1020) — gating frontend
+    # startup on backend health would leave nothing for a user to load.
     depends_on:
       backend:
-        condition: service_healthy
+        condition: service_started
     ports:
       - "${UI_PORT:-8080}:8080"
     restart: unless-stopped

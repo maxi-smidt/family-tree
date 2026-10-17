@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { TreeService } from "@/services/TreeService";
+import { WorkspaceService } from "@/services/WorkspaceService";
 
-vi.mock("@/services/TreeService");
-vi.mock("@/hooks/useTreeStore", () => ({
+vi.mock("@/services/WorkspaceService");
+vi.mock("@/hooks/useWorkspaceStore", () => ({
   activeTreeId: () => "tree-1",
-  isActiveTree: (treeId: string) => treeId === "tree-1",
+  isActiveTree: (workspaceId: string) => workspaceId === "tree-1",
 }));
 
 import { useActivityStore } from "./useActivityStore";
@@ -13,7 +13,7 @@ function page(ids: string[], total: number, actors: string[] = ["Ada"]) {
   return {
     entries: ids.map((id) => ({
       id,
-      tree_id: "tree-1",
+      workspace_id: "tree-1",
       actor_id: null,
       actor_username: "Ada",
       action: "create",
@@ -28,7 +28,7 @@ function page(ids: string[], total: number, actors: string[] = ["Ada"]) {
   };
 }
 
-type ActivityPage = Awaited<ReturnType<typeof TreeService.getActivity>>;
+type ActivityPage = Awaited<ReturnType<typeof WorkspaceService.getActivity>>;
 
 // A promise whose settlement we control, so a test can force responses to
 // arrive out of order relative to the order the requests were issued.
@@ -49,13 +49,13 @@ beforeEach(() => {
 
 describe("useActivityStore", () => {
   it("loads the first page with total and the full actor list", async () => {
-    vi.mocked(TreeService.getActivity).mockResolvedValue(
+    vi.mocked(WorkspaceService.getActivity).mockResolvedValue(
       page(["a2", "a1"], 2, ["Ada", "Bob"]),
     );
 
     await useActivityStore.getState().refreshActivity();
 
-    expect(TreeService.getActivity).toHaveBeenLastCalledWith("tree-1", {
+    expect(WorkspaceService.getActivity).toHaveBeenLastCalledWith("tree-1", {
       offset: 0,
       limit: 25,
       actor: undefined,
@@ -72,39 +72,39 @@ describe("useActivityStore", () => {
   });
 
   it("requests the right offset when paging and resets to page 0 on resize", async () => {
-    vi.mocked(TreeService.getActivity).mockResolvedValue(page(["a1"], 60));
+    vi.mocked(WorkspaceService.getActivity).mockResolvedValue(page(["a1"], 60));
 
     await useActivityStore.getState().refreshActivity();
     await useActivityStore.getState().setPage(2);
-    expect(TreeService.getActivity).toHaveBeenLastCalledWith(
+    expect(WorkspaceService.getActivity).toHaveBeenLastCalledWith(
       "tree-1",
       expect.objectContaining({ offset: 50, limit: 25 }),
     );
 
     await useActivityStore.getState().setPageSize(50);
     expect(useActivityStore.getState().page).toBe(0);
-    expect(TreeService.getActivity).toHaveBeenLastCalledWith(
+    expect(WorkspaceService.getActivity).toHaveBeenLastCalledWith(
       "tree-1",
       expect.objectContaining({ offset: 0, limit: 50 }),
     );
   });
 
   it("sends active filters to the server and returns to the first page", async () => {
-    vi.mocked(TreeService.getActivity).mockResolvedValue(page(["a1"], 1));
+    vi.mocked(WorkspaceService.getActivity).mockResolvedValue(page(["a1"], 1));
 
     await useActivityStore.getState().refreshActivity();
     await useActivityStore.getState().setPage(3);
     await useActivityStore.getState().setFilter("filterAction", "update");
 
     expect(useActivityStore.getState().page).toBe(0);
-    expect(TreeService.getActivity).toHaveBeenLastCalledWith(
+    expect(WorkspaceService.getActivity).toHaveBeenLastCalledWith(
       "tree-1",
       expect.objectContaining({ offset: 0, action: "update" }),
     );
   });
 
   it("keeps the previous state retryable after a failed load", async () => {
-    vi.mocked(TreeService.getActivity)
+    vi.mocked(WorkspaceService.getActivity)
       .mockRejectedValueOnce(new Error("offline"))
       .mockResolvedValueOnce(page(["a1"], 1));
 
@@ -127,7 +127,7 @@ describe("useActivityStore", () => {
   it("ignores a stale page response that settles after a newer page request", async () => {
     const first = deferred();
     const second = deferred();
-    vi.mocked(TreeService.getActivity)
+    vi.mocked(WorkspaceService.getActivity)
       .mockReturnValueOnce(first.promise)
       .mockReturnValueOnce(second.promise);
 
@@ -155,7 +155,7 @@ describe("useActivityStore", () => {
   it("keeps loading while a stale response settles before the newest page-size request", async () => {
     const first = deferred();
     const second = deferred();
-    vi.mocked(TreeService.getActivity)
+    vi.mocked(WorkspaceService.getActivity)
       .mockReturnValueOnce(first.promise)
       .mockReturnValueOnce(second.promise);
 
@@ -180,7 +180,7 @@ describe("useActivityStore", () => {
   it("ignores a stale response when the actor filter changes rapidly", async () => {
     const first = deferred();
     const second = deferred();
-    vi.mocked(TreeService.getActivity)
+    vi.mocked(WorkspaceService.getActivity)
       .mockReturnValueOnce(first.promise)
       .mockReturnValueOnce(second.promise);
 
@@ -202,7 +202,7 @@ describe("useActivityStore", () => {
   it("ignores a stale response when the action filter changes rapidly", async () => {
     const first = deferred();
     const second = deferred();
-    vi.mocked(TreeService.getActivity)
+    vi.mocked(WorkspaceService.getActivity)
       .mockReturnValueOnce(first.promise)
       .mockReturnValueOnce(second.promise);
 
@@ -224,7 +224,7 @@ describe("useActivityStore", () => {
   it("ignores a stale response when the target-type filter changes rapidly", async () => {
     const first = deferred();
     const second = deferred();
-    vi.mocked(TreeService.getActivity)
+    vi.mocked(WorkspaceService.getActivity)
       .mockReturnValueOnce(first.promise)
       .mockReturnValueOnce(second.promise);
 
@@ -236,7 +236,7 @@ describe("useActivityStore", () => {
       .setFilter("filterTargetType", "document");
 
     // The newest request carries the newly supported "document" target type.
-    expect(TreeService.getActivity).toHaveBeenLastCalledWith(
+    expect(WorkspaceService.getActivity).toHaveBeenLastCalledWith(
       "tree-1",
       expect.objectContaining({ target_type: "document" }),
     );
@@ -256,7 +256,7 @@ describe("useActivityStore", () => {
   it("does not let a stale failure overwrite a newer successful response", async () => {
     const first = deferred();
     const second = deferred();
-    vi.mocked(TreeService.getActivity)
+    vi.mocked(WorkspaceService.getActivity)
       .mockReturnValueOnce(first.promise)
       .mockReturnValueOnce(second.promise);
 
@@ -287,18 +287,18 @@ describe("useActivityStore", () => {
     };
 
     it("calls the service with the active tree and entry id, then refreshes", async () => {
-      vi.mocked(TreeService.undoActivity).mockResolvedValue(report);
-      vi.mocked(TreeService.getActivity).mockResolvedValue(page(["a1"], 1));
+      vi.mocked(WorkspaceService.undoActivity).mockResolvedValue(report);
+      vi.mocked(WorkspaceService.getActivity).mockResolvedValue(page(["a1"], 1));
 
       const result = await useActivityStore.getState().undo("entry-1");
 
-      expect(TreeService.undoActivity).toHaveBeenCalledWith("tree-1", "entry-1");
-      expect(TreeService.getActivity).toHaveBeenCalled();
+      expect(WorkspaceService.undoActivity).toHaveBeenCalledWith("tree-1", "entry-1");
+      expect(WorkspaceService.getActivity).toHaveBeenCalled();
       expect(result).toEqual(report);
     });
 
     it("propagates a rejection so the caller can report it", async () => {
-      vi.mocked(TreeService.undoActivity).mockRejectedValue(new Error("conflict"));
+      vi.mocked(WorkspaceService.undoActivity).mockRejectedValue(new Error("conflict"));
 
       await expect(
         useActivityStore.getState().undo("entry-1"),

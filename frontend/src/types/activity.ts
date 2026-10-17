@@ -1,6 +1,6 @@
 export interface Activity {
   id: string;
-  treeId: string;
+  workspaceId: string;
   actorId: string | null;
   actorUsername: string | null;
   action: string; // "create" | "update" | "delete"
@@ -13,7 +13,7 @@ export interface Activity {
 
 export interface ActivityDB {
   id: string;
-  tree_id: string;
+  workspace_id: string;
   actor_id: string | null;
   actor_username: string | null;
   action: string;
@@ -62,7 +62,7 @@ export function mapActivityFromDB(row: ActivityDB): Activity {
   }
   return {
     id: row.id,
-    treeId: row.tree_id,
+    workspaceId: row.workspace_id,
     actorId: row.actor_id,
     actorUsername: row.actor_username,
     action: row.action,

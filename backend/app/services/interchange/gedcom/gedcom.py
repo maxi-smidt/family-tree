@@ -12,7 +12,7 @@ public API:
 
 Public API
 ----------
-serialize_to_gedcom(tree_name, members, relations, documents=, document_files=,
+serialize_to_gedcom(workspace_name, members, relations, documents=, document_files=,
                      citations=) -> str
 parse_gedcom(text) -> {"members": [...], "relations": [...]}
 """

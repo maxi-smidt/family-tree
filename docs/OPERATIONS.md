@@ -49,6 +49,27 @@ Keep these files off-host as you would a database dump. They are encrypted with
 the instance `SECRET_KEY`, so restore them with the same key (or treat a key
 rotation as a planned migration).
 
+**Supported backup versions**: the `.ftbackup` *archive format* and the
+application's *database schema epoch* are tracked separately — an archive's
+format version can stay the same across a schema change. Format version 3 is
+the current bounded/streaming layout; format version 2 is the older
+single-JSON-bundle layout, which spans both schema epochs below.
+
+| Archive format | Schema epoch | Produced by  | Restorable by |
+| --------------- | ------------ | ------------ | -------------- |
+| version 3 (streaming) | v2 | v2.0.0+ | this version, directly |
+| version 2 (JSON bundle) | v2 | v2.0.0+ (including the pre-migration safety backup) | this version, directly |
+| version 2 (JSON bundle) | v1 | any v1.x release | this version, directly — see below |
+
+A genuine v1.x-era archive (`trees`, `tree_id`, and no `workspaces`/
+`identity_links`/... tables) is detected automatically and converted through
+the same deterministic rules the live v1 → v2 upgrade uses — table/column
+renames, tree-in-tree bridge → identity link conversion, and per-owner
+workspace consolidation — before it lands in a blank v2 target. No
+intermediate v1.x or pre-consolidation v2.0.0 install is needed. An archive
+whose table set matches neither schema epoch is rejected before anything is
+written.
+
 To restore an `.ftbackup`, stop application workers first, run migrations for
 the target version, and use the backend command against a **blank** database
 and empty `${DATA_PATH}/media` volume:
@@ -251,6 +272,82 @@ docker compose logs backend --tail 100   # the Alembic error is at the top of th
 
 > Tip: avoid `latest` drift in long-lived deployments by pinning explicit
 > release tags and bumping `APP_IMAGE_TAG` deliberately.
+
+### Upgrading from v1.x to v2.0.0
+
+> For the pre-upgrade planning runbook — compatibility, stopping old v1
+> writers, image-digest pinning, your own off-host copy, and monitoring a
+> run in progress — see [UPGRADE_V2.md](UPGRADE_V2.md). This section covers
+> what the backend does automatically and how to recover from a failure.
+
+The v2.0.0 cutover consolidates every user's separate trees into shared
+workspaces with sections — a one-time, in-place data conversion, not just a
+schema migration. The **general advice above does not apply to it**: once
+`alembic upgrade head` has renamed `trees` to `workspaces` (and applied the
+rest of the v2 schema), pinning back to the v1 image will not work — v1
+application code cannot read that schema, converted or not.
+
+**Take your own database + `${DATA_PATH}` snapshot before upgrading**, as
+[Backup & restore](#backup--restore) already advises for any major version
+jump. An in-app `.ftbackup` of that v1.x instance restores straight into a
+**blank v2.0.0+ target** (see "Supported backup versions" above) — you no
+longer need the v1.x image to get back to it — but the automated safety net
+below does not replace taking that snapshot in the first place.
+
+On first startup against a v1.x database, the backend (see
+`app.services.migration.orchestrator`):
+
+1. Runs `alembic upgrade head` as usual — every v2 schema change is additive
+   or a rename, so this step alone does not lose data. The database is now
+   v2-shaped (`workspaces`, not `trees`) but not yet converted.
+2. Takes and self-verifies an automatic, encrypted backup of the full
+   pre-conversion instance (database + media) in this **v2 shape**, recorded
+   as a `pre_migration` backup in Admin → Backups. This backup is exempt from
+   scheduled pruning and cannot be deleted until the migration is finalized.
+   Because it is v2-shaped, restoring it requires this **same v2.0.0 image**
+   (or later), not the v1.x image — it is a safety net for the data
+   conversion below, not a way back to v1.
+3. Converts the data: merges each user's trees into workspaces/sections,
+   relocates media, and writes a per-owner report.
+4. Only then does the backend start serving requests.
+
+A container running `WORKERS > 1`, or a second replica against the same
+database, blocks on the same step instead of running it twice — you will see
+one `pre_migration` backup and one conversion, not several.
+
+**If the conversion fails**, the backend container restart-loops (same as
+any other failed startup) and the run's status is recorded on its
+`migration_runs` row:
+
+- `recoverable` — the backend automatically resumes the conversion from its
+  last completed phase on every restart. Check `docker compose logs backend`
+  for what's blocking it (commonly: disk space); once resolved, just restart
+  the stack.
+- `failed` — the backend refuses to start until an operator intervenes,
+  rather than guess at resuming or reconverting. You have two options:
+  - Restore the `pre_migration` backup from step 2 above into a **blank**
+    database and media volume, running **this same v2.0.0 image**, using the
+    restore procedure in [Backup & restore](#backup--restore) — this gets you
+    back to the moment right after the schema migration but before the data
+    conversion, with no data loss, so you can investigate and retry.
+  - Or go back to actual v1: restore your **own pre-upgrade snapshot** into a
+    blank instance running the **v1.x image** — or, if that snapshot is an
+    in-app `.ftbackup`, straight into a blank v2.0.0+ instance instead (see
+    "Supported backup versions" above), no v1.x image required.
+
+  ```bash
+  # Option 1 — back to pre-conversion v2 data, same image:
+  # 1. Stop the stack; provision a blank database and an empty ${DATA_PATH}.
+  docker compose -f docker-compose.prod.yml up -d db   # or your external Postgres
+  cd backend
+  uv run python -m app.services.system.backups.restore_backup /secure/pre_migration_backup.ftbackup
+  # 2. Start the v2.0.0 stack normally; investigate the conversion failure
+  #    (see the run's failure_code/failure_detail) before restarting it.
+  ```
+
+  Alembic's `downgrade` is not a supported path either way — v1 application
+  code cannot run against a partially- or fully-converted v2 schema, so one
+  of the two restores above is the only supported rollback.
 
 ---
 
