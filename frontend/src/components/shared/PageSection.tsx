@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 /**
  * A titled block on a page: small uppercase heading ("WAITING FOR YOU · 1")
  * above its content. Used to stack sections on single-column pages such as
- * Friends, Identity links and Migration review.
+ * Friends and Identity links.
  */
 export function PageSection({
   title,

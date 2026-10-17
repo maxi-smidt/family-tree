@@ -52,11 +52,6 @@ const FriendsView = lazy(() =>
     default: m.FriendsView,
   })),
 );
-const MigrationReviewView = lazy(() =>
-  import("@/components/view/migration-review-view/MigrationReviewView").then(
-    (m) => ({ default: m.MigrationReviewView }),
-  ),
-);
 const IdentityLinksView = lazy(() =>
   import("@/components/view/identity-links-view/IdentityLinksView").then(
     (m) => ({ default: m.IdentityLinksView }),
@@ -66,7 +61,6 @@ import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { useFriendStore } from "@/hooks/useFriendStore";
 import { useIdentityLinkStore } from "@/hooks/useIdentityLinkStore";
-import { useMigrationReviewStore } from "@/hooks/useMigrationReviewStore";
 import { useTabPreferences } from "@/hooks/useTabPreferences";
 import { useTutorialStore } from "@/hooks/useTutorialStore";
 import { useLegalStore } from "@/hooks/useLegalStore";
@@ -89,7 +83,6 @@ const VIEW_COMPONENTS: Omit<Record<ViewId, React.ReactNode>, "media-view"> = {
   "statistics-view": <StatisticsView />,
   "database-management-view": <DatabaseManagementView />,
   "friends-view": <FriendsView />,
-  "migration-review-view": <MigrationReviewView />,
   "identity-links-view": <IdentityLinksView />,
 };
 
@@ -135,7 +128,6 @@ export const MainPanel = () => {
     !!user?.legal_acceptance_required && !user?.legal_accepted;
   const loadLegalDocuments = useLegalStore((s) => s.load);
   const loadIncomingFriends = useFriendStore((s) => s.loadIncoming);
-  const loadMigrationReview = useMigrationReviewStore((s) => s.load);
   const loadIdentityClaimInbox = useIdentityLinkStore((s) => s.loadClaimInbox);
 
   useEffect(() => {
@@ -175,15 +167,11 @@ export const MainPanel = () => {
     startTutorial,
   ]);
 
-  // Keep the navigation badges (Friends, Migration review, Identity links)
+  // Keep the navigation badges (Friends, Identity links)
   // accurate without opening those views.
   useEffect(() => {
     if (user) void loadIncomingFriends();
   }, [user, loadIncomingFriends]);
-
-  useEffect(() => {
-    if (user) void loadMigrationReview();
-  }, [user, loadMigrationReview]);
 
   useEffect(() => {
     if (user) void loadIdentityClaimInbox();

@@ -10,7 +10,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { useFriendStore } from "@/hooks/useFriendStore";
 import { useIdentityLinkStore } from "@/hooks/useIdentityLinkStore";
-import { useMigrationReviewStore } from "@/hooks/useMigrationReviewStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useTabPreferences } from "@/hooks/useTabPreferences";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
@@ -60,9 +59,6 @@ vi.mock("@/components/view/map-view/MapView", () => ({
 vi.mock("@/components/view/friends-view/FriendsView", () => ({
   FriendsView: () => <div>Friends view</div>,
 }));
-vi.mock("@/components/view/migration-review-view/MigrationReviewView", () => ({
-  MigrationReviewView: () => <div>Migration review view</div>,
-}));
 vi.mock("@/components/layout/MobileManagementSheet", () => ({
   MobileManagementSheet: () => null,
 }));
@@ -110,13 +106,6 @@ describe("MainPanel", () => {
       outgoing: [],
       loading: false,
       loadIncoming: vi.fn().mockResolvedValue(undefined),
-    });
-    useMigrationReviewStore.setState({
-      reports: [],
-      conflicts: [],
-      loading: false,
-      loaded: false,
-      load: vi.fn().mockResolvedValue(undefined),
     });
     useIdentityLinkStore.setState({
       incomingClaims: [],
