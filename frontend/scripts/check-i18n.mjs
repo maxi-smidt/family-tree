@@ -55,6 +55,11 @@ const DYNAMIC_KEY_PREFIXES = [
   "migration-review-view.checklist.field-",
   // t(`claim-status-${claim.status}`) — IdentityLinksView
   "identity-links-view.claim-status-",
+  // t("nee", { context: birthNameContext(gender) }) → nee_male / nee_female
+  //   — member sublabels in pickers, list view and searches
+  "common.nee_",
+  "tree-view.search.nee_",
+  "workspace-nav.search.nee_",
 ];
 
 function isDynamicKey(key) {

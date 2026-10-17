@@ -1,4 +1,4 @@
-import { Member } from "@/types/member";
+import { Gender, Member } from "@/types/member";
 
 export interface MemberOption {
   label: string;
@@ -62,6 +62,19 @@ export function memberMatchesSearch(
 }
 
 /**
+ * i18next `context` for a member's birth-name label: "né X" for men, "née X"
+ * for women. Other/unknown gender gets no context and falls back to the
+ * plain key.
+ */
+export function birthNameContext(
+  gender: string | null | undefined,
+): "male" | "female" | undefined {
+  if (gender === "m") return "male";
+  if (gender === "f") return "female";
+  return undefined;
+}
+
+/**
  * Muted secondary line for a member: born (maiden) name and birth year, e.g.
  * "née Jones · 1900". `formatMaiden` localizes the maiden-name part (it returns
  * the whole "née X" string). Returns undefined when neither piece is known.
@@ -84,12 +97,14 @@ export function formatMemberSubLabel(
 
 export function getMemberOptions(
   members: Member[],
-  formatMaiden: (name: string) => string,
+  formatMaiden: (name: string, gender: Gender) => string,
 ): MemberOption[] {
   return members.map((m) => ({
     label: getMemberFullName(m),
     value: m.id,
-    sublabel: formatMemberSubLabel(m.maidenName, m.date.birth, formatMaiden),
+    sublabel: formatMemberSubLabel(m.maidenName, m.date.birth, (name) =>
+      formatMaiden(name, m.gender),
+    ),
     searchValue: getMemberSearchText(m),
   }));
 }

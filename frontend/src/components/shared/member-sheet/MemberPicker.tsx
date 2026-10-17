@@ -18,7 +18,11 @@ import {
 } from "@/components/ui/popover";
 import { Member } from "@/types/member";
 import { MemberAvatar } from "@/components/shared/MemberAvatar";
-import { getMemberSearchText, formatMemberSubLabel } from "@/utils/memberUtils";
+import {
+  birthNameContext,
+  getMemberSearchText,
+  formatMemberSubLabel,
+} from "@/utils/memberUtils";
 
 type Props = {
   members: Member[];
@@ -124,7 +128,11 @@ export const MemberPicker = ({
                   const sublabel = formatMemberSubLabel(
                     m.maidenName,
                     m.date.birth,
-                    (name) => t("common.nee", { name }),
+                    (name) =>
+                      t("common.nee", {
+                        name,
+                        context: birthNameContext(m.gender),
+                      }),
                   );
                   return (
                     <CommandItem

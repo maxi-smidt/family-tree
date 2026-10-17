@@ -56,6 +56,7 @@ import {
 } from "./ListFilters";
 import { ListPagination } from "./ListPagination";
 import { toCsv, downloadCsv } from "@/utils/csvUtils";
+import { birthNameContext } from "@/utils/memberUtils";
 
 type SortConfig = {
   key: string;
@@ -323,7 +324,10 @@ export const ListView = () => {
               </button>
               <span className="truncate text-xs text-muted-foreground">
                 {member.maidenName
-                  ? tCommon("nee", { name: member.maidenName })
+                  ? tCommon("nee", {
+                      name: member.maidenName,
+                      context: birthNameContext(member.gender),
+                    })
                   : isDeceased(member)
                     ? t("status.deceased")
                     : t("status.alive")}

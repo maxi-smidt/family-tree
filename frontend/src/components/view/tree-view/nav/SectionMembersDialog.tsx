@@ -17,7 +17,11 @@ import { useSectionStore } from "@/hooks/useSectionStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { SectionDB } from "@/types/section";
 import { MemberDB, WorkspaceSearchHitDB } from "@/types/member";
-import { getMemberFullName, formatMemberSubLabel } from "@/utils/memberUtils";
+import {
+  birthNameContext,
+  getMemberFullName,
+  formatMemberSubLabel,
+} from "@/utils/memberUtils";
 
 const SEARCH_DEBOUNCE_MS = 300;
 
@@ -241,7 +245,11 @@ export const SectionMembersDialog = ({
                 const sublabel = formatMemberSubLabel(
                   m.maidenName,
                   m.dateOfBirth,
-                  (name) => tSearch("nee", { name }),
+                  (name) =>
+                    tSearch("nee", {
+                      name,
+                      context: birthNameContext(m.gender),
+                    }),
                 );
                 return (
                   <li
