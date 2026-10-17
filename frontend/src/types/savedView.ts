@@ -51,3 +51,26 @@ export interface SavedViewUpdateInput {
   include_partners?: boolean;
   expected_version: number;
 }
+
+/** Depth meaning "all the way" up or down — mirrors the backend's
+ *  `ALL_GENERATIONS` in `services/workspaces/neighborhood.py`. Stored
+ *  literally in `ancestor_depth` / `descendant_depth`. */
+export const ALL_GENERATIONS = 999;
+
+/** The largest bounded depth a saved view may store. */
+export const MAX_SAVED_VIEW_DEPTH = 20;
+
+export const isAllGenerations = (depth: number) => depth >= ALL_GENERATIONS;
+
+/** One generation more or fewer on the canvas, within `[1, max]`. "All the
+ *  way" stays all the way when growing and drops to `max` when shrinking. */
+export const stepNeighborhoodDepth = (
+  depth: number,
+  delta: 1 | -1,
+  max: number,
+) =>
+  isAllGenerations(depth)
+    ? delta > 0
+      ? depth
+      : max
+    : Math.min(Math.max(depth + delta, 1), max);

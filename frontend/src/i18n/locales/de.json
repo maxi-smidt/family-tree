@@ -2489,7 +2489,13 @@
       "edit-error": "Die gespeicherte Ansicht konnte nicht gespeichert werden.",
       "cancel": "Abbrechen",
       "create": "Erstellen",
-      "save": "Speichern"
+      "save": "Speichern",
+      "scope-label": "Anzeigen",
+      "scope-workspace": "Ganzer Arbeitsbereich",
+      "scope-sections": "Ausgewählte Bereiche",
+      "sections-required": "Wähle mindestens einen Bereich oder zeige den ganzen Arbeitsbereich.",
+      "all-ancestors": "Alle Generationen nach oben",
+      "all-descendants": "Alle Generationen nach unten"
     },
     "delete-saved-view": {
       "title": "\"{{name}}\" löschen?",
@@ -2571,5 +2577,14 @@
     "confirmed": "Bestätigt",
     "more-actions": "Weitere Aktionen",
     "withdraw": "Zurückziehen"
+  },
+  "tree-preview": {
+    "focus": "Fokusperson",
+    "seed": "Ausgangsperson",
+    "included": "Enthalten",
+    "excluded": "Nicht enthalten",
+    "outside-sections": "Außerhalb der Bereiche",
+    "caption": "Beispielbaum, nicht deine Daten",
+    "summary": "Beispielbaum: {{included}} von {{total}} Personen enthalten"
   }
 }

@@ -50,6 +50,7 @@ import {
 } from "@/components/view/tree-view/CanvasToolbar";
 import { CreateSectionDialog } from "@/components/view/tree-view/nav/CreateSectionDialog";
 import { useTranslation } from "react-i18next";
+import { stepNeighborhoodDepth } from "@/types/savedView";
 
 type Props = {
   nodes: Node[];
@@ -107,8 +108,8 @@ export const MemberControls = ({
   const adjustNeighborhoodDepth = (delta: 1 | -1) => (e: Event) => {
     e.preventDefault();
     void setNeighborhoodDepth(
-      Math.min(Math.max(neighborhoodUp + delta, 1), 10),
-      Math.min(Math.max(neighborhoodDown + delta, 1), 10),
+      stepNeighborhoodDepth(neighborhoodUp, delta, 10),
+      stepNeighborhoodDepth(neighborhoodDown, delta, 10),
     );
   };
 

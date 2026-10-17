@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Dialog,
@@ -20,10 +20,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { MemberPicker } from "@/components/shared/member-sheet/MemberPicker";
+import { TreePreview } from "@/components/shared/TreePreview";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useSectionStore } from "@/hooks/useSectionStore";
 import { SectionPreviewDB } from "@/types/section";
 import { ApiError } from "@/services/api";
+import { previewSectionMembers } from "@/utils/treePreview";
 
 type Direction = "direct_family" | "partnership";
 
@@ -97,6 +99,11 @@ export const CreateSectionDialog = ({
     };
   }, [rootMemberId, direction, previewSection]);
 
+  const previewIncluded = useMemo(
+    () => previewSectionMembers(direction),
+    [direction],
+  );
+
   const handleSubmit = async () => {
     const trimmed = name.trim();
     if (!trimmed) return;
@@ -122,7 +129,7 @@ export const CreateSectionDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{t("title")}</DialogTitle>
           <DialogDescription>{t("description")}</DialogDescription>
@@ -168,6 +175,9 @@ export const CreateSectionDialog = ({
                 </SelectContent>
               </Select>
             </div>
+          )}
+          {rootMemberId && (
+            <TreePreview variant="section" included={previewIncluded} />
           )}
           {rootMemberId && (
             <div className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">

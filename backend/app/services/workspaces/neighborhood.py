@@ -36,6 +36,10 @@ MAX_NEIGHBORHOOD_NODES = 1500
 # sequence prefix, so the offset must stay bounded; past this the canvas is far
 # beyond anything renderable anyway.
 MAX_NEIGHBORHOOD_TOTAL = 20_000
+# Depth meaning "all the way": far past any real family's generation count, so
+# the walk simply runs until a direction has no one left (still capped by the
+# node budget). Saved views store it literally for an unlimited direction.
+ALL_GENERATIONS = 999
 # Ceiling on section include-filters per request.
 MAX_SECTION_FILTERS = 50
 # Bumped whenever the traversal order changes — cursors issued by an older

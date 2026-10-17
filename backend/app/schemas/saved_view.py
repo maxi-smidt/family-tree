@@ -4,6 +4,21 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
+from app.services.workspaces.neighborhood import ALL_GENERATIONS
+
+MAX_SAVED_VIEW_DEPTH = 20
+
+
+def _validate_depth_value(value: int) -> int:
+    # ``ALL_GENERATIONS`` is the "all the way" choice; anything else is a
+    # bounded generation count.
+    if value != ALL_GENERATIONS and (value < 0 or value > MAX_SAVED_VIEW_DEPTH):
+        raise ValueError(
+            f"Depth must be between 0 and {MAX_SAVED_VIEW_DEPTH}, "
+            f"or {ALL_GENERATIONS} for all generations"
+        )
+    return value
+
 
 def _require_name(value: str) -> str:
     value = value.strip()
@@ -62,9 +77,7 @@ class SavedViewCreate(BaseModel):
     @field_validator("ancestor_depth", "descendant_depth")
     @classmethod
     def _validate_depth(cls, value: int) -> int:
-        if value < 0 or value > 20:
-            raise ValueError("Depth must be between 0 and 20")
-        return value
+        return _validate_depth_value(value)
 
 
 class SavedViewUpdate(BaseModel):
@@ -90,9 +103,7 @@ class SavedViewUpdate(BaseModel):
     @field_validator("ancestor_depth", "descendant_depth")
     @classmethod
     def _validate_depth(cls, value: int | None) -> int | None:
-        if value is not None and (value < 0 or value > 20):
-            raise ValueError("Depth must be between 0 and 20")
-        return value
+        return None if value is None else _validate_depth_value(value)
 
 
 class SavedViewUserStateOut(BaseModel):

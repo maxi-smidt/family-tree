@@ -1,6 +1,7 @@
 """Saved views: config CRUD, workspace scoping, and lifecycle hardening (#986)."""
 
 from app.models import Section, SectionMember, WorkspaceSectionGrant
+from app.services.workspaces.neighborhood import ALL_GENERATIONS
 from tests.conftest import API, add_member, auth, make_tree, make_user, share
 
 
@@ -65,6 +66,29 @@ def test_create_with_focus_member_and_sections(client, db):
     assert body["ancestor_depth"] == 2
     assert body["descendant_depth"] == 5
     assert body["include_partners"] is False
+
+
+def test_create_with_all_generations(client, db):
+    user = make_user(db)
+    tree = make_tree(db, user)
+    res = _create(
+        client,
+        user,
+        tree,
+        ancestor_depth=ALL_GENERATIONS,
+        descendant_depth=ALL_GENERATIONS,
+    )
+    assert res.status_code == 201, res.text
+    body = res.json()
+    assert body["ancestor_depth"] == ALL_GENERATIONS
+    assert body["descendant_depth"] == ALL_GENERATIONS
+
+
+def test_create_rejects_depth_between_bounded_and_all(client, db):
+    user = make_user(db)
+    tree = make_tree(db, user)
+    assert _create(client, user, tree, ancestor_depth=21).status_code == 422
+    assert _create(client, user, tree, descendant_depth=-1).status_code == 422
 
 
 def test_create_rejects_focus_member_from_another_workspace(client, db):

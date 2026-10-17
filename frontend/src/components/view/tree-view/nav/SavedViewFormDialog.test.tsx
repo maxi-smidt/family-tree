@@ -4,7 +4,7 @@ import { useMemberStore } from "@/hooks/useMemberStore";
 import { useSectionStore } from "@/hooks/useSectionStore";
 import { useSavedViewStore } from "@/hooks/useSavedViewStore";
 import { ApiError } from "@/services/api";
-import { SavedViewDB } from "@/types/savedView";
+import { ALL_GENERATIONS, SavedViewDB } from "@/types/savedView";
 import { Member } from "@/types/member";
 import { SectionDB } from "@/types/section";
 import { SavedViewFormDialog } from "./SavedViewFormDialog";
@@ -90,6 +90,69 @@ describe("SavedViewFormDialog — create", () => {
     render(<SavedViewFormDialog open view={null} onOpenChange={vi.fn()} />);
 
     expect(screen.getByRole("button", { name: "Create" })).toBeDisabled();
+  });
+});
+
+describe("SavedViewFormDialog — scope and depth", () => {
+  it("saves the whole workspace with all generations up", async () => {
+    const createSavedView = vi.fn().mockResolvedValue(VIEW);
+    useSavedViewStore.setState({ createSavedView });
+
+    render(
+      <SavedViewFormDialog
+        open
+        view={null}
+        initialSectionIds={["s1"]}
+        onOpenChange={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Everyone above" },
+    });
+    fireEvent.click(screen.getByRole("radio", { name: "Whole workspace" }));
+    fireEvent.click(screen.getByRole("switch", { name: "All the way up" }));
+    expect(screen.getByLabelText("Ancestor depth")).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Create" }));
+
+    await waitFor(() =>
+      expect(createSavedView).toHaveBeenCalledWith(
+        expect.objectContaining({
+          section_ids: [],
+          ancestor_depth: ALL_GENERATIONS,
+          descendant_depth: 3,
+        }),
+      ),
+    );
+  });
+
+  it("requires a section when scoped to chosen sections", () => {
+    render(<SavedViewFormDialog open view={null} onOpenChange={vi.fn()} />);
+
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Branch" },
+    });
+    fireEvent.click(screen.getByRole("radio", { name: "Chosen sections" }));
+    expect(screen.getByRole("button", { name: "Create" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("switch", { name: "Vienna branch" }));
+    expect(screen.getByRole("button", { name: "Create" })).toBeEnabled();
+  });
+
+  it("opens an all-the-way view with the switch on", () => {
+    render(
+      <SavedViewFormDialog
+        open
+        view={{ ...VIEW, descendant_depth: ALL_GENERATIONS }}
+        onOpenChange={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("switch", { name: "All the way down" }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole("radio", { name: "Chosen sections" }),
+    ).toBeChecked();
   });
 });
 

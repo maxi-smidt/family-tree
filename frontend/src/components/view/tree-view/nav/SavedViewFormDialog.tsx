@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Dialog,
@@ -13,14 +13,47 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { TreePreview } from "@/components/shared/TreePreview";
 import { MemberPicker } from "@/components/shared/member-sheet/MemberPicker";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useSectionStore } from "@/hooks/useSectionStore";
 import { useSavedViewStore } from "@/hooks/useSavedViewStore";
-import { SavedViewDB } from "@/types/savedView";
+import {
+  ALL_GENERATIONS,
+  MAX_SAVED_VIEW_DEPTH,
+  SavedViewDB,
+  isAllGenerations,
+} from "@/types/savedView";
 import { ApiError } from "@/services/api";
+import {
+  PREVIEW_NODES,
+  PREVIEW_SECTION_IDS,
+  previewViewMembers,
+} from "@/utils/treePreview";
 
-const MAX_DEPTH = 20;
+const DEFAULT_DEPTH = 3;
+
+type Scope = "workspace" | "sections";
+
+/** One direction's depth: a bounded count, or all the way. The count is
+ *  kept while "all" is on so switching it off restores the last value. */
+interface DepthSetting {
+  count: number;
+  all: boolean;
+}
+
+const depthFrom = (depth: number): DepthSetting =>
+  isAllGenerations(depth)
+    ? { count: DEFAULT_DEPTH, all: true }
+    : { count: depth, all: false };
+
+const depthValue = (d: DepthSetting) => (d.all ? ALL_GENERATIONS : d.count);
+
+// The dummy nodes a section-scoped preview leaves out entirely.
+const PREVIEW_OUTSIDE_SECTIONS = new Set(
+  PREVIEW_NODES.map((n) => n.id).filter((id) => !PREVIEW_SECTION_IDS.has(id)),
+);
 
 interface SavedViewFormDialogProps {
   open: boolean;
@@ -35,7 +68,7 @@ interface SavedViewFormDialogProps {
 }
 
 const clampDepth = (value: number) =>
-  Math.min(MAX_DEPTH, Math.max(0, Math.trunc(value) || 0));
+  Math.min(MAX_SAVED_VIEW_DEPTH, Math.max(0, Math.trunc(value) || 0));
 
 export const SavedViewFormDialog = ({
   open,
@@ -56,9 +89,14 @@ export const SavedViewFormDialog = ({
 
   const [name, setName] = useState("");
   const [focusMemberId, setFocusMemberId] = useState<string | null>(null);
+  const [scope, setScope] = useState<Scope>("workspace");
   const [sectionIds, setSectionIds] = useState<Set<string>>(new Set());
-  const [ancestorDepth, setAncestorDepth] = useState(3);
-  const [descendantDepth, setDescendantDepth] = useState(3);
+  const [ancestorDepth, setAncestorDepth] = useState<DepthSetting>(
+    depthFrom(DEFAULT_DEPTH),
+  );
+  const [descendantDepth, setDescendantDepth] = useState<DepthSetting>(
+    depthFrom(DEFAULT_DEPTH),
+  );
   const [includePartners, setIncludePartners] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,16 +106,18 @@ export const SavedViewFormDialog = ({
     if (view) {
       setName(view.name);
       setFocusMemberId(view.focus_member_id);
+      setScope(view.section_ids.length ? "sections" : "workspace");
       setSectionIds(new Set(view.section_ids));
-      setAncestorDepth(view.ancestor_depth);
-      setDescendantDepth(view.descendant_depth);
+      setAncestorDepth(depthFrom(view.ancestor_depth));
+      setDescendantDepth(depthFrom(view.descendant_depth));
       setIncludePartners(view.include_partners);
     } else {
       setName("");
       setFocusMemberId(initialFocusMemberId);
+      setScope(initialSectionIds.length ? "sections" : "workspace");
       setSectionIds(new Set(initialSectionIds));
-      setAncestorDepth(3);
-      setDescendantDepth(3);
+      setAncestorDepth(depthFrom(DEFAULT_DEPTH));
+      setDescendantDepth(depthFrom(DEFAULT_DEPTH));
       setIncludePartners(true);
     }
     setError(null);
@@ -94,9 +134,25 @@ export const SavedViewFormDialog = ({
     });
   };
 
+  const sectionScoped = scope === "sections";
+  // A section scope with nothing picked would silently mean "everything".
+  const missingSections = sectionScoped && sectionIds.size === 0;
+  const chosenSectionIds = sectionScoped ? [...sectionIds] : [];
+
+  const previewIncluded = useMemo(
+    () =>
+      previewViewMembers({
+        up: ancestorDepth.all ? Infinity : ancestorDepth.count,
+        down: descendantDepth.all ? Infinity : descendantDepth.count,
+        includePartners,
+        sectionScoped,
+      }),
+    [ancestorDepth, descendantDepth, includePartners, sectionScoped],
+  );
+
   const handleSubmit = async () => {
     const trimmed = name.trim();
-    if (!trimmed) return;
+    if (!trimmed || missingSections) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -105,18 +161,18 @@ export const SavedViewFormDialog = ({
             name: trimmed,
             focus_member_id: focusMemberId ?? undefined,
             clear_focus_member: focusMemberId === null,
-            section_ids: [...sectionIds],
-            ancestor_depth: ancestorDepth,
-            descendant_depth: descendantDepth,
+            section_ids: chosenSectionIds,
+            ancestor_depth: depthValue(ancestorDepth),
+            descendant_depth: depthValue(descendantDepth),
             include_partners: includePartners,
             expected_version: view.version,
           })
         : await createSavedView({
             name: trimmed,
             focus_member_id: focusMemberId,
-            section_ids: [...sectionIds],
-            ancestor_depth: ancestorDepth,
-            descendant_depth: descendantDepth,
+            section_ids: chosenSectionIds,
+            ancestor_depth: depthValue(ancestorDepth),
+            descendant_depth: depthValue(descendantDepth),
             include_partners: includePartners,
           });
       onOpenChange(false);
@@ -137,7 +193,7 @@ export const SavedViewFormDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {view ? t("title-edit") : t("title-create")}
@@ -166,64 +222,76 @@ export const SavedViewFormDialog = ({
             />
           </div>
           <div className="space-y-1.5">
-            <Label>{t("sections-label")}</Label>
+            <Label>{t("scope-label")}</Label>
+            <ToggleGroup
+              type="single"
+              variant="outline"
+              size="sm"
+              value={scope}
+              onValueChange={(value) => value && setScope(value as Scope)}
+              className="w-full"
+            >
+              <ToggleGroupItem value="workspace" className="flex-1">
+                {t("scope-workspace")}
+              </ToggleGroupItem>
+              <ToggleGroupItem
+                value="sections"
+                className="flex-1"
+                disabled={sections.length === 0}
+              >
+                {t("scope-sections")}
+              </ToggleGroupItem>
+            </ToggleGroup>
             {sections.length === 0 ? (
               <p className="text-xs text-muted-foreground">
                 {t("no-sections")}
               </p>
             ) : (
-              <ul className="space-y-1.5">
-                {sections.map((section) => (
-                  <li
-                    key={section.id}
-                    className="flex items-center justify-between gap-3 rounded-md border px-3 py-1.5"
-                  >
-                    <span className="min-w-0 flex-1 truncate text-sm">
-                      {section.name}
-                    </span>
-                    <Switch
-                      checked={sectionIds.has(section.id)}
-                      onCheckedChange={(checked) =>
-                        toggleSection(section.id, checked)
-                      }
-                      aria-label={section.name}
-                    />
-                  </li>
-                ))}
-              </ul>
+              sectionScoped && (
+                <>
+                  <ul className="space-y-1.5" aria-label={t("sections-label")}>
+                    {sections.map((section) => (
+                      <li
+                        key={section.id}
+                        className="flex items-center justify-between gap-3 rounded-md border px-3 py-1.5"
+                      >
+                        <span className="min-w-0 flex-1 truncate text-sm">
+                          {section.name}
+                        </span>
+                        <Switch
+                          checked={sectionIds.has(section.id)}
+                          onCheckedChange={(checked) =>
+                            toggleSection(section.id, checked)
+                          }
+                          aria-label={section.name}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                  {missingSections && (
+                    <p className="text-xs text-muted-foreground">
+                      {t("sections-required")}
+                    </p>
+                  )}
+                </>
+              )
             )}
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="saved-view-ancestor-depth">
-                {t("ancestor-depth-label")}
-              </Label>
-              <Input
-                id="saved-view-ancestor-depth"
-                type="number"
-                min={0}
-                max={MAX_DEPTH}
-                value={ancestorDepth}
-                onChange={(e) =>
-                  setAncestorDepth(clampDepth(Number(e.target.value)))
-                }
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="saved-view-descendant-depth">
-                {t("descendant-depth-label")}
-              </Label>
-              <Input
-                id="saved-view-descendant-depth"
-                type="number"
-                min={0}
-                max={MAX_DEPTH}
-                value={descendantDepth}
-                onChange={(e) =>
-                  setDescendantDepth(clampDepth(Number(e.target.value)))
-                }
-              />
-            </div>
+            <DepthField
+              id="saved-view-ancestor-depth"
+              label={t("ancestor-depth-label")}
+              allLabel={t("all-ancestors")}
+              value={ancestorDepth}
+              onChange={setAncestorDepth}
+            />
+            <DepthField
+              id="saved-view-descendant-depth"
+              label={t("descendant-depth-label")}
+              allLabel={t("all-descendants")}
+              value={descendantDepth}
+              onChange={setDescendantDepth}
+            />
           </div>
           <div className="flex items-center justify-between gap-3">
             <Label htmlFor="saved-view-include-partners">
@@ -235,6 +303,11 @@ export const SavedViewFormDialog = ({
               onCheckedChange={setIncludePartners}
             />
           </div>
+          <TreePreview
+            variant="view"
+            included={previewIncluded}
+            outside={sectionScoped ? PREVIEW_OUTSIDE_SECTIONS : undefined}
+          />
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
         <DialogFooter>
@@ -246,7 +319,7 @@ export const SavedViewFormDialog = ({
           <Button
             size="sm"
             onClick={() => void handleSubmit()}
-            disabled={!name.trim() || submitting}
+            disabled={!name.trim() || missingSections || submitting}
           >
             {view ? t("save") : t("create")}
           </Button>
@@ -255,3 +328,45 @@ export const SavedViewFormDialog = ({
     </Dialog>
   );
 };
+
+interface DepthFieldProps {
+  id: string;
+  label: string;
+  allLabel: string;
+  value: DepthSetting;
+  onChange: (value: DepthSetting) => void;
+}
+
+const DepthField = ({
+  id,
+  label,
+  allLabel,
+  value,
+  onChange,
+}: DepthFieldProps) => (
+  <div className="space-y-1.5">
+    <Label htmlFor={id}>{label}</Label>
+    <Input
+      id={id}
+      type="number"
+      min={0}
+      max={MAX_SAVED_VIEW_DEPTH}
+      value={value.count}
+      disabled={value.all}
+      onChange={(e) =>
+        onChange({ ...value, count: clampDepth(Number(e.target.value)) })
+      }
+    />
+    <div className="flex items-center gap-2">
+      <Switch
+        id={`${id}-all`}
+        size="sm"
+        checked={value.all}
+        onCheckedChange={(all) => onChange({ ...value, all })}
+      />
+      <Label htmlFor={`${id}-all`} className="text-xs font-normal">
+        {allLabel}
+      </Label>
+    </div>
+  </div>
+);
