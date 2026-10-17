@@ -7,7 +7,6 @@ export const RelationEdge = ({
   targetY,
   style = {},
   markerEnd,
-  selected,
   interactionWidth = 40,
 }: EdgeProps) => {
   const [edgePath] = getStraightPath({
@@ -17,19 +16,11 @@ export const RelationEdge = ({
     targetY,
   });
 
-  const baseWidth =
-    typeof style?.strokeWidth === "number" ? style.strokeWidth : 2;
-  const edgeStyle = {
-    ...style,
-    strokeWidth: selected ? 3 : baseWidth,
-    filter: selected ? "brightness(0.5)" : "none",
-  };
-
   return (
     <BaseEdge
       path={edgePath}
       markerEnd={markerEnd}
-      style={edgeStyle}
+      style={style}
       interactionWidth={interactionWidth}
     />
   );

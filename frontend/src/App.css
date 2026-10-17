@@ -284,6 +284,20 @@
   border-radius: inherit;
 }
 
+/* Tree canvas — a selected (or keyboard-focused) connection reads as picked:
+   the line gets bolder and a primary-coloured halo, while keeping its own
+   relation colour. Edge colours are inline styles, so the width needs
+   !important; the halo uses the theme token, so it follows light and dark. */
+.ft-tree-canvas .react-flow__edge.selected .react-flow__edge-path,
+.ft-tree-canvas .react-flow__edge:focus-visible .react-flow__edge-path {
+  stroke-width: 4px !important;
+  filter: drop-shadow(0 0 1.5px var(--primary))
+    drop-shadow(0 0 3px var(--primary));
+}
+.ft-tree-canvas .react-flow__edge:focus-visible {
+  outline: none;
+}
+
 /* Leaflet controls, popups and clusters in the app's own vocabulary. */
 .leaflet-container {
   font-family: inherit;

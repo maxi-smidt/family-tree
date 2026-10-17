@@ -1129,3 +1129,57 @@ it("undoing a saved-view arrangement after leaving it does not move Explore node
   expect(useMemberStore.getState().members[0].position).toEqual(canonical);
   expect(WorkspaceService.updateMemberPositions).not.toHaveBeenCalled();
 });
+
+describe("useMemberStore — runHistoryGroup", () => {
+  const entry = (log: string[], name: string) => ({
+    undo: async () => {
+      log.push(`undo ${name}`);
+    },
+    redo: async () => {
+      log.push(`redo ${name}`);
+    },
+  });
+
+  it("folds the steps recorded inside it into one undo step", async () => {
+    const log: string[] = [];
+    const earlier = entry(log, "earlier");
+    useMemberStore.getState()._pushHistory(earlier);
+
+    const grouped = await useMemberStore
+      .getState()
+      .runHistoryGroup(async () => {
+        useMemberStore.getState()._pushHistory(entry(log, "a"));
+        useMemberStore.getState()._pushHistory(entry(log, "b"));
+      });
+
+    const { undoStack } = useMemberStore.getState();
+    expect(undoStack).toEqual([earlier, grouped]);
+
+    await useMemberStore.getState().undo();
+    expect(log).toEqual(["undo b", "undo a"]);
+
+    await useMemberStore.getState().redo();
+    expect(log).toEqual(["undo b", "undo a", "redo a", "redo b"]);
+  });
+
+  it("returns null when nothing was recorded", async () => {
+    const grouped = await useMemberStore
+      .getState()
+      .runHistoryGroup(async () => {});
+    expect(grouped).toBeNull();
+  });
+
+  it("undoEntry only undoes the entry while it is still the latest step", async () => {
+    const log: string[] = [];
+    const first = entry(log, "first");
+    useMemberStore.getState()._pushHistory(first);
+    useMemberStore.getState()._pushHistory(entry(log, "second"));
+
+    await useMemberStore.getState().undoEntry(first);
+    expect(log).toEqual([]);
+
+    await useMemberStore.getState().undo();
+    await useMemberStore.getState().undoEntry(first);
+    expect(log).toEqual(["undo second", "undo first"]);
+  });
+});

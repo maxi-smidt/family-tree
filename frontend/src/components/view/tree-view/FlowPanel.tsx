@@ -596,6 +596,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   const {
     onNodesChange,
     onEdgesChange,
+    onBeforeDelete,
     onConnect,
     onSelectionChange,
     debouncedSave,
@@ -787,6 +788,10 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
               ? undefined
               : onConnect
           }
+          onBeforeDelete={onBeforeDelete}
+          // Lift a selected connection above its neighbours so its
+          // highlight isn't hidden under crossing lines.
+          elevateEdgesOnSelect
           defaultEdgeOptions={{ type: edgeType }}
           onSelectionChange={
             isCanvasReadOnly || connection.isConnectionMode
