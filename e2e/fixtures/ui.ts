@@ -80,9 +80,13 @@ export async function searchWorkspaceAndSelect(
  */
 export async function openWorkspaceMenu(page: Page): Promise<void> {
   const menu = page.getByRole("dialog", { name: "Workspace navigation" });
-  if (await menu.isVisible()) return;
+  // A popover that is animating closed is still visible but about to vanish,
+  // so only an open one counts as already shown.
+  const openMenu = menu.and(page.locator('[data-state="open"]'));
+  if (await openMenu.isVisible()) return;
+  await expect(menu).toBeHidden();
   await page.getByRole("button", { name: /sections and saved views/ }).click();
-  await expect(menu).toBeVisible();
+  await expect(openMenu).toBeVisible();
 }
 
 /**
