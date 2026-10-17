@@ -1,9 +1,7 @@
 """CRUD for saved views: config, layout overlay, and per-user state (#986).
 
-Saved views replace virtual views as the workspace's canvas-arrangement
-concept; see ``app.models.saved_view`` for why they need none of virtual
-views' own content routes. ``virtual_views.py`` / ``virtual_view_content.py``
-remain until #987 has converted and verified every source row.
+See ``app.models.saved_view`` for why saved views need no content routes of
+their own.
 """
 
 from fastapi import APIRouter, Depends

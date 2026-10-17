@@ -120,29 +120,6 @@ class WorkspacePublicAccessPasswordDetails(TypedDict):
 
 
 # ---------------------------------------------------------------------------
-# Virtual views
-# ---------------------------------------------------------------------------
-
-
-class VirtualViewCreateDetails(TypedDict):
-    source_ids: list[str]
-
-
-class VirtualViewSnapshot(TypedDict):
-    name: str
-    source_ids: list[str]
-
-
-class VirtualViewUpdateDetails(TypedDict):
-    before: VirtualViewSnapshot
-    after: VirtualViewSnapshot
-
-
-class VirtualViewDeleteDetails(TypedDict, total=False):
-    """Virtual-view deletion carries no extra details."""
-
-
-# ---------------------------------------------------------------------------
 # Backups
 # ---------------------------------------------------------------------------
 
@@ -161,15 +138,6 @@ class BackupCreateFailedDetails(TypedDict):
 class BackupDeleteDetails(TypedDict):
     created_at: str
     status: str
-
-
-# ---------------------------------------------------------------------------
-# Migration (#997)
-# ---------------------------------------------------------------------------
-
-
-class MigrationFinalizeDetails(TypedDict):
-    target_version: str
 
 
 # ---------------------------------------------------------------------------
@@ -242,13 +210,9 @@ AdminAuditDetails = (
     | WorkspaceDeleteDetails
     | WorkspacePublicAccessUpdateDetails
     | WorkspacePublicAccessPasswordDetails
-    | VirtualViewCreateDetails
-    | VirtualViewUpdateDetails
-    | VirtualViewDeleteDetails
     | BackupCreateSuccessDetails
     | BackupCreateFailedDetails
     | BackupDeleteDetails
-    | MigrationFinalizeDetails
     | AppSettingsUpdateDetails
     | LegalDocumentUpdateDetails
 )

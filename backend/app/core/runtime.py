@@ -30,13 +30,13 @@ def get_loop() -> asyncio.AbstractEventLoop | None:
 
 
 def set_startup_complete(value: bool) -> None:
-    """Flip whether ``app.db.init_db.init_db`` (migrations + the v2 startup
-    conversion, see ``app.services.migration.orchestrator``) has finished.
+    """Flip whether ``app.db.init_db.init_db`` (Alembic upgrade + seeding)
+    has finished.
 
     Read by ``app.main.StartupGateMiddleware`` and ``/health/ready`` so
     ordinary routes stay unavailable — and readiness stays false — for as
     long as that background startup work is still running (#1020), while
-    ``/health`` and ``/health/migration`` stay reachable throughout.
+    ``/health`` stays reachable throughout.
     """
     global _startup_complete  # noqa: PLW0603
     _startup_complete = value

@@ -8,12 +8,10 @@ import pytest
 from sqlalchemy import delete, func, inspect, select
 
 from app.core.config import settings
-from app.core.exceptions import ConflictError
 from app.db.base import Base
 from app.models import (
     AppSetting,
     BackgroundJob,
-    BackupRecord,
     Document,
     DocumentFile,
     DocumentUpload,
@@ -21,19 +19,11 @@ from app.models import (
     GeocodeCache,
     LegalDocumentVersion,
     Member,
-    MigrationRun,
     QualityIssueDismissal,
-    VirtualView,
-    VirtualViewMemberMatch,
-    VirtualViewPosition,
-    VirtualViewSource,
-    VirtualViewUserState,
     WorkspaceInvitation,
     WorkspaceUserState,
 )
-from app.models.migration import MigrationStatus
 from app.services.crypto_export import encrypt_bundle
-from app.services.migration.legacy_cleanup import drop_legacy_structures
 from app.services.system.backups import backup_service, streaming_archive
 from tests.conftest import add_member, make_tree, make_user
 
@@ -165,13 +155,6 @@ def test_backup_restores_full_instance_and_media(db, tmp_path, monkeypatch):
             created_at="now",
         )
     )
-    view = VirtualView(id="vv-1", name="Compare", owner_id=admin.id, created_at="now")
-    db.add(view)
-    db.add(VirtualViewSource(view_id=view.id, position=0, workspace_id=tree.id))
-    db.add(VirtualViewMemberMatch(view_id=view.id, member_id=first.id, group_id="group"))
-    db.add(
-        VirtualViewPosition(view_id=view.id, node_id=first.id, position_x=1, position_y=2)
-    )
     db.commit()
 
     tree_media = media_root / tree.id
@@ -204,7 +187,6 @@ def test_backup_restores_full_instance_and_media(db, tmp_path, monkeypatch):
     assert db.get(GeocodeCache, "Vienna") is not None
     assert db.get(BackgroundJob, "job-1") is not None
     assert db.get(DocumentFile, "file-1") is not None
-    assert db.get(VirtualView, "vv-1") is not None
     assert (tree_media / "certificate.pdf").read_bytes() == b"full backup\x00"
     original_path = tree_media / "originals" / "certificate.original.pdf"
     assert original_path.read_bytes() == b"original"
@@ -295,9 +277,9 @@ def test_restore_backup_file_accepts_legacy_bundle_missing_document_uploads(
 
 
 def test_restore_backup_file_migrates_legacy_last_opened(db, tmp_path, monkeypatch):
-    """A pre-#878 backup still has ``last_opened`` inline on its ``workspaces`` /
-    ``virtual_views`` rows (dropped from those tables by the #878 migration)
-    and lacks ``tree_user_states`` / ``virtual_view_user_states`` entirely.
+    """A pre-#878 backup still has ``last_opened`` inline on its ``workspaces``
+    rows (dropped from that table by the #878 migration) and lacks
+    ``workspace_user_states`` entirely.
 
     ``bulk_insert_mappings`` silently ignores unmapped dict keys, so without
     recovering it first, restoring such a backup would drop that data. It
@@ -309,8 +291,6 @@ def test_restore_backup_file_migrates_legacy_last_opened(db, tmp_path, monkeypat
 
     admin = make_user(db, "admin", is_admin=True)
     tree = make_tree(db, admin)
-    view = VirtualView(name="Legacy View", owner_id=admin.id)
-    db.add(view)
     db.commit()
 
     tree_media = media_root / tree.id
@@ -321,11 +301,8 @@ def test_restore_backup_file_migrates_legacy_last_opened(db, tmp_path, monkeypat
     # Simulate the pre-#878 row shape: last_opened still inline, and the new
     # per-user state tables absent entirely (as if this build never had them).
     bundle["tables"]["workspaces"][0]["last_opened"] = "2026-01-01T00:00:00+00:00"
-    bundle["tables"]["virtual_views"][0]["last_opened"] = "2026-02-02T00:00:00+00:00"
     del bundle["tables"]["workspace_user_states"]
     del bundle["manifest"]["table_row_counts"]["workspace_user_states"]
-    del bundle["tables"]["virtual_view_user_states"]
-    del bundle["manifest"]["table_row_counts"]["virtual_view_user_states"]
     backup_path.write_bytes(encrypt_bundle(bundle, None))
 
     for model in reversed(backup_service.BACKUP_MODELS):
@@ -340,10 +317,6 @@ def test_restore_backup_file_migrates_legacy_last_opened(db, tmp_path, monkeypat
     tree_state = db.get(WorkspaceUserState, (tree.id, admin.id))
     assert tree_state is not None
     assert tree_state.last_opened == "2026-01-01T00:00:00+00:00"
-
-    view_state = db.get(VirtualViewUserState, (view.id, admin.id))
-    assert view_state is not None
-    assert view_state.last_opened == "2026-02-02T00:00:00+00:00"
 
 
 def test_backup_validation_rejects_changed_media(db, tmp_path, monkeypatch):
@@ -1088,73 +1061,6 @@ def test_iter_media_files_is_deterministic_and_complete(tmp_path):
     assert first.index("a/1.txt") < first.index("a/2.txt")
 
 
-# --- pre-migration backup retention (#994) ----------------------------------
-
-
-def _pre_migration_run(db, backup_id: str, status: str = MigrationStatus.RUNNING):
-    run = MigrationRun(
-        source_version="1.10.2",
-        target_version="2.0.0",
-        status=status,
-        backup_id=backup_id,
-    )
-    db.add(run)
-    db.commit()
-    return run
-
-
-def test_restore_bundle_nulls_dangling_migration_run_backup_reference(
-    db, tmp_path, monkeypatch
-):
-    """A restored MigrationRun's backup_id/backup_path must not dangle-
-    reference a BackupRecord, which is never part of a restorable archive
-    (see BACKUP_EXCLUDED_MODELS)."""
-    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
-    media_root = tmp_path / "media"
-
-    make_user(db, "admin", is_admin=True)
-    _pre_migration_run(db, "some-backup-id", status=MigrationStatus.COMPLETE)
-
-    bundle = backup_service._collect_bundle(db).model_dump()
-    backup_path = tmp_path / "with_run.ftbackup"
-    backup_path.write_bytes(encrypt_bundle(bundle, None))
-
-    backup_service.restore_backup_file(
-        db, backup_path, replace=True, media_root=media_root
-    )
-
-    restored = db.query(MigrationRun).one()
-    assert restored.backup_id is None
-    assert restored.backup_path is None
-
-
-def test_restore_streaming_backup_nulls_dangling_migration_run_backup_reference(
-    db, tmp_path, monkeypatch
-):
-    """The streaming (format version 3) restore path inserts rows through a
-    different function (_insert_row_batch, not _insert_rows) — it needs the
-    same sanitization independently."""
-    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
-    monkeypatch.setattr(backup_service, "BACKUP_DIR", tmp_path / "backups")
-    media_root = tmp_path / "media"
-
-    make_user(db, "admin", is_admin=True)
-    _pre_migration_run(db, "some-backup-id", status=MigrationStatus.COMPLETE)
-
-    record = backup_service.create_backup(db, trigger="manual")
-    assert record.status == "success"
-    backup_path = backup_service.BACKUP_DIR / record.filename
-    assert backup_service._is_streaming_archive(backup_path)
-
-    backup_service.restore_backup_file(
-        db, backup_path, replace=True, media_root=media_root
-    )
-
-    restored = db.query(MigrationRun).one()
-    assert restored.backup_id is None
-    assert restored.backup_path is None
-
-
 def test_restore_bundle_backfills_name_normalized_for_a_pre_1024_backup(
     db, tmp_path, monkeypatch
 ):
@@ -1215,135 +1121,48 @@ def test_restore_streaming_backup_backfills_name_normalized(db, tmp_path, monkey
     assert restored.name_normalized == "anna müller"
 
 
-def test_prune_backups_skips_unfinalized_pre_migration_backup(
+def test_restore_discards_rows_of_tables_dropped_after_v2_0(
     db, tmp_path, monkeypatch
 ):
+    """A v2.0.x backup still carries the legacy virtual-view and v1 -> v2
+    migration tables; restoring it drops those rows instead of failing."""
     monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
-    monkeypatch.setattr(backup_service, "BACKUP_DIR", tmp_path / "backups")
-
-    pre_migration = backup_service.create_backup(db, trigger="pre_migration")
-    _pre_migration_run(db, pre_migration.id)
-    for _ in range(3):
-        backup_service.create_backup(db, trigger="scheduled")
-
-    backup_service.prune_backups(db, keep=1)
-
-    remaining_ids = {r.id for r in backup_service.list_backups(db)}
-    assert pre_migration.id in remaining_ids
-    assert len(remaining_ids) == 2  # the pre-migration backup + the newest scheduled one
-
-
-def test_prune_backups_removes_pre_migration_backup_once_finalized(
-    db, tmp_path, monkeypatch
-):
-    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
-    monkeypatch.setattr(backup_service, "BACKUP_DIR", tmp_path / "backups")
-
-    pre_migration = backup_service.create_backup(db, trigger="pre_migration")
-    _pre_migration_run(db, pre_migration.id, status=MigrationStatus.FINALIZED)
-    backup_service.create_backup(db, trigger="scheduled")
-
-    backup_service.prune_backups(db, keep=1)
-
-    remaining_ids = {r.id for r in backup_service.list_backups(db)}
-    assert pre_migration.id not in remaining_ids
-
-
-def test_delete_backup_rejects_unfinalized_pre_migration_backup(
-    db, tmp_path, monkeypatch
-):
-    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
-    monkeypatch.setattr(backup_service, "BACKUP_DIR", tmp_path / "backups")
-
-    pre_migration = backup_service.create_backup(db, trigger="pre_migration")
-    _pre_migration_run(db, pre_migration.id)
-
-    with pytest.raises(ConflictError):
-        backup_service.delete_backup(db, pre_migration)
-
-
-def test_delete_backup_allows_pre_migration_backup_once_finalized(
-    db, tmp_path, monkeypatch
-):
-    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
-    monkeypatch.setattr(backup_service, "BACKUP_DIR", tmp_path / "backups")
-
-    pre_migration = backup_service.create_backup(db, trigger="pre_migration")
-    _pre_migration_run(db, pre_migration.id, status=MigrationStatus.FINALIZED)
-
-    backup_service.delete_backup(db, pre_migration)
-
-    assert db.get(type(pre_migration), pre_migration.id) is None
-
-
-def test_prune_backups_removes_a_failed_pre_migration_backup(db, tmp_path, monkeypatch):
-    """A failed attempt holds no usable rollback data and must not block
-    pruning forever (#994 review)."""
-    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
-    monkeypatch.setattr(backup_service, "BACKUP_DIR", tmp_path / "backups")
-
-    failed = BackupRecord(trigger="pre_migration", status="failed", error="boom")
-    db.add(failed)
-    db.commit()
-
-    assert backup_service._is_unfinalized_pre_migration_backup(db, failed) is False
-    backup_service.delete_backup(db, failed)  # must not raise ConflictError
-
-    assert db.get(BackupRecord, failed.id) is None
-
-
-# --- Backups after legacy-structure cleanup (#1021 review) ------------------
-
-
-def test_create_backup_succeeds_after_legacy_structures_are_dropped(
-    db, tmp_path, monkeypatch
-):
-    """Once drop_legacy_structures has removed the virtual-view tables, an
-    ordinary backup must not fail trying to query them — they still appear
-    in BACKUP_MODELS (an older archive may still carry rows for them), but a
-    dropped table contributes a 0 count exactly like an empty one."""
-    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
-    monkeypatch.setattr(backup_service, "BACKUP_DIR", tmp_path / "backups")
-    admin = make_user(db, "admin", is_admin=True)
-    make_tree(db, admin)
-    db.commit()
-
-    drop_legacy_structures(db)
-    db.commit()
-    assert "virtual_views" not in inspect(db.get_bind()).get_table_names()
-
-    record = backup_service.create_backup(db, actor=admin)
-    assert record.status == "success"
-
-    manifest = backup_service.verify_archive(backup_service.BACKUP_DIR / record.filename)
-    assert manifest["table_row_counts"]["virtual_views"] == 0
-
-
-def test_restoring_a_pre_cleanup_backup_into_a_cleaned_up_target_drops_legacy_rows(
-    db, tmp_path, monkeypatch
-):
-    """An archive taken before #1021's cleanup can still carry virtual-view
-    rows; restoring it into an instance where those tables are already gone
-    must silently drop that data instead of erroring."""
     media_root = tmp_path / "media"
-    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
-    monkeypatch.setattr(backup_service, "BACKUP_DIR", tmp_path / "backups")
-
     admin = make_user(db, "admin", is_admin=True)
-    make_tree(db, admin)
-    view = VirtualView(id="vv-1", name="Compare", owner_id=admin.id, created_at="now")
-    db.add(view)
+    tree = make_tree(db, admin)
     db.commit()
 
-    record = backup_service.create_backup(db, actor=admin)
-    assert record.status == "success"
-    backup_path = backup_service.BACKUP_DIR / record.filename
-
-    drop_legacy_structures(db)
-    db.commit()
+    bundle = backup_service._collect_bundle(db).model_dump()
+    legacy = {
+        "virtual_views": [{"id": "vv-1", "name": "Compare", "owner_id": admin.id}],
+        "migration_runs": [{"id": "run-1", "status": "finalized"}],
+    }
+    for table, rows in legacy.items():
+        bundle["tables"][table] = rows
+        bundle["manifest"]["table_row_counts"][table] = len(rows)
+    backup_path = tmp_path / "v2_0.ftbackup"
+    backup_path.write_bytes(encrypt_bundle(bundle, None))
 
     backup_service.restore_backup_file(
         db, backup_path, replace=True, media_root=media_root
     )
 
-    assert "virtual_views" not in inspect(db.get_bind()).get_table_names()
+    assert db.get(type(tree), tree.id) is not None
+
+
+def test_restore_refuses_a_v1_backup(db, tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    bundle = {
+        "format": backup_service.BACKUP_FORMAT,
+        "version": backup_service.BACKUP_VERSION,
+        "tables": {"trees": [], "users": []},
+        "media": [],
+        "manifest": {"table_row_counts": {"trees": 0, "users": 0}, "media": []},
+    }
+    backup_path = tmp_path / "v1.ftbackup"
+    backup_path.write_bytes(encrypt_bundle(bundle, None))
+
+    with pytest.raises(backup_service.BackupValidationError, match="v2.0.x"):
+        backup_service.restore_backup_file(
+            db, backup_path, replace=True, media_root=tmp_path / "media"
+        )

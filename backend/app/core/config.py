@@ -224,9 +224,7 @@ _INSECURE_SECRETS = {
 
 
 def is_secret_key_weak(secret: str) -> bool:
-    """Shared with the migration preflight (#994): a backup encrypted with a
-    placeholder/short key is only as safe as that key, regardless of
-    ``ENVIRONMENT``."""
+    """A placeholder or short key is weak regardless of ``ENVIRONMENT``."""
     secret = secret.strip()
     return (
         len(secret) < 32
