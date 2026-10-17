@@ -422,9 +422,13 @@ jobs:
 
       - name: "Wait for stack to be healthy"
         run: |
-          echo "Waiting for frontend to be reachable..."
+          # The frontend no longer waits for a healthy backend (it starts on
+          # service_started so the maintenance screen can show during a long
+          # migration, #1020), so a reachable frontend says nothing about the
+          # backend. Poll the backend's readiness through the frontend proxy.
+          echo "Waiting for the backend to be ready..."
           for i in $(seq 1 30); do
-            if curl -sf http://localhost:8080 > /dev/null 2>&1; then
+            if curl -sf http://localhost:8080/api/health/ready > /dev/null 2>&1; then
               echo "Stack is up after ${i} attempts"
               break
             fi
