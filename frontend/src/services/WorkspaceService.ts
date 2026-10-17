@@ -79,6 +79,8 @@ export interface NeighborhoodDB {
   total_member_count: number;
   next_cursor?: string | null;
   continuations?: NeighborhoodContinuationDB[];
+  // Whether one more generation up or down would reach anyone new.
+  expandable?: boolean;
 }
 
 function contentPath(

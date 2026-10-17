@@ -124,6 +124,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     focusPending,
     activeSavedViewId,
     neighborhoodTruncated,
+    neighborhoodExpandable,
     totalMemberCount,
     setFocusRoot,
     pendingLocateMemberId,
@@ -999,7 +1000,10 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
             <ContinuationControls
               continuations={neighborhoodCursor ? continuations : []}
               atBudget={members.length >= EXPANSION_NODE_BUDGET}
-              canExpandGeneration={neighborhoodUp < 20 || neighborhoodDown < 20}
+              canExpandGeneration={
+                neighborhoodExpandable &&
+                (neighborhoodUp < 20 || neighborhoodDown < 20)
+              }
               onExpandGeneration={() => void expandGeneration()}
               onLoadMore={() => void loadMoreNeighborhood()}
               onReset={() => void resetNeighborhood()}

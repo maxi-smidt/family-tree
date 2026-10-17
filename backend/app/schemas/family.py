@@ -336,3 +336,5 @@ class NeighborhoodOut(BaseModel):
     #: nothing is left or the cursor chain has hit its ceiling.
     next_cursor: str | None = None
     continuations: list[NeighborhoodContinuation] = []
+    #: Whether one more generation up or down would reach anyone new.
+    expandable: bool = False
