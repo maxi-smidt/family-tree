@@ -186,9 +186,11 @@ def create_member(
     with UnitOfWork(db) as uow:
         member = Member(workspace_id=tree.id, **data)
         db.add(member)
-        if not context.can_write_scope(None):
-            # Keep a scoped editor's new member inside their authorized
-            # origin, so subsequent section edits need no visibility bypass.
+        if origin_section(db) is not None:
+            # A member created while working in a section joins it, so they
+            # stay in that section's view and in anything shared through it.
+            # A scoped editor always has an origin, which also keeps their new
+            # member inside their authorized scope.
             db.flush()
             db.add(SectionMember(section_id=origin_section(db), member_id=member.id))
         label = (

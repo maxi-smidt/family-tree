@@ -144,13 +144,16 @@ export const usePendingMember = ({
   };
 
   /** Suggested sections for a member who just gained a parent/partner
-   *  relation — surfaced for confirmation, never joined silently (#990).
-   *  `memberName` is a caller-supplied override for a member not yet
-   *  reflected in the `members` store snapshot (e.g. mid-save). */
+   *  relation — surfaced as a short-lived prompt, never joined silently
+   *  (#990). Skipped while working in a section: the backend already put
+   *  the new member into that section. `memberName` is a caller-supplied
+   *  override for a member not yet reflected in the `members` store
+   *  snapshot (e.g. mid-save). */
   const checkSectionSuggestions = async (
     memberId: string,
     memberName?: string,
   ) => {
+    if (useMemberStore.getState().focusSectionIds?.length) return;
     try {
       const suggestions = await getSectionSuggestions(memberId);
       if (suggestions.length === 0) return;
@@ -210,18 +213,15 @@ export const usePendingMember = ({
     }
   };
 
-  /** Add the new member to the chosen suggested sections (any subset, or
-   *  none — "leave unassigned" is just an empty selection). */
-  const confirmSectionSuggestions = async (sectionIds: string[]) => {
+  /** Add the new member to one suggested section, as answered in the
+   *  prompt. Rethrows so the prompt can leave that row unanswered. */
+  const addToSuggestedSection = async (sectionId: string) => {
     if (!sectionSuggestions) return;
-    const { memberId } = sectionSuggestions;
-    setSectionSuggestions(null);
-    if (sectionIds.length > 0) {
-      try {
-        await addMemberToSections(memberId, sectionIds);
-      } catch {
-        toast.error(i18n.t("workspace-nav.new-member-suggestions.error"));
-      }
+    try {
+      await addMemberToSections(sectionSuggestions.memberId, [sectionId]);
+    } catch (error) {
+      toast.error(i18n.t("workspace-nav.new-member-suggestions.error"));
+      throw error;
     }
   };
 
@@ -252,7 +252,7 @@ export const usePendingMember = ({
     discardNewMember,
     saveNewMember,
     checkSectionSuggestions,
-    confirmSectionSuggestions,
+    addToSuggestedSection,
     dismissSectionSuggestions,
   };
 };
