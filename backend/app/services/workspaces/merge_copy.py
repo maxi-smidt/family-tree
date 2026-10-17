@@ -39,7 +39,6 @@ from app.models import (
     SavedViewSection,
     Section,
     SectionMember,
-    SectionPosition,
     Story,
     StoryDocumentLink,
     StoryMemberLink,
@@ -162,26 +161,6 @@ def copy_sections(db: Session, ctx: MergeContext) -> None:
                 seen_members.add((sec, mid))
                 db.add(SectionMember(section_id=sec, member_id=mid))
 
-    seen_positions: set[tuple[str, str]] = set()
-    for t in ctx.sources:
-        rows = db.scalars(
-            select(SectionPosition)
-            .join(Section, Section.id == SectionPosition.section_id)
-            .where(Section.workspace_id == t.id)
-        )
-        for sp in rows:
-            sec = ctx.section_map.get(sp.section_id)
-            mid = ctx.member_map.get(sp.member_id)
-            if sec and mid and (sec, mid) not in seen_positions:
-                seen_positions.add((sec, mid))
-                db.add(
-                    SectionPosition(
-                        section_id=sec,
-                        member_id=mid,
-                        position_x=sp.position_x,
-                        position_y=sp.position_y,
-                    )
-                )
 
 
 def copy_saved_views(db: Session, ctx: MergeContext, owner_id: str) -> None:

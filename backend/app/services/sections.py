@@ -1,8 +1,8 @@
 """Sections: named, overlapping organizational branches inside a workspace.
 
-Creating or deleting a section only ever writes ``Section``/``SectionMember``/
-``SectionPosition`` rows — it never copies, moves, or deletes a person,
-relation, or piece of content. Membership seeding reuses the same branch
+Creating or deleting a section only ever writes ``Section``/``SectionMember``
+rows — it never copies, moves, or deletes a person, relation, or piece of
+content. Membership seeding reuses the same branch
 traversal as sub-tree extraction (``app.services.workspaces.subtree_selection``),
 recomputed from the live ``(root_member_id, direction)`` pair at creation time
 rather than trusting an earlier preview response — the same anti-staleness
@@ -21,7 +21,6 @@ from app.models import (
     Relation,
     Section,
     SectionMember,
-    SectionPosition,
     Workspace,
     WorkspaceInvitation,
     WorkspaceSectionGrant,
@@ -390,58 +389,3 @@ def replace_section_members(
         )
         for mid in valid_ids:
             db.add(SectionMember(section_id=section.id, member_id=mid))
-    # A layout overlay only means something for a current member; drop any
-    # left over from before this replace (mirrors virtual_view_matching.py's
-    # pruning of orphaned position overlays on membership change).
-    db.query(SectionPosition).filter(
-        SectionPosition.section_id == section.id,
-        SectionPosition.member_id.notin_(valid_ids),
-    ).delete(synchronize_session=False)
-
-
-def upsert_section_positions(
-    db: Session, section: Section, items: list[tuple[str, float, float]]
-) -> None:
-    """Persist positions for members already assigned to ``section``.
-
-    Silently drops items for anyone not currently a member — a layout
-    overlay for someone not in the section would be meaningless.
-    """
-    if not items:
-        return
-    member_section_ids = {member_id for member_id, _, _ in items}
-    valid_ids = set(
-        db.scalars(
-            select(SectionMember.member_id).where(
-                SectionMember.section_id == section.id,
-                SectionMember.member_id.in_(member_section_ids),
-            )
-        )
-    )
-    if not valid_ids:
-        return
-    existing = {
-        p.member_id: p
-        for p in db.scalars(
-            select(SectionPosition).where(
-                SectionPosition.section_id == section.id,
-                SectionPosition.member_id.in_(valid_ids),
-            )
-        )
-    }
-    for member_id, position_x, position_y in items:
-        if member_id not in valid_ids:
-            continue
-        row = existing.get(member_id)
-        if row is not None:
-            row.position_x = position_x
-            row.position_y = position_y
-        else:
-            db.add(
-                SectionPosition(
-                    section_id=section.id,
-                    member_id=member_id,
-                    position_x=position_x,
-                    position_y=position_y,
-                )
-            )

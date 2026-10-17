@@ -52,7 +52,7 @@ from app.models.saved_view import (
     SavedViewSection,
     SavedViewUserState,
 )
-from app.models.section import Section, SectionMember, SectionPosition
+from app.models.section import Section, SectionMember
 from app.models.setting import AppSetting
 from app.models.user import User
 from app.models.virtual_view import (
@@ -117,7 +117,6 @@ __all__ = [
     "Notification",
     "Section",
     "SectionMember",
-    "SectionPosition",
     "SavedView",
     "SavedViewSection",
     "SavedViewPosition",

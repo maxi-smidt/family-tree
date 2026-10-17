@@ -795,6 +795,30 @@ def test_consume_streaming_archive_rejects_unknown_table(tmp_path):
         backup_service.verify_archive(path)
 
 
+def test_consume_streaming_archive_skips_dropped_table(tmp_path):
+    """A pre-release v2 archive may still carry rows for a dropped table."""
+    path = tmp_path / "archive.bin"
+    row = {"section_id": "s1", "member_id": "m1", "position_x": 1, "position_y": 2}
+    counts = dict.fromkeys(backup_service._expected_table_names(), 0)
+    with streaming_archive.ArchiveWriter(path) as writer:
+        _write_meta_frame(writer)
+        writer.write_frame({"t": "row", "table": "section_positions", "rows": [row]})
+        writer.write_frame(
+            {
+                "t": "manifest",
+                "format": streaming_archive.STREAM_FORMAT,
+                "version": streaming_archive.STREAM_FORMAT_VERSION,
+                "table_row_counts": {**counts, "section_positions": 1},
+                "row_count_total": 1,
+                "media_count": 0,
+                "media_bytes_total": 0,
+            }
+        )
+        writer.close()
+
+    backup_service.verify_archive(path)
+
+
 def test_consume_streaming_archive_rejects_archive_missing_manifest(tmp_path):
     path = tmp_path / "archive.bin"
     with streaming_archive.ArchiveWriter(path) as writer:

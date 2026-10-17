@@ -12,7 +12,6 @@ from app.models import (
     SavedViewSection,
     Section,
     SectionMember,
-    SectionPosition,
     Story,
     StoryDocumentLink,
 )
@@ -144,9 +143,6 @@ def test_merge_copies_sections_and_membership(db):
     add_member(db, source, "m1", first_name="Ada", gender="f")
     db.add(Section(id="sec1", workspace_id=source.id, name="Paternal", position=0))
     db.add(SectionMember(section_id="sec1", member_id="m1"))
-    db.add(
-        SectionPosition(section_id="sec1", member_id="m1", position_x=1.0, position_y=2.0)
-    )
     db.commit()
 
     merged = merge_trees(db, user, "Copy", source.id, None)
@@ -160,12 +156,6 @@ def test_merge_copies_sections_and_membership(db):
     new_member = db.query(Member).filter(Member.workspace_id == merged.id).one()
     members = db.query(SectionMember).filter_by(section_id=section.id).all()
     assert [m.member_id for m in members] == [new_member.id]
-
-    positions = db.query(SectionPosition).filter_by(section_id=section.id).all()
-    assert len(positions) == 1
-    assert positions[0].member_id == new_member.id
-    assert positions[0].position_x == 1.0
-    assert positions[0].position_y == 2.0
 
 
 def test_merge_dedupes_same_named_sections_across_sources(db):

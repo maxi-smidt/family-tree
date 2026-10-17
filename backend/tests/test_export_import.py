@@ -98,7 +98,6 @@ EXPECTED_BUNDLE_KEYS = {
         "story_document_links",
         "sections",
         "section_members",
-        "section_positions",
         "saved_views",
         "saved_view_sections",
         "saved_view_positions",
@@ -919,8 +918,8 @@ def test_import_pre_v17_bundle_migrates_sources_to_documents(client, db):
 
 
 def test_native_export_import_preserves_sections_and_saved_views(client, db):
-    """A section (with explicit membership + layout overlay) and a saved view
-    referencing it must round-trip into the new workspace under fresh ids."""
+    """A section (with explicit membership) and a saved view referencing it
+    must round-trip into the new workspace under fresh ids."""
     owner = make_user(db, "section-export-owner")
     tree = make_tree(db, owner, "Sections tree")
     headers = auth(owner)
@@ -945,14 +944,6 @@ def test_native_export_import_preserves_sections_and_saved_views(client, db):
             f"{API}/workspaces/{tree.id}/sections/{section_id}/members",
             headers=headers,
             json={"member_ids": ["m1"]},
-        ).status_code
-        == 204
-    )
-    assert (
-        client.patch(
-            f"{API}/workspaces/{tree.id}/sections/{section_id}/members/positions",
-            headers=headers,
-            json=[{"member_id": "m1", "position_x": 12.5, "position_y": -3.0}],
         ).status_code
         == 204
     )

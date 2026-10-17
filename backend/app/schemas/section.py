@@ -74,12 +74,6 @@ class SectionMembersSet(BaseModel):
     member_ids: list[str]
 
 
-class SectionPositionItem(BaseModel):
-    member_id: str
-    position_x: float
-    position_y: float
-
-
 class SectionSuggestion(BaseModel):
     """A section suggested for a member based on their parents'/partners'
     existing membership — surfaced for confirmation, never applied silently."""

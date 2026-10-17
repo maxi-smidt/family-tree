@@ -1,12 +1,12 @@
 """Sections: named, overlapping organizational branches inside a workspace.
 
 Membership (``SectionMember``) is an explicit assignment, never derived —
-see ``app.services.sections``. ``SectionPosition`` is the per-section layout
-overlay: the same person can sit at a different canvas position in each
-section they belong to.
+see ``app.services.sections``. Sections carry no layout of their own: a
+person sits at their workspace position in every section (a saved view
+filtered to a section is the way to give it its own arrangement).
 """
 
-from sqlalchemy import Float, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from app.db.base import Base, new_uuid, utcnow_iso
@@ -49,9 +49,6 @@ class Section(Base):
     members: Mapped[list["SectionMember"]] = relationship(
         back_populates="section", cascade="all, delete-orphan"
     )
-    positions: Mapped[list["SectionPosition"]] = relationship(
-        cascade="all, delete-orphan"
-    )
 
 
 class SectionMember(Base):
@@ -71,18 +68,3 @@ class SectionMember(Base):
     )
 
     section: Mapped["Section"] = relationship(back_populates="members")
-
-
-class SectionPosition(Base):
-    """A member's canvas position within one section's layout overlay."""
-
-    __tablename__ = "section_positions"
-
-    section_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("sections.id", ondelete="CASCADE"), primary_key=True
-    )
-    member_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("members.id", ondelete="CASCADE"), primary_key=True
-    )
-    position_x: Mapped[float] = mapped_column(Float, nullable=False)
-    position_y: Mapped[float] = mapped_column(Float, nullable=False)
