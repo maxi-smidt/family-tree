@@ -33,8 +33,8 @@ describe("getRuledLinePattern", () => {
     expect(getRuledLinePattern([0, 0, 2], 500, 72.5).offsetY).toBe(145);
   });
 
-  it("defaults to one rule per auto-layout generation", () => {
-    expect(GENERATION_LINE_GAP).toBe(325);
+  it("exposes the default generation gap", () => {
+    expect(GENERATION_LINE_GAP).toBe(250);
   });
 
   it("limits named spacing choices to snap-grid multiples", () => {

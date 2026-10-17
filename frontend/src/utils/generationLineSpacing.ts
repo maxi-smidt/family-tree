@@ -4,18 +4,15 @@ import { GRID_SIZE } from "@/constants";
 // so the NODE_HEIGHT / 2 phase in GenerationLines keeps node centers on rules.
 export const GENERATION_LINE_GAP_STEP = GRID_SIZE;
 
-// Row pitch of the auto-layout for the compact 220×68 cards: "Arrange" puts
-// consecutive generations 325px apart, so the default spacing draws one rule
-// per generation and the larger options one rule every two or three.
-export const GENERATION_ROW_PITCH = 325;
-export const DEFAULT_GENERATION_LINE_GAP = GENERATION_ROW_PITCH;
+// Half the spacing used for the old 145px cards, to suit the compact 68px ones.
+export const DEFAULT_GENERATION_LINE_GAP = 250;
 
 export const GENERATION_LINE_SPACING_OPTIONS = [
   { value: "none", gap: null },
-  { value: "xs", gap: 175 },
-  { value: "s", gap: GENERATION_ROW_PITCH },
-  { value: "m", gap: GENERATION_ROW_PITCH * 2 },
-  { value: "l", gap: GENERATION_ROW_PITCH * 3 },
+  { value: "xs", gap: 125 },
+  { value: "s", gap: 250 },
+  { value: "m", gap: 375 },
+  { value: "l", gap: 500 },
 ] as const;
 
 export type GenerationLineSpacing =

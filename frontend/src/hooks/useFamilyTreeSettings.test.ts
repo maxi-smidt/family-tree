@@ -9,11 +9,11 @@ describe("useFamilyTreeSettings", () => {
   it("stores generation-line spacing separately for each tree", () => {
     const { setGenerationLineGap } = useFamilyTreeSettings.getState();
 
-    setGenerationLineGap("tree-one", 175);
+    setGenerationLineGap("tree-one", 125);
     setGenerationLineGap("tree-two", null);
 
     expect(useFamilyTreeSettings.getState().generationLineGaps).toEqual({
-      "tree-one": 175,
+      "tree-one": 125,
       "tree-two": null,
     });
   });
