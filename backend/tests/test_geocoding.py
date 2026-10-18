@@ -127,8 +127,13 @@ def test_resolved_rows_are_never_retried(db, monkeypatch):
 def test_unparsable_updated_at_counts_as_stale(db, monkeypatch):
     db.merge(
         GeocodeCache(
-            query="springfield", lat=None, lon=None,
-            display_name=None, resolved=False, manual=False, updated_at="not-a-date",
+            query="springfield",
+            lat=None,
+            lon=None,
+            display_name=None,
+            resolved=False,
+            manual=False,
+            updated_at="not-a-date",
         )
     )
     db.commit()

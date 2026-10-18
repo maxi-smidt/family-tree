@@ -7,7 +7,7 @@ class ActivityOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
-    tree_id: str
+    workspace_id: str
     actor_id: str | None = None
     actor_username: str | None = None
     action: str

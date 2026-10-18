@@ -28,7 +28,7 @@ import {
 import { PartialDatePicker } from "@/components/ui/partial-date-picker";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { useTranslation } from "react-i18next";
-import { getMemberOptions } from "@/utils/memberUtils";
+import { birthNameContext, getMemberOptions } from "@/utils/memberUtils";
 import { isValidPartialDate } from "@/utils/dateUtils";
 import { DocumentLinkField } from "@/components/shared/member-sheet/DocumentLinkField";
 import { LocationInput } from "@/components/shared/LocationInput";
@@ -130,8 +130,8 @@ export const EventDialog = ({
   const isSubmitDisabled =
     !effectiveEventType || selectedMemberIds.length === 0;
 
-  const memberOptions = getMemberOptions(members, (name) =>
-    t("common.nee", { name }),
+  const memberOptions = getMemberOptions(members, (name, gender) =>
+    t("common.nee", { name, context: birthNameContext(gender) }),
   );
 
   return (

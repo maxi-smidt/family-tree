@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FieldLabel } from "@/components/ui/field";
 import { useState } from "react";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
@@ -32,7 +32,7 @@ export const CreateDatabaseDialog = ({
     keyPrefix: "dialog.create-database",
   });
   const [databaseName, setDatabaseName] = useState<string>("");
-  const createTree = useTreeStore((s) => s.createTree);
+  const createTree = useWorkspaceStore((s) => s.createTree);
 
   return (
     <Dialog

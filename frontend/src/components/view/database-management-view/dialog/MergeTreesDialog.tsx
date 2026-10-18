@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useJobStore } from "@/hooks/useJobStore";
-import { useTreeStore } from "@/hooks/useTreeStore";
-import { TreeService } from "@/services/TreeService";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
+import { WorkspaceService } from "@/services/WorkspaceService";
 import { DuplicatePair, MergePreviewResult } from "@/types/merge";
 import {
   Dialog,
@@ -45,8 +45,8 @@ export const MergeTreesDialog = ({ isOpen, onClose }: Props) => {
   const { t: tr } = useTranslation(undefined, {
     keyPrefix: "merge-view.resolve",
   });
-  const trees = useTreeStore((s) => s.trees);
-  const mergeTrees = useTreeStore((s) => s.mergeTrees);
+  const workspaces = useWorkspaceStore((s) => s.workspaces);
+  const mergeTrees = useWorkspaceStore((s) => s.mergeTrees);
   const mergePct = useJobStore((s) => s.activeJobPct);
 
   const [step, setStep] = useState<Step>("select");
@@ -83,7 +83,7 @@ export const MergeTreesDialog = ({ isOpen, onClose }: Props) => {
     onClose();
   };
 
-  const treeName = (id: string) => trees.find((d) => d.id === id)?.name ?? "";
+  const workspaceName = (id: string) => workspaces.find((d) => d.id === id)?.name ?? "";
 
   const handleDb1Change = (val: string) => {
     setDb1Id(val);
@@ -96,8 +96,8 @@ export const MergeTreesDialog = ({ isOpen, onClose }: Props) => {
   };
 
   const combinedName = (id1: string, id2: string) => {
-    const name1 = treeName(id1);
-    const name2 = treeName(id2);
+    const name1 = workspaceName(id1);
+    const name2 = workspaceName(id2);
     if (name1 && name2) return `${name1} + ${name2}`;
     return name1 || name2 || "";
   };
@@ -116,7 +116,7 @@ export const MergeTreesDialog = ({ isOpen, onClose }: Props) => {
     setIsLoadingPreview(true);
     void (async () => {
       try {
-        const result = await TreeService.previewMerge(db1Id, db2Id);
+        const result = await WorkspaceService.previewMerge(db1Id, db2Id);
         if (ac.signal.aborted) return;
         setPreviewData(result);
 
@@ -206,7 +206,7 @@ export const MergeTreesDialog = ({ isOpen, onClose }: Props) => {
                     <SelectValue placeholder={t("select-placeholder")} />
                   </SelectTrigger>
                   <SelectContent>
-                    {trees.map((db) => (
+                    {workspaces.map((db) => (
                       <SelectItem
                         key={db.id}
                         value={db.id}
@@ -226,7 +226,7 @@ export const MergeTreesDialog = ({ isOpen, onClose }: Props) => {
                     <SelectValue placeholder={t("select-placeholder")} />
                   </SelectTrigger>
                   <SelectContent>
-                    {trees.map((db) => (
+                    {workspaces.map((db) => (
                       <SelectItem
                         key={db.id}
                         value={db.id}
@@ -352,8 +352,8 @@ export const MergeTreesDialog = ({ isOpen, onClose }: Props) => {
               <MergeConflictResolver
                 key={key}
                 pair={pair}
-                sourceAName={treeName(db1Id)}
-                sourceBName={treeName(db2Id)}
+                sourceAName={workspaceName(db1Id)}
+                sourceBName={workspaceName(db2Id)}
                 state={pairState}
                 onChange={(updated) => handlePairStateChange(pair, updated)}
               />

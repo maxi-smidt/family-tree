@@ -39,7 +39,7 @@ Your instance has **two** data locations, and you must back up **both**:
 
 The Admin → Backups panel creates encrypted `.ftbackup` files under
 `${APP_DATA_PATH}/backups`. Version 2 backups contain all durable application
-rows (including sharing, legal/audit, quality, geocoding, and virtual-view
+rows (including sharing, legal/audit, quality, geocoding, and saved-view
 state) plus every byte below `${DATA_PATH}/media`. Each file has an encrypted,
 versioned manifest; creation verifies all table row counts and media SHA-256
 hashes before it is marked successful. A failed or incomplete run is shown as
@@ -48,6 +48,26 @@ failed and cannot be downloaded as a successful backup.
 Keep these files off-host as you would a database dump. They are encrypted with
 the instance `SECRET_KEY`, so restore them with the same key (or treat a key
 rotation as a planned migration).
+
+**Supported backup versions**: the `.ftbackup` *archive format* and the
+application's *database schema epoch* are tracked separately — an archive's
+format version can stay the same across a schema change. Format version 3 is
+the current bounded/streaming layout; format version 2 is the older
+single-JSON-bundle layout, which spans both schema epochs below.
+
+| Archive format | Schema epoch | Produced by  | Restorable by |
+| --------------- | ------------ | ------------ | -------------- |
+| version 3 (streaming) | v2 | v2.0.0+ | this version, directly |
+| version 2 (JSON bundle) | v2 | v2.0.0+ | this version, directly |
+| version 2 (JSON bundle) | v1 | any v1.x release | v2.0.x only — see below |
+
+A v1.x-era archive (`trees`, `tree_id`, and no `workspaces` table) is refused.
+Restore it into a blank instance running v2.0.2, which still converts v1 data,
+then upgrade that instance to this version. Rows for tables that v2.0.x
+backups still carry but later releases dropped (legacy virtual views and the
+v1 → v2 migration bookkeeping) are discarded on restore. An archive whose
+table set matches neither schema epoch is rejected before anything is
+written.
 
 To restore an `.ftbackup`, stop application workers first, run migrations for
 the target version, and use the backend command against a **blank** database
@@ -251,6 +271,15 @@ docker compose logs backend --tail 100   # the Alembic error is at the top of th
 
 > Tip: avoid `latest` drift in long-lived deployments by pinning explicit
 > release tags and bumping `APP_IMAGE_TAG` deliberately.
+
+### Upgrading from v1.x
+
+The v1 → v2 data conversion (merging each user's trees into workspaces with
+sections) shipped in v2.0.x and has since been removed. A database still on
+v1.x must first be upgraded to **v2.0.2** (`APP_IMAGE_TAG=2.0.2`) and left to
+finish its conversion; only then can it move to a newer release. A newer
+backend refuses to start against a v1.x database, or a v2.0.x database whose
+conversion never finished, and logs which release to upgrade through.
 
 ---
 

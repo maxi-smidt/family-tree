@@ -3,6 +3,8 @@
 import asyncio
 import contextlib
 import logging
+import os
+import signal
 import time
 from contextlib import asynccontextmanager
 
@@ -12,12 +14,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.api.exception_handlers import install_domain_error_handler
 from app.api.router import api_router
+from app.core import runtime
 from app.core.config import settings, validate_production_credentials
 from app.core.logging_config import setup_logging
+from app.core.schema_epoch import (
+    SCHEMA_EPOCH,
+    SCHEMA_EPOCH_HEADER,
+    SCHEMA_EPOCH_MISMATCH_DETAIL,
+)
 from app.db.init_db import init_db
 from app.db.redis import close_redis, ping_redis
 from app.db.session import engine
@@ -51,9 +60,32 @@ def _init_db_with_retry(retries: int = 10, delay: float = 3.0) -> None:
     init_db()  # final attempt: let the error surface
 
 
+async def _run_startup_or_die() -> bool:
+    """Runs database startup (Alembic upgrade + seeding) off the event loop;
+    returns True on success.
+
+    On an unrecoverable failure (e.g. ``_init_db_with_retry`` exhausting its
+    retries, or a database still on v1.x), sends this process SIGTERM instead of letting
+    the exception vanish inside a background task nothing awaits before
+    shutdown — otherwise the process would stay alive forever with
+    ``runtime.is_startup_complete()`` stuck False and every ordinary route
+    503ing, instead of exiting so Compose's ``restart: unless-stopped``
+    retries from a clean process (#1020).
+    """
+    try:
+        await run_in_threadpool(_init_db_with_retry)
+        return True
+    except Exception:
+        logger.exception(
+            "Database startup failed unrecoverably; sending SIGTERM so the "
+            "container restarts instead of serving 503 forever."
+        )
+        os.kill(os.getpid(), signal.SIGTERM)
+        return False
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    from app.core import runtime
     from app.services.event_bus import event_bus
 
     validate_production_credentials()
@@ -61,6 +93,7 @@ async def lifespan(app: FastAPI):
     loop = asyncio.get_running_loop()
     event_bus.set_loop(loop)
     runtime.set_loop(loop)
+    runtime.set_startup_complete(False)
 
     # Multi-worker deployments need Redis pub/sub to fan SSE events across
     # workers; without it, events published by one worker never reach clients
@@ -73,36 +106,63 @@ async def lifespan(app: FastAPI):
             settings.WORKERS,
         )
 
-    init_oauth()
-    cleanup_document_upload_temps()
-    cleanup_image_upload_temps()
-    _init_db_with_retry()
-    sweeper = asyncio.create_task(deletion_sweep_loop())
-    backup_scheduler = asyncio.create_task(backup_schedule_loop())
+    sweeper: asyncio.Task | None = None
+    backup_scheduler: asyncio.Task | None = None
 
-    # Start the Redis SSE listener when Redis is configured.  This creates a
-    # dedicated pub/sub connection and begins feeding local queues from Redis
-    # channel messages, enabling multi-worker deployments.
-    if settings.redis_enabled:
-        await event_bus.start_redis_listener()
+    async def _startup() -> None:
+        nonlocal sweeper, backup_scheduler
+        init_oauth()
+        cleanup_document_upload_temps()
+        cleanup_image_upload_temps()
+        # Off the event loop and thread, so it doesn't block ASGI request
+        # handling: Alembic upgrades can take a while, and /api/health must
+        # stay reachable throughout (#1020). StartupGateMiddleware below
+        # keeps every other route unavailable until this completes.
+        if not await _run_startup_or_die():
+            return  # already logged + signaled; nothing more to start
+        sweeper = asyncio.create_task(deletion_sweep_loop())
+        backup_scheduler = asyncio.create_task(backup_schedule_loop())
+        # Start the Redis SSE listener when Redis is configured.  This
+        # creates a dedicated pub/sub connection and begins feeding local
+        # queues from Redis channel messages, enabling multi-worker
+        # deployments.
+        if settings.redis_enabled:
+            await event_bus.start_redis_listener()
+        runtime.set_startup_complete(True)
+
+    startup_task = asyncio.create_task(_startup())
 
     try:
         yield
     finally:
-        sweeper.cancel()
-        backup_scheduler.cancel()
+        # A cancel here can't actually stop `_init_db_with_retry` mid-flight
+        # (it's a plain sync call in a worker thread, and Python threads
+        # aren't preemptible) — it only stops `_startup` from proceeding past
+        # its next `await` once the thread call returns. That's fine: Alembic
+        # commits its own progress, so letting it finish (or fail) on its own
+        # is safe either way.
+        startup_task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
-            await sweeper
-        with contextlib.suppress(asyncio.CancelledError):
-            await backup_scheduler
+            await startup_task
+        if sweeper is not None:
+            sweeper.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await sweeper
+        if backup_scheduler is not None:
+            backup_scheduler.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await backup_scheduler
         # Stop the Redis listener before closing the client. This must run
         # before event_bus.reset() below — it's what cancels and awaits the
         # listener task and closes the pubsub connection; reset() only clears
         # already-quiesced references, it does not tear anything down itself.
+        # Safe even if _startup never reached start_redis_listener() —
+        # stop_redis_listener() is a no-op with no listener task running.
         if settings.redis_enabled:
             await event_bus.stop_redis_listener()
         await close_redis()
         runtime.set_loop(None)
+        runtime.set_startup_complete(False)
         # Drop subscriber/loop state so a subsequent lifespan in this same
         # process (tests build the FastAPI app more than once) starts clean.
         # Deliberately not done on startup: this app instance's shutdown is
@@ -114,6 +174,60 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title=settings.APP_NAME, version=settings.APP_VERSION, lifespan=lifespan)
 
+# Auth and health are exempt: a frontend must be able to learn the current
+# epoch (GET /auth/config) and bootstrap a session before it has anything to
+# declare, and neither route touches workspace-shaped data.
+_SCHEMA_EPOCH_EXEMPT_PREFIXES = (
+    f"{settings.API_PREFIX}/auth",
+    f"{settings.API_PREFIX}/health",
+)
+_SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+
+
+class SchemaEpochMiddleware(BaseHTTPMiddleware):
+    """Fails a mutation closed instead of applying it under the wrong wire
+    contract — a stale cached v1 frontend never sends this header at all, and
+    a frontend built for a different epoch than this backend sends a value
+    that won't match (see app.core.schema_epoch)."""
+
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+        if (
+            request.method not in _SAFE_METHODS
+            and path.startswith(settings.API_PREFIX)
+            and not path.startswith(_SCHEMA_EPOCH_EXEMPT_PREFIXES)
+            and request.headers.get(SCHEMA_EPOCH_HEADER) != str(SCHEMA_EPOCH)
+        ):
+            return JSONResponse(
+                status_code=409, content={"detail": SCHEMA_EPOCH_MISMATCH_DETAIL}
+            )
+        return await call_next(request)
+
+
+_STARTUP_GATE_EXEMPT_PREFIXES = (f"{settings.API_PREFIX}/health",)
+
+
+class StartupGateMiddleware(BaseHTTPMiddleware):
+    """Keeps ordinary routes unavailable until database startup finishes
+    (#1020) — reading rows mid-upgrade would see a torn schema. Only /health*
+    stays reachable throughout, so a maintenance screen can poll while this
+    gate is up."""
+
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+        if (
+            path.startswith(settings.API_PREFIX)
+            and not path.startswith(_STARTUP_GATE_EXEMPT_PREFIXES)
+            and not runtime.is_startup_complete()
+        ):
+            return JSONResponse(
+                status_code=503, content={"detail": "startup_in_progress"}
+            )
+        return await call_next(request)
+
+
+app.add_middleware(StartupGateMiddleware)
+app.add_middleware(SchemaEpochMiddleware)
 app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)
 app.add_middleware(
     CORSMiddleware,
@@ -149,6 +263,7 @@ def health():
         "version": settings.APP_VERSION,
         "revision": settings.APP_REVISION,
         "build_date": settings.APP_BUILD_DATE,
+        "schema_epoch": SCHEMA_EPOCH,
     }
 
 
@@ -164,6 +279,14 @@ def _check_db() -> bool:
 
 @app.get(f"{settings.API_PREFIX}/health/ready", tags=["health"])
 async def health_ready():
+    # Readiness is false for as long as database startup is running. Checked
+    # before the DB probe below: probing the pool concurrently adds nothing
+    # useful while an upgrade is in progress.
+    if not runtime.is_startup_complete():
+        return JSONResponse(
+            status_code=503, content={"status": "starting", "db": "unknown"}
+        )
+
     # --- database check -------------------------------------------------------
     # engine.connect() is blocking and can stall for the pool-checkout/connect
     # timeout when Postgres is slow or down — exactly when readiness probes
@@ -188,3 +311,4 @@ async def health_ready():
     if body["status"] == "error":
         return JSONResponse(status_code=503, content=body)
     return body
+

@@ -19,8 +19,8 @@ from app.models.content import (
     StoryDocumentLink,
     StoryMemberLink,
 )
-from app.models.family import Member, MemberDisease, Relation
-from app.services.trees.merge import merge_trees
+from app.models.family import MemberDisease, Relation
+from app.services.workspaces.merge import merge_trees
 from tests.conftest import API, add_member, auth, befriend, make_tree, make_user, share
 
 # Minimal 1×1 PNG streamed as a multipart gallery upload.
@@ -32,9 +32,10 @@ _PNG_BYTES = base64.b64decode(
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _activity_rows(db, tree_id):
+
+def _activity_rows(db, workspace_id):
     return db.scalars(
-        select(ActivityLog).where(ActivityLog.tree_id == tree_id)
+        select(ActivityLog).where(ActivityLog.workspace_id == workspace_id)
     ).all()
 
 
@@ -50,12 +51,13 @@ MEMBER_PAYLOAD = {
 # Create / update / delete member → writes activity row
 # ---------------------------------------------------------------------------
 
+
 def test_create_member_writes_activity(client, db):
     owner = make_user(db, "alice")
     tree = make_tree(db, owner)
 
     res = client.post(
-        f"{API}/trees/{tree.id}/members",
+        f"{API}/workspaces/{tree.id}/members",
         headers=auth(owner),
         json=MEMBER_PAYLOAD,
     )
@@ -78,7 +80,7 @@ def test_update_member_writes_activity(client, db):
     add_member(db, tree, "m1", first_name="Ada", last_name="Doe")
 
     res = client.patch(
-        f"{API}/trees/{tree.id}/members/m1",
+        f"{API}/workspaces/{tree.id}/members/m1",
         headers=auth(owner),
         json={"firstName": "Ada", "lastName": "Smith"},
     )
@@ -96,7 +98,7 @@ def test_delete_member_writes_activity(client, db):
     add_member(db, tree, "m1", first_name="Ada", last_name="Doe")
 
     res = client.delete(
-        f"{API}/trees/{tree.id}/members/m1",
+        f"{API}/workspaces/{tree.id}/members/m1",
         headers=auth(owner),
     )
     assert res.status_code == 204
@@ -112,23 +114,24 @@ def test_delete_member_writes_activity(client, db):
 # GET /activity endpoint: ordering and access control
 # ---------------------------------------------------------------------------
 
+
 def test_list_activity_returns_newest_first(client, db):
     owner = make_user(db, "alice")
     tree = make_tree(db, owner)
 
     # Create two members → two rows
     client.post(
-        f"{API}/trees/{tree.id}/members",
+        f"{API}/workspaces/{tree.id}/members",
         headers=auth(owner),
         json={**MEMBER_PAYLOAD, "id": "m1", "firstName": "Ada"},
     )
     client.post(
-        f"{API}/trees/{tree.id}/members",
+        f"{API}/workspaces/{tree.id}/members",
         headers=auth(owner),
         json={**MEMBER_PAYLOAD, "id": "m2", "firstName": "Bob"},
     )
 
-    res = client.get(f"{API}/trees/{tree.id}/activity", headers=auth(owner))
+    res = client.get(f"{API}/workspaces/{tree.id}/activity", headers=auth(owner))
     assert res.status_code == 200
     body = res.json()
     data = body["entries"]
@@ -145,7 +148,7 @@ def test_list_activity_paginates_by_offset(client, db):
         [
             ActivityLog(
                 id=f"a{i}",
-                tree_id=tree.id,
+                workspace_id=tree.id,
                 action="create",
                 target_type="member",
                 created_at=f"2026-01-01T00:00:0{i}+00:00",
@@ -156,7 +159,7 @@ def test_list_activity_paginates_by_offset(client, db):
     db.commit()
 
     first = client.get(
-        f"{API}/trees/{tree.id}/activity",
+        f"{API}/workspaces/{tree.id}/activity",
         headers=auth(owner),
         params={"limit": 2, "offset": 0},
     )
@@ -166,7 +169,7 @@ def test_list_activity_paginates_by_offset(client, db):
     assert first_body["total"] == 3
 
     second = client.get(
-        f"{API}/trees/{tree.id}/activity",
+        f"{API}/workspaces/{tree.id}/activity",
         headers=auth(owner),
         params={"limit": 2, "offset": 2},
     )
@@ -183,7 +186,7 @@ def test_list_activity_filters_reduce_total(client, db):
         [
             ActivityLog(
                 id="c1",
-                tree_id=tree.id,
+                workspace_id=tree.id,
                 actor_username="alice",
                 action="create",
                 target_type="member",
@@ -191,7 +194,7 @@ def test_list_activity_filters_reduce_total(client, db):
             ),
             ActivityLog(
                 id="u1",
-                tree_id=tree.id,
+                workspace_id=tree.id,
                 actor_username="bob",
                 action="update",
                 target_type="event",
@@ -202,7 +205,7 @@ def test_list_activity_filters_reduce_total(client, db):
     db.commit()
 
     res = client.get(
-        f"{API}/trees/{tree.id}/activity",
+        f"{API}/workspaces/{tree.id}/activity",
         headers=auth(owner),
         params={"action": "update"},
     )
@@ -221,12 +224,12 @@ def test_viewer_can_read_activity(client, db):
     share(db, tree, viewer, role="viewer")
 
     client.post(
-        f"{API}/trees/{tree.id}/members",
+        f"{API}/workspaces/{tree.id}/members",
         headers=auth(owner),
         json=MEMBER_PAYLOAD,
     )
 
-    res = client.get(f"{API}/trees/{tree.id}/activity", headers=auth(viewer))
+    res = client.get(f"{API}/workspaces/{tree.id}/activity", headers=auth(viewer))
     assert res.status_code == 200
     assert len(res.json()["entries"]) == 1
 
@@ -238,12 +241,12 @@ def test_editor_can_read_activity(client, db):
     share(db, tree, editor, role="editor")
 
     client.post(
-        f"{API}/trees/{tree.id}/members",
+        f"{API}/workspaces/{tree.id}/members",
         headers=auth(editor),
         json=MEMBER_PAYLOAD,
     )
 
-    res = client.get(f"{API}/trees/{tree.id}/activity", headers=auth(editor))
+    res = client.get(f"{API}/workspaces/{tree.id}/activity", headers=auth(editor))
     assert res.status_code == 200
     assert len(res.json()["entries"]) == 1
     assert res.json()["entries"][0]["actor_username"] == "carol"
@@ -254,7 +257,7 @@ def test_unauthorized_cannot_read_activity(client, db):
     outsider = make_user(db, "eve")
     tree = make_tree(db, owner)
 
-    res = client.get(f"{API}/trees/{tree.id}/activity", headers=auth(outsider))
+    res = client.get(f"{API}/workspaces/{tree.id}/activity", headers=auth(outsider))
     assert res.status_code in (403, 404)
 
 
@@ -266,7 +269,7 @@ def test_denied_write_does_not_write_activity(client, db):
     share(db, tree, viewer, role="viewer")
 
     res = client.post(
-        f"{API}/trees/{tree.id}/members",
+        f"{API}/workspaces/{tree.id}/members",
         headers=auth(viewer),
         json=MEMBER_PAYLOAD,
     )
@@ -280,17 +283,18 @@ def test_denied_write_does_not_write_activity(client, db):
 # Actor snapshot stored correctly
 # ---------------------------------------------------------------------------
 
+
 def test_activity_stores_actor_snapshot(client, db):
     owner = make_user(db, "alice")
     tree = make_tree(db, owner)
 
     client.post(
-        f"{API}/trees/{tree.id}/members",
+        f"{API}/workspaces/{tree.id}/members",
         headers=auth(owner),
         json=MEMBER_PAYLOAD,
     )
 
-    res = client.get(f"{API}/trees/{tree.id}/activity", headers=auth(owner))
+    res = client.get(f"{API}/workspaces/{tree.id}/activity", headers=auth(owner))
     row = res.json()["entries"][0]
     assert row["actor_id"] == owner.id
     assert row["actor_username"] == "alice"
@@ -304,21 +308,22 @@ def test_activity_stores_actor_snapshot(client, db):
 # Coverage added by #564: tree lifecycle, sharing, imports, merge, links
 # ---------------------------------------------------------------------------
 
+
 def test_create_tree_writes_activity(client, db):
     owner = make_user(db, "alice")
 
     res = client.post(
-        f"{API}/trees", headers=auth(owner), json={"name": "New Tree"}
+        f"{API}/workspaces", headers=auth(owner), json={"name": "New Workspace"}
     )
     assert res.status_code == 201
-    tree_id = res.json()["id"]
+    workspace_id = res.json()["id"]
 
-    rows = _activity_rows(db, tree_id)
+    rows = _activity_rows(db, workspace_id)
     assert len(rows) == 1
     assert rows[0].action == "create"
     assert rows[0].target_type == "tree"
-    assert rows[0].target_id == tree_id
-    assert rows[0].target_label == "New Tree"
+    assert rows[0].target_id == workspace_id
+    assert rows[0].target_label == "New Workspace"
 
 
 def test_rename_tree_writes_activity(client, db):
@@ -326,7 +331,7 @@ def test_rename_tree_writes_activity(client, db):
     tree = make_tree(db, owner, "Old Name")
 
     res = client.patch(
-        f"{API}/trees/{tree.id}", headers=auth(owner), json={"name": "New Name"}
+        f"{API}/workspaces/{tree.id}", headers=auth(owner), json={"name": "New Name"}
     )
     assert res.status_code == 200
 
@@ -336,6 +341,7 @@ def test_rename_tree_writes_activity(client, db):
     assert rows[0].target_type == "tree"
 
     import json as _json
+
     details = _json.loads(rows[0].details)
     assert details["before"]["name"] == "Old Name"
     assert details["after"]["name"] == "New Name"
@@ -346,7 +352,7 @@ def test_rename_tree_no_op_does_not_write_activity(client, db):
     tree = make_tree(db, owner, "Same Name")
 
     res = client.patch(
-        f"{API}/trees/{tree.id}", headers=auth(owner), json={"name": "Same Name"}
+        f"{API}/workspaces/{tree.id}", headers=auth(owner), json={"name": "Same Name"}
     )
     assert res.status_code == 200
 
@@ -361,7 +367,7 @@ def test_share_tree_writes_activity(client, db):
     tree = make_tree(db, owner)
 
     res = client.post(
-        f"{API}/trees/{tree.id}/access",
+        f"{API}/workspaces/{tree.id}/access",
         headers=auth(owner),
         json={"username": "bob", "role": "viewer"},
     )
@@ -383,7 +389,7 @@ def test_revoke_access_writes_activity(client, db):
     share(db, tree, bob, role="viewer")
 
     res = client.delete(
-        f"{API}/trees/{tree.id}/access/{bob.id}", headers=auth(owner)
+        f"{API}/workspaces/{tree.id}/access/{bob.id}", headers=auth(owner)
     )
     assert res.status_code == 204
 
@@ -418,7 +424,7 @@ def test_event_set_links_writes_activity(client, db):
     add_member(db, tree, "m1", first_name="Ada", last_name="Doe")
 
     created = client.post(
-        f"{API}/trees/{tree.id}/events",
+        f"{API}/workspaces/{tree.id}/events",
         headers=auth(owner),
         json={
             "id": "ev1",
@@ -432,7 +438,7 @@ def test_event_set_links_writes_activity(client, db):
     event_id = created.json()["id"]
 
     res = client.put(
-        f"{API}/trees/{tree.id}/events/{event_id}/links",
+        f"{API}/workspaces/{tree.id}/events/{event_id}/links",
         headers=auth(owner),
         json={"member_ids": ["m1"]},
     )
@@ -452,7 +458,7 @@ def test_story_set_links_writes_activity(client, db):
     add_member(db, tree, "m1", first_name="Ada", last_name="Doe")
 
     created = client.post(
-        f"{API}/trees/{tree.id}/stories",
+        f"{API}/workspaces/{tree.id}/stories",
         headers=auth(owner),
         json={
             "id": "s1",
@@ -466,7 +472,7 @@ def test_story_set_links_writes_activity(client, db):
     story_id = created.json()["id"]
 
     res = client.put(
-        f"{API}/trees/{tree.id}/stories/{story_id}/links",
+        f"{API}/workspaces/{tree.id}/stories/{story_id}/links",
         headers=auth(owner),
         json={"member_ids": ["m1"]},
     )
@@ -488,7 +494,7 @@ def test_gallery_set_links_writes_activity(client, db, tmp_path, monkeypatch):
     add_member(db, tree, "m1", first_name="Ada", last_name="Doe")
 
     created = client.post(
-        f"{API}/trees/{tree.id}/gallery/images",
+        f"{API}/workspaces/{tree.id}/gallery/images",
         headers=auth(owner),
         data={"id": "img1", "title": "A Photo", "uploaded_at": "2000-01-01T00:00:00Z"},
         files={"image": ("a.png", _PNG_BYTES, "image/png")},
@@ -497,7 +503,7 @@ def test_gallery_set_links_writes_activity(client, db, tmp_path, monkeypatch):
     image_id = created.json()["id"]
 
     res = client.put(
-        f"{API}/trees/{tree.id}/gallery/images/{image_id}/links",
+        f"{API}/workspaces/{tree.id}/gallery/images/{image_id}/links",
         headers=auth(owner),
         json={"member_ids": ["m1"]},
     )
@@ -523,8 +529,9 @@ def test_gallery_set_links_writes_activity(client, db, tmp_path, monkeypatch):
 # full re-insertable pre-image in details
 # ---------------------------------------------------------------------------
 
-def _delete_details(db, tree_id):
-    rows = _activity_rows(db, tree_id)
+
+def _delete_details(db, workspace_id):
+    rows = _activity_rows(db, workspace_id)
     deletes = [r for r in rows if r.action == "delete"]
     assert len(deletes) == 1
     assert deletes[0].details is not None
@@ -547,7 +554,7 @@ def test_delete_member_details_snapshot_full_cascade(client, db):
     add_member(db, tree, "m2", first_name="Bob")
     db.add(
         Relation(
-            tree_id=tree.id,
+            workspace_id=tree.id,
             from_member_id="m1",
             to_member_id="m2",
             relation_type="parent",
@@ -555,7 +562,7 @@ def test_delete_member_details_snapshot_full_cascade(client, db):
     )
     db.add(
         Relation(
-            tree_id=tree.id,
+            workspace_id=tree.id,
             from_member_id="m2",
             to_member_id="m1",
             relation_type="partner",
@@ -564,7 +571,7 @@ def test_delete_member_details_snapshot_full_cascade(client, db):
     db.add(
         MemberDisease(
             id="d1",
-            tree_id=tree.id,
+            workspace_id=tree.id,
             member_id="m1",
             name="Anemia",
             carrier_status="affected",
@@ -572,26 +579,32 @@ def test_delete_member_details_snapshot_full_cascade(client, db):
         )
     )
     db.add(
-        Event(id="e1", tree_id=tree.id, event_type="birth", date="1815", created_at="t")
+        Event(
+            id="e1", workspace_id=tree.id, event_type="birth", date="1815", created_at="t"
+        )
     )
     db.add(EventMemberLink(event_id="e1", member_id="m1"))
     db.add(
-        Story(id="s1", tree_id=tree.id, title="A Story", created_at="t", updated_at="t")
+        Story(
+            id="s1", workspace_id=tree.id, title="A Story", created_at="t", updated_at="t"
+        )
     )
     db.add(StoryMemberLink(story_id="s1", member_id="m1"))
-    db.add(GalleryImage(id="g1", tree_id=tree.id, title="Photo"))
+    db.add(GalleryImage(id="g1", workspace_id=tree.id, title="Photo"))
     db.add(
         GalleryMemberLink(
             gallery_image_id="g1", member_id="m1", x=0.1, y=0.2, w=0.3, h=0.4
         )
     )
     db.add(
-        Document(id="doc1", tree_id=tree.id, title="Deed", created_at="t", updated_at="t")
+        Document(
+            id="doc1", workspace_id=tree.id, title="Deed", created_at="t", updated_at="t"
+        )
     )
     db.add(DocumentMemberLink(document_id="doc1", member_id="m1"))
     db.commit()
 
-    res = client.delete(f"{API}/trees/{tree.id}/members/m1", headers=auth(owner))
+    res = client.delete(f"{API}/workspaces/{tree.id}/members/m1", headers=auth(owner))
     assert res.status_code == 204
 
     snapshot = _delete_details(db, tree.id)["snapshot"]
@@ -630,34 +643,6 @@ def test_delete_member_details_snapshot_full_cascade(client, db):
     assert snapshot["gallery_links"][0]["h"] == 0.4
     assert snapshot["document_links"] == [{"document_id": "doc1", "member_id": "m1"}]
 
-    # Not a bridge person → no bridge key.
-    assert "bridge" not in snapshot
-
-
-def test_delete_bridge_member_snapshot_records_counterpart(client, db):
-    owner = make_user(db, "alice")
-    tree = make_tree(db, owner)
-    other = make_tree(db, owner, name="Linked")
-    add_member(db, tree, "m1", first_name="Ada")
-    add_member(db, other, "c1", first_name="Ada")
-    db.get(Member, "m1").linked_tree_id = other.id
-    db.get(Member, "m1").linked_member_id = "c1"
-    db.get(Member, "c1").linked_tree_id = tree.id
-    db.get(Member, "c1").linked_member_id = "m1"
-    db.commit()
-
-    res = client.delete(f"{API}/trees/{tree.id}/members/m1", headers=auth(owner))
-    assert res.status_code == 204
-
-    snapshot = _delete_details(db, tree.id)["snapshot"]
-    assert snapshot["bridge"] == {
-        "counterpart_member_id": "c1",
-        "counterpart_tree_id": other.id,
-    }
-    # The member's own pointers are preserved in its row snapshot.
-    assert snapshot["member"]["linked_tree_id"] == other.id
-    assert snapshot["member"]["linked_member_id"] == "c1"
-
 
 def test_delete_relation_details_snapshot(client, db):
     owner = make_user(db, "alice")
@@ -666,7 +651,7 @@ def test_delete_relation_details_snapshot(client, db):
     add_member(db, tree, "m2")
     db.add(
         Relation(
-            tree_id=tree.id,
+            workspace_id=tree.id,
             from_member_id="m1",
             to_member_id="m2",
             relation_type="parent",
@@ -675,7 +660,7 @@ def test_delete_relation_details_snapshot(client, db):
     db.commit()
 
     res = client.delete(
-        f"{API}/trees/{tree.id}/relations",
+        f"{API}/workspaces/{tree.id}/relations",
         params={"from_member_id": "m1", "to_member_id": "m2", "relation_type": "parent"},
         headers=auth(owner),
     )
@@ -684,7 +669,7 @@ def test_delete_relation_details_snapshot(client, db):
     snapshot = _delete_details(db, tree.id)["snapshot"]
     assert snapshot["version"] == 1
     assert snapshot["relation"] == {
-        "tree_id": tree.id,
+        "workspace_id": tree.id,
         "from_member_id": "m1",
         "to_member_id": "m2",
         "relation_type": "parent",
@@ -698,7 +683,7 @@ def test_delete_disease_details_snapshot(client, db):
     db.add(
         MemberDisease(
             id="d1",
-            tree_id=tree.id,
+            workspace_id=tree.id,
             member_id="m1",
             name="Anemia",
             carrier_status="carrier",
@@ -709,7 +694,7 @@ def test_delete_disease_details_snapshot(client, db):
     )
     db.commit()
 
-    res = client.delete(f"{API}/trees/{tree.id}/diseases/d1", headers=auth(owner))
+    res = client.delete(f"{API}/workspaces/{tree.id}/diseases/d1", headers=auth(owner))
     assert res.status_code == 204
 
     snapshot = _delete_details(db, tree.id)["snapshot"]
@@ -734,16 +719,20 @@ def test_delete_event_details_snapshot(client, db):
     tree = make_tree(db, owner)
     add_member(db, tree, "m1", first_name="Ada")
     db.add(
-        Event(id="e1", tree_id=tree.id, event_type="birth", date="1900", created_at="t")
+        Event(
+            id="e1", workspace_id=tree.id, event_type="birth", date="1900", created_at="t"
+        )
     )
     db.add(EventMemberLink(event_id="e1", member_id="m1"))
     db.add(
-        Document(id="doc1", tree_id=tree.id, title="Deed", created_at="t", updated_at="t")
+        Document(
+            id="doc1", workspace_id=tree.id, title="Deed", created_at="t", updated_at="t"
+        )
     )
     db.add(EventDocumentLink(event_id="e1", document_id="doc1"))
     db.commit()
 
-    res = client.delete(f"{API}/trees/{tree.id}/events/e1", headers=auth(owner))
+    res = client.delete(f"{API}/workspaces/{tree.id}/events/e1", headers=auth(owner))
     assert res.status_code == 204
 
     snapshot = _delete_details(db, tree.id)["snapshot"]
@@ -759,16 +748,20 @@ def test_delete_story_details_snapshot(client, db):
     tree = make_tree(db, owner)
     add_member(db, tree, "m1", first_name="Ada")
     db.add(
-        Story(id="s1", tree_id=tree.id, title="A Story", created_at="t", updated_at="t")
+        Story(
+            id="s1", workspace_id=tree.id, title="A Story", created_at="t", updated_at="t"
+        )
     )
     db.add(StoryMemberLink(story_id="s1", member_id="m1"))
     db.add(
-        Document(id="doc1", tree_id=tree.id, title="Deed", created_at="t", updated_at="t")
+        Document(
+            id="doc1", workspace_id=tree.id, title="Deed", created_at="t", updated_at="t"
+        )
     )
     db.add(StoryDocumentLink(story_id="s1", document_id="doc1"))
     db.commit()
 
-    res = client.delete(f"{API}/trees/{tree.id}/stories/s1", headers=auth(owner))
+    res = client.delete(f"{API}/workspaces/{tree.id}/stories/s1", headers=auth(owner))
     assert res.status_code == 204
 
     snapshot = _delete_details(db, tree.id)["snapshot"]
@@ -790,7 +783,7 @@ def test_delete_gallery_image_details_snapshot_trashes_media(
     add_member(db, tree, "m1", first_name="Ada")
 
     created = client.post(
-        f"{API}/trees/{tree.id}/gallery/images",
+        f"{API}/workspaces/{tree.id}/gallery/images",
         headers=auth(owner),
         data={"id": "img1", "title": "A Photo", "uploaded_at": "2000-01-01T00:00:00Z"},
         files={"image": ("a.png", _PNG_BYTES, "image/png")},
@@ -801,7 +794,7 @@ def test_delete_gallery_image_details_snapshot_trashes_media(
     assert stored_path.is_file()
 
     res = client.put(
-        f"{API}/trees/{tree.id}/gallery/images/img1/links",
+        f"{API}/workspaces/{tree.id}/gallery/images/img1/links",
         headers=auth(owner),
         json={"member_ids": ["m1"]},
     )
@@ -812,7 +805,9 @@ def test_delete_gallery_image_details_snapshot_trashes_media(
     link.x, link.y, link.w, link.h = 0.1, 0.2, 0.3, 0.4
     db.commit()
 
-    res = client.delete(f"{API}/trees/{tree.id}/gallery/images/img1", headers=auth(owner))
+    res = client.delete(
+        f"{API}/workspaces/{tree.id}/gallery/images/img1", headers=auth(owner)
+    )
     assert res.status_code == 204
 
     rows = _activity_rows(db, tree.id)
@@ -833,14 +828,14 @@ def test_delete_gallery_image_details_snapshot_trashes_media(
 
 
 def _write_media_file(
-    settings, tree_id: str, filename: str, content: bytes = b"data"
+    settings, workspace_id: str, filename: str, content: bytes = b"data"
 ) -> str:
     from app.services.media.storage import MEDIA_URL_PREFIX
 
-    tree_dir = settings.media_root / tree_id
+    tree_dir = settings.media_root / workspace_id
     tree_dir.mkdir(parents=True, exist_ok=True)
     (tree_dir / filename).write_bytes(content)
-    return f"{MEDIA_URL_PREFIX}/{tree_id}/{filename}"
+    return f"{MEDIA_URL_PREFIX}/{workspace_id}/{filename}"
 
 
 def test_delete_document_details_snapshot_trashes_media(
@@ -855,12 +850,14 @@ def test_delete_document_details_snapshot_trashes_media(
     url = _write_media_file(settings, tree.id, "file1.pdf")
 
     db.add(
-        Document(id="doc1", tree_id=tree.id, title="Deed", created_at="t", updated_at="t")
+        Document(
+            id="doc1", workspace_id=tree.id, title="Deed", created_at="t", updated_at="t"
+        )
     )
     db.add(
         DocumentFile(
             id="f1",
-            tree_id=tree.id,
+            workspace_id=tree.id,
             document_id="doc1",
             kind="file",
             filename="file1.pdf",
@@ -872,16 +869,20 @@ def test_delete_document_details_snapshot_trashes_media(
     )
     db.add(DocumentMemberLink(document_id="doc1", member_id="m1"))
     db.add(
-        Event(id="e1", tree_id=tree.id, event_type="birth", date="1900", created_at="t")
+        Event(
+            id="e1", workspace_id=tree.id, event_type="birth", date="1900", created_at="t"
+        )
     )
     db.add(EventDocumentLink(event_id="e1", document_id="doc1"))
     db.add(
-        Story(id="s1", tree_id=tree.id, title="A Story", created_at="t", updated_at="t")
+        Story(
+            id="s1", workspace_id=tree.id, title="A Story", created_at="t", updated_at="t"
+        )
     )
     db.add(StoryDocumentLink(story_id="s1", document_id="doc1"))
     db.commit()
 
-    res = client.delete(f"{API}/trees/{tree.id}/documents/doc1", headers=auth(owner))
+    res = client.delete(f"{API}/workspaces/{tree.id}/documents/doc1", headers=auth(owner))
     assert res.status_code == 204
 
     snapshot = _delete_details(db, tree.id)["snapshot"]
@@ -911,12 +912,14 @@ def test_delete_document_file_writes_activity_and_trashes_media(
     url = _write_media_file(settings, tree.id, "file1.pdf")
 
     db.add(
-        Document(id="doc1", tree_id=tree.id, title="Deed", created_at="t", updated_at="t")
+        Document(
+            id="doc1", workspace_id=tree.id, title="Deed", created_at="t", updated_at="t"
+        )
     )
     db.add(
         DocumentFile(
             id="f1",
-            tree_id=tree.id,
+            workspace_id=tree.id,
             document_id="doc1",
             kind="file",
             filename="file1.pdf",
@@ -929,7 +932,7 @@ def test_delete_document_file_writes_activity_and_trashes_media(
     db.commit()
 
     res = client.delete(
-        f"{API}/trees/{tree.id}/documents/doc1/files/f1", headers=auth(owner)
+        f"{API}/workspaces/{tree.id}/documents/doc1/files/f1", headers=auth(owner)
     )
     assert res.status_code == 204
 
@@ -956,12 +959,14 @@ def test_delete_document_link_file_has_no_trashed_media(client, db):
     owner = make_user(db, "alice")
     tree = make_tree(db, owner)
     db.add(
-        Document(id="doc1", tree_id=tree.id, title="Deed", created_at="t", updated_at="t")
+        Document(
+            id="doc1", workspace_id=tree.id, title="Deed", created_at="t", updated_at="t"
+        )
     )
     db.add(
         DocumentFile(
             id="f1",
-            tree_id=tree.id,
+            workspace_id=tree.id,
             document_id="doc1",
             kind="link",
             filename="External",
@@ -974,7 +979,7 @@ def test_delete_document_link_file_has_no_trashed_media(client, db):
     db.commit()
 
     res = client.delete(
-        f"{API}/trees/{tree.id}/documents/doc1/files/f1", headers=auth(owner)
+        f"{API}/workspaces/{tree.id}/documents/doc1/files/f1", headers=auth(owner)
     )
     assert res.status_code == 204
 

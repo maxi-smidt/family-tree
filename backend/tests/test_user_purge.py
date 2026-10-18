@@ -6,8 +6,8 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import settings
-from app.models import GalleryImage, Tree, TreeMembership, User
-from app.services.media.storage import MEDIA_URL_PREFIX, delete_tree_media
+from app.models import GalleryImage, User, Workspace, WorkspaceMembership
+from app.services.media.storage import MEDIA_URL_PREFIX, delete_workspace_media
 from app.services.system.user_purge import find_due_users, purge_due_users
 from tests.conftest import API, auth, make_tree, make_user, share
 
@@ -27,8 +27,8 @@ def _future() -> str:
     return (datetime.now(UTC) + timedelta(days=1)).isoformat()
 
 
-def _write_tree_media(tree_id: str, name: str = "f.webp") -> object:
-    directory = settings.media_root / tree_id
+def _write_tree_media(workspace_id: str, name: str = "f.webp") -> object:
+    directory = settings.media_root / workspace_id
     directory.mkdir(parents=True, exist_ok=True)
     path = directory / name
     path.write_bytes(b"binary-content")
@@ -65,7 +65,7 @@ def test_purge_removes_user_owned_trees_and_media(db, media_root):
     db.expunge_all()  # conftest keeps objects after commit; re-read from the DB
 
     assert db.get(User, alice.id) is None
-    assert db.get(Tree, tree.id) is None
+    assert db.get(Workspace, tree.id) is None
     assert not media_file.exists()
     assert not (settings.media_root / tree.id).exists()
 
@@ -93,8 +93,8 @@ def test_purge_keeps_trees_owned_by_others(db):
     db.expunge_all()  # conftest keeps objects after commit; re-read from the DB
 
     # Carol's tree survives; only Alice's membership is gone.
-    assert db.get(Tree, shared.id) is not None
-    assert db.get(TreeMembership, (shared.id, alice.id)) is None
+    assert db.get(Workspace, shared.id) is not None
+    assert db.get(WorkspaceMembership, (shared.id, alice.id)) is None
 
 
 def test_delete_tree_route_removes_media(client, db, media_root):
@@ -102,7 +102,7 @@ def test_delete_tree_route_removes_media(client, db, media_root):
     tree = make_tree(db, owner)
     media_file = _write_tree_media(tree.id)
 
-    res = client.delete(f"{API}/trees/{tree.id}", headers=auth(owner))
+    res = client.delete(f"{API}/workspaces/{tree.id}", headers=auth(owner))
     assert res.status_code == 204
     assert not media_file.exists()
 
@@ -113,25 +113,25 @@ def test_delete_image_route_removes_file(client, db, media_root):
     media_file = _write_tree_media(tree.id, name="img.webp")
     image = GalleryImage(
         id=str(uuid4()),
-        tree_id=tree.id,
+        workspace_id=tree.id,
         image_data=f"{MEDIA_URL_PREFIX}/{tree.id}/img.webp",
     )
     db.add(image)
     db.commit()
 
     res = client.delete(
-        f"{API}/trees/{tree.id}/gallery/images/{image.id}", headers=auth(owner)
+        f"{API}/workspaces/{tree.id}/gallery/images/{image.id}", headers=auth(owner)
     )
     assert res.status_code == 204
     assert not media_file.exists()
 
 
-def test_delete_tree_media_is_safe(media_root):
+def test_delete_workspace_media_is_safe(media_root):
     # Missing directory: no-op, no raise.
-    delete_tree_media("does-not-exist")
+    delete_workspace_media("does-not-exist")
     # Path-traversal attempt is rejected without touching anything outside root.
     sentinel = settings.media_root.parent / "keep.txt"
     settings.media_root.mkdir(parents=True, exist_ok=True)
     sentinel.write_text("keep")
-    delete_tree_media("../")
+    delete_workspace_media("../")
     assert sentinel.exists()

@@ -30,6 +30,7 @@ export interface WorkerEdge {
   sourceHandle?: string | null;
   targetHandle?: string | null;
   type?: string;
+  data?: Record<string, unknown>;
   baseStyle: WorkerEdgeStyle;
   /** All memberPairKeys relevant for determining if this edge is highlighted. */
   _highlightPairs: string[];

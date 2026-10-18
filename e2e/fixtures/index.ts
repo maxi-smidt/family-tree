@@ -97,7 +97,7 @@ export const test = base.extend<E2EFixtures>({
       return tree;
     };
     await use(factory);
-    // Teardown: delete all trees created during the test
+    // Teardown: delete all workspaces created during the test
     for (const tree of created) {
       try {
         await deleteTree(adminApi, tree.id);

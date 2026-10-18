@@ -1,6 +1,6 @@
 import { GalleryView } from "@/components/view/gallery-view/GalleryView";
 import { DocumentsView } from "@/components/view/documents-view/DocumentsView";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 
 export type MediaSection = "gallery" | "documents";
 
@@ -9,7 +9,7 @@ interface MediaViewProps {
 }
 
 export const MediaView = ({ section }: MediaViewProps) => {
-  const restrictions = useTreeStore(
+  const restrictions = useWorkspaceStore(
     (state) => state.selectedTree?.restrictions ?? [],
   );
   const galleryAvailable = !restrictions.includes("gallery");

@@ -242,9 +242,11 @@ export function formatDate(
     if (precision === "day") {
       const [y, mo, day] = dateString.split("-").map(Number);
       const d = new Date(y, mo - 1, day);
+      // Human-readable by default ("7 Jun 1926" / "7. Juni 1926"); callers
+      // that need a compact numeric form pass their own options.
       return new Intl.DateTimeFormat(locale, {
-        day: "2-digit",
-        month: "2-digit",
+        day: "numeric",
+        month: "short",
         year: "numeric",
         ...intlOptions,
       }).format(d);
@@ -255,8 +257,8 @@ export function formatDate(
   if (!date) return "";
   const { language, ...intlOptions } = options;
   return new Intl.DateTimeFormat(resolveDateLocale(language), {
-    day: "2-digit",
-    month: "2-digit",
+    day: "numeric",
+    month: "short",
     year: "numeric",
     ...intlOptions,
   }).format(date);
@@ -267,6 +269,8 @@ export function formatDateTime(
   options: FormatDateOptions = {},
 ): string {
   return formatDate(dateString, {
+    day: "2-digit",
+    month: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",

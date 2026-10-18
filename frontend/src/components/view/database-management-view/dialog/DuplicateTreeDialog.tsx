@@ -11,13 +11,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FieldLabel } from "@/components/ui/field";
-import { useTreeStore } from "@/hooks/useTreeStore";
-import { Tree } from "@/types/tree";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
+import { Workspace } from "@/types/workspace";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
 type Props = {
-  tree: Tree | null;
+  tree: Workspace | null;
   onClose: () => void;
 };
 
@@ -25,7 +25,7 @@ export const DuplicateTreeDialog = ({ tree, onClose }: Props) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "dialog.duplicate-tree",
   });
-  const mergeTrees = useTreeStore((s) => s.mergeTrees);
+  const mergeTrees = useWorkspaceStore((s) => s.mergeTrees);
 
   const [name, setName] = useState("");
   const [isDuplicating, setIsDuplicating] = useState(false);

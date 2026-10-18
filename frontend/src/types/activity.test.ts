@@ -3,7 +3,7 @@ import { Activity, isUndoableDelete, mapActivityFromDB, ActivityDB } from "./act
 
 const baseRow: ActivityDB = {
   id: "a1",
-  tree_id: "t1",
+  workspace_id: "t1",
   actor_id: "u1",
   actor_username: "alice",
   action: "create",
@@ -17,7 +17,7 @@ describe("mapActivityFromDB", () => {
   it("maps all fields to camelCase", () => {
     const result = mapActivityFromDB(baseRow);
     expect(result.id).toBe("a1");
-    expect(result.treeId).toBe("t1");
+    expect(result.workspaceId).toBe("t1");
     expect(result.actorId).toBe("u1");
     expect(result.actorUsername).toBe("alice");
     expect(result.action).toBe("create");
@@ -46,7 +46,7 @@ describe("mapActivityFromDB", () => {
 describe("isUndoableDelete", () => {
   const base: Activity = {
     id: "a1",
-    treeId: "t1",
+    workspaceId: "t1",
     actorId: "u1",
     actorUsername: "alice",
     action: "delete",

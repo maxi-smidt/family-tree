@@ -8,12 +8,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { toast } from "sonner";
-import { useTreeManager } from "@/hooks/useTreeManager";
+import { useWorkspaceManager } from "@/hooks/useWorkspaceManager";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/services/api";
 
@@ -31,11 +31,11 @@ export const RemoveDatabaseDialog = ({
   const { t } = useTranslation(undefined, {
     keyPrefix: "dialog.remove-database",
   });
-  const trees = useTreeStore((s) => s.trees);
-  const selectedTree = useTreeStore((s) => s.selectedTree);
-  const selectTree = useTreeStore((s) => s.selectTree);
-  const loadTrees = useTreeStore((s) => s.loadTrees);
-  const { removeDatabase } = useTreeManager();
+  const workspaces = useWorkspaceStore((s) => s.workspaces);
+  const selectedTree = useWorkspaceStore((s) => s.selectedTree);
+  const selectTree = useWorkspaceStore((s) => s.selectTree);
+  const loadTrees = useWorkspaceStore((s) => s.loadTrees);
+  const { removeDatabase } = useWorkspaceManager();
   const [typedName, setTypedName] = useState("");
 
   if (!selectedTree) return null;
@@ -86,7 +86,7 @@ export const RemoveDatabaseDialog = ({
   async function onConfirmation() {
     if (typedName !== selectedTree?.name) return;
     const toRemove = selectedTree;
-    const nextDatabase = trees.find((db) => db.id !== toRemove.id);
+    const nextDatabase = workspaces.find((db) => db.id !== toRemove.id);
 
     if (!nextDatabase) {
       toast.warning(t("toast-warning"));

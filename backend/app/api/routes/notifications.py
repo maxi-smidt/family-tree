@@ -1,6 +1,6 @@
 """Persistent per-user notification inbox routes.
 
-User-scoped only (no tree_id) — see ``notification_service.py`` for the
+User-scoped only (no workspace_id) — see ``notification_service.py`` for the
 producer side that writes these rows from other routers.
 """
 

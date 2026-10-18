@@ -143,30 +143,23 @@ describe("MapView location type filters", () => {
     fitBoundsMock.mockClear();
   });
 
-  const openTypeFilter = () =>
-    fireEvent.click(screen.getByRole("button", { name: "Location types" }));
-
   it("updates the type switches and markers when a type is toggled", () => {
     render(<MapView />);
 
     expect(screen.getAllByTestId("map-marker")).toHaveLength(4);
 
-    openTypeFilter();
-    const birthplaceSwitch = screen.getByRole("switch", {
-      name: "Birthplace",
-    });
-    expect(birthplaceSwitch).toHaveAttribute("aria-checked", "true");
+    const birthplaceChip = screen.getByRole("button", { name: "Birthplace" });
+    expect(birthplaceChip).toHaveAttribute("aria-pressed", "true");
 
-    fireEvent.click(birthplaceSwitch);
+    fireEvent.click(birthplaceChip);
 
-    expect(birthplaceSwitch).toHaveAttribute("aria-checked", "false");
+    expect(birthplaceChip).toHaveAttribute("aria-pressed", "false");
     expect(screen.getAllByTestId("map-marker")).toHaveLength(3);
   });
 
   it("shows a filter-specific empty state when all types are hidden", () => {
     render(<MapView />);
 
-    openTypeFilter();
     for (const name of [
       "Event",
       "Birthplace",
@@ -174,7 +167,7 @@ describe("MapView location type filters", () => {
       "Cemetery",
       "Place lived",
     ]) {
-      fireEvent.click(screen.getByRole("switch", { name }));
+      fireEvent.click(screen.getByRole("button", { name }));
     }
 
     expect(screen.queryByTestId("map-marker")).not.toBeInTheDocument();
@@ -248,6 +241,7 @@ describe("MapView location type filters", () => {
     expect(hasMarker("Berlin")).toBe(true);
     expect(screen.getAllByTestId("map-marker")).toHaveLength(4);
 
+    fireEvent.click(screen.getByRole("button", { name: "Dates" }));
     fireEvent.change(screen.getByLabelText("From"), {
       target: { value: "2016" },
     });
@@ -274,10 +268,10 @@ describe("MapView location type filters", () => {
     });
     const { rerender } = render(<MapView />);
 
-    const recenterButton = screen.getByRole("button", {
-      name: "Fit to markers",
-    });
-    expect(recenterButton).toBeDisabled();
+    // No markers, no map — and so no fit control yet.
+    expect(
+      screen.queryByRole("button", { name: "Fit to markers" }),
+    ).not.toBeInTheDocument();
 
     useGeocodeStore.setState({
       coords,
@@ -300,11 +294,11 @@ describe("MapView location type filters", () => {
   it("renders the life path only when a single member with >=2 geocoded places is selected", () => {
     render(<MapView />);
 
-    // "All Members" selected by default: no life path.
+    // "Everyone" selected by default: no life path.
     expect(screen.queryByTestId("life-path")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("combobox"));
-    fireEvent.click(screen.getByRole("option", { name: "Alex Example" }));
+    fireEvent.click(screen.getByRole("option", { name: /Alex Example/ }));
 
     // Alex has a geocoded birthplace (Vienna) and a geocoded place lived
     // (Berlin), so the life path should now render.

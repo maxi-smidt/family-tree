@@ -34,6 +34,21 @@ on:
         type: boolean
         default: false
         required: false
+      tag-version:
+        description: >-
+          Tag the build with the semver `version` above. Disable for a
+          candidate build that must not look like a published release until
+          it has been rehearsed (#1022).
+        type: boolean
+        default: true
+        required: false
+      extra-tag:
+        description: >-
+          One additional raw tag to apply, e.g. a `-rehearsal` candidate
+          suffix. Empty (the default) applies no extra tag.
+        type: string
+        default: ""
+        required: false
 
 permissions:
   contents: read
@@ -111,8 +126,9 @@ jobs:
           flavor: latest=false
           tags: |
             type=ref,event=branch
-            type=semver,pattern={{version}},value=v${{ steps.build-meta.outputs.version }}
+            type=semver,pattern={{version}},value=v${{ steps.build-meta.outputs.version }},enable=${{ inputs.tag-version }}
             type=raw,value=latest,enable=${{ inputs.tag-latest }}
+            type=raw,value=${{ inputs.extra-tag }},enable=${{ inputs.extra-tag != '' }}
 
       - name: "Set up Docker Buildx"
         uses: docker/setup-buildx-action@v4

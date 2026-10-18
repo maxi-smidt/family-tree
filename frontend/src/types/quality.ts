@@ -8,7 +8,7 @@ export interface QualityIssue {
 }
 
 export interface QualityReport {
-  tree_id: string;
+  workspace_id: string;
   total_members: number;
   issues: QualityIssue[];
 }

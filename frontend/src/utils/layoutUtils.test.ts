@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { getLayoutedElements } from "./layoutUtils";
 import { Member } from "@/types/member";
+import { GRID_SIZE } from "@/constants";
 
 describe("getLayoutedElements", () => {
   it("should return positions for a single member", () => {
@@ -404,8 +405,8 @@ describe("getLayoutedElements", () => {
     ];
 
     const positions = getLayoutedElements(members);
-    expect(positions["1"].x % 50).toBe(0);
-    expect(positions["1"].y % 50).toBe(0);
+    expect(positions["1"].x % GRID_SIZE).toBe(0);
+    expect(positions["1"].y % GRID_SIZE).toBe(0);
   });
 
   // -------------------------------------------------------------------------
@@ -653,16 +654,18 @@ describe("getLayoutedElements", () => {
 
     const positions = getLayoutedElements(members);
 
+    // Re-captured when the snap grid went from 50 to 25 px; the relative order
+    // is unchanged and the generation rows are now evenly spaced.
     expect(positions).toEqual({
-      abe: { x: 400, y: 0 },
+      abe: { x: 275, y: 0 },
       mona: { x: 0, y: 0 },
-      clancy: { x: 1400, y: 0 },
-      jackie: { x: 800, y: 0 },
-      vm_homer: { x: 200, y: 350 },
-      marge: { x: 600, y: 350 },
-      selma: { x: 1400, y: 350 },
-      patty: { x: 1000, y: 350 },
-      bart: { x: 400, y: 650 },
+      clancy: { x: 975, y: 0 },
+      jackie: { x: 550, y: 0 },
+      vm_homer: { x: 150, y: 325 },
+      marge: { x: 425, y: 325 },
+      selma: { x: 975, y: 325 },
+      patty: { x: 700, y: 325 },
+      bart: { x: 275, y: 650 },
     });
   });
 

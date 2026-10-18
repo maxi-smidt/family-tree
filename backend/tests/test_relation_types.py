@@ -98,12 +98,12 @@ def test_delete_blocked_while_in_use(client, db):
 
     for member_id in ("m1", "m2"):
         client.post(
-            f"{API}/trees/{tree.id}/members",
+            f"{API}/workspaces/{tree.id}/members",
             headers=auth(admin),
             json={"id": member_id, "firstName": member_id, "lastName": "Test"},
         )
     res = client.post(
-        f"{API}/trees/{tree.id}/relations",
+        f"{API}/workspaces/{tree.id}/relations",
         headers=auth(admin),
         json={"from_member_id": "m1", "to_member_id": "m2", "relation_type": "married"},
     )
@@ -114,7 +114,7 @@ def test_delete_blocked_while_in_use(client, db):
 
     # Removing the relation frees the type up for deletion.
     res = client.delete(
-        f"{API}/trees/{tree.id}/relations",
+        f"{API}/workspaces/{tree.id}/relations",
         headers=auth(admin),
         params={
             "from_member_id": "m1",
@@ -132,12 +132,12 @@ def test_relation_with_unknown_type_rejected(client, db):
     tree = make_tree(db, admin)
     for member_id in ("m1", "m2"):
         client.post(
-            f"{API}/trees/{tree.id}/members",
+            f"{API}/workspaces/{tree.id}/members",
             headers=auth(admin),
             json={"id": member_id, "firstName": member_id, "lastName": "Test"},
         )
     res = client.post(
-        f"{API}/trees/{tree.id}/relations",
+        f"{API}/workspaces/{tree.id}/relations",
         headers=auth(admin),
         json={"from_member_id": "m1", "to_member_id": "m2", "relation_type": "nope"},
     )

@@ -9,7 +9,7 @@ export interface PresenceUserDB {
 }
 
 export interface PresenceRosterDB {
-  tree_id: string;
+  workspace_id: string;
   users: PresenceUserDB[];
 }
 

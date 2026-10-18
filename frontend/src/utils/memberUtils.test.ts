@@ -3,6 +3,7 @@ import {
   reconstructParents,
   getMemberSearchText,
   memberMatchesSearch,
+  birthNameContext,
   formatMemberSubLabel,
   getMemberOptions,
 } from "./memberUtils";
@@ -183,6 +184,15 @@ describe("formatMemberSubLabel", () => {
   });
 });
 
+describe("birthNameContext", () => {
+  it("maps gender to the i18next context for the birth-name label", () => {
+    expect(birthNameContext("m")).toBe("male");
+    expect(birthNameContext("f")).toBe("female");
+    expect(birthNameContext("o")).toBeUndefined();
+    expect(birthNameContext(null)).toBeUndefined();
+  });
+});
+
 describe("getMemberOptions", () => {
   it("maps members to options with label, value, sublabel, and searchValue", () => {
     const m = makeMember({
@@ -190,14 +200,29 @@ describe("getMemberOptions", () => {
       firstName: "Jane",
       lastName: "Smith",
       maidenName: "Jones",
+      gender: "f",
       date: { birth: "1900-05-01", death: null },
     });
-    const [option] = getMemberOptions([m], (name) => `née ${name}`);
+    const [option] = getMemberOptions([m], (name, gender) =>
+      gender === "m" ? `né ${name}` : `née ${name}`,
+    );
     expect(option).toEqual({
       label: "Jane Smith",
       value: "m42",
       sublabel: "née Jones · 1900",
       searchValue: "Jane Smith Jones",
     });
+  });
+
+  it("passes each member's gender to the maiden-name formatter", () => {
+    const m = makeMember({
+      maidenName: "Brown",
+      gender: "m",
+      date: { birth: "", death: null },
+    });
+    const [option] = getMemberOptions([m], (name, gender) =>
+      gender === "m" ? `né ${name}` : `née ${name}`,
+    );
+    expect(option.sublabel).toBe("né Brown");
   });
 });

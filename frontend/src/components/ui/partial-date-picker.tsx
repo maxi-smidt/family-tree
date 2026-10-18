@@ -30,6 +30,8 @@ type Props = {
   onChange?: (value: string | null) => void;
   placeholder?: string;
   disabled?: boolean;
+  /** Matches the shared control sizes (see Input). */
+  size?: "default" | "sm";
 };
 
 const YEAR_MIN = 1400;
@@ -63,6 +65,7 @@ export const PartialDatePicker = ({
   onChange,
   placeholder,
   disabled = false,
+  size = "default",
 }: Props) => {
   const { t, i18n } = useTranslation();
   const language = i18n.resolvedLanguage;
@@ -202,6 +205,7 @@ export const PartialDatePicker = ({
             aria-label={placeholder ?? t("common.date-input-hint")}
             aria-invalid={textIsInvalid}
             disabled={disabled}
+            size={size}
             className={cn("pr-12", className)}
           />
           <div className="absolute inset-y-0 right-1 flex items-center gap-0.5">

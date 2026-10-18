@@ -8,14 +8,13 @@ import {
   AlertTriangle,
   ShieldAlert,
   Dna,
-  Network,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Handle, Node, NodeProps, Position } from "@xyflow/react";
-import { KeyboardEvent, MouseEvent, PointerEvent } from "react";
+import { KeyboardEvent, MouseEvent, PointerEvent, ReactNode } from "react";
 import { Member } from "@/types/member";
 import { Disease } from "@/types/disease";
-import { NODE_WIDTH } from "@/constants";
+import { NODE_HEIGHT, NODE_WIDTH } from "@/constants";
 import { FamilyNodeContent } from "@/components/view/tree-view/node/FamilyNodeContent";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { useTranslation } from "react-i18next";
@@ -124,13 +123,6 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
     }
   };
 
-  const onOpenLinkedTreeClick = (event: MouseEvent<HTMLButtonElement>) => {
-    stopCanvasGesture(event);
-    if (data.onOpenLinkedTree && typeof data.onOpenLinkedTree === "function") {
-      data.onOpenLinkedTree();
-    }
-  };
-
   const onAddChildClick = () => {
     if (data.onAddChild && typeof data.onAddChild === "function") {
       data.onAddChild();
@@ -210,31 +202,118 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
   const hasOpenTasks = useTaskStore(
     (s) => showTaskIndicators && s.openTaskMemberIds.has(data.id),
   );
-  // The disease/risk indicator occupies the bottom-left corner; move the
-  // task indicator over when both are visible.
-  const diseaseIndicatorShown = (isDiseaseMode && hasDiseases) || hasRisk;
-  const handleClassName = `${
-    isFastMode ? "w-1/2!" : "w-1/4!"
-  } bg-muted-foreground! rounded-md! ${
-    data.isReadOnly || isSelectionMode ? "pointer-events-none opacity-0" : ""
-  }`;
-  const horizontalHandleClassName = `${
-    isFastMode ? "h-3/5!" : "h-1/4!"
-  } bg-muted-foreground! rounded-md! ${
-    data.isReadOnly || isSelectionMode ? "pointer-events-none opacity-0" : ""
-  }`;
+  // Connection handles: slim pills on the card edge, shown on hover/selection
+  // (always in quick-add mode) so they don't clutter a resting tree.
+  const handleVisibility =
+    data.isReadOnly || isSelectionMode
+      ? "pointer-events-none opacity-0!"
+      : isFastMode || selected
+        ? "opacity-100"
+        : "opacity-0 group-hover:opacity-100";
+  const handleClassName = `!h-1.5 !min-h-0 !w-10 !rounded-full !border-0 !bg-edge transition-opacity ${handleVisibility}`;
+  const horizontalHandleClassName = `!w-1.5 !min-w-0 !h-8 !rounded-full !border-0 !bg-edge transition-opacity ${handleVisibility}`;
+
+  const ringClass =
+    isHighlighted || isConnectionSelected
+      ? "ring-4 ring-primary/70 ring-offset-2 ring-offset-canvas"
+      : !isConnectionSelected && isConnectionPath
+        ? "ring-2 ring-amber-500 ring-offset-2 ring-offset-canvas"
+        : "";
+
+  // Nothing to show when neither viewing nor editing is offered (phones,
+  // where a tap opens the pull-up card instead).
+  const showActions =
+    !isSelectionMode && (typeof data.onView === "function" || !data.isReadOnly);
+  const indicators: ReactNode[] = [];
+  if (isDiseaseMode && hasDiseases) {
+    const label = `${t("disease-indicator", { count: data.diseases?.length || 0 })} · ${t(`disease-severity.${diseaseSeverity}`)}`;
+    indicators.push(
+      <span
+        key="disease"
+        className="grid size-5 place-items-center rounded-full border border-card"
+        role="img"
+        aria-label={label}
+        title={label}
+        style={{
+          backgroundColor: hasAffectedDisease
+            ? "var(--color-disease-affected-bg)"
+            : hasCarrierDisease
+              ? "var(--color-disease-carrier-bg)"
+              : "var(--color-disease-other-bg)",
+        }}
+      >
+        <DiseaseIcon
+          aria-hidden="true"
+          size={11}
+          style={{
+            color: hasAffectedDisease
+              ? "var(--color-disease-affected)"
+              : hasCarrierDisease
+                ? "var(--color-disease-carrier)"
+                : "var(--color-disease-other)",
+          }}
+        />
+      </span>,
+    );
+  }
+  if (hasRisk) {
+    indicators.push(
+      <span
+        key="risk"
+        className="grid size-5 place-items-center rounded-full border-2 border-dashed"
+        role="img"
+        aria-label={t("risk-indicator")}
+        title={t("risk-indicator")}
+        style={{
+          backgroundColor: "var(--color-disease-risk-bg)",
+          borderColor: "var(--color-disease-risk-border)",
+        }}
+      >
+        <AlertTriangle
+          aria-hidden="true"
+          size={11}
+          style={{ color: "var(--color-disease-risk)" }}
+        />
+      </span>,
+    );
+  }
+  if (hasOpenTasks) {
+    indicators.push(
+      <span
+        key="tasks"
+        className="grid size-5 place-items-center rounded-full border bg-warning-soft"
+        role="img"
+        aria-label={t("task-indicator")}
+        title={t("task-indicator")}
+      >
+        <ClipboardList aria-hidden="true" size={11} className="text-warning" />
+      </span>,
+    );
+  }
+  if (data.isCollapsed) {
+    indicators.push(
+      <span
+        key="collapsed"
+        className="grid size-5 place-items-center rounded-full border bg-card text-muted-foreground"
+        aria-hidden="true"
+      >
+        <ChevronsDownUp size={11} />
+      </span>,
+    );
+  }
+
+  const quickAddClass =
+    "absolute z-10 grid size-6 place-items-center rounded-full border-2 border-card bg-primary p-0 text-primary-foreground shadow-sm hover:bg-primary/90 hover:text-primary-foreground";
 
   return (
     <div
       onKeyDown={onNodeKeyDown}
       className={[
-        "relative flex flex-col items-center shadow-sm p-2 bg-card transition-opacity duration-200",
+        "group relative flex items-center rounded-2xl bg-card px-3 shadow-[0_1px_2px_rgba(41,33,20,0.07)] transition-[box-shadow,opacity,border-color] duration-200 hover:shadow-md",
         isConnectionDimmed ? "opacity-30" : "opacity-100",
-        isHighlighted || isConnectionSelected
-          ? "ring-4 ring-primary ring-offset-2 ring-offset-background"
-          : "",
-        !isConnectionSelected && isConnectionPath
-          ? "ring-2 ring-amber-500 ring-offset-2 ring-offset-background"
+        ringClass,
+        selected && !ringClass
+          ? "shadow-[0_0_0_4px_color-mix(in_oklab,var(--primary)_22%,transparent)]"
           : "",
         isSelectionMode ? "select-none cursor-move" : "",
       ]
@@ -242,9 +321,8 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
         .join(" ")}
       style={{
         border: `${borderWidth} solid ${borderColor}`,
-        borderRadius: "8px",
         width: `${NODE_WIDTH}px`,
-        transition: "border 0.2s, box-shadow 0.2s, opacity 0.2s",
+        minHeight: `${NODE_HEIGHT}px`,
       }}
     >
       <Handle
@@ -277,64 +355,43 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
           aria-hidden="true"
         />
       )}
-      {!isSelectionMode && (
+
+      <FamilyNodeContent
+        member={data}
+        disableNameLink={data.disableNameLink === true}
+      />
+
+      {showActions && (
         <div
-          className="absolute top-2 flex justify-between w-full px-2"
+          className={`absolute -top-4 right-3 z-10 flex items-center gap-0.5 rounded-full border bg-card p-0.5 shadow-sm transition-opacity ${
+            selected
+              ? "opacity-100"
+              : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+          }`}
           data-export-hide="true"
         >
-          <div className="flex gap-1">
-            {typeof data.onView === "function" && (
-              <Button
-                type="button"
-                variant="outline"
-                size="icon-sm"
-                aria-label={t("view-details")}
-                className="nodrag nopan"
-                onPointerDown={stopCanvasGesture}
-                onClick={onViewClick}
-              >
-                <EyeIcon />
-              </Button>
-            )}
-            {typeof data.onOpenLinkedTree === "function" && (
-              <Button
-                type="button"
-                variant="outline"
-                size="icon-sm"
-                aria-label={
-                  data.linkedTreeAccessible === false
-                    ? t("open-linked-tree-no-access")
-                    : t("open-linked-tree")
-                }
-                title={
-                  data.linkedTreeAccessible === false
-                    ? t("open-linked-tree-no-access")
-                    : t("open-linked-tree")
-                }
-                // Muted and inert when the target tree isn't shared with the
-                // viewer: following the link would open a tree that appears
-                // nowhere in their own list (a "ghost tree"), so the badge only
-                // signals that a linked tree exists.
-                disabled={data.linkedTreeAccessible === false}
-                className={
-                  data.linkedTreeAccessible === false
-                    ? "nodrag nopan opacity-40"
-                    : "nodrag nopan"
-                }
-                onPointerDown={stopCanvasGesture}
-                onClick={onOpenLinkedTreeClick}
-              >
-                <Network />
-              </Button>
-            )}
-          </div>
+          {typeof data.onView === "function" && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={t("view-details")}
+              title={t("view-details")}
+              className="nodrag nopan size-7 rounded-full"
+              onPointerDown={stopCanvasGesture}
+              onClick={onViewClick}
+            >
+              <EyeIcon />
+            </Button>
+          )}
           {!data.isReadOnly && (
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
               size="icon-sm"
               aria-label={t("edit-member")}
-              className="nodrag nopan"
+              title={t("edit-member")}
+              className="nodrag nopan size-7 rounded-full"
               onPointerDown={stopCanvasGesture}
               onClick={onEditClick}
             >
@@ -344,81 +401,9 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
         </div>
       )}
 
-      <FamilyNodeContent
-        member={data}
-        disableNameLink={data.disableNameLink === true}
-      />
-
-      {/* Disease indicator - shown only in disease mode when person has recorded diseases */}
-      {isDiseaseMode && hasDiseases && (
-        <div
-          className="absolute bottom-2 left-2 rounded-full p-1"
-          role="img"
-          aria-label={`${t("disease-indicator", { count: data.diseases?.length || 0 })} · ${t(`disease-severity.${diseaseSeverity}`)}`}
-          style={{
-            backgroundColor: hasAffectedDisease
-              ? "var(--color-disease-affected-bg)"
-              : hasCarrierDisease
-                ? "var(--color-disease-carrier-bg)"
-                : "var(--color-disease-other-bg)",
-          }}
-          title={`${t("disease-indicator", { count: data.diseases?.length || 0 })} · ${t(`disease-severity.${diseaseSeverity}`)}`}
-        >
-          <DiseaseIcon
-            aria-hidden="true"
-            size={12}
-            style={{
-              color: hasAffectedDisease
-                ? "var(--color-disease-affected)"
-                : hasCarrierDisease
-                  ? "var(--color-disease-carrier)"
-                  : "var(--color-disease-other)",
-            }}
-          />
-        </div>
-      )}
-
-      {/* Risk indicator - shown only in disease mode when person doesn't have diseases but parents do */}
-      {hasRisk && (
-        <div
-          className="absolute bottom-2 left-2 rounded-full p-1 border-2 border-dashed"
-          role="img"
-          aria-label={t("risk-indicator")}
-          style={{
-            backgroundColor: "var(--color-disease-risk-bg)",
-            borderColor: "var(--color-disease-risk-border)",
-          }}
-          title={t("risk-indicator")}
-        >
-          <AlertTriangle
-            aria-hidden="true"
-            size={12}
-            style={{
-              color: "var(--color-disease-risk)",
-            }}
-          />
-        </div>
-      )}
-
-      {/* Open-research-task indicator — toggled via the canvas controls */}
-      {hasOpenTasks && (
-        <div
-          className={`absolute bottom-2 ${diseaseIndicatorShown ? "left-8" : "left-2"} rounded-full p-1 bg-muted`}
-          role="img"
-          aria-label={t("task-indicator")}
-          title={t("task-indicator")}
-        >
-          <ClipboardList
-            aria-hidden="true"
-            size={12}
-            className="text-muted-foreground"
-          />
-        </div>
-      )}
-
-      {data.isCollapsed && (
-        <div className="absolute bottom-1 right-1">
-          <ChevronsDownUp size="14" />
+      {indicators.length > 0 && (
+        <div className="absolute -bottom-2.5 right-3 flex gap-1">
+          {indicators}
         </div>
       )}
 
@@ -427,58 +412,38 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
           <Button
             variant="ghost"
             aria-label={t("add-parent")}
-            className="absolute -top-6 left-1/2 -translate-x-1/2 translate-y-0.5 w-16 h-6 rounded-t-full rounded-b-none bg-muted-foreground hover:bg-muted-foreground/80 z-10 p-0"
-            style={{
-              borderTop: `${borderWidth} solid ${borderColor}`,
-              borderLeft: `${borderWidth} solid ${borderColor}`,
-              borderRight: `${borderWidth} solid ${borderColor}`,
-              borderBottom: "none",
-            }}
+            title={t("add-parent")}
+            className={`${quickAddClass} -top-3 left-1/2 -translate-x-1/2`}
             onClick={onAddParentClick}
           >
-            <PlusIcon className="text-card" aria-hidden="true" />
+            <PlusIcon className="size-3.5" aria-hidden="true" />
           </Button>
           <Button
             variant="ghost"
             aria-label={t("add-child")}
-            className="absolute -bottom-6 left-1/2 -translate-x-1/2 -translate-y-0.5 w-16 h-6 rounded-b-full rounded-t-none bg-muted-foreground hover:bg-muted-foreground/80 z-10 p-0"
-            style={{
-              borderBottom: `${borderWidth} solid ${borderColor}`,
-              borderLeft: `${borderWidth} solid ${borderColor}`,
-              borderRight: `${borderWidth} solid ${borderColor}`,
-              borderTop: "none",
-            }}
+            title={t("add-child")}
+            className={`${quickAddClass} -bottom-3 left-1/2 -translate-x-1/2`}
             onClick={onAddChildClick}
           >
-            <PlusIcon className="text-card" aria-hidden="true" />
+            <PlusIcon className="size-3.5" aria-hidden="true" />
           </Button>
           <Button
             variant="ghost"
             aria-label={t("add-left")}
-            className="absolute -left-6 top-1/2 -translate-y-1/2 translate-x-0.5 h-16 w-6 rounded-l-full rounded-r-none bg-muted-foreground hover:bg-muted-foreground/80 z-10 p-0"
-            style={{
-              borderLeft: `${borderWidth} solid ${borderColor}`,
-              borderTop: `${borderWidth} solid ${borderColor}`,
-              borderBottom: `${borderWidth} solid ${borderColor}`,
-              borderRight: "none",
-            }}
+            title={t("add-left")}
+            className={`${quickAddClass} -left-3 top-1/2 -translate-y-1/2`}
             onClick={onAddLeftClick}
           >
-            <PlusIcon className="text-card" aria-hidden="true" />
+            <PlusIcon className="size-3.5" aria-hidden="true" />
           </Button>
           <Button
             variant="ghost"
             aria-label={t("add-right")}
-            className="absolute -right-6 top-1/2 -translate-y-1/2 -translate-x-0.5 h-16 w-6 rounded-r-full rounded-l-none bg-muted-foreground hover:bg-muted-foreground/80 z-10 p-0"
-            style={{
-              borderRight: `${borderWidth} solid ${borderColor}`,
-              borderTop: `${borderWidth} solid ${borderColor}`,
-              borderBottom: `${borderWidth} solid ${borderColor}`,
-              borderLeft: "none",
-            }}
+            title={t("add-right")}
+            className={`${quickAddClass} -right-3 top-1/2 -translate-y-1/2`}
             onClick={onAddRightClick}
           >
-            <PlusIcon className="text-card" aria-hidden="true" />
+            <PlusIcon className="size-3.5" aria-hidden="true" />
           </Button>
         </div>
       )}

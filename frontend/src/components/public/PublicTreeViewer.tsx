@@ -12,7 +12,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { LegalDocsDialog } from "@/components/legal/LegalDocsDialog";
 
@@ -27,7 +27,7 @@ const FlowPanel = lazy(() =>
 type ViewState = "loading" | "loaded" | "not-public" | "password" | "error";
 
 interface Props {
-  treeId: string;
+  workspaceId: string;
 }
 
 /**
@@ -37,28 +37,28 @@ interface Props {
  * and shows the real interactive React Flow tree in a chromeless shell — no
  * tabs, no sidebar, no editing. Member nodes are purely visual.
  */
-export const PublicTreeViewer = ({ treeId }: Props) => {
+export const PublicTreeViewer = ({ workspaceId }: Props) => {
   const { t } = useTranslation(undefined, { keyPrefix: "public-tree" });
   const { t: tLegal } = useTranslation(undefined, { keyPrefix: "legal" });
   const [state, setState] = useState<ViewState>("loading");
-  const [treeName, setTreeName] = useState("");
+  const [workspaceName, setTreeName] = useState("");
   const [legalDocsOpen, setLegalDocsOpen] = useState(false);
   const [password, setPassword] = useState("");
   const [unlocking, setUnlocking] = useState(false);
   const [unlockError, setUnlockError] = useState(false);
-  const openTreeById = useTreeStore((s) => s.openTreeById);
-  const unlockPublicTree = useTreeStore((s) => s.unlockPublicTree);
-  const disconnectPublicTree = useTreeStore((s) => s.disconnectPublicTree);
-  // Guards against setState after unmount / a treeId change mid-flight;
+  const openTreeById = useWorkspaceStore((s) => s.openTreeById);
+  const unlockPublicTree = useWorkspaceStore((s) => s.unlockPublicTree);
+  const disconnectPublicTree = useWorkspaceStore((s) => s.disconnectPublicTree);
+  // Guards against setState after unmount / a workspaceId change mid-flight;
   // load() is also invoked directly on unlock (outside the mount effect), so
   // a plain effect-scoped `cancelled` closure variable isn't enough here.
   const cancelledRef = useRef(false);
 
   const load = useCallback(async () => {
     try {
-      // Probe access (anonymous succeeds only for public trees) and boot the
+      // Probe access (anonymous succeeds only for public workspaces) and boot the
       // domain store. The store owns request scoping and tree initialization.
-      const tree = await openTreeById(treeId);
+      const tree = await openTreeById(workspaceId);
       if (cancelledRef.current) return;
       setTreeName(tree.name);
       setState("loaded");
@@ -75,7 +75,7 @@ export const PublicTreeViewer = ({ treeId }: Props) => {
       const status = (err as { status?: number })?.status;
       setState(status === 401 || status === 403 ? "not-public" : "error");
     }
-  }, [treeId, openTreeById]);
+  }, [workspaceId, openTreeById]);
 
   useEffect(() => {
     cancelledRef.current = false;
@@ -85,13 +85,13 @@ export const PublicTreeViewer = ({ treeId }: Props) => {
       // Tear the loaded tree back down so a subsequent login starts clean.
       void disconnectPublicTree();
     };
-  }, [treeId, load, disconnectPublicTree]);
+  }, [workspaceId, load, disconnectPublicTree]);
 
   const handleUnlock = async () => {
     setUnlocking(true);
     setUnlockError(false);
     try {
-      const tree = await unlockPublicTree(treeId, password);
+      const tree = await unlockPublicTree(workspaceId, password);
       if (!cancelledRef.current) {
         setTreeName(tree.name);
         setState("loaded");
@@ -197,7 +197,7 @@ export const PublicTreeViewer = ({ treeId }: Props) => {
     <div className="w-screen h-screen flex flex-col bg-background">
       <header className="flex-none border-b px-6 py-3 flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-bold">{treeName}</h1>
+          <h1 className="text-lg font-bold">{workspaceName}</h1>
           <p className="text-xs text-muted-foreground">{t("read-only-hint")}</p>
         </div>
         <div className="flex items-center gap-2">

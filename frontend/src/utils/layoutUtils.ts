@@ -2,8 +2,8 @@ import { Member } from "@/types/member";
 import dagre from "@dagrejs/dagre";
 import { GRID_SIZE, NODE_WIDTH, NODE_HEIGHT } from "@/constants";
 
-const RANK_SEPARATION = 90;
-const NODE_SEPARATION = 150;
+const RANK_SEPARATION = 130;
+const NODE_SEPARATION = 60;
 
 export const getLayoutedElements = (members: Member[]) => {
   const g = new dagre.graphlib.Graph();

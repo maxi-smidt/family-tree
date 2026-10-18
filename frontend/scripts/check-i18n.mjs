@@ -47,6 +47,19 @@ const DYNAMIC_KEY_PREFIXES = [
   "legal.lang-",
   // tRoot(`notifications.types.${n.type}`) — NotificationBell
   "notifications.types.",
+  // t(`report.status-${report.status}`) — MigrationReviewView
+  "migration-review-view.report.status-",
+  // t(`status-${conflict.status}`) — MigrationConflictCard
+  "migration-review-view.checklist.status-",
+  // t(FIELD_LABEL_KEY[field] ?? "field-unknown") — MigrationConflictCard
+  "migration-review-view.checklist.field-",
+  // t(`claim-status-${claim.status}`) — IdentityLinksView
+  "identity-links-view.claim-status-",
+  // t("nee", { context: birthNameContext(gender) }) → nee_male / nee_female
+  //   — member sublabels in pickers, list view and searches
+  "common.nee_",
+  "tree-view.search.nee_",
+  "workspace-nav.search.nee_",
 ];
 
 function isDynamicKey(key) {
@@ -203,7 +216,6 @@ async function findMissingKeys() {
       const argsPart = declarationMatch[2];
 
       let tVarName = "t";
-      let i18nVarName = null;
 
       // Check for t variable (possibly renamed)
       const tVarRegex = /\bt\s*:\s*(\w+)/;
@@ -211,16 +223,10 @@ async function findMissingKeys() {
       if (tVarMatch) {
         tVarName = tVarMatch[1];
       } else if (!/\bt\b/.test(destructuredPart)) {
-        // If 't' is not destructured, check if i18n is
-        const i18nRegex = /\bi18n\b/;
-        if (!i18nRegex.test(destructuredPart)) {
-          continue;
-        }
-      }
-
-      // Check if i18n is also destructured
-      if (/\bi18n\b/.test(destructuredPart)) {
-        i18nVarName = "i18n";
+        // No t here (e.g. `const { i18n } = useTranslation()`): its i18n.t()
+        // calls are handled above, and scanning for t() would wrongly apply
+        // this declaration's (empty) keyPrefix to another t in the file.
+        continue;
       }
 
       let keyPrefix = "";

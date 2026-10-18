@@ -21,8 +21,26 @@ export interface NameCount {
   count: number;
 }
 
+export interface MemberYear {
+  member_id: string;
+  first_name: string | null;
+  last_name: string | null;
+  year: number;
+  place: string | null;
+}
+
+export interface LifeSpan {
+  member_id: string;
+  first_name: string | null;
+  last_name: string | null;
+  gender: string | null;
+  birth_year: number;
+  death_year: number;
+  age: number;
+}
+
 export interface StatisticsReport {
-  tree_id: string;
+  workspace_id: string;
   total_members: number;
   members_with_birth_date: number;
   members_with_death_date: number;
@@ -32,52 +50,11 @@ export interface StatisticsReport {
   lifespan_distribution: AgeGroup[];
   top_first_names: NameCount[];
   top_last_names: NameCount[];
-}
-
-/**
- * Statistics aggregated across the anchor tree and every tree reachable via
- * tree-in-tree links (bridge persons counted once). Superset of
- * `StatisticsReport` — `tree_id` stays the anchor tree's id.
- */
-export interface CombinedStatisticsReport extends StatisticsReport {
-  tree_count: number;
-  included_tree_ids: string[];
-}
-
-export type StatisticsScope = "tree" | "linked";
-
-/** Closed API contract for the safe, backend-driven custom-widget pivot. */
-export interface CustomWidgetAggregationConfig {
-  id: string;
-  chartType: "bar" | "pie" | "line" | "area";
-  dimensionId:
-    | "gender"
-    | "birth-decade"
-    | "death-decade"
-    | "birth-year"
-    | "age-at-death"
-    | "birthplace"
-    | "hometown"
-    | "cemetery"
-    | "first-name"
-    | "last-name"
-    | "deceased-status"
-    | "academic-title";
-  measureId: "count" | "avg-lifespan" | "avg-age";
-  breakdownId?: CustomWidgetAggregationConfig["dimensionId"] | null;
-}
-
-export interface CustomWidgetAggregateRow {
-  category: string;
-  values: Record<string, number>;
-}
-
-export interface CustomWidgetAggregation {
-  id: string;
-  data: CustomWidgetAggregateRow[];
-  series: string[];
-}
-
-export interface CustomWidgetAggregateResponse {
-  widgets: CustomWidgetAggregation[];
+  // Overview fields — optional so reports from an older backend still parse.
+  living_count?: number;
+  members_with_birthplace?: number;
+  members_with_photo?: number;
+  earliest_birth?: MemberYear | null;
+  top_birthplaces?: NameCount[];
+  longest_lives?: LifeSpan[];
 }

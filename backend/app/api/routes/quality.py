@@ -8,75 +8,70 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import (
     get_current_user,
-    get_readable_tree,
-    get_writable_tree,
+    get_readable_workspace,
+    get_workspace_access_authenticated,
+    get_workspace_access_write,
+    get_writable_workspace,
 )
 from app.db.session import get_db
-from app.models import Tree, User
+from app.models import ContentType, User, Workspace
 from app.models.content import Event, EventMemberLink
 from app.models.family import Member, Relation
 from app.models.quality import QualityIssueDismissal
-from app.schemas.quality import QualityIssue, QualityReport
-from app.services.members.bridge import drift_fields
-from app.services.trees.quality_checks import issue_id_for, run_quality_checks
+from app.schemas.quality import QualityReport
 from app.services.unit_of_work import UnitOfWork
+from app.services.workspaces.quality_checks import run_quality_checks
+from app.services.workspaces.visibility import WorkspaceAccessContext
 
 router = APIRouter(
-    prefix="/trees/{tree_id}",
+    prefix="/workspaces/{workspace_id}",
     tags=["quality"],
 )
 
 
-def _bridge_drift_issues(
-    db: Session, members: list[Member]
-) -> list[QualityIssue]:
-    """Bridge persons whose two rows have drifted apart.
-
-    Needs the db (counterpart rows live in other trees), so it runs here
-    rather than in the pure ``run_quality_checks``. The comparison happens
-    server-side only — field *names* are reported, never the other tree's
-    values — and the whole check is available whenever linked members exist.
-    """
-    linked = [m for m in members if m.linked_member_id]
-    if not linked:
-        return []
-    counterparts = {
-        c.id: c
-        for c in db.scalars(
-            select(Member).where(
-                Member.id.in_([m.linked_member_id for m in linked])
+def _visible_issues(db: Session, tree: Workspace, context: WorkspaceAccessContext):
+    statement = select(Member).where(Member.workspace_id == tree.id)
+    member_filter = context.member_filter()
+    if member_filter is not None:
+        statement = statement.where(member_filter)
+    members = list(db.scalars(statement).all())
+    visible_ids = {m.id for m in members}
+    relations = list(
+        db.scalars(
+            select(Relation).where(
+                Relation.workspace_id == tree.id,
+                Relation.from_member_id.in_(visible_ids),
+                Relation.to_member_id.in_(visible_ids),
             )
+        ).all()
+    )
+    events = []
+    if context.is_owner_or_admin or any(
+        "events" not in grant.restrictions for grant in context.grants
+    ):
+        event_query = select(Event).where(Event.workspace_id == tree.id)
+        content_filter = context.content_filter(
+            ContentType.EVENT, Event.id, domain="events"
         )
-    }
-    issues: list[QualityIssue] = []
-    for m in linked:
-        counterpart = counterparts.get(m.linked_member_id)
-        if counterpart is None:
-            continue
-        fields = drift_fields(m, counterpart)
-        if not fields:
-            continue
-        issues.append(
-            QualityIssue(
-                # Hash the drifted field set too, so a dismissed note comes
-                # back when *new* fields start to differ.
-                id=issue_id_for("bridge_person_drift", [m.id, *fields]),
-                issue_type="bridge_person_drift",
-                severity="warning",
-                member_ids=[m.id],
-                description=(
-                    "Differs from the linked copy in another tree: "
-                    f"{', '.join(f.replace('_', ' ') for f in fields)}."
-                ),
+        if content_filter is not None:
+            event_query = event_query.where(content_filter)
+        events = list(db.scalars(event_query).all())
+    event_links = list(
+        db.scalars(
+            select(EventMemberLink).where(
+                EventMemberLink.event_id.in_([event.id for event in events]),
+                EventMemberLink.member_id.in_(visible_ids),
             )
-        )
-    return issues
+        ).all()
+    )
+    return members, run_quality_checks(members, relations, events, event_links)
 
 
 @router.get("/quality-report", response_model=QualityReport)
 def get_quality_report(
     include_dismissed: bool = False,
-    tree: Tree = Depends(get_readable_tree),
+    tree: Workspace = Depends(get_readable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_authenticated),
     db: Session = Depends(get_db),
 ):
     """Return a non-destructive data-quality report for the tree.
@@ -85,25 +80,12 @@ def get_quality_report(
     excluded by default; pass ``include_dismissed=true`` to get the full
     list with each issue's ``dismissed`` flag set.
     """
-    members = list(db.scalars(select(Member).where(Member.tree_id == tree.id)).all())
-    relations = list(
-        db.scalars(select(Relation).where(Relation.tree_id == tree.id)).all()
-    )
-    events = list(db.scalars(select(Event).where(Event.tree_id == tree.id)).all())
-    event_links = list(
-        db.scalars(
-            select(EventMemberLink)
-            .join(Event, Event.id == EventMemberLink.event_id)
-            .where(Event.tree_id == tree.id)
-        ).all()
-    )
-    raw_issues = run_quality_checks(members, relations, events, event_links)
-    raw_issues += _bridge_drift_issues(db, members)
+    members, raw_issues = _visible_issues(db, tree, context)
 
     dismissed_ids = set(
         db.scalars(
             select(QualityIssueDismissal.issue_id).where(
-                QualityIssueDismissal.tree_id == tree.id
+                QualityIssueDismissal.workspace_id == tree.id
             )
         ).all()
     )
@@ -115,7 +97,7 @@ def get_quality_report(
         issues = [i for i in issues if not i.dismissed]
 
     return QualityReport(
-        tree_id=tree.id,
+        workspace_id=tree.id,
         total_members=len(members),
         issues=issues,
     )
@@ -124,7 +106,8 @@ def get_quality_report(
 @router.post("/quality-report/issues/{issue_id}/dismiss", status_code=204)
 def dismiss_quality_issue(
     issue_id: str,
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -133,36 +116,25 @@ def dismiss_quality_issue(
     The issue must currently exist (i.e. be produced by the live checks) to
     be dismissable. Dismissals are tree-scoped and shared by every editor.
     """
+    _, raw_issues = _visible_issues(db, tree, context)
+    issue = next((i for i in raw_issues if i.id == issue_id), None)
+    if issue is None:
+        raise HTTPException(status_code=404, detail="Quality issue not found")
+    for member_id in issue.member_ids:
+        context.require_write_member(db, member_id, mode="delete")
     existing = db.scalar(
         select(QualityIssueDismissal).where(
-            QualityIssueDismissal.tree_id == tree.id,
+            QualityIssueDismissal.workspace_id == tree.id,
             QualityIssueDismissal.issue_id == issue_id,
         )
     )
     if existing is not None:
         return None
 
-    members = list(db.scalars(select(Member).where(Member.tree_id == tree.id)).all())
-    relations = list(
-        db.scalars(select(Relation).where(Relation.tree_id == tree.id)).all()
-    )
-    events = list(db.scalars(select(Event).where(Event.tree_id == tree.id)).all())
-    event_links = list(
-        db.scalars(
-            select(EventMemberLink)
-            .join(Event, Event.id == EventMemberLink.event_id)
-            .where(Event.tree_id == tree.id)
-        ).all()
-    )
-    raw_issues = run_quality_checks(members, relations, events, event_links)
-    issue = next((i for i in raw_issues if i.id == issue_id), None)
-    if issue is None:
-        raise HTTPException(status_code=404, detail="Quality issue not found")
-
     with UnitOfWork(db):
         db.add(
             QualityIssueDismissal(
-                tree_id=tree.id,
+                workspace_id=tree.id,
                 issue_id=issue.id,
                 issue_type=issue.issue_type,
                 member_ids=json.dumps(issue.member_ids),
@@ -175,17 +147,20 @@ def dismiss_quality_issue(
 @router.delete("/quality-report/issues/{issue_id}/dismiss", status_code=204)
 def restore_quality_issue(
     issue_id: str,
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
     """Undo a previous dismissal so the issue shows up again by default."""
     dismissal = db.scalar(
         select(QualityIssueDismissal).where(
-            QualityIssueDismissal.tree_id == tree.id,
+            QualityIssueDismissal.workspace_id == tree.id,
             QualityIssueDismissal.issue_id == issue_id,
         )
     )
     if dismissal is not None:
+        for member_id in json.loads(dismissal.member_ids):
+            context.require_write_member(db, member_id, mode="delete")
         with UnitOfWork(db):
             db.delete(dismissal)
     return None

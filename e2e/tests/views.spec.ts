@@ -6,7 +6,7 @@
 
 import { test, expect } from "../fixtures";
 import { seedMinimalFamily, createMember } from "../fixtures/seed";
-import { selectTree } from "../fixtures/ui";
+import { openView, selectTree } from "../fixtures/ui";
 import { randomUUID } from "crypto";
 
 // ---------------------------------------------------------------------------
@@ -14,7 +14,7 @@ import { randomUUID } from "crypto";
 // ---------------------------------------------------------------------------
 
 async function clickTab(page: import("@playwright/test").Page, label: RegExp) {
-  await page.getByRole("tab", { name: label }).click();
+  await openView(page, label);
   await page.waitForLoadState("networkidle");
 }
 
@@ -22,8 +22,8 @@ async function clickMediaSection(
   page: import("@playwright/test").Page,
   label: RegExp,
 ) {
-  await page.getByRole("tab", { name: /media/i }).click();
-  await page.getByRole("menuitem", { name: label }).click();
+  // Gallery and Documents are separate entries in the left navigation.
+  await openView(page, label);
   await page.waitForLoadState("networkidle");
 }
 
@@ -51,7 +51,7 @@ test("list view — members listed; search narrows results", async ({
 
   await adminPage.reload({ waitUntil: "networkidle" });
   await selectTree(adminPage, tree.name);
-  await clickTab(adminPage, /list/i);
+  await clickTab(adminPage, /people/i);
 
   await expect(adminPage.getByRole("cell", { name: "Alice" })).toBeVisible({
     timeout: 10_000,
@@ -136,7 +136,7 @@ test("map view — renders without calling external geocode service", async ({
 }) => {
   const tree = await seedTree("E2E-MapView");
   // Add a member with a birthplace
-  await adminApi.post(`/trees/${tree.id}/members`, {
+  await adminApi.post(`/workspaces/${tree.id}/members`, {
     id: randomUUID(),
     firstName: "Map",
     lastName: "Person",
@@ -154,7 +154,7 @@ test("map view — renders without calling external geocode service", async ({
     });
   });
   // Also intercept the internal geocode endpoint
-  await adminPage.route(`**/api/trees/*/geocode**`, (route) => {
+  await adminPage.route(`**/api/workspaces/*/geocode**`, (route) => {
     void route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -214,27 +214,78 @@ test("activity view — adding a member creates an activity entry", async ({
 // Statistics view
 // ---------------------------------------------------------------------------
 
-test("statistics view — member count matches seeded data", async ({
+test("statistics view — fixed widgets ignore saved customization", async ({
   adminPage,
   adminApi,
   seedTree,
 }) => {
   const tree = await seedTree("E2E-StatisticsView");
-  await seedMinimalFamily(adminApi, tree.id); // 3 members
+  const { bob } = await seedMinimalFamily(adminApi, tree.id); // 3 members
+  await adminApi.patch(`/workspaces/${tree.id}/members/${bob.id}`, {
+    deceased: true,
+    dateOfDeath: "2020-06-15",
+  });
+
+  // A returning user may have hidden/reordered built-ins and saved custom
+  // widgets before upgrading. None of these preferences should affect the view.
+  await adminPage.evaluate(() => {
+    localStorage.setItem(
+      "app-statistics-settings",
+      JSON.stringify({
+        version: 3,
+        state: {
+          order: [
+            "custom:legacy",
+            "last-names",
+            "first-names",
+            "lifespan",
+            "timeline",
+            "gender",
+            "on-this-day",
+          ],
+          hidden: ["gender", "lifespan"],
+          customWidgets: [
+            {
+              id: "custom:legacy",
+              kind: "custom",
+              title: "Legacy custom widget",
+              chartType: "bar",
+              dimensionId: "gender",
+              measureId: "count",
+              color: "#123456",
+            },
+          ],
+        },
+      }),
+    );
+  });
 
   await adminPage.reload({ waitUntil: "networkidle" });
   await selectTree(adminPage, tree.name);
   await clickTab(adminPage, /statistics/i);
 
-  await expect(adminPage.getByText(/total members/i)).toBeVisible({
-    timeout: 10_000,
-  });
-  const totalMembersCard = adminPage
+  const peopleTile = adminPage
     .locator('[data-slot="card"]')
-    .filter({ hasText: /total members/i });
-  await expect(totalMembersCard.getByText("3", { exact: true })).toBeVisible({
+    .filter({ has: adminPage.getByText("People", { exact: true }) });
+  await expect(peopleTile.getByText("3", { exact: true })).toBeVisible({
     timeout: 10_000,
   });
+  // The overview is a fixed layout: saved order/hidden widgets don't apply.
+  await expect(
+    adminPage.getByRole("heading", { name: "Gender", exact: true }),
+  ).toBeVisible();
+  await expect(
+    adminPage.getByRole("heading", { name: "Coming up", exact: true }),
+  ).toBeVisible();
+  await expect(adminPage.getByText("Legacy custom widget")).toHaveCount(0);
+  await expect(
+    adminPage.getByRole("button", {
+      name: /customize|create widget|move up|move down/i,
+    }),
+  ).toHaveCount(0);
+  await adminPage.evaluate(() =>
+    localStorage.removeItem("app-statistics-settings"),
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -298,7 +349,9 @@ test("tab preferences — hiding a tab removes it from the tab bar", async ({
       await adminPage.reload({ waitUntil: "networkidle" });
       await selectTree(adminPage, tree.name);
       await expect(
-        adminPage.getByRole("tab", { name: /statistics/i }),
+        adminPage
+          .getByRole("navigation", { name: "Main" })
+          .getByRole("button", { name: /statistics/i }),
       ).not.toBeVisible({ timeout: 5_000 });
     }
   } else {

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import ACCOUNT_PENDING_DELETION, get_current_user
 from app.core.config import settings
 from app.core.rate_limit import login_rate_limiter
+from app.core.schema_epoch import SCHEMA_EPOCH
 from app.core.security import (
     consume_recovery_code,
     create_access_token,
@@ -98,6 +99,7 @@ def auth_config(db: Session = Depends(get_db)):
         allow_self_registration=get_bool_setting(db, "allow_self_registration", False),
         authentik_login_url=login_url,
         media_limits=get_media_limits(db),
+        schema_epoch=SCHEMA_EPOCH,
     )
 
 
@@ -116,10 +118,10 @@ def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)
     user = db.scalar(select(User).where(User.username == payload.username))
     if user is None or user.hashed_password is None:
         run_dummy_verify(payload.password)
-        login_rate_limiter.record_failure(rate_key)
+        login_rate_limiter.record_hit(rate_key)
         raise HTTPException(status_code=401, detail="Incorrect username or password")
     if not verify_password(payload.password, user.hashed_password):
-        login_rate_limiter.record_failure(rate_key)
+        login_rate_limiter.record_hit(rate_key)
         raise HTTPException(status_code=401, detail="Incorrect username or password")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account disabled")
@@ -134,8 +136,12 @@ def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)
 
     with UnitOfWork(db):
         record_admin_audit(
-            db, actor=user, action="create", subject_type="auth_login",
-            subject_id=user.id, subject_label=user.username,
+            db,
+            actor=user,
+            action="create",
+            subject_type="auth_login",
+            subject_id=user.id,
+            subject_label=user.username,
         )
     token = create_access_token(user.id)
     return LoginResponse(access_token=token, user=_current_user_out(db, user))
@@ -179,7 +185,7 @@ def verify_totp(
     else:
         remaining = consume_recovery_code(code, user.totp_recovery_codes or [])
         if remaining is None:
-            login_rate_limiter.record_failure(rate_key)
+            login_rate_limiter.record_hit(rate_key)
             raise HTTPException(status_code=401, detail="Invalid code")
         with UnitOfWork(db):
             user.totp_recovery_codes = remaining
@@ -187,8 +193,12 @@ def verify_totp(
 
     with UnitOfWork(db):
         record_admin_audit(
-            db, actor=user, action="create", subject_type="auth_login",
-            subject_id=user.id, subject_label=user.username,
+            db,
+            actor=user,
+            action="create",
+            subject_type="auth_login",
+            subject_id=user.id,
+            subject_label=user.username,
             details={"two_factor": True},
         )
     token = create_access_token(user.id)
@@ -221,8 +231,12 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
     db.flush()
     with UnitOfWork(db):
         record_admin_audit(
-            db, actor=user, action="create", subject_type="user",
-            subject_id=user.id, subject_label=user.username,
+            db,
+            actor=user,
+            action="create",
+            subject_type="user",
+            subject_id=user.id,
+            subject_label=user.username,
             details={"self_registration": True, "is_admin": is_first},
         )
     db.refresh(user)
@@ -268,9 +282,7 @@ async def upload_profile_image(
     """Stream, validate and persist a private profile image for the caller."""
     old_filename = user.profile_image
     try:
-        filename = await store_profile_image_upload(
-            user.id, image, get_media_limits(db)
-        )
+        filename = await store_profile_image_upload(user.id, image, get_media_limits(db))
     except ImageTooLarge as exc:
         raise HTTPException(status_code=413, detail=str(exc)) from exc
     except (UnsupportedImageType, ValueError) as exc:
@@ -335,9 +347,7 @@ def delete_account(
             select(func.count()).select_from(User).where(User.is_admin.is_(True))
         )
         if admin_count <= 1:
-            raise HTTPException(
-                status_code=400, detail="cannot_delete_last_admin"
-            )
+            raise HTTPException(status_code=400, detail="cannot_delete_last_admin")
 
     if user.auth_provider == "local":
         if not payload.password:
@@ -357,8 +367,12 @@ def delete_account(
     with UnitOfWork(db):
         schedule_deletion(db, user, requested_by=user.id)
         record_admin_audit(
-            db, actor=user, action="delete", subject_type="user",
-            subject_id=user.id, subject_label=user.username,
+            db,
+            actor=user,
+            action="delete",
+            subject_type="user",
+            subject_id=user.id,
+            subject_label=user.username,
             details={"scheduled": True, "self_service": True},
         )
     return user
@@ -384,10 +398,10 @@ def restore_account(
     user = db.scalar(select(User).where(User.username == payload.username))
     if user is None or user.hashed_password is None:
         run_dummy_verify(payload.password)
-        login_rate_limiter.record_failure(rate_key)
+        login_rate_limiter.record_hit(rate_key)
         raise HTTPException(status_code=401, detail="Incorrect username or password")
     if not verify_password(payload.password, user.hashed_password):
-        login_rate_limiter.record_failure(rate_key)
+        login_rate_limiter.record_hit(rate_key)
         raise HTTPException(status_code=401, detail="Incorrect username or password")
 
     if user.deletion_requested_at is None:
@@ -400,8 +414,12 @@ def restore_account(
         user.deletion_scheduled_for = None
         user.deletion_requested_by = None
         record_admin_audit(
-            db, actor=user, action="update", subject_type="user",
-            subject_id=user.id, subject_label=user.username,
+            db,
+            actor=user,
+            action="update",
+            subject_type="user",
+            subject_id=user.id,
+            subject_label=user.username,
             details={"restored": True},
         )
     db.refresh(user)
@@ -424,8 +442,12 @@ def change_password(
     with UnitOfWork(db):
         user.hashed_password = hash_password(payload.new_password)
         record_admin_audit(
-            db, actor=user, action="update", subject_type="password",
-            subject_id=user.id, subject_label=user.username,
+            db,
+            actor=user,
+            action="update",
+            subject_type="password",
+            subject_id=user.id,
+            subject_label=user.username,
         )
 
 
@@ -510,8 +532,12 @@ def enable_totp(
     with UnitOfWork(db):
         user.totp_enabled = True
         record_admin_audit(
-            db, actor=user, action="update", subject_type="two_factor",
-            subject_id=user.id, subject_label=user.username,
+            db,
+            actor=user,
+            action="update",
+            subject_type="two_factor",
+            subject_id=user.id,
+            subject_label=user.username,
             details={"enabled": True},
         )
     return TotpEnableResponse(totp_enabled=True)
@@ -542,7 +568,11 @@ def disable_totp(
         user.totp_secret = None
         user.totp_recovery_codes = None
         record_admin_audit(
-            db, actor=user, action="update", subject_type="two_factor",
-            subject_id=user.id, subject_label=user.username,
+            db,
+            actor=user,
+            action="update",
+            subject_type="two_factor",
+            subject_id=user.id,
+            subject_label=user.username,
             details={"enabled": False},
         )

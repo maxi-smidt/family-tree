@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import "@/i18n/i18n";
 import { LocationInput } from "./LocationInput";
 
-// GeocodeHint reaches for the active tree and hits TreeService; stub it so the
+// GeocodeHint reaches for the active tree and hits WorkspaceService; stub it so the
 // test focuses on input wiring rather than the network preview.
 vi.mock("./GeocodeHint", () => ({
   GeocodeHint: ({

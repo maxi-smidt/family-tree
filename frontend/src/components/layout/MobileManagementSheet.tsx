@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { useAdminViewStore } from "@/hooks/useAdminViewStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
-import { pickFile, useTreeManager } from "@/hooks/useTreeManager";
+import { pickFile, useWorkspaceManager } from "@/hooks/useWorkspaceManager";
 import {
   Sheet,
   SheetContent,
@@ -42,9 +42,9 @@ export const MobileManagementSheet = ({
     keyPrefix: "database-management-view",
   });
 
-  const selectedTree = useTreeStore((s) => s.selectedTree);
-  const updateTree = useTreeStore((s) => s.updateTree);
-  const loadTrees = useTreeStore((s) => s.loadTrees);
+  const selectedTree = useWorkspaceStore((s) => s.selectedTree);
+  const updateTree = useWorkspaceStore((s) => s.updateTree);
+  const loadTrees = useWorkspaceStore((s) => s.loadTrees);
   const user = useAuthStore((s) => s.user);
   const { navigateTo } = useNavigationStore();
   const openAdmin = useAdminViewStore((s) => s.openAdmin);
@@ -54,7 +54,7 @@ export const MobileManagementSheet = ({
     inspectImport,
     exportGedcom,
     importGedcom,
-  } = useTreeManager();
+  } = useWorkspaceManager();
 
   const role = selectedTree?.role;
   const isOwner = role === "owner";

@@ -9,28 +9,43 @@ import {
   ReactFlowInstance,
   SelectionMode,
 } from "@xyflow/react";
+import { canEditArea } from "@/utils/accessLevels";
 import { RemoveMemberDialog } from "@/components/shared/dialog/RemoveMemberDialog";
 import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Member } from "@/types/member";
+import { Member, createMember } from "@/types/member";
+import { Maximize, UserPlus } from "lucide-react";
 import { NODE_WIDTH, NODE_HEIGHT } from "@/constants";
-import { useMemberStore } from "@/hooks/useMemberStore";
-import { useTreeStore, isVirtualId } from "@/hooks/useTreeStore";
+import { GRID_DOT_SIZE, getGridDotOffset, SNAP_GRID } from "@/utils/gridUtils";
+import { EXPANSION_NODE_BUDGET, useMemberStore } from "@/hooks/useMemberStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
-import { FlowPanelControls } from "@/components/view/tree-view/FlowPanelControls";
+import {
+  CanvasMenuItems,
+  FlowPanelControls,
+} from "@/components/view/tree-view/FlowPanelControls";
+import { ToolbarSeparator } from "@/components/view/tree-view/CanvasToolbar";
 import GenerationLines from "@/components/view/tree-view/GenerationLines";
 import { CanvasSearch } from "@/components/view/tree-view/CanvasSearch";
+import { TreeMinimap } from "@/components/view/tree-view/TreeMinimap";
+import { ContinuationControls } from "@/components/view/tree-view/ContinuationControls";
+import { useCanvasHistory } from "@/hooks/useCanvasHistory";
+import { WorkspaceNavigationPanel } from "@/components/view/tree-view/nav/WorkspaceNavigationPanel";
 import { EmptyTreeState } from "@/components/view/tree-view/EmptyTreeState";
 import { MemberControls } from "@/components/view/tree-view/MemberControls";
 import { ConnectionRelationCard } from "@/components/view/tree-view/ConnectionRelationCard";
 import { MemberSheet } from "@/components/shared/member-sheet/MemberSheet";
+import { MemberPeekCard } from "@/components/view/tree-view/MemberPeekCard";
+import { DatabaseSelector } from "@/components/sidebar/DatabaseSelector";
 import { FamilyNode } from "@/components/view/tree-view/node/FamilyNode";
 import {
   UnionNode,
   UNION_NODE_SIZE,
 } from "@/components/view/tree-view/node/UnionNode";
 import { AddRelationDialog } from "@/components/view/tree-view/dialog/AddRelationDialog";
+import { NewMemberSectionPrompt } from "@/components/view/tree-view/nav/NewMemberSectionPrompt";
 import { RelationEdge } from "@/components/view/tree-view/edge/RelationEdge";
+import { UnionChildEdge } from "@/components/view/tree-view/edge/UnionChildEdge";
 import { useFlowNodes } from "@/hooks/useFlowNodes";
 import { useFlowEdges } from "@/hooks/useFlowEdges";
 import { useFlowInteractions } from "@/hooks/useFlowInteractions";
@@ -50,20 +65,20 @@ import { SelectionModeController } from "@/components/view/tree-view/SelectionMo
 import { useRelationCreation } from "@/hooks/useRelationCreation";
 import { usePendingMember } from "@/hooks/usePendingMember";
 import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
 import { useTaskStore } from "@/hooks/useTaskStore";
 import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import { NoDatabasePlaceholder } from "@/components/layout/NoDatabasePlaceholder";
 import { PresenceChips } from "@/components/layout/PresenceChips";
-import {
-  clearMemberSheetDeepLink,
-  readMemberSheetDeepLink,
-} from "@/utils/memberSheetState";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { requestLocationReplace } from "@/hooks/useUrlLocation";
+import { toast } from "sonner";
 import { getGenerationLineGap } from "@/utils/generationLineSpacing";
+import { buildMemberNodes } from "@/utils/memberNodes";
 
 const nodeTypes = { familyMember: FamilyNode, unionNode: UnionNode };
-const edgeTypes = { relation: RelationEdge };
+const edgeTypes = { relation: RelationEdge, unionChild: UnionChildEdge };
+const GRID_DOT_OFFSET = getGridDotOffset();
 
 interface FlowPanelProps {
   // Chromeless, purely-visual rendering for the public read-only tree view:
@@ -80,27 +95,26 @@ const EMPTY_EDGE_KEYS: ReadonlySet<string> = new Set<string>();
 
 export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   const { t } = useTranslation();
-  const taskRestrictions = useTreeStore((s) => s.selectedTree?.restrictions);
+  const taskRestrictions = useWorkspaceStore(
+    (s) => s.selectedTree?.restrictions,
+  );
   const tasksEnabled = !taskRestrictions?.includes("tasks");
   const { refreshTasks, initialized: tasksInitialized } = useTaskStore();
-  // Open-task node indicators need the task list; skip on public trees where
+  // Open-task node indicators need the task list; skip on public workspaces where
   // the task endpoints require authentication.
   useDeferredStoreLoad(
     tasksInitialized || !tasksEnabled || publicView,
     refreshTasks,
   );
-  const activeTree = useTreeStore((s) => s.selectedTree);
-  const openTreeAndLocateMember = useTreeStore(
+  const activeTree = useWorkspaceStore((s) => s.selectedTree);
+  const openTreeAndLocateMember = useWorkspaceStore(
     (s) => s.openTreeAndLocateMember,
   );
   const savedMemberSheetState = useMemberSheetStore((s) =>
     activeTree?.id ? s.openSheets[activeTree.id] : undefined,
   );
-  const setOpenSheet = useMemberSheetStore((s) => s.setOpenSheet);
   const clearOpenSheet = useMemberSheetStore((s) => s.clearOpenSheet);
-  const availableTreeCount = useTreeStore(
-    (s) => s.trees.length + s.virtualViews.length,
-  );
+  const availableTreeCount = useWorkspaceStore((s) => s.workspaces.length);
   const isMobile = useIsMobile();
   const {
     members,
@@ -108,20 +122,28 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     updateLayout,
     windowed,
     focusRootId,
+    focusSectionIds,
+    focusPending,
+    activeSavedViewId,
     neighborhoodTruncated,
+    neighborhoodExpandable,
     totalMemberCount,
     setFocusRoot,
     pendingLocateMemberId,
     setPendingLocateMemberId,
+    continuations,
+    neighborhoodCursor,
+    neighborhoodUp,
+    neighborhoodDown,
+    expandGeneration,
+    loadMoreNeighborhood,
+    resetNeighborhood,
   } = useMemberStore();
-  const canWrite = activeTree?.role !== "viewer";
-  const isVirtualView = !!activeTree?.id && isVirtualId(activeTree.id);
+  const canWrite = canEditArea(activeTree, "tree");
   const isCanvasReadOnly = isMobile || !canWrite;
-  // Virtual views allow dragging even though canWrite is false (role: "viewer").
-  // Positions are persisted independently in VirtualViewPosition.
-  const canDragLayout = !isMobile && (canWrite || isVirtualView);
+  const canDragLayout = !isMobile && canWrite;
   useUndoRedo(!isCanvasReadOnly);
-  const { isReady } = useTreeStore();
+  const { isReady } = useWorkspaceStore();
 
   const {
     edgeType,
@@ -130,31 +152,65 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     viewports,
     setViewport,
     generationLineGaps,
+    showMinimap,
   } = useFamilyTreeSettings();
+  const savedRelationTypes = useMemberStore(
+    (s) => s.savedViewFilters.visibleRelationTypes,
+  );
+  const effectiveRelationTypes = useMemo(
+    () =>
+      Array.isArray(savedRelationTypes)
+        ? savedRelationTypes.filter(
+            (value): value is string => typeof value === "string",
+          )
+        : visibleRelationTypes,
+    [savedRelationTypes, visibleRelationTypes],
+  );
   // Locking the canvas also disables per-node edit affordances (pencil,
   // quick-add, connect handles) and the member sheet's edit toggle, on top of
   // the role/mobile read-only gating. Drag/select/connect are gated
   // separately at the ReactFlow level below.
   const isEditReadOnly = isCanvasReadOnly || isLockedScreen;
+  // Phones can't drag or connect on the canvas, but they can still open a
+  // person and edit or add relatives through the sheet.
+  const canEditMembers = canWrite && !isLockedScreen;
   const DEFAULT_VIEWPORT = { x: 0, y: 0, zoom: 1 };
   const viewport = (activeTree && viewports[activeTree.id]) ?? DEFAULT_VIEWPORT;
   const generationLineGap = getGenerationLineGap(
     activeTree ? generationLineGaps[activeTree.id] : undefined,
   );
   const [rfInstance, setRfInstance] = useState<ReactFlowInstance | null>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  /** The middle of the visible canvas, in flow coordinates. */
+  const canvasCenter = () => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    const screen = rect
+      ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+      : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    return rfInstance?.screenToFlowPosition(screen) ?? { x: 0, y: 0 };
+  };
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [membersToDelete, setMembersToDelete] = useState<Member[]>([]);
   const [selectedNodes, setSelectedNodes] = useState<Node[]>([]);
+  // The person shown in the phone's pull-up card.
+  const [peekMemberId, setPeekMemberId] = useState<string | null>(null);
+
+  // Browser back/forward for canvas focus (#989) — skipped on the public,
+  // chromeless view, which has no navigation panel to drive focus changes.
+  const { restoringRef, updateHistoryViewport } = useCanvasHistory(
+    publicView ? undefined : activeTree?.id,
+    rfInstance,
+  );
 
   // --- Extracted hooks ---
   const locator = useMemberLocator(members, rfInstance);
 
-  // Center the counterpart after navigating into a linked tree: consume the
+  // Center the target member after following a member→tree link: consume the
   // one-shot locate request once the member shows up in the loaded set. In
-  // windowed mode the counterpart may lie outside the current neighborhood —
+  // windowed mode the target may lie outside the current neighborhood —
   // re-focus the window on it once and locate after the reload.
-  const attemptedLinkedFocusRef = useRef<string | null>(null);
+  const attemptedFocusRef = useRef<string | null>(null);
   const consumedLocateRef = useRef<string | null>(null);
   useEffect(() => {
     if (!pendingLocateMemberId) {
@@ -175,20 +231,20 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
       // store snapshot — don't re-center for each of them.
       if (consumedLocateRef.current === pendingLocateMemberId) return;
       consumedLocateRef.current = pendingLocateMemberId;
-      attemptedLinkedFocusRef.current = null;
+      attemptedFocusRef.current = null;
       setPendingLocateMemberId(null);
       locator.locateMember(target);
       return;
     }
     if (members.length === 0) return; // still loading
-    if (windowed && attemptedLinkedFocusRef.current !== pendingLocateMemberId) {
-      attemptedLinkedFocusRef.current = pendingLocateMemberId;
+    if (windowed && attemptedFocusRef.current !== pendingLocateMemberId) {
+      attemptedFocusRef.current = pendingLocateMemberId;
       void setFocusRoot(pendingLocateMemberId);
       return;
     }
     // Fully loaded (or window already re-focused) and still absent: the
     // counterpart no longer exists — drop the request.
-    attemptedLinkedFocusRef.current = null;
+    attemptedFocusRef.current = null;
     setPendingLocateMemberId(null);
   }, [
     pendingLocateMemberId,
@@ -247,73 +303,89 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   const pending = usePendingMember({
     onHorizontalRelationReady: relation.startHorizontalRelation,
   });
-  const memberSheetDeepLink = useMemo(readMemberSheetDeepLink, []);
-  const consumedMemberSheetDeepLinkRef = useRef(false);
+  // The sheet follows the sheet store, which the URL drives (#1128). React
+  // only when the store names a different member than the one on screen —
+  // a link or Back/forward — never when the sheet itself just wrote its own
+  // member there: open it once loaded (re-focusing a windowed canvas on it
+  // first), close it when the URL drops it, and drop a member the viewer
+  // can't reach with a toast instead of leaving a broken URL behind.
+  const requestedSheetMemberId = savedMemberSheetState?.memberId ?? null;
+  const lastRequestedSheetRef = useRef<string | null | undefined>(undefined);
+  const sheetRequestRef = useRef<{ memberId: string | null } | null>(null);
   const attemptedMemberSheetRestoreRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const deepLinkState = consumedMemberSheetDeepLinkRef.current
-      ? undefined
-      : memberSheetDeepLink;
-    const requestedState = deepLinkState ?? savedMemberSheetState;
-    const treeId = activeTree?.id;
-    if (publicView || !requestedState || !treeId || pending.editingMemberId) {
+    const workspaceId = activeTree?.id;
+    if (publicView || !workspaceId) return;
+    if (lastRequestedSheetRef.current !== requestedSheetMemberId) {
+      lastRequestedSheetRef.current = requestedSheetMemberId;
+      attemptedMemberSheetRestoreRef.current = null;
+      sheetRequestRef.current =
+        requestedSheetMemberId === pending.editingMemberId
+          ? null
+          : { memberId: requestedSheetMemberId };
+    }
+    const request = sheetRequestRef.current;
+    if (!request) return;
+    // A member still being created is client-only; leave its sheet alone.
+    if (pending.isNewMemberSession) {
+      sheetRequestRef.current = null;
       return;
     }
+    if (request.memberId === null) {
+      sheetRequestRef.current = null;
+      if (pending.editingMemberId) pending.closeSheet();
+      return;
+    }
+    if (focusPending) return;
 
-    const savedMember = members.find(
-      (member) => member.id === requestedState.memberId,
-    );
-    if (savedMember) {
+    const target = members.find((member) => member.id === request.memberId);
+    if (target) {
+      sheetRequestRef.current = null;
       attemptedMemberSheetRestoreRef.current = null;
-      setOpenSheet(treeId, requestedState);
-      if (deepLinkState) {
-        consumedMemberSheetDeepLinkRef.current = true;
-        clearMemberSheetDeepLink();
-      }
-      pending.setEditingMemberId(savedMember.id);
-      pending.setIsEditMode(requestedState.mode === "edit");
+      pending.setEditingMemberId(target.id);
+      pending.setIsEditMode(savedMemberSheetState?.mode === "edit");
     } else if (
       isReady &&
       windowed &&
-      attemptedMemberSheetRestoreRef.current !== requestedState.memberId
+      attemptedMemberSheetRestoreRef.current !== request.memberId
     ) {
-      attemptedMemberSheetRestoreRef.current = requestedState.memberId;
-      void setFocusRoot(requestedState.memberId);
+      attemptedMemberSheetRestoreRef.current = request.memberId;
+      requestLocationReplace();
+      void setFocusRoot(request.memberId);
     } else if (isReady) {
-      clearOpenSheet(treeId);
-      if (deepLinkState) {
-        consumedMemberSheetDeepLinkRef.current = true;
-        clearMemberSheetDeepLink();
-      }
+      sheetRequestRef.current = null;
+      attemptedMemberSheetRestoreRef.current = null;
+      toast.error(t("hooks.url-location.member-unavailable"));
+      requestLocationReplace();
+      clearOpenSheet(workspaceId);
     }
   }, [
     activeTree?.id,
     clearOpenSheet,
+    focusPending,
     isReady,
-    memberSheetDeepLink,
     members,
-    pending.editingMemberId,
-    pending.setEditingMemberId,
-    pending.setIsEditMode,
+    pending,
     publicView,
-    savedMemberSheetState,
-    setOpenSheet,
+    requestedSheetMemberId,
+    savedMemberSheetState?.mode,
     setFocusRoot,
+    t,
     windowed,
   ]);
 
   // --- Unions, edges & visibility — computed off the main thread ---
   const { unions, baseEdges, hiddenNodeIds } = useDerivedFlowView(
     members,
-    visibleRelationTypes,
+    effectiveRelationTypes,
     edgeType,
   );
 
   // Resolve each union dot's colour the same way edges are styled: the
   // relation-type default merged with the admin override. Without this the
   // dot ignores configured colours (the edges are styled in the worker).
-  const relationTypes = useTreeStore((s) => s.relationTypes);
+  const relationTypes = useWorkspaceStore((s) => s.relationTypes);
   const resolveUnionColor = useMemo(() => {
     const byId = new Map(relationTypes.map((rt) => [rt.id, rt]));
     return (relationType?: string): string => {
@@ -327,8 +399,8 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
 
   // Use `nodes` (local state, updates on every drag frame) rather than `members`
   // (store, lags by the debounce) so union dots track their parents in real-time.
-  // Carry the measured height: card height varies with content (e.g. source-tree
-  // badges in virtual views), and the side handles sit at the measured mid-height.
+  // Carry the measured height: card height varies with content, and the side
+  // handles sit at the measured mid-height.
   const nodePositions = useMemo(
     () =>
       new Map(
@@ -450,27 +522,6 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     ],
   );
 
-  const openLinkedTree = useTreeStore((s) => s.openLinkedTree);
-  const allTrees = useTreeStore((s) => s.trees);
-  // Tree ids the user has listed access to (own + shared) — used to mute
-  // linked-tree badges pointing at trees not shared with them. In the public
-  // view there is no tree list, so accessibility is unknown (undefined).
-  const accessibleTreeIds = useMemo(
-    () =>
-      publicView || allTrees.length === 0
-        ? undefined
-        : new Set(allTrees.map((tr) => tr.id)),
-    [publicView, allTrees],
-  );
-  const handleOpenLinkedTree = useMemo(
-    () => (treeId: string, memberId?: string | null) => {
-      void openLinkedTree(treeId, memberId).catch(() => {
-        toast.error(t("tree-view.linked-tree.open-error"));
-      });
-    },
-    [openLinkedTree, t],
-  );
-
   // Collapsed ancestors hide their descendant member nodes (handled in
   // useFlowNodes) and the union dots between them (above). Edges touching any
   // hidden member/union must also be hidden, otherwise React Flow keeps drawing
@@ -500,11 +551,55 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     connection.isConnectionMode,
     connection.hasConnectionPath,
     hiddenNodeIds,
-    handleOpenLinkedTree,
     publicView,
-    accessibleTreeIds,
     selection.isSelectionMode,
   );
+  // On phones a tap opens the pull-up card instead of the name link or the
+  // hover actions, and the tapped person keeps the selection ring.
+  const displayNodes = useMemo(
+    () =>
+      isMobile && !publicView
+        ? viewNodes.map((node) => ({
+            ...node,
+            selected: node.id === peekMemberId,
+            data: {
+              ...node.data,
+              disableNameLink: true,
+              onView: undefined,
+              onEdit: undefined,
+            },
+          }))
+        : viewNodes,
+    [isMobile, publicView, viewNodes, peekMemberId],
+  );
+  const peekMember =
+    isMobile && peekMemberId
+      ? (members.find((m) => m.id === peekMemberId) ?? null)
+      : null;
+
+  const openPeek = (node: Node) => {
+    setPeekMemberId(node.id);
+    if (!rfInstance) return;
+    // Lift the person into the upper part of the canvas so the card that
+    // slides up from the bottom doesn't cover them.
+    const { zoom } = rfInstance.getViewport();
+    void rfInstance.setCenter(
+      node.position.x + NODE_WIDTH / 2,
+      node.position.y + NODE_HEIGHT / 2 + (window.innerHeight * 0.15) / zoom,
+      { zoom, duration: 250 },
+    );
+  };
+
+  const addPersonFromHeader = () => {
+    const center = canvasCenter();
+    pending.createNew(
+      createMember({
+        x: center.x - NODE_WIDTH / 2,
+        y: center.y - NODE_HEIGHT / 2,
+      }),
+    );
+  };
+
   const viewEdges = useFlowEdges(
     baseEdges,
     connection.connectionPath.edgeKeys.size > 0
@@ -516,6 +611,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   const {
     onNodesChange,
     onEdgesChange,
+    onBeforeDelete,
     onConnect,
     onSelectionChange,
     debouncedSave,
@@ -540,26 +636,52 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     initializeFlow();
   }, [members, isReady]);
 
-  // Re-center when the focus root changes in windowed mode.
-  const prevFocusRootRef = useRef<string | null>(null);
+  // Re-center when the focus root changes in windowed mode, and once when
+  // leaving it for the whole family — unless a popstate restore is in flight,
+  // which applies the exact saved camera instead (#989).
+  const previousFocusRef = useRef<string | null>(null);
+  const focusKey = windowed
+    ? JSON.stringify([
+        focusRootId,
+        focusSectionIds,
+        activeSavedViewId,
+        neighborhoodUp,
+        neighborhoodDown,
+      ])
+    : null;
   useEffect(() => {
-    if (!windowed || !rfInstance) return;
-    if (focusRootId === prevFocusRootRef.current) return;
-    prevFocusRootRef.current = focusRootId;
-    requestAnimationFrame(() => fitViewToAllNodes(rfInstance, 0.2));
-  }, [windowed, focusRootId, rfInstance]);
-
-  // Virtual views: the viewport is a global setting (not per-tree), so after a
-  // virtual view loads we must fit the view regardless of where the camera was.
-  // The ref prevents re-fitting on every drag (nodes change) — once per view id.
-  const fittedViewRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!isReady || !rfInstance || !isVirtualView || !activeTree) return;
-    if (nodes.length === 0) return;
-    if (fittedViewRef.current === activeTree.id) return;
-    fittedViewRef.current = activeTree.id;
-    requestAnimationFrame(() => fitViewToAllNodes(rfInstance, 0.2));
-  }, [isReady, rfInstance, isVirtualView, activeTree, nodes]);
+    if (!rfInstance || focusPending || !isReady) return;
+    if (focusKey === previousFocusRef.current) return;
+    // Store focus changes before React Flow receives its replacement nodes.
+    // Fitting the old graph can leave a restored position overlay offscreen
+    // and culled from the DOM. Wait until the new graph has reached the canvas.
+    if (
+      !members.every((member) => {
+        const position = nodePositions.get(member.id);
+        return (
+          position?.x === member.position.x && position?.y === member.position.y
+        );
+      })
+    )
+      return;
+    if (restoringRef.current) {
+      previousFocusRef.current = focusKey;
+      return;
+    }
+    const frame = requestAnimationFrame(() => {
+      fitViewToAllNodes(rfInstance, 0.2);
+      previousFocusRef.current = focusKey;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [
+    focusKey,
+    focusPending,
+    isReady,
+    members,
+    nodePositions,
+    rfInstance,
+    restoringRef,
+  ]);
 
   useEffect(() => {
     setSelectedNodes((prevSelected) => {
@@ -580,13 +702,10 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
 
   const handleAddFirstMember = () => {
     if (!rfInstance) return;
-    const flowPoint = rfInstance.screenToFlowPosition({
-      x: window.innerWidth / 2,
-      y: window.innerHeight / 2,
-    });
+    const center = canvasCenter();
     pending.addFirstMember({
-      x: flowPoint.x - NODE_WIDTH / 2,
-      y: flowPoint.y,
+      x: center.x - NODE_WIDTH / 2,
+      y: center.y - NODE_HEIGHT / 2,
     });
   };
 
@@ -602,251 +721,419 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     setMembersToDelete([]);
   };
 
-  if (!activeTree) {
-    return availableTreeCount === 0 ? <NoDatabasePlaceholder /> : null;
+  if (!activeTree || !isReady) {
+    // Keep the header (sidebar toggle, bell) while there is no workspace yet
+    // or the canvas is still loading — otherwise phones lose the way back to
+    // the navigation.
+    return (
+      <div className="flex h-full w-full flex-col">
+        {!publicView && <PageHeader title={t("tree-view.header.title")} />}
+        {!activeTree && availableTreeCount === 0 && (
+          <div className="min-h-0 flex-1">
+            <NoDatabasePlaceholder />
+          </div>
+        )}
+      </div>
+    );
   }
 
-  if (!isReady) return null;
+  const peopleCount = windowed
+    ? (totalMemberCount ?? members.length)
+    : members.length;
 
   return (
-    <div className="w-full h-full" aria-label={t("tree-view.canvas-label")}>
-      <ReactFlow
-        className={`ft-tree-canvas${inSelectionMode ? " cursor-crosshair" : ""}`}
-        nodes={[...viewNodes, ...unionNodes]}
-        edges={edges}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
-        onlyRenderVisibleElements
-        onNodesChange={
-          (!canDragLayout && isCanvasReadOnly) || connection.isConnectionMode
-            ? undefined
-            : onNodesChange
-        }
-        onEdgesChange={
-          isCanvasReadOnly || connection.isConnectionMode || inSelectionMode
-            ? undefined
-            : onEdgesChange
-        }
-        onConnect={
-          isCanvasReadOnly || connection.isConnectionMode || inSelectionMode
-            ? undefined
-            : onConnect
-        }
-        defaultEdgeOptions={{ type: edgeType }}
-        onSelectionChange={
-          isCanvasReadOnly || connection.isConnectionMode
-            ? undefined
-            : onSelectionChange
-        }
-        onNodeClick={connection.handleNodeClick}
-        minZoom={0.1}
-        snapToGrid={true}
-        snapGrid={[50, 50]}
-        nodesDraggable={
-          !connection.isConnectionMode && !isLockedScreen && canDragLayout
-        }
-        nodesConnectable={
-          !connection.isConnectionMode &&
-          !isLockedScreen &&
-          !isCanvasReadOnly &&
-          !inSelectionMode
-        }
-        elementsSelectable={
-          connection.isConnectionMode || (!isLockedScreen && !isCanvasReadOnly)
-        }
-        nodesFocusable={true}
-        autoPanOnNodeFocus={true}
-        disableKeyboardA11y={false}
-        edgesFocusable={!connection.isConnectionMode && !isCanvasReadOnly}
-        deleteKeyCode={
-          isCanvasReadOnly || connection.isConnectionMode
-            ? null
-            : ["Backspace", "Delete"]
-        }
-        connectOnClick={
-          !connection.isConnectionMode && !isCanvasReadOnly && !inSelectionMode
-        }
-        connectionMode={ConnectionMode.Loose}
-        connectionRadius={40}
-        selectionOnDrag={inSelectionMode}
-        panOnDrag={inSelectionMode ? [1, 2] : undefined}
-        selectionMode={inSelectionMode ? SelectionMode.Partial : undefined}
-        // In selection mode every click toggles a member (see
-        // SelectionModeController); disabling the modifier key stops the
-        // built-in handler from turning multi-selection back off.
-        multiSelectionKeyCode={inSelectionMode ? null : undefined}
-        // With multi-selection forced on, selecting on drag-start would toggle
-        // (deselect) the node you grab to move; select on click instead so
-        // dragging a selected member keeps the selection intact.
-        selectNodesOnDrag={inSelectionMode ? false : undefined}
-        onInit={setRfInstance}
-        defaultViewport={viewport}
-        onMoveEnd={(_, vp) => activeTree && setViewport(activeTree.id, vp)}
-        ariaLabelConfig={{
-          "controls.zoomIn.ariaLabel": t("tree-view.controls.zoom-in"),
-          "controls.zoomOut.ariaLabel": t("tree-view.controls.zoom-out"),
-          "controls.fitView.ariaLabel": t("tree-view.controls.fit-view"),
-        }}
+    <div className="flex h-full w-full flex-col">
+      {!publicView &&
+        (isMobile ? (
+          // Phones: "Monogram Workspace ▾", search and add person, as in
+          // the native apps' title bars.
+          <PageHeader
+            title={t("tree-view.header.title")}
+            heading={<DatabaseSelector variant="header" />}
+            inlineActions
+            actions={
+              canEditMembers ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-muted-foreground"
+                  aria-label={t("tree-view.mobile.add-person")}
+                  data-tutorial="add-member"
+                  onClick={addPersonFromHeader}
+                >
+                  <UserPlus />
+                </Button>
+              ) : undefined
+            }
+          />
+        ) : (
+          <PageHeader
+            title={t("tree-view.header.title")}
+            subtitle={t("tree-view.header.people", { count: peopleCount })}
+            actions={<PresenceChips />}
+          />
+        ))}
+      <div
+        ref={canvasRef}
+        className="relative min-h-0 w-full flex-1 bg-canvas"
+        aria-label={t("tree-view.canvas-label")}
       >
-        <SelectionModeController active={inSelectionMode} />
-        <Background />
-        {/* pr-16 clears the notification bell fixed at top-4 right-4 in Layout. */}
-        <Panel position="top-right" className="pt-2 pr-16">
-          <PresenceChips />
-        </Panel>
-        <GenerationLines
-          visible={generationLineGap !== null}
-          gap={generationLineGap ?? undefined}
-        />
-        {members.length === 0 && !isCanvasReadOnly && (
-          <Panel
-            position="top-center"
-            className="!left-1/2 !-translate-x-1/2 !top-1/2 !-translate-y-1/2"
-          >
-            <EmptyTreeState onAddFirstMember={handleAddFirstMember} />
-          </Panel>
-        )}
-        <Panel
-          position={isMobile ? "top-center" : "top-left"}
-          className={isMobile ? "w-[calc(100vw-1rem)] pt-2" : "pt-2"}
+        <ReactFlow
+          className={`ft-tree-canvas${inSelectionMode ? " cursor-crosshair" : ""}`}
+          nodes={[...displayNodes, ...unionNodes]}
+          edges={edges}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          onlyRenderVisibleElements
+          onNodesChange={
+            (!canDragLayout && isCanvasReadOnly) || connection.isConnectionMode
+              ? undefined
+              : onNodesChange
+          }
+          onEdgesChange={
+            isCanvasReadOnly || connection.isConnectionMode || inSelectionMode
+              ? undefined
+              : onEdgesChange
+          }
+          onConnect={
+            isCanvasReadOnly || connection.isConnectionMode || inSelectionMode
+              ? undefined
+              : onConnect
+          }
+          onBeforeDelete={onBeforeDelete}
+          // Lift a selected connection above its neighbours so its
+          // highlight isn't hidden under crossing lines.
+          elevateEdgesOnSelect
+          defaultEdgeOptions={{ type: edgeType }}
+          onSelectionChange={
+            isCanvasReadOnly || connection.isConnectionMode
+              ? undefined
+              : onSelectionChange
+          }
+          onNodeClick={(event, node) => {
+            if (
+              isMobile &&
+              !publicView &&
+              !connection.isConnectionMode &&
+              node.type === "familyMember"
+            ) {
+              openPeek(node);
+              return;
+            }
+            connection.handleNodeClick(event, node);
+          }}
+          onPaneClick={isMobile ? () => setPeekMemberId(null) : undefined}
+          minZoom={0.1}
+          snapToGrid={true}
+          snapGrid={SNAP_GRID}
+          nodesDraggable={
+            !connection.isConnectionMode && !isLockedScreen && canDragLayout
+          }
+          nodesConnectable={
+            !connection.isConnectionMode &&
+            !isLockedScreen &&
+            !isCanvasReadOnly &&
+            !inSelectionMode
+          }
+          elementsSelectable={
+            connection.isConnectionMode ||
+            (!isLockedScreen && !isCanvasReadOnly)
+          }
+          nodesFocusable={true}
+          autoPanOnNodeFocus={true}
+          disableKeyboardA11y={false}
+          edgesFocusable={!connection.isConnectionMode && !isCanvasReadOnly}
+          deleteKeyCode={
+            isCanvasReadOnly || connection.isConnectionMode
+              ? null
+              : ["Backspace", "Delete"]
+          }
+          connectOnClick={
+            !connection.isConnectionMode &&
+            !isCanvasReadOnly &&
+            !inSelectionMode
+          }
+          connectionMode={ConnectionMode.Loose}
+          connectionRadius={40}
+          selectionOnDrag={inSelectionMode}
+          panOnDrag={inSelectionMode ? [1, 2] : undefined}
+          selectionMode={inSelectionMode ? SelectionMode.Partial : undefined}
+          // In selection mode every click toggles a member (see
+          // SelectionModeController); disabling the modifier key stops the
+          // built-in handler from turning multi-selection back off.
+          multiSelectionKeyCode={inSelectionMode ? null : undefined}
+          // With multi-selection forced on, selecting on drag-start would toggle
+          // (deselect) the node you grab to move; select on click instead so
+          // dragging a selected member keeps the selection intact.
+          selectNodesOnDrag={inSelectionMode ? false : undefined}
+          onInit={setRfInstance}
+          defaultViewport={viewport}
+          onMoveEnd={(_, vp) => {
+            if (!activeTree) return;
+            setViewport(activeTree.id, vp);
+            updateHistoryViewport(vp);
+          }}
+          ariaLabelConfig={{
+            "controls.zoomIn.ariaLabel": t("tree-view.controls.zoom-in"),
+            "controls.zoomOut.ariaLabel": t("tree-view.controls.zoom-out"),
+            "controls.fitView.ariaLabel": t("tree-view.controls.fit-view"),
+          }}
         >
-          <div className="flex flex-col gap-1">
-            <CanvasSearch
-              members={members}
-              onLocate={locator.locateMember}
-              className={isMobile ? "w-full" : undefined}
-              windowed={windowed}
-              treeId={activeTree?.id}
-              onFocusRoot={setFocusRoot}
-              onOpenOtherTree={openTreeAndLocateMember}
-            />
-            {windowed && neighborhoodTruncated && (
-              <div className="rounded-md border bg-background/90 px-3 py-1.5 text-xs text-muted-foreground shadow-md">
-                {t("tree-view.windowed.banner", {
-                  count: members.length,
-                  total: totalMemberCount,
-                })}
-              </div>
-            )}
-          </div>
-        </Panel>
-        {connection.isConnectionMode &&
-          connection.connectionRelations.length > 0 && (
-            <Panel position="top-center" className="!top-2 pointer-events-none">
-              {/* Cap the stack at ~3 cards; scroll the rest so many selected
-                  members don't overflow the canvas. */}
-              <div className="pointer-events-auto flex max-h-[15rem] flex-col gap-2 overflow-y-auto px-1 py-1">
-                {connection.connectionRelations.map((rel) => (
-                  <ConnectionRelationCard
-                    key={`${rel.aId}|${rel.bId}`}
-                    relation={rel}
-                    onLocate={(id) => {
-                      const target = members.find((m) => m.id === id);
-                      if (target) locator.locateMember(target);
-                    }}
+          <SelectionModeController active={inSelectionMode} />
+          <Background
+            color="var(--canvas-dot)"
+            gap={SNAP_GRID}
+            size={GRID_DOT_SIZE}
+            offset={GRID_DOT_OFFSET}
+          />
+          <GenerationLines
+            visible={generationLineGap !== null}
+            gap={generationLineGap ?? undefined}
+          />
+          <Panel
+            position={isMobile ? "top-center" : "top-left"}
+            className={isMobile ? "max-w-[calc(100vw-1.5rem)] pt-1" : "pt-2"}
+          >
+            <div className="flex flex-col items-center gap-1 md:items-stretch">
+              <div className="flex items-start gap-2">
+                {!publicView && (
+                  <WorkspaceNavigationPanel
+                    workspaceId={activeTree.id}
+                    canWrite={canWrite}
                   />
-                ))}
+                )}
+                {/* Phones search from the header (people) and the
+                  "Whole family" menu (the whole workspace). */}
+                {(!isMobile || publicView) && (
+                  <CanvasSearch
+                    members={members}
+                    onLocate={locator.locateMember}
+                    className={isMobile ? "min-w-0 flex-1" : undefined}
+                    windowed={windowed}
+                    workspaceId={activeTree?.id}
+                    onFocusRoot={setFocusRoot}
+                    onOpenOtherTree={openTreeAndLocateMember}
+                  />
+                )}
+              </div>
+              {windowed && neighborhoodTruncated && (
+                <div className="rounded-md border bg-background/90 px-3 py-1.5 text-xs text-muted-foreground shadow-md">
+                  {t("tree-view.windowed.banner", {
+                    count: members.length,
+                    total: totalMemberCount,
+                  })}
+                </div>
+              )}
+            </div>
+          </Panel>
+          {connection.isConnectionMode &&
+            connection.connectionRelations.length > 0 && (
+              <Panel
+                position="top-center"
+                className="!top-2 pointer-events-none"
+              >
+                {/* Cap the stack at ~3 cards; scroll the rest so many selected
+                  members don't overflow the canvas. */}
+                <div className="pointer-events-auto flex max-h-[15rem] flex-col gap-2 overflow-y-auto px-1 py-1">
+                  {connection.connectionRelations.map((rel) => (
+                    <ConnectionRelationCard
+                      key={`${rel.aId}|${rel.bId}`}
+                      relation={rel}
+                      onLocate={(id) => {
+                        const target = members.find((m) => m.id === id);
+                        if (target) locator.locateMember(target);
+                      }}
+                    />
+                  ))}
+                </div>
+              </Panel>
+            )}
+          {inSelectionMode && (
+            <Panel position="top-center" className="!top-2">
+              <div className="flex items-center gap-2 rounded-md border bg-background/90 px-3 py-1.5 text-xs shadow-md">
+                <span>
+                  {t("tree-view.selection.selected-count", {
+                    count: selectedNodes.length,
+                  })}
+                </span>
+                <span className="text-muted-foreground">
+                  {t("tree-view.selection.hint")}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto px-2 py-0.5 text-xs"
+                  onClick={() => {
+                    setSelectedNodes([]);
+                    setNodes((ns) =>
+                      ns.map((n) =>
+                        n.selected ? { ...n, selected: false } : n,
+                      ),
+                    );
+                  }}
+                >
+                  {t("tree-view.selection.clear")}
+                </Button>
               </div>
             </Panel>
           )}
-        {inSelectionMode && (
-          <Panel position="top-center" className="!top-2">
-            <div className="flex items-center gap-2 rounded-md border bg-background/90 px-3 py-1.5 text-xs shadow-md">
-              <span>
-                {t("tree-view.selection.selected-count", {
-                  count: selectedNodes.length,
-                })}
-              </span>
-              <span className="text-muted-foreground">
-                {t("tree-view.selection.hint")}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-auto px-2 py-0.5 text-xs"
-                onClick={() => {
-                  setSelectedNodes([]);
-                  setNodes((ns) =>
-                    ns.map((n) => (n.selected ? { ...n, selected: false } : n)),
-                  );
-                }}
+          {(!isMobile || publicView) && (
+            <Panel
+              position="bottom-center"
+              className="!m-0 !mb-4 !w-max max-w-[calc(100vw-2rem)]"
+            >
+              <div
+                role="toolbar"
+                aria-label={t("tree-view.controls.toolbar")}
+                className="flex flex-wrap items-center justify-center gap-y-1 rounded-[1.375rem] border bg-card p-1 shadow-lg"
               >
-                {t("tree-view.selection.clear")}
-              </Button>
-            </div>
-          </Panel>
-        )}
-        <Panel position="bottom-left" className="pb-2 flex flex-col gap-2">
-          <FlowPanelControls
-            navigationOnly={isCanvasReadOnly}
-            isConnectionMode={connection.isConnectionMode}
-            connectionDisabled={members.length < 2}
-            onToggleConnectionMode={connection.toggleConnectionMode}
-            isSelectionMode={selection.isSelectionMode}
-            onToggleSelectionMode={selection.toggleSelectionMode}
-            selectionAvailable={!isCanvasReadOnly}
-            selectionDisabled={members.length < 1 || isLockedScreen}
-          />
-        </Panel>
-        {(!isCanvasReadOnly || isVirtualView) && (
-          <Panel position="bottom-right" className="pb-2">
-            <MemberControls
-              nodes={nodes}
-              selectedNodes={selectedNodes}
-              setMembersToDelete={setMembersToDelete}
-              onEditMember={(member) => pending.editExisting(member)}
-              onCreateNewMember={(member) => pending.createNew(member)}
-              onRearrange={rearrangeNodes}
-              readOnly={isVirtualView}
+                <FlowPanelControls
+                  navigationOnly={isCanvasReadOnly}
+                  isConnectionMode={connection.isConnectionMode}
+                  connectionDisabled={members.length < 2}
+                  onToggleConnectionMode={connection.toggleConnectionMode}
+                  isSelectionMode={selection.isSelectionMode}
+                  onToggleSelectionMode={selection.toggleSelectionMode}
+                  selectionAvailable={!isCanvasReadOnly}
+                  selectionDisabled={members.length < 1 || isLockedScreen}
+                  showMoreMenu={isCanvasReadOnly}
+                />
+                {!isCanvasReadOnly && (
+                  <>
+                    <ToolbarSeparator />
+                    <MemberControls
+                      nodes={nodes}
+                      selectedNodes={selectedNodes}
+                      setMembersToDelete={setMembersToDelete}
+                      onEditMember={(member) => pending.editExisting(member)}
+                      onCreateNewMember={(member) => pending.createNew(member)}
+                      onRearrange={rearrangeNodes}
+                      leadingMenuItems={<CanvasMenuItems />}
+                    />
+                  </>
+                )}
+              </div>
+            </Panel>
+          )}
+          {(!isMobile || publicView) && showMinimap && members.length > 0 && (
+            <TreeMinimap />
+          )}
+          {!publicView && windowed && (
+            <ContinuationControls
+              continuations={neighborhoodCursor ? continuations : []}
+              atBudget={members.length >= EXPANSION_NODE_BUDGET}
+              canExpandGeneration={
+                neighborhoodExpandable &&
+                (neighborhoodUp < 20 || neighborhoodDown < 20)
+              }
+              onExpandGeneration={() => void expandGeneration()}
+              onLoadMore={() => void loadMoreNeighborhood()}
+              onReset={() => void resetNeighborhood()}
             />
-          </Panel>
+          )}
+        </ReactFlow>
+        {members.length === 0 && !publicView && canEditMembers && (
+          // A plain overlay rather than a React Flow <Panel>: panels centre
+          // themselves with their own transform and margin, which pushed this
+          // card off-centre.
+          <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center p-4">
+            <div className="pointer-events-auto">
+              <EmptyTreeState onAddFirstMember={handleAddFirstMember} />
+            </div>
+          </div>
         )}
-      </ReactFlow>
-      {/* The public read-only view is purely visual: no detail sheet or edit
+        {isMobile && !publicView && (
+          // Phones: pinch to zoom, one fit button, and the pull-up card for
+          // the tapped person.
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex flex-col">
+            <Button
+              variant="outline"
+              size="icon-lg"
+              className="pointer-events-auto mr-3 mb-6 self-end rounded-2xl bg-card shadow-sm"
+              aria-label={t("tree-view.controls.fit-view")}
+              onClick={() => rfInstance && fitViewToAllNodes(rfInstance)}
+            >
+              <Maximize />
+            </Button>
+            {peekMember && (
+              <div className="pointer-events-auto">
+                <MemberPeekCard
+                  member={peekMember}
+                  canEdit={canEditMembers}
+                  onView={() => {
+                    pending.setEditingMemberId(peekMember.id);
+                    pending.setIsEditMode(false);
+                  }}
+                  onEdit={() => pending.editExisting(peekMember)}
+                  onAddParent={() => pending.onAddParent(peekMember.id)}
+                  onAddPartner={() =>
+                    pending.onAddHorizontal(peekMember.id, "right")
+                  }
+                  onAddChild={() => pending.onAddChild(peekMember.id)}
+                  onClose={() => setPeekMemberId(null)}
+                />
+              </div>
+            )}
+          </div>
+        )}
+        {/* The public read-only view is purely visual: no detail sheet or edit
           dialogs are mounted. */}
-      {!publicView && (
-        <>
-          <RemoveMemberDialog
-            isOpen={!!membersToDelete.length}
-            members={membersToDelete}
-            onConfirm={confirmDelete}
-            onCancel={() => setMembersToDelete([])}
-          />
-          <MemberSheet
-            isOpen={!!pending.editingMember}
-            onClose={pending.closeSheet}
-            member={pending.editingMember}
-            initialEditMode={pending.isEditMode}
-            canEdit={!isEditReadOnly}
-            isNewMember={pending.isNewMemberSession}
-            onDiscardNewMember={pending.discardNewMember}
-            onSaveNewMember={pending.saveNewMember}
-          />
-          <AddRelationDialog
-            isOpen={relation.isDialogOpen}
-            onClose={relation.closeDialog}
-            onConfirm={relation.confirmRelation}
-          />
-        </>
-      )}
+        {!publicView && (
+          <>
+            <RemoveMemberDialog
+              isOpen={!!membersToDelete.length}
+              members={membersToDelete}
+              onConfirm={confirmDelete}
+              onCancel={() => setMembersToDelete([])}
+            />
+            <MemberSheet
+              isOpen={!!pending.editingMember}
+              onClose={pending.closeSheet}
+              member={pending.editingMember}
+              initialEditMode={pending.isEditMode}
+              canEdit={canEditMembers}
+              isNewMember={pending.isNewMemberSession}
+              onDiscardNewMember={pending.discardNewMember}
+              onSaveNewMember={pending.saveNewMember}
+              onOpenMember={(memberId) => {
+                if (isMobile) setPeekMemberId(memberId);
+                pending.setEditingMemberId(memberId);
+                pending.setIsEditMode(false);
+                const target = members.find((m) => m.id === memberId);
+                if (target) locator.locateMember(target);
+              }}
+            />
+            <AddRelationDialog
+              isOpen={relation.isDialogOpen}
+              onClose={relation.closeDialog}
+              onConfirm={(type) => {
+                // A horizontal add's relation is confirmed here, one step
+                // after the new member itself was saved — check suggestions
+                // for that member now rather than in saveNewMember, which
+                // hasn't created this relation yet (#990).
+                const newMemberId =
+                  relation.pendingHorizontalRelation?.targetId;
+                relation.confirmRelation(type);
+                if (newMemberId) {
+                  void pending.checkSectionSuggestions(newMemberId);
+                }
+              }}
+            />
+            <NewMemberSectionPrompt
+              memberName={pending.sectionSuggestions?.memberName ?? ""}
+              suggestions={pending.sectionSuggestions?.suggestions ?? null}
+              onAdd={pending.addToSuggestedSection}
+              onDismiss={pending.dismissSectionSuggestions}
+            />
+          </>
+        )}
+      </div>
     </div>
   );
 
   function initializeFlow() {
     // Rebuilt on every `members` change (incl. drag-position persistence), so
-    // carry the current selection over — otherwise moving a selected member
-    // would clear the selection once its new position is saved.
-    setNodes((prevNodes) => {
-      const selectedIds = new Set(
-        prevNodes.filter((n) => n.selected).map((n) => n.id),
-      );
-      return members.map((member) => ({
-        id: member.id,
-        type: "familyMember",
-        position: member.position,
-        data: member,
-        selected: selectedIds.has(member.id),
-      }));
-    });
+    // carry the selection and measured sizes over — see buildMemberNodes.
+    setNodes((prevNodes) => buildMemberNodes(members, prevNodes));
   }
 };

@@ -21,10 +21,15 @@ logger = logging.getLogger("app.init")
 # backend/app/db/init_db.py -> backend/
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 
-# Revision ID of the squashed baseline migration.  Any database stamped with a
-# pre-squash revision (unknown to the current chain) is stamped here first so
-# that the normal upgrade can apply post-squash migrations on top.
-BASELINE_REVISION = "v1_0_0_baseline"
+
+class UnsupportedDatabaseVersionError(RuntimeError):
+    """The database is on a schema this release can no longer upgrade."""
+
+
+# v1.x databases had to go through the v1 -> v2 conversion that shipped in
+# v2.0.x (workspace consolidation, media relocation). That code is gone, so a
+# database still on a v1 revision must be upgraded by a 2.0.x release first.
+V1_REVISION_PREFIX = "v1_"
 
 # Seeded into the instance-wide registry on startup. Admins manage the registry
 # afterwards, so startup only tops up built-in defaults that are missing.
@@ -38,28 +43,36 @@ DEFAULT_RELATION_TYPES: list[str] = [
 ]
 
 
-def _stored_revision_is_unknown(cfg: Config) -> bool:
-    """Return True if alembic_version points to a revision not in the scripts.
-
-    A fresh database (no alembic_version row) returns False — normal upgrade
-    will build the schema from scratch.  A database at any known revision also
-    returns False.  Only a database stamped with a revision that no longer
-    exists in the migration chain (e.g. a pre-squash revision) returns True.
-    """
-    script = ScriptDirectory.from_config(cfg)
-    known_ids = {rev.revision for rev in script.walk_revisions()}
-
+def _current_heads() -> tuple[str, ...]:
     engine = create_engine(settings.sqlalchemy_database_uri)
     try:
         with engine.connect() as conn:
-            current_heads = MigrationContext.configure(conn).get_current_heads()
+            return tuple(MigrationContext.configure(conn).get_current_heads())
     finally:
         engine.dispose()
 
-    if not current_heads:
-        return False  # fresh DB; upgrade head will create the schema normally
 
-    return any(head not in known_ids for head in current_heads)
+def _check_upgradable(cfg: Config) -> None:
+    """Refuse a database this release cannot upgrade safely.
+
+    A fresh database (no alembic_version row) is fine: ``upgrade head`` builds
+    the schema from scratch. A database on a v1 revision, or on a revision
+    unknown to these scripts, is refused instead of being upgraded into a
+    half-converted state.
+    """
+    current_heads = _current_heads()
+    if not current_heads:
+        return
+
+    script = ScriptDirectory.from_config(cfg)
+    known_ids = {rev.revision for rev in script.walk_revisions()}
+    for head in current_heads:
+        if head.startswith(V1_REVISION_PREFIX) or head not in known_ids:
+            raise UnsupportedDatabaseVersionError(
+                f"Database is at revision {head!r}, which this release cannot "
+                "upgrade. Upgrade to v2.0.2 first so the v1 -> v2 conversion "
+                "runs, then upgrade to this release."
+            )
 
 
 def run_migrations() -> None:
@@ -67,19 +80,7 @@ def run_migrations() -> None:
     cfg.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
     cfg.set_main_option("sqlalchemy.url", settings.sqlalchemy_database_uri)
 
-    if _stored_revision_is_unknown(cfg):
-        logger.warning(
-            "Database is stamped with a revision unknown to the current "
-            "migration scripts (pre-squash database detected). Stamping "
-            "baseline %s and continuing with pending migrations.",
-            BASELINE_REVISION,
-        )
-        # purge=True clears alembic_version and writes the baseline directly.
-        # A plain stamp would fail here because Alembic tries to resolve the
-        # current (now-removed) revision to compute the path, raising
-        # "Can't locate revision ...".
-        command.stamp(cfg, BASELINE_REVISION, purge=True)
-
+    _check_upgradable(cfg)
     command.upgrade(cfg, "head")
 
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { formatDate } from "@/utils/dateUtils";
 import {
   Dialog,
@@ -47,34 +47,40 @@ import {
   ChevronsUpDown,
   Copy,
   Crown,
-  EyeOff,
   Globe,
   Link,
   UserPlus,
   X,
 } from "lucide-react";
-import { useTreeSharingStore } from "@/hooks/useTreeSharingStore";
+import { useWorkspaceSharingStore } from "@/hooks/useWorkspaceSharingStore";
+import { ACCESS_PRESETS, levelsOf } from "@/utils/accessLevels";
+import { AccessLevelsPicker } from "./AccessLevelsPicker";
 import { cn } from "@/lib/utils";
 import {
-  LinkedShareTree,
-  RESTRICTABLE_DOMAINS,
+  AccessLevels,
   ShareCandidate,
   ShareRole,
-  Tree,
-  TreeAccess,
-  TreeInvitation,
-} from "@/types/tree";
+  Workspace,
+  WorkspaceAccess,
+  WorkspaceInvitation,
+} from "@/types/workspace";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
 type Props = {
-  tree: Tree;
+  tree: Workspace;
   isOpen: boolean;
   onClose: () => void;
-  onTreeUpdated?: (tree: Tree) => void;
+  onTreeUpdated?: (tree: Workspace) => void;
 };
 
-type StagedUser = ShareCandidate & { role: ShareRole };
+/** ``sectionId`` null = share the whole workspace (#1100). */
+type StagedUser = ShareCandidate & {
+  levels: AccessLevels;
+  sectionId: string | null;
+};
+
+const WHOLE_WORKSPACE = "__workspace__";
 
 export const ShareTreeDialog = ({
   tree,
@@ -92,38 +98,33 @@ export const ShareTreeDialog = ({
   const treeRef = useRef(tree);
   treeRef.current = tree;
 
-  const access = useTreeSharingStore((state) => state.access);
-  const candidates = useTreeSharingStore((state) => state.candidates);
-  const invitations = useTreeSharingStore((state) => state.invitations);
-  const linkedTrees = useTreeSharingStore((state) => state.linkedTrees);
-  const loadSharing = useTreeSharingStore((state) => state.load);
-  const grantAccess = useTreeSharingStore((state) => state.grantAccess);
-  const revokeAccess = useTreeSharingStore((state) => state.revokeAccess);
-  const updateMemberRestrictions = useTreeSharingStore(
-    (state) => state.updateMemberRestrictions,
+  const access = useWorkspaceSharingStore((state) => state.access);
+  const candidates = useWorkspaceSharingStore((state) => state.candidates);
+  const sections = useWorkspaceSharingStore((state) => state.sections);
+  const invitations = useWorkspaceSharingStore((state) => state.invitations);
+  const loadSharing = useWorkspaceSharingStore((state) => state.load);
+  const grantAccess = useWorkspaceSharingStore((state) => state.grantAccess);
+  const revokeAccess = useWorkspaceSharingStore((state) => state.revokeAccess);
+  const updateMemberLevels = useWorkspaceSharingStore(
+    (state) => state.updateMemberLevels,
   );
-  const transferOwnership = useTreeSharingStore(
+  const transferOwnership = useWorkspaceSharingStore(
     (state) => state.transferOwnership,
   );
-  const revertTransfer = useTreeSharingStore((state) => state.revertTransfer);
-  const createInvitation = useTreeSharingStore(
+  const revertTransfer = useWorkspaceSharingStore(
+    (state) => state.revertTransfer,
+  );
+  const createInvitation = useWorkspaceSharingStore(
     (state) => state.createInvitation,
   );
-  const revokeInvitation = useTreeSharingStore(
+  const revokeInvitation = useWorkspaceSharingStore(
     (state) => state.revokeInvitation,
   );
-  const setPublicAccess = useTreeSharingStore((state) => state.setPublicAccess);
-  const setPublicPassword = useTreeSharingStore(
+  const setPublicAccess = useWorkspaceSharingStore(
+    (state) => state.setPublicAccess,
+  );
+  const setPublicPassword = useWorkspaceSharingStore(
     (state) => state.setPublicPassword,
-  );
-  const getLinkedShareTrees = useTreeSharingStore(
-    (state) => state.getLinkedShareTrees,
-  );
-  const grantAccessBatch = useTreeSharingStore(
-    (state) => state.grantAccessBatch,
-  );
-  const revokeAccessBatch = useTreeSharingStore(
-    (state) => state.revokeAccessBatch,
   );
   const [staged, setStaged] = useState<StagedUser[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -160,33 +161,6 @@ export const ShareTreeDialog = ({
     return null;
   }, [publicPasswordInput, t]);
 
-  // Linked trees (issue #537): grant/revoke access on linked trees together
-  // with the anchor tree, as a convenience batch operation.
-  const [shareLinkedToo, setShareLinkedToo] = useState(false);
-  const [selectedLinkedIds, setSelectedLinkedIds] = useState<Set<string>>(
-    new Set(),
-  );
-  const [revokeLinkedOpen, setRevokeLinkedOpen] = useState(false);
-  const [revokeLinkedCandidates, setRevokeLinkedCandidates] = useState<
-    LinkedShareTree[]
-  >([]);
-  const [revokeLinkedSelectedIds, setRevokeLinkedSelectedIds] = useState<
-    Set<string>
-  >(new Set());
-  const [revokeTarget, setRevokeTarget] = useState<{
-    userId: string;
-    username: string;
-  } | null>(null);
-
-  const manageableLinkedTrees = useMemo(
-    () => linkedTrees.filter((lt) => lt.manageable),
-    [linkedTrees],
-  );
-  const nonManageableLinkedTrees = useMemo(
-    () => linkedTrees.filter((lt) => !lt.manageable),
-    [linkedTrees],
-  );
-
   // Any active user other than the current owner is an eligible new owner:
   // existing members plus the share candidates (users without access yet).
   const transferTargets = useMemo(
@@ -203,7 +177,6 @@ export const ShareTreeDialog = ({
   const reload = useCallback(async () => {
     await loadSharing(tree.id, {
       includeInvitations: isOwner,
-      includeLinkedTrees: isOwner,
     });
   }, [tree.id, isOwner, loadSharing]);
 
@@ -221,52 +194,53 @@ export const ShareTreeDialog = ({
         treeRef.current.public_password_protected ?? false,
       );
       setPublicPasswordInput("");
-      setShareLinkedToo(false);
-      setSelectedLinkedIds(new Set());
-      setRevokeLinkedOpen(false);
-      setRevokeLinkedCandidates([]);
-      setRevokeLinkedSelectedIds(new Set());
-      setRevokeTarget(null);
       void reload();
     }
   }, [isOpen, reload]);
-
-  // Default every manageable linked tree to checked whenever the list (re)loads.
-  useEffect(() => {
-    setSelectedLinkedIds(
-      new Set(manageableLinkedTrees.map((lt) => lt.tree_id)),
-    );
-  }, [manageableLinkedTrees]);
 
   const toggleStaged = (candidate: ShareCandidate) => {
     setStaged((prev) =>
       prev.some((s) => s.user_id === candidate.user_id)
         ? prev.filter((s) => s.user_id !== candidate.user_id)
-        : [...prev, { ...candidate, role: "editor" }],
+        : [
+            ...prev,
+            { ...candidate, levels: ACCESS_PRESETS.editor, sectionId: null },
+          ],
     );
   };
 
-  const setStagedRole = (userId: string, role: ShareRole) => {
+  const setStagedLevels = (userId: string, levels: AccessLevels) => {
     setStaged((prev) =>
-      prev.map((s) => (s.user_id === userId ? { ...s, role } : s)),
+      prev.map((s) => (s.user_id === userId ? { ...s, levels } : s)),
     );
   };
+
+  const setStagedSection = (userId: string, sectionId: string | null) => {
+    setStaged((prev) =>
+      prev.map((s) => (s.user_id === userId ? { ...s, sectionId } : s)),
+    );
+  };
+
+  const sectionName = (sectionId: string) =>
+    sections.find((section) => section.id === sectionId)?.name ??
+    t("scope-unknown-section");
 
   const handleShare = async () => {
-    const includeLinked = shareLinkedToo && selectedLinkedIds.size > 0;
     try {
       for (const s of staged) {
-        if (includeLinked) {
-          await grantAccessBatch(tree.id, s.username, s.role, [
-            tree.id,
-            ...selectedLinkedIds,
-          ]);
-        } else {
-          await grantAccess(tree.id, s.username, s.role);
-        }
+        // Share first (creating the grant), then set its levels (#1101).
+        const role = Object.values(s.levels).includes("edit")
+          ? "editor"
+          : "viewer";
+        await grantAccess(
+          tree.id,
+          s.username,
+          role,
+          s.sectionId ? [s.sectionId] : undefined,
+        );
+        await updateMemberLevels(tree.id, s.user_id, s.levels, s.sectionId);
       }
       setStaged([]);
-      setShareLinkedToo(false);
       await reload();
       toast.success(t("shared"));
     } catch (err) {
@@ -275,137 +249,42 @@ export const ShareTreeDialog = ({
     }
   };
 
-  const handleRoleChange = async (member: TreeAccess, role: ShareRole) => {
-    try {
-      const updated = await grantAccess(tree.id, member.username, role);
-      useTreeSharingStore.setState({ access: updated });
-    } catch (err) {
-      console.error(err);
-      toast.error(t("share-error"));
-    }
-  };
-
-  const handleRestrictionToggle = async (
-    member: TreeAccess,
-    domain: string,
-    accessible: boolean,
+  const handleLevelsChange = async (
+    member: WorkspaceAccess,
+    levels: AccessLevels,
   ) => {
-    const current = member.restrictions ?? [];
-    const next = accessible
-      ? current.filter((d) => d !== domain)
-      : [...new Set([...current, domain])];
     try {
-      const updated = await updateMemberRestrictions(
+      const updated = await updateMemberLevels(
         tree.id,
         member.user_id,
-        next,
+        levels,
+        member.section_id,
       );
-      useTreeSharingStore.setState({ access: updated });
+      useWorkspaceSharingStore.setState({ access: updated });
     } catch (err) {
       console.error(err);
-      toast.error(t("restrictions-error"));
+      toast.error(t("access.error"));
     }
   };
 
-  const handleRevoke = async (userId: string, username: string) => {
-    if (manageableLinkedTrees.length > 0) {
-      try {
-        const linked = await getLinkedShareTrees(tree.id, username);
-        const revocable = linked.filter(
-          (lt) =>
-            lt.manageable &&
-            (lt.target_role === "viewer" || lt.target_role === "editor"),
-        );
-        if (revocable.length > 0) {
-          setRevokeLinkedCandidates(revocable);
-          setRevokeLinkedSelectedIds(
-            new Set(revocable.map((lt) => lt.tree_id)),
-          );
-          setRevokeTarget({ userId, username });
-          setRevokeLinkedOpen(true);
-          return;
-        }
-      } catch (err) {
-        // Fall through to a plain revoke if the linked-trees lookup fails —
-        // it's a convenience add-on, not a prerequisite for revoking access.
-        console.error(err);
-      }
-    }
-    await revokeAnchorOnly(userId);
-  };
-
-  const revokeAnchorOnly = async (userId: string) => {
+  const handleRevoke = async (member: WorkspaceAccess) => {
     try {
-      await revokeAccess(tree.id, userId);
+      await revokeAccess(tree.id, member.user_id, member.section_id);
       await reload();
     } catch (err) {
       console.error(err);
       toast.error(t("revoke-error"));
     }
-  };
-
-  const handleRevokeLinkedConfirm = async () => {
-    if (!revokeTarget) return;
-    try {
-      await revokeAccessBatch(tree.id, revokeTarget.userId, [
-        tree.id,
-        ...revokeLinkedSelectedIds,
-      ]);
-      setRevokeLinkedOpen(false);
-      setRevokeTarget(null);
-      await reload();
-    } catch (err) {
-      console.error(err);
-      toast.error(t("revoke-error"));
-    }
-  };
-
-  const handleRevokeAnchorOnly = async () => {
-    if (!revokeTarget) return;
-    setRevokeLinkedOpen(false);
-    await revokeAnchorOnly(revokeTarget.userId);
-    setRevokeTarget(null);
-  };
-
-  const handleRevokeLinkedOpenChange = (open: boolean) => {
-    setRevokeLinkedOpen(open);
-    if (!open) {
-      setRevokeTarget(null);
-    }
-  };
-
-  const toggleRevokeLinkedId = (treeId: string) => {
-    setRevokeLinkedSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(treeId)) {
-        next.delete(treeId);
-      } else {
-        next.add(treeId);
-      }
-      return next;
-    });
-  };
-
-  const toggleSelectedLinkedId = (treeId: string) => {
-    setSelectedLinkedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(treeId)) {
-        next.delete(treeId);
-      } else {
-        next.add(treeId);
-      }
-      return next;
-    });
   };
 
   const showUndoToast = (
-    treeId: string,
-    treeName: string,
+    workspaceId: string,
+    workspaceName: string,
     username: string,
     undoAvailableUntil: string,
   ) => {
     const deadline = new Date(undoAvailableUntil).getTime();
-    const toastId = `transfer-undo-${treeId}`;
+    const toastId = `transfer-undo-${workspaceId}`;
     let cancelled = false;
 
     const renderToast = () => {
@@ -418,7 +297,7 @@ export const ShareTreeDialog = ({
       toast(t("transfer-undo-title"), {
         id: toastId,
         description: t("transfer-undo-description", {
-          name: treeName,
+          name: workspaceName,
           username,
         }),
         duration: deadline - Date.now() + 500,
@@ -432,11 +311,11 @@ export const ShareTreeDialog = ({
           label: t("transfer-undo-button", { seconds: remaining }),
           onClick: () => {
             cancelled = true;
-            void revertTransfer(treeId)
+            void revertTransfer(workspaceId)
               .then(() => {
                 toast.dismiss(toastId);
                 toast.success(t("transfer-reverted"));
-                void useTreeStore.getState().loadTrees();
+                void useWorkspaceStore.getState().loadTrees();
               })
               .catch(() => {
                 cancelled = false;
@@ -459,7 +338,7 @@ export const ShareTreeDialog = ({
       );
       setConfirmTransferOpen(false);
       setTransferTo("");
-      await useTreeStore.getState().loadTrees();
+      await useWorkspaceStore.getState().loadTrees();
       onClose();
       if (result.undo_available_until) {
         showUndoToast(
@@ -576,9 +455,9 @@ export const ShareTreeDialog = ({
     }
   };
 
-  const inviteStatusBadge = (status: TreeInvitation["status"]) => {
+  const inviteStatusBadge = (status: WorkspaceInvitation["status"]) => {
     const variants: Record<
-      TreeInvitation["status"],
+      WorkspaceInvitation["status"],
       "default" | "secondary" | "destructive" | "outline"
     > = {
       pending: "default",
@@ -596,7 +475,7 @@ export const ShareTreeDialog = ({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
-        className="max-h-[90vh] overflow-y-auto sm:min-w-[600px]"
+        className="grid-cols-1 max-h-[90vh] overflow-y-auto sm:min-w-[600px]"
         onInteractOutside={(e) => {
           // The public-access / transfer confirmations render as sibling
           // AlertDialog portals. Radix treats a pointer-down or focus change
@@ -621,76 +500,33 @@ export const ShareTreeDialog = ({
           <p className="text-sm font-medium">{t("current-access")}</p>
           {access.map((a) => (
             <div
-              key={a.user_id}
+              key={`${a.user_id}:${a.section_id ?? ""}`}
               className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-2"
             >
-              <span className="min-w-0 truncate text-sm font-medium">
-                {a.username}
-              </span>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium">{a.username}</p>
+                {a.role !== "owner" &&
+                  (sections.length > 0 || a.section_id) && (
+                    <p className="truncate text-xs text-muted-foreground">
+                      {a.section_id
+                        ? sectionName(a.section_id)
+                        : t("scope-workspace")}
+                    </p>
+                  )}
+              </div>
               {a.role === "owner" ? (
                 <Badge variant="secondary">{t("role-owner")}</Badge>
               ) : (
                 <div className="flex items-center gap-2">
-                  {isOwner && (
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          title={t("restrictions-button")}
-                        >
-                          <EyeOff className="h-4 w-4" />
-                          {(a.restrictions?.length ?? 0) > 0 && (
-                            <Badge
-                              variant="secondary"
-                              className="ml-1 h-4 px-1 text-xs"
-                            >
-                              {a.restrictions!.length}
-                            </Badge>
-                          )}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-48 p-2" align="end">
-                        <p className="mb-2 text-xs font-medium text-muted-foreground">
-                          {t("restrictions-title")}
-                        </p>
-                        {RESTRICTABLE_DOMAINS.map((domain) => (
-                          <div
-                            key={domain}
-                            className="flex items-center justify-between py-1"
-                          >
-                            <span className="text-sm">
-                              {t(`domains.${domain}`)}
-                            </span>
-                            <Switch
-                              checked={
-                                !(a.restrictions?.includes(domain) ?? false)
-                              }
-                              onCheckedChange={(checked) =>
-                                handleRestrictionToggle(a, domain, checked)
-                              }
-                            />
-                          </div>
-                        ))}
-                      </PopoverContent>
-                    </Popover>
-                  )}
-                  <Select
-                    value={a.role}
-                    onValueChange={(v) => handleRoleChange(a, v as ShareRole)}
-                  >
-                    <SelectTrigger className="h-8 w-28">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="editor">{t("role-editor")}</SelectItem>
-                      <SelectItem value="viewer">{t("role-viewer")}</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <AccessLevelsPicker
+                    levels={levelsOf(a)}
+                    onChange={(levels) => handleLevelsChange(a, levels)}
+                    disabled={!isOwner}
+                  />
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => handleRevoke(a.user_id, a.username)}
+                    onClick={() => handleRevoke(a)}
                     title={t("revoke")}
                   >
                     <X className="h-4 w-4" />
@@ -772,24 +608,39 @@ export const ShareTreeDialog = ({
                     {s.username}
                   </span>
                   <div className="flex items-center gap-2">
-                    <Select
-                      value={s.role}
-                      onValueChange={(v) =>
-                        setStagedRole(s.user_id, v as ShareRole)
-                      }
-                    >
-                      <SelectTrigger className="h-8 w-28">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="editor">
-                          {t("role-editor")}
-                        </SelectItem>
-                        <SelectItem value="viewer">
-                          {t("role-viewer")}
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
+                    {sections.length > 0 && (
+                      <Select
+                        value={s.sectionId ?? WHOLE_WORKSPACE}
+                        onValueChange={(v) =>
+                          setStagedSection(
+                            s.user_id,
+                            v === WHOLE_WORKSPACE ? null : v,
+                          )
+                        }
+                      >
+                        <SelectTrigger
+                          size="sm"
+                          className="w-40"
+                          aria-label={t("scope-label")}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={WHOLE_WORKSPACE}>
+                            {t("scope-workspace")}
+                          </SelectItem>
+                          {sections.map((section) => (
+                            <SelectItem key={section.id} value={section.id}>
+                              {section.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    <AccessLevelsPicker
+                      levels={s.levels}
+                      onChange={(levels) => setStagedLevels(s.user_id, levels)}
+                    />
                     <Button
                       variant="ghost"
                       size="sm"
@@ -801,62 +652,6 @@ export const ShareTreeDialog = ({
                   </div>
                 </div>
               ))}
-
-              {manageableLinkedTrees.length > 0 && (
-                <div className="space-y-2 rounded-md border p-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">
-                      {t("linked.share-toggle", {
-                        count: manageableLinkedTrees.length,
-                      })}
-                    </span>
-                    <Switch
-                      checked={shareLinkedToo}
-                      onCheckedChange={setShareLinkedToo}
-                    />
-                  </div>
-                  {shareLinkedToo && (
-                    <div className="space-y-1 pl-2">
-                      {manageableLinkedTrees.map((lt) => (
-                        <label
-                          key={lt.tree_id}
-                          className="flex items-center gap-2 text-sm"
-                        >
-                          <input
-                            type="checkbox"
-                            className="h-4 w-4 accent-primary"
-                            checked={selectedLinkedIds.has(lt.tree_id)}
-                            onChange={() => toggleSelectedLinkedId(lt.tree_id)}
-                          />
-                          <span>{lt.name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {t("linked.member-count", {
-                              count: lt.member_count,
-                            })}
-                          </span>
-                        </label>
-                      ))}
-                      {nonManageableLinkedTrees.map((lt) => (
-                        <label
-                          key={lt.tree_id}
-                          className="flex items-center gap-2 text-sm text-muted-foreground"
-                        >
-                          <input
-                            type="checkbox"
-                            className="h-4 w-4"
-                            checked={false}
-                            disabled
-                          />
-                          <span>{lt.name}</span>
-                          <span className="text-xs">
-                            {t("linked.not-yours")}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
 
               <Button className="w-full" onClick={handleShare}>
                 {t("share-button", { count: staged.length })}
@@ -1089,6 +884,7 @@ export const ShareTreeDialog = ({
                 aria-label={t("transfer-select")}
               >
                 <SelectValue
+                  className="min-w-0"
                   placeholder={
                     transferTargets.length === 0
                       ? t("transfer-no-targets")
@@ -1199,49 +995,6 @@ export const ShareTreeDialog = ({
               {pendingPublicRole === "viewer"
                 ? t("public.confirm-enable-action")
                 : t("public.disable")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Revoke-with-linked-trees confirmation */}
-      <AlertDialog
-        open={revokeLinkedOpen}
-        onOpenChange={handleRevokeLinkedOpenChange}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t("linked.revoke-confirm-title")}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("linked.revoke-confirm-description", {
-                username: revokeTarget?.username,
-              })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="space-y-1">
-            {revokeLinkedCandidates.map((lt) => (
-              <label
-                key={lt.tree_id}
-                className="flex items-center gap-2 text-sm"
-              >
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 accent-primary"
-                  checked={revokeLinkedSelectedIds.has(lt.tree_id)}
-                  onChange={() => toggleRevokeLinkedId(lt.tree_id)}
-                />
-                <span>{lt.name}</span>
-              </label>
-            ))}
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleRevokeAnchorOnly}>
-              {t("linked.revoke-this-tree-only")}
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={handleRevokeLinkedConfirm}>
-              {t("linked.revoke-confirm-action")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

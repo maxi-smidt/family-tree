@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import type { GalleryImage } from "@/types/gallery";
 import { GalleryView } from "./GalleryView";
 
@@ -39,14 +39,14 @@ const galleryImages: GalleryImage[] = [
 
 describe("GalleryView search", () => {
   beforeEach(() => {
-    useTreeStore.setState({ isReady: true });
+    useWorkspaceStore.setState({ isReady: true });
     useGalleryStore.setState({ galleryImages, initialized: true });
   });
 
   it("renders only matching images without requesting an out-of-range virtual item", () => {
     render(<GalleryView />);
 
-    fireEvent.change(screen.getByPlaceholderText("Search image..."), {
+    fireEvent.change(screen.getByPlaceholderText("Search photos…"), {
       target: { value: "matching" },
     });
 
@@ -86,7 +86,7 @@ describe("GalleryView sort by date taken", () => {
   ];
 
   beforeEach(() => {
-    useTreeStore.setState({ isReady: true });
+    useWorkspaceStore.setState({ isReady: true });
     useGalleryStore.setState({
       galleryImages: imagesWithMissingDate,
       initialized: true,

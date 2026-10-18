@@ -28,7 +28,7 @@ darauf verlässt.
 
 ## 1. Der Dienst
 
-Family Tree ("der Dienst") ermöglicht registrierten Nutzern das Erstellen, \
+Family Workspace ("der Dienst") ermöglicht registrierten Nutzern das Erstellen, \
 Verwalten und Teilen von Stammbäumen, einschließlich personenbezogener Daten \
 wie Namen, Bildern, Daten, Orten, Dokumenten und — sofern ein Nutzer dies \
 hochlädt — gesundheitsbezogener Informationen. Stammbäume können privat \
@@ -124,8 +124,8 @@ contact details below) before relying on it.
 
 ## 1. The Service
 
-Family Tree ("the Service") lets registered users create, manage, and share \
-family trees, including personal data such as names, images, dates, \
+Family Workspace ("the Service") lets registered users create, manage, and share \
+family workspaces, including personal data such as names, images, dates, \
 locations, documents, and — where a user chooses to upload it — health-related \
 information. Trees may be kept private, shared with specific other users as \
 viewer or editor, or made accessible via a public link. There is no public \
@@ -146,7 +146,7 @@ does not review or verify the legality of user-submitted content.
 information only if they have the right to do so and, where required by law, \
 the explicit consent of the affected person. The Provider processes such data \
 solely at the user's instruction for the purpose of storing, displaying, and \
-sharing family trees within the Service. The user remains responsible for \
+sharing family workspaces within the Service. The user remains responsible for \
 determining whether the upload and sharing of such data is lawful.
 
 You retain ownership of the data you upload. By uploading it, you grant the \

@@ -1,7 +1,8 @@
 name: Release
 
 # Manual release pipeline: verify -> bump -> PR -> checks + E2E (via the
-# normal PR trigger) -> merge -> publish images -> tag + GitHub Release.
+# normal PR trigger) -> merge -> publish candidate images -> rehearse the
+# packaged upgrade + smoke-test -> promote tags -> tag + GitHub Release.
 #
 # The release commit lands on `main` through a normal PR/squash-merge rather
 # than a direct push, because the "Main" ruleset requires every change to go
@@ -21,8 +22,18 @@ name: Release
 #     produced by GITHUB_TOKEN does not trigger other workflow runs, which is
 #     exactly what we want: check-build.yml publishes images on every push to
 #     main, so merging with the PAT would race a second publish against the
-#     `publish` job below. That same property is why publish-images.yml is
-#     called directly here instead of being left to main's push trigger.
+#     `publish-candidate` job below. That same property is why
+#     publish-images.yml is called directly here instead of being left to
+#     main's push trigger.
+#
+# Promotion order (#1022): `publish-candidate` pushes the built images under
+# a non-discoverable `<version>-rehearsal` tag only — no `latest`, no semver
+# tag, no GitHub Release yet. `smoke-test` then exercises that exact
+# candidate. Only once it passes does
+# `promote-images` retarget the semver + `latest` tags onto the already-
+# rehearsed digest (no rebuild), and `github-release` creates the Release. A
+# failure anywhere before `promote-images` leaves no version tag, no
+# `latest`, and no Release for a self-hoster to stumble into.
 #
 # See the epic's constraint note (#899, #902).
 
@@ -202,8 +213,8 @@ jobs:
           gh pr merge "${{ needs.bump.outputs.pr_number }}" --squash
           echo "sha=$(gh api repos/${{ github.repository }}/git/ref/heads/main -q .object.sha)" >> "$GITHUB_OUTPUT"
 
-  publish:
-    name: "Publish images"
+  publish-candidate:
+    name: "Publish candidate images"
     needs: [bump, land]
     if: ${{ !inputs.dry_run }}
     uses: ./.github/workflows/publish-images.yml
@@ -212,63 +223,27 @@ jobs:
       version: ${{ needs.bump.outputs.version }}
       revision: ${{ needs.land.outputs.sha }}
       push: true
-      tag-latest: true
+      tag-latest: false
+      tag-version: false
+      extra-tag: "${{ needs.bump.outputs.version }}-rehearsal"
     permissions:
       contents: read
       packages: write
       id-token: write
       attestations: write
 
-  github-release:
-    name: "Tag and create GitHub Release"
-    needs: [bump, land, publish]
-    if: ${{ !inputs.dry_run }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: write
-    steps:
-      - name: "Checkout release commit"
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ needs.land.outputs.sha }}
-
-      - name: "Download release notes"
-        uses: actions/download-artifact@v8
-        with:
-          name: release-notes
-
-      - name: "Download SBOMs"
-        uses: actions/download-artifact@v8
-        with:
-          pattern: sbom-*
-          merge-multiple: true
-
-      - name: "Create GitHub Release"
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release create "v${{ needs.bump.outputs.version }}" \
-            --target "${{ needs.land.outputs.sha }}" \
-            --title "v${{ needs.bump.outputs.version }}" \
-            --notes-file RELEASE_NOTES.md \
-            docker-compose.prod.yml \
-            .env.example \
-            sbom-*.cdx.json
-
   # Everything above this point can pass while the *published* artifact is
   # still broken: release-e2e builds from source with different build args
-  # than publish-images pushes, and no prior job pulls the actual GHCR image.
-  # This is the one job that does — a failure here means self-hosters would
-  # pull a release that cannot come up.
+  # than publish-images pushes. This is the job that pulls the actual
+  # candidate GHCR image against a fresh database.
   smoke-test:
-    name: "Smoke-test published images"
-    needs: [bump, land, github-release]
+    name: "Smoke-test the candidate images"
+    needs: [bump, land, publish-candidate]
     if: ${{ !inputs.dry_run }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      APP_IMAGE_TAG: ${{ needs.bump.outputs.version }}
+      APP_IMAGE_TAG: "${{ needs.bump.outputs.version }}-rehearsal"
       SECRET_KEY: smoke-test-not-for-production-use-only
       POSTGRES_HOST: db
       FIRST_ADMIN_USERNAME: e2e-admin
@@ -296,16 +271,20 @@ jobs:
           mkdir -p appdata/backend data
           sudo chown -R 1000:1000 appdata data
 
-      - name: "Pull published images and start the stack"
+      - name: "Pull candidate images and start the stack"
         run: |
           docker compose -f docker-compose.prod.yml -f docker-compose.smoke.yml pull
           docker compose -f docker-compose.prod.yml -f docker-compose.smoke.yml up -d
 
       - name: "Wait for stack to be healthy"
         run: |
-          echo "Waiting for frontend to be reachable..."
+          # The frontend no longer waits for a healthy backend (it starts on
+          # service_started so the maintenance screen can show during a long
+          # migration, #1020), so a reachable frontend says nothing about the
+          # backend. Poll the backend's readiness through the frontend proxy.
+          echo "Waiting for the backend to be ready..."
           for i in $(seq 1 30); do
-            if curl -sf http://localhost:8080 > /dev/null 2>&1; then
+            if curl -sf http://localhost:8080/api/health/ready > /dev/null 2>&1; then
               echo "Stack is up after ${i} attempts"
               break
             fi
@@ -313,7 +292,7 @@ jobs:
             sleep 5
           done
           curl -sf http://localhost:8080/api/health/ready || {
-            echo "Backend health check failed — the published image likely could not migrate a fresh database."
+            echo "Backend health check failed — the candidate image likely could not migrate a fresh database."
             docker compose -f docker-compose.prod.yml -f docker-compose.smoke.yml logs
             exit 1
           }
@@ -323,7 +302,7 @@ jobs:
           REPORTED=$(curl -sf http://localhost:8080/api/health | jq -r .version)
           echo "Reported version: $REPORTED (expected ${{ needs.bump.outputs.version }})"
           if [ "$REPORTED" != "${{ needs.bump.outputs.version }}" ]; then
-            echo "Published image reports version '$REPORTED', expected '${{ needs.bump.outputs.version }}'."
+            echo "Candidate image reports version '$REPORTED', expected '${{ needs.bump.outputs.version }}'."
             exit 1
           fi
 
@@ -365,29 +344,71 @@ jobs:
         if: always()
         run: docker compose -f docker-compose.prod.yml -f docker-compose.smoke.yml down -v
 
-  # Images are already pushed and the release already exists by this point —
-  # there is nothing left to unpublish. Flag it instead: mark the release as
-  # a prerelease so it stays visible (self-hosters can still investigate the
-  # published assets) but is clearly not something to pin APP_IMAGE_TAG to.
-  flag-release-on-smoke-failure:
-    name: "Flag release as prerelease on smoke-test failure"
-    needs: [bump, github-release, smoke-test]
-    if: ${{ !inputs.dry_run && failure() && needs.github-release.result == 'success' }}
+  promote-images:
+    name: "Promote tags on the rehearsed candidate"
+    needs: [bump, land, publish-candidate, smoke-test]
+    if: ${{ !inputs.dry_run }}
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
+    permissions:
+      packages: write
+    steps:
+      - name: "Log in to GHCR"
+        uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: "Set up Docker Buildx"
+        uses: docker/setup-buildx-action@v4
+
+      # Points the semver + latest tags at the exact manifest that was just
+      # rehearsed — no rebuild, so what gets promoted is provably what was
+      # tested, not a fresh build that merely used the same source.
+      - name: "Retarget version + latest tags"
+        run: |
+          for service in backend frontend; do
+            IMAGE="ghcr.io/${{ github.repository }}-${service}"
+            docker buildx imagetools create \
+              --tag "${IMAGE}:${{ needs.bump.outputs.version }}" \
+              --tag "${IMAGE}:latest" \
+              "${IMAGE}:${{ needs.bump.outputs.version }}-rehearsal"
+          done
+
+  github-release:
+    name: "Tag and create GitHub Release"
+    needs: [bump, land, promote-images]
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: write
     steps:
-      - name: "Mark release as prerelease"
+      - name: "Checkout release commit"
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.land.outputs.sha }}
+
+      - name: "Download release notes"
+        uses: actions/download-artifact@v8
+        with:
+          name: release-notes
+
+      - name: "Download SBOMs"
+        uses: actions/download-artifact@v8
+        with:
+          pattern: sbom-*
+          merge-multiple: true
+
+      - name: "Create GitHub Release"
         env:
           GH_TOKEN: ${{ github.token }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          TAG="v${{ needs.bump.outputs.version }}"
-          gh release view "$TAG" --repo "${{ github.repository }}" --json body -q .body > notes.md
-          {
-            echo
-            echo
-            echo "⚠️ **Smoke test failed**: the published images could not come up and migrate a fresh database (or served the wrong version). Investigate the [smoke-test job]($RUN_URL) before relying on this release."
-          } >> notes.md
-          gh release edit "$TAG" --repo "${{ github.repository }}" --prerelease --notes-file notes.md
+          gh release create "v${{ needs.bump.outputs.version }}" \
+            --target "${{ needs.land.outputs.sha }}" \
+            --title "v${{ needs.bump.outputs.version }}" \
+            --notes-file RELEASE_NOTES.md \
+            docker-compose.prod.yml \
+            .env.example \
+            sbom-*.cdx.json

@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import { ResearchTask } from "@/types/task";
 import { useTranslation } from "react-i18next";
 import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
-import { getMemberOptions } from "@/utils/memberUtils";
+import { birthNameContext, getMemberOptions } from "@/utils/memberUtils";
 
 interface TaskDialogProps {
   open: boolean;
@@ -114,8 +114,8 @@ export const TaskDialog = ({
 
   useUnsavedGuard("task", isDirty, save);
 
-  const memberOptions = getMemberOptions(members, (name) =>
-    i18n.t("common.nee", { name }),
+  const memberOptions = getMemberOptions(members, (name, gender) =>
+    i18n.t("common.nee", { name, context: birthNameContext(gender) }),
   );
 
   return (

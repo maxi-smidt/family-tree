@@ -47,17 +47,17 @@ def test_global_search_returns_owned_and_shared_trees_only(client, db):
     )
 
     response = client.get(
-        f"{API}/search?q=maria&exclude_tree_id={current_tree.id}",
+        f"{API}/search?q=maria&exclude_workspace_id={current_tree.id}",
         headers=auth(user),
     )
 
     assert response.status_code == 200
     hits = response.json()
-    assert {(hit["treeId"], hit["id"]) for hit in hits} == {
+    assert {(hit["workspaceId"], hit["id"]) for hit in hits} == {
         (owned_tree.id, "owned-match"),
         (shared_tree.id, "shared-match"),
     }
-    assert {hit["treeName"] for hit in hits} == {"Owned", "Shared"}
+    assert {hit["workspaceName"] for hit in hits} == {"Owned", "Shared"}
     assert all("additionalData" not in hit for hit in hits)
 
 
@@ -91,7 +91,7 @@ def test_global_search_applies_per_tree_and_overall_caps(client, db):
     assert response.status_code == 200
     hits = response.json()
     assert len(hits) == 2
-    assert {hit["treeId"] for hit in hits} == {alpha.id, beta.id}
+    assert {hit["workspaceId"] for hit in hits} == {alpha.id, beta.id}
 
 
 def test_global_search_requires_authentication(client):

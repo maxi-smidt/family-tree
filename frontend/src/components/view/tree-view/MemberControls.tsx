@@ -1,12 +1,10 @@
 import { Node, useReactFlow } from "@xyflow/react";
-import { useState } from "react";
-import { ButtonGroup } from "@/components/ui/button-group";
+import { ReactNode, useState } from "react";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,6 +18,7 @@ import {
 import {
   DropdownMenuCheckboxItem,
   DropdownMenuItem,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
   ChevronsDownUp,
@@ -33,18 +32,25 @@ import {
   Activity,
   ClipboardList,
   Crosshair,
+  FolderTree,
   Minus,
   Plus,
 } from "lucide-react";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { createMember, Member } from "@/types/member";
-import { NODE_WIDTH } from "@/constants";
+import { NODE_HEIGHT, NODE_WIDTH } from "@/constants";
 import { RelationControls } from "@/components/view/tree-view/RelationControls";
 import { PanelMoreMenu } from "@/components/view/tree-view/PanelMoreMenu";
+import {
+  ToolbarButton,
+  ToolbarGroup,
+  ToolbarSeparator,
+} from "@/components/view/tree-view/CanvasToolbar";
+import { CreateSectionDialog } from "@/components/view/tree-view/nav/CreateSectionDialog";
 import { useTranslation } from "react-i18next";
-import { Separator } from "@/components/ui/separator";
+import { stepNeighborhoodDepth } from "@/types/savedView";
 
 type Props = {
   nodes: Node[];
@@ -54,6 +60,8 @@ type Props = {
   onCreateNewMember: (member: Member) => void;
   onRearrange: () => void;
   readOnly?: boolean;
+  /** Items from FlowPanelControls, listed first in the shared overflow menu. */
+  leadingMenuItems?: ReactNode;
 };
 
 export const MemberControls = ({
@@ -63,9 +71,15 @@ export const MemberControls = ({
   onCreateNewMember,
   onRearrange,
   readOnly = false,
+  leadingMenuItems,
 }: Props) => {
   const { t } = useTranslation(undefined, { keyPrefix: "tree-view.controls" });
   const [isArrangeDialogOpen, setIsArrangeDialogOpen] = useState(false);
+  const [isCreateSectionOpen, setIsCreateSectionOpen] = useState(false);
+  const canCreateSections = useWorkspaceStore(
+    (s) =>
+      s.selectedTree?.can_create_sections ?? s.selectedTree?.role === "owner",
+  );
   const {
     isLockedScreen,
     isFastMode,
@@ -75,7 +89,9 @@ export const MemberControls = ({
     showTaskIndicators,
     setShowTaskIndicators,
   } = useFamilyTreeSettings();
-  const taskRestrictions = useTreeStore((s) => s.selectedTree?.restrictions);
+  const taskRestrictions = useWorkspaceStore(
+    (s) => s.selectedTree?.restrictions,
+  );
   const tasksEnabled = !taskRestrictions?.includes("tasks");
   const {
     batchSetCollapsed,
@@ -92,131 +108,119 @@ export const MemberControls = ({
   const adjustNeighborhoodDepth = (delta: 1 | -1) => (e: Event) => {
     e.preventDefault();
     void setNeighborhoodDepth(
-      Math.min(Math.max(neighborhoodUp + delta, 1), 10),
-      Math.min(Math.max(neighborhoodDown + delta, 1), 10),
+      stepNeighborhoodDepth(neighborhoodUp, delta, 10),
+      stepNeighborhoodDepth(neighborhoodDown, delta, 10),
     );
   };
 
   return (
-    <div className="flex flex-col gap-2">
-      {/* Relations — hidden in read-only (virtual view) mode */}
-      {!readOnly && <RelationControls />}
+    <>
+      <ToolbarGroup>
+        {/* Relations — hidden in read-only (virtual view) mode */}
+        {!readOnly && <RelationControls />}
 
-      {!readOnly && <Separator className="my-1" />}
-
-      {/* View Modes */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant={isFastMode ? "default" : "secondary"}
-            size="icon"
-            onClick={() => setIsFastMode(!isFastMode)}
-            disabled={isLockedScreen}
-            aria-label={
-              isFastMode ? t("disable-quick-add") : t("enable-quick-add")
-            }
-          >
-            <UserRoundPlus className={isFastMode ? "fill-current" : ""} />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="left">
-          {isFastMode ? t("disable-quick-add") : t("enable-quick-add")}
-        </TooltipContent>
-      </Tooltip>
-
-      <Separator className="my-1" />
-
-      {/* Collapse/Expand Controls */}
-      <ButtonGroup orientation="vertical">
+        {/* View Modes */}
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
-              variant="secondary"
-              size="icon"
+            <ToolbarButton
+              active={isFastMode}
+              onClick={() => setIsFastMode(!isFastMode)}
+              disabled={isLockedScreen}
+              aria-label={
+                isFastMode ? t("disable-quick-add") : t("enable-quick-add")
+              }
+            >
+              <UserRoundPlus className={isFastMode ? "fill-current" : ""} />
+            </ToolbarButton>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            {isFastMode ? t("disable-quick-add") : t("enable-quick-add")}
+          </TooltipContent>
+        </Tooltip>
+      </ToolbarGroup>
+      <ToolbarSeparator />
+
+      {/* Collapse/Expand Controls */}
+      <ToolbarGroup>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <ToolbarButton
               onClick={onCollapseMembers}
               disabled={selectedNoExpandedMember()}
               aria-label={t("collapse-children")}
             >
               <ChevronsDownUp />
-            </Button>
+            </ToolbarButton>
           </TooltipTrigger>
-          <TooltipContent side="left">{t("collapse-children")}</TooltipContent>
+          <TooltipContent side="top">{t("collapse-children")}</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
-              variant="secondary"
-              size="icon"
+            <ToolbarButton
               onClick={onExpandMembers}
               disabled={selectedNoCollapsedMember()}
               aria-label={t("expand-children")}
             >
               <ChevronsUpDown />
-            </Button>
+            </ToolbarButton>
           </TooltipTrigger>
-          <TooltipContent side="left">{t("expand-children")}</TooltipContent>
+          <TooltipContent side="top">{t("expand-children")}</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
-              variant="secondary"
-              size="icon"
+            <ToolbarButton
               onClick={onExpandAllMembers}
               disabled={noCollapsedMember()}
               aria-label={t("expand-all-children")}
             >
               <ListChevronsUpDown />
-            </Button>
+            </ToolbarButton>
           </TooltipTrigger>
-          <TooltipContent side="left">
-            {t("expand-all-children")}
-          </TooltipContent>
+          <TooltipContent side="top">{t("expand-all-children")}</TooltipContent>
         </Tooltip>
-      </ButtonGroup>
-
-      {!readOnly && <Separator className="my-1" />}
+      </ToolbarGroup>
 
       {/* Member Add/Remove — hidden in read-only (virtual view) mode */}
       {!readOnly && (
-        <ButtonGroup orientation="vertical">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="secondary"
-                size="icon"
-                onClick={onAddMember}
-                disabled={isLockedScreen}
-                aria-label={t("add-person")}
-                className="text-green-600 hover:bg-green-50 hover:text-green-700"
-                data-tutorial="add-member"
-              >
-                <UserPlus size={20} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="left">{t("add-person")}</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="secondary"
-                size="icon"
-                onClick={onRemoveMembers}
-                disabled={!selectedNodes.length || isLockedScreen}
-                aria-label={t("remove-person")}
-                className="text-red-600 hover:bg-red-50 hover:text-red-700"
-              >
-                <UserMinus />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="left">{t("remove-person")}</TooltipContent>
-          </Tooltip>
-        </ButtonGroup>
+        <>
+          <ToolbarSeparator />
+          <ToolbarGroup>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <ToolbarButton
+                  onClick={onAddMember}
+                  disabled={isLockedScreen}
+                  aria-label={t("add-person")}
+                  className="text-primary hover:bg-primary-soft hover:text-primary dark:hover:bg-primary-soft"
+                  data-tutorial="add-member"
+                >
+                  <UserPlus size={20} />
+                </ToolbarButton>
+              </TooltipTrigger>
+              <TooltipContent side="top">{t("add-person")}</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <ToolbarButton
+                  onClick={onRemoveMembers}
+                  disabled={!selectedNodes.length || isLockedScreen}
+                  aria-label={t("remove-person")}
+                  className="text-destructive hover:bg-destructive/10 hover:text-destructive dark:hover:bg-destructive/15"
+                >
+                  <UserMinus />
+                </ToolbarButton>
+              </TooltipTrigger>
+              <TooltipContent side="top">{t("remove-person")}</TooltipContent>
+            </Tooltip>
+          </ToolbarGroup>
+        </>
       )}
 
-      <Separator className="my-1" />
-
-      {/* Layout + situational actions */}
-      <PanelMoreMenu label={t("more-actions")} side="left">
+      {/* Layout + situational actions, after the canvas-wide ones */}
+      <ToolbarSeparator />
+      <PanelMoreMenu label={t("more-actions")} side="top">
+        {leadingMenuItems}
+        {leadingMenuItems && <DropdownMenuSeparator />}
         <DropdownMenuItem
           inset
           onSelect={() => setIsArrangeDialogOpen(true)}
@@ -273,7 +277,18 @@ export const MemberControls = ({
             {t("focus-here")}
           </DropdownMenuItem>
         )}
+        {!readOnly && canCreateSections && selectedNodes.length === 1 && (
+          <DropdownMenuItem inset onSelect={() => setIsCreateSectionOpen(true)}>
+            <FolderTree />
+            {t("create-section-here")}
+          </DropdownMenuItem>
+        )}
       </PanelMoreMenu>
+      <CreateSectionDialog
+        open={isCreateSectionOpen}
+        onOpenChange={setIsCreateSectionOpen}
+        initialRootMemberId={selectedNodes[0]?.id ?? null}
+      />
       <AlertDialog
         open={isArrangeDialogOpen}
         onOpenChange={setIsArrangeDialogOpen}
@@ -296,11 +311,10 @@ export const MemberControls = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </>
   );
 
   async function onAddMember() {
-    const NODE_HEIGHT = 157;
     const BOTTOM_MARGIN = 50;
     const flowPoint = screenToFlowPosition({
       x: window.innerWidth / 2,

@@ -111,14 +111,22 @@ def resolve_batch(db: Session, locations: list[str]) -> list[GeocodeOut]:
             if result:
                 lat, lon, display_name = result
                 row = GeocodeCache(
-                    query=query, lat=lat, lon=lon,
-                    display_name=display_name, resolved=True, manual=False,
+                    query=query,
+                    lat=lat,
+                    lon=lon,
+                    display_name=display_name,
+                    resolved=True,
+                    manual=False,
                     updated_at=_now_iso(),
                 )
             else:
                 row = GeocodeCache(
-                    query=query, lat=None, lon=None,
-                    display_name=None, resolved=False, manual=False,
+                    query=query,
+                    lat=None,
+                    lon=None,
+                    display_name=None,
+                    resolved=False,
+                    manual=False,
                     updated_at=_now_iso(),
                 )
             db.merge(row)
@@ -145,8 +153,11 @@ def resolve_batch(db: Session, locations: list[str]) -> list[GeocodeOut]:
         if row:
             out.append(
                 GeocodeOut(
-                    query=loc, lat=row.lat, lon=row.lon,
-                    display_name=row.display_name, resolved=row.resolved,
+                    query=loc,
+                    lat=row.lat,
+                    lon=row.lon,
+                    display_name=row.display_name,
+                    resolved=row.resolved,
                     manual=row.manual,
                 )
             )
@@ -184,8 +195,12 @@ def set_override(
     with UnitOfWork(db):
         db.merge(row)
     return GeocodeOut(
-        query=query, lat=lat, lon=lon, display_name=display_name,
-        resolved=True, manual=True,
+        query=query,
+        lat=lat,
+        lon=lon,
+        display_name=display_name,
+        resolved=True,
+        manual=True,
     )
 
 

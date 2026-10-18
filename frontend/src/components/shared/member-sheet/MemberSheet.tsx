@@ -11,7 +11,8 @@ import { useEffect, useRef, useState } from "react";
 import { ViewMode } from "./ViewMode";
 import { EditMode, SaveStatus } from "./EditMode";
 import { Button } from "@/components/ui/button";
-import { Check, CircleAlert, Eye, Pencil } from "lucide-react";
+import { Check, ChevronLeft, CircleAlert, Eye, Pencil, X } from "lucide-react";
+import { useIsMobile } from "@/hooks/useMobile";
 import { useTranslation } from "react-i18next";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
 import { useMemberStore } from "@/hooks/useMemberStore";
@@ -22,7 +23,7 @@ import { useDocumentStore } from "@/hooks/useDocumentStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import { useMemberEditors } from "@/hooks/usePresenceStore";
 import { UnsavedChangesDialog } from "@/components/shared/dialog/UnsavedChangesDialog";
@@ -38,6 +39,8 @@ type Props = {
   isNewMember?: boolean;
   onDiscardNewMember?: () => Promise<void> | void;
   onSaveNewMember?: (data: Member) => Promise<void> | void;
+  /** Switch the panel to another member (family chips in view mode). */
+  onOpenMember?: (memberId: string) => void;
 };
 
 export const MemberSheet = ({
@@ -49,6 +52,7 @@ export const MemberSheet = ({
   isNewMember = false,
   onDiscardNewMember,
   onSaveNewMember,
+  onOpenMember,
 }: Props) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.member-sheet",
@@ -57,7 +61,7 @@ export const MemberSheet = ({
   const { refreshEvents, initialized: eventsInitialized } = useEventStore();
   const { refreshStories, initialized: storiesInitialized } = useStoryStore();
   const { refreshTasks, initialized: tasksInitialized } = useTaskStore();
-  const restrictions = useTreeStore((s) => s.selectedTree?.restrictions);
+  const restrictions = useWorkspaceStore((s) => s.selectedTree?.restrictions);
   const tasksEnabled = !restrictions?.includes("tasks");
   const { refreshDocuments, initialized: documentsInitialized } =
     useDocumentStore();
@@ -65,9 +69,9 @@ export const MemberSheet = ({
     useGalleryStore();
   const setMapFocus = useNavigationStore((s) => s.setMapFocus);
   const navigateTo = useNavigationStore((s) => s.navigateTo);
-  const treeId = useTreeStore((s) => s.selectedTree?.id);
+  const workspaceId = useWorkspaceStore((s) => s.selectedTree?.id);
   const savedSheetState = useMemberSheetStore((s) =>
-    treeId ? s.openSheets[treeId] : undefined,
+    workspaceId ? s.openSheets[workspaceId] : undefined,
   );
   const setOpenSheet = useMemberSheetStore((s) => s.setOpenSheet);
   const clearOpenSheet = useMemberSheetStore((s) => s.clearOpenSheet);
@@ -89,6 +93,7 @@ export const MemberSheet = ({
       ? savedSheetState.tab
       : "identity";
   const editors = useMemberEditors(member?.id);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     setIsEditMode(effectiveCanEdit ? initialEditMode : false);
@@ -100,22 +105,34 @@ export const MemberSheet = ({
     if (isNewMember) setNewMemberTab("identity");
   }, [isNewMember, member?.id]);
 
+  // Record the member on screen (and view/edit mode) in the sheet store, which
+  // the URL mirrors. Only this sheet's own transitions write: when the store
+  // changes from outside (Back/forward naming another member), the canvas
+  // switches the sheet first and this then records it — reacting to the
+  // store here too would fight that switch.
+  const recordedSheetRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!isOpen || !member || isNewMember || !treeId) return;
-    setOpenSheet(treeId, {
+    if (!isOpen || !member || isNewMember || !workspaceId) {
+      recordedSheetRef.current = null;
+      return;
+    }
+    const mode = isViewingEditMode ? "edit" : "view";
+    const key = `${workspaceId}:${member.id}:${mode}`;
+    if (recordedSheetRef.current === key) return;
+    recordedSheetRef.current = key;
+    const saved = useMemberSheetStore.getState().openSheets[workspaceId];
+    setOpenSheet(workspaceId, {
       memberId: member.id,
-      tab: savedSheetState?.memberId === member.id ? activeTab : "identity",
-      mode: isViewingEditMode ? "edit" : "view",
+      tab: saved?.memberId === member.id ? saved.tab : "identity",
+      mode,
     });
   }, [
-    activeTab,
     isNewMember,
     isOpen,
     isViewingEditMode,
     member?.id,
-    savedSheetState?.memberId,
     setOpenSheet,
-    treeId,
+    workspaceId,
   ]);
 
   // Fetch full member detail when the sheet opens for an existing member.
@@ -163,8 +180,8 @@ export const MemberSheet = ({
       setNewMemberTab(tab);
       return;
     }
-    if (!treeId) return;
-    setOpenSheet(treeId, {
+    if (!workspaceId) return;
+    setOpenSheet(workspaceId, {
       memberId: member.id,
       tab,
       mode: isViewingEditMode ? "edit" : "view",
@@ -173,7 +190,7 @@ export const MemberSheet = ({
 
   const closeSheet = async () => {
     if (!isNewMember) await flushAutosaveRef.current();
-    if (treeId) clearOpenSheet(treeId);
+    if (workspaceId) clearOpenSheet(workspaceId);
     onClose();
   };
 
@@ -241,8 +258,9 @@ export const MemberSheet = ({
       }}
     >
       <SheetContent
-        className="w-full max-w-full sm:w-160 sm:max-w-none"
+        className="w-full max-w-full gap-0 sm:w-[30rem] sm:max-w-none"
         showCloseButton={false}
+        overlayClassName="bg-foreground/5"
         onOpenAutoFocus={(e) => {
           if (isViewingEditMode) {
             e.preventDefault();
@@ -252,39 +270,97 @@ export const MemberSheet = ({
           }
         }}
       >
-        <SheetHeader className="border-b">
-          <div className="pr-10">
-            <SheetTitle>
-              {isViewingEditMode ? t("edit-title") : t("detail-title")}
-            </SheetTitle>
-            <SheetDescription>
-              {isViewingEditMode
-                ? t("edit-description")
-                : t("detail-description")}
-            </SheetDescription>
-            {editors.length > 0 && (
-              <div className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-500">
-                <Pencil className="size-3 shrink-0" />
-                <span className="truncate">
-                  {t("presence-editing", {
-                    name: editors.map((e) => e.displayName).join(", "),
-                  })}
-                </span>
-              </div>
-            )}
-          </div>
-          {effectiveCanEdit && (
-            <div className="absolute top-4 right-4">
+        {isMobile ? (
+          // Phones: a full-screen profile with a back button, the title
+          // centred and editing behind one icon.
+          <SheetHeader className="flex-row items-center gap-1 px-1 py-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-11"
+              aria-label={t("back")}
+              onClick={() => void handleCloseRequest()}
+            >
+              <ChevronLeft className="size-5" />
+            </Button>
+            <div className="min-w-0 flex-1 text-center">
+              <SheetTitle className="truncate text-[15px] font-semibold">
+                {isViewingEditMode ? t("edit-title") : t("detail-title")}
+              </SheetTitle>
+              <SheetDescription className="sr-only">
+                {isViewingEditMode
+                  ? t("edit-description")
+                  : t("detail-description")}
+              </SheetDescription>
+              {editors.length > 0 && (
+                <div className="mt-0.5 flex items-center justify-center gap-1.5 text-xs font-medium text-warning">
+                  <Pencil className="size-3 shrink-0" />
+                  <span className="truncate">
+                    {t("presence-editing", {
+                      name: editors.map((e) => e.displayName).join(", "),
+                    })}
+                  </span>
+                </div>
+              )}
+            </div>
+            {effectiveCanEdit ? (
               <Button
                 variant="ghost"
                 size="icon"
+                className="size-11"
+                aria-label={
+                  isViewingEditMode ? t("toggle-view") : t("toggle-edit")
+                }
+                onClick={() => void handleModeToggle()}
+              >
+                {isViewingEditMode ? <Check /> : <Pencil />}
+              </Button>
+            ) : (
+              <span className="size-11" aria-hidden="true" />
+            )}
+          </SheetHeader>
+        ) : (
+          <SheetHeader className="flex-row items-center gap-2 border-b px-5 py-3">
+            <div className="min-w-0 flex-1">
+              <SheetTitle className="truncate text-sm font-semibold text-muted-foreground">
+                {isViewingEditMode ? t("edit-title") : t("detail-title")}
+              </SheetTitle>
+              <SheetDescription className="sr-only">
+                {isViewingEditMode
+                  ? t("edit-description")
+                  : t("detail-description")}
+              </SheetDescription>
+              {editors.length > 0 && (
+                <div className="mt-1 flex items-center gap-1.5 text-xs font-medium text-warning">
+                  <Pencil className="size-3 shrink-0" />
+                  <span className="truncate">
+                    {t("presence-editing", {
+                      name: editors.map((e) => e.displayName).join(", "),
+                    })}
+                  </span>
+                </div>
+              )}
+            </div>
+            {effectiveCanEdit && (
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => void handleModeToggle()}
               >
                 {isViewingEditMode ? <Eye /> : <Pencil />}
+                {isViewingEditMode ? t("toggle-view") : t("toggle-edit")}
               </Button>
-            </div>
-          )}
-        </SheetHeader>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={t("close")}
+              onClick={() => void handleCloseRequest()}
+            >
+              <X />
+            </Button>
+          </SheetHeader>
+        )}
 
         <div className="relative flex-1 overflow-hidden flex flex-col">
           <div className="px-4 pb-4 overflow-y-auto flex-1">
@@ -295,7 +371,7 @@ export const MemberSheet = ({
               </div>
             ) : isViewingEditMode ? (
               <EditMode
-                key={`${treeId ?? "no-tree"}:${member.id}`}
+                key={`${workspaceId ?? "no-tree"}:${member.id}`}
                 member={member}
                 isNew={isNewMember}
                 onSaved={async (data) => {
@@ -320,6 +396,8 @@ export const MemberSheet = ({
                 }}
                 activeTab={activeTab}
                 onTabChange={handleTabChange}
+                isNew={isNewMember}
+                onOpenMember={onOpenMember}
               />
             )}
           </div>

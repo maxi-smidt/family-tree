@@ -59,7 +59,7 @@ def test_invitation_with_matching_email_emits_event(client, db):
 
     with patch("app.api.routes.invitations.event_bus") as m:
         res = client.post(
-            f"{API}/trees/{tree.id}/invitations",
+            f"{API}/workspaces/{tree.id}/invitations",
             json={"role": "viewer", "email": bob.email},
             headers=auth(alice),
         )
@@ -68,7 +68,7 @@ def test_invitation_with_matching_email_emits_event(client, db):
     m.publish.assert_called_once_with(
         [bob.id],
         "invitation.received",
-        {"tree_id": tree.id, "tree_name": tree.name},
+        {"workspace_id": tree.id, "workspace_name": tree.name},
     )
 
 
@@ -78,7 +78,7 @@ def test_invitation_without_email_does_not_emit(client, db):
 
     with patch("app.api.routes.invitations.event_bus") as m:
         res = client.post(
-            f"{API}/trees/{tree.id}/invitations",
+            f"{API}/workspaces/{tree.id}/invitations",
             json={"role": "editor"},
             headers=auth(alice),
         )
@@ -93,7 +93,7 @@ def test_invitation_with_unknown_email_does_not_emit(client, db):
 
     with patch("app.api.routes.invitations.event_bus") as m:
         res = client.post(
-            f"{API}/trees/{tree.id}/invitations",
+            f"{API}/workspaces/{tree.id}/invitations",
             json={"role": "editor", "email": "nobody@example.com"},
             headers=auth(alice),
         )

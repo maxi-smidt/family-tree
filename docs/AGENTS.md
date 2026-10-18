@@ -226,6 +226,69 @@ export function Component({ prop }: ComponentProps) {
 - **Lucide Icons**: Use consistent icon set throughout the app
 - **Responsive Design**: Ensure components work on different window sizes
 
+#### Control sizes
+
+Controls that sit in one row must line up, so there are exactly two sizes,
+shared by `Button`, `Input`, `SelectTrigger`, `Toggle`/`ToggleGroup`,
+`PartialDatePicker`, `LocationInput`, `MemberPicker` and `SearchInput`:
+
+| Size      | Height       | Where                                                                          |
+| --------- | ------------ | ------------------------------------------------------------------------------ |
+| `default` | 36px (`h-9`) | Page header actions, forms and dialogs                                         |
+| `sm`      | 32px (`h-8`) | View toolbars (filter chips, search, columns), card-level actions, table cells |
+
+Pick the size with the `size` prop. Never override heights with `h-7`/`h-8`
+classes or shrink text with `text-xs` on a control — that is how mismatched
+rows crept in before. Icon-only buttons use `icon` / `icon-sm` to match.
+
+One exception: on phones, the main actions of a bottom card (the tree's
+pull-up person card) and the sign-in form use `lg` (40px) so they are easy to
+hit with a thumb.
+
+#### Shared building blocks
+
+Reach for these before hand-rolling markup (all in `components/shared/`
+unless noted):
+
+| Need                                             | Use                                                              |
+| ------------------------------------------------ | ---------------------------------------------------------------- |
+| Page title, subtitle, actions                    | `ViewLayout` → `PageHeader` (`components/layout/`)               |
+| Toolbar search field                             | `SearchInput`                                                    |
+| Single-choice filter pills (Everyone / Living …) | `ToggleGroup variant="chip" size="sm" spacing={2}`               |
+| Multi-select filter pills (map layers)           | `ToggleGroup type="multiple" variant="filter"`                   |
+| Headline number on a card                        | `StatTile`                                                       |
+| "How much of X" bar                              | `Meter`                                                          |
+| A person as a clickable pill                     | `MemberChip`                                                     |
+| A person's avatar / initials                     | `MemberAvatar` (members), `AccountAvatar` (user accounts)        |
+| A workspace's logo tile                          | `WorkspaceMonogram`                                              |
+| Stacked page sections ("WAITING FOR YOU · 1")    | `PageSection`                                                    |
+| Status tags                                      | `Badge` with `success` / `warning` / `danger` / `info` / `muted` |
+| In-page nudge with an action                     | `Alert` (`warning` or `info` variant) + `AlertAction`            |
+| Read-only label/value pairs                      | `Item variant="field"`                                           |
+| Empty states                                     | `Empty` (`components/ui/empty`)                                  |
+| Sortable table header                            | `TableSortButton` (`components/ui/table`)                        |
+| Password field with show/hide                    | `PasswordInput`                                                  |
+| "Born 28 Feb 1976 in Wien" / "Living · 50 years" | `useMemberLife(member)` (`hooks/`)                               |
+| Age from birth/death years                       | `computeAge` (`utils/memberAge`)                                 |
+
+Cards are `Card` (rounded-2xl, 20px padding); content lists inside a card use
+`divide-y` rows with `px-5 py-3`.
+
+#### Phones (below 768px, `useIsMobile`)
+
+- Once a workspace is open, navigation is the bottom `MobileTabBar` (Tree,
+  People, Timeline, Gallery, More); More opens the sidebar sheet. `PageHeader`
+  drops its sidebar toggle then. Add views to the tab bar only by changing its
+  `PRIMARY_KEYS`; everything else belongs under More.
+- The tree's header is a `PageHeader` whose `heading` is the
+  `DatabaseSelector` in its `header` variant, with `inlineActions`. The canvas stays read-only for
+  layout (no drag/connect), but tapping a person opens `MemberPeekCard`, from
+  which the profile, editing and adding relatives work as on desktop.
+- `MemberSheet` becomes a full-screen profile (back, centred title, edit
+  icon); `ViewMode` swaps in `MemberProfileHero`, segmented tabs and
+  `MemberFamily layout="rows"`. Keep those switches inside the shared
+  components rather than forking phone-only copies.
+
 ### React Flow Integration
 
 When working with the family tree visualization:
@@ -342,9 +405,22 @@ The project uses **Vitest** for unit testing.
 3. **Layout Algorithms**: Tree layout calculations
 4. **Type Guards**: TypeScript type narrowing functions
 
+### Choosing the test boundary
+
+- Component tests should exercise rendered behavior, using the real production
+  logic rather than recreating it in the test. Mock unrelated heavy subtrees.
+- Use Playwright for responsive sizing, overflow, scrolling, and overlapping
+  controls; checking Tailwind class names in jsdom does not verify layout.
+- Share lifecycle contracts for similar stores while keeping each store's
+  payload and mapping assertions explicit.
+- Retain data-preservation migration tests while their revision remains in the
+  supported upgrade chain (databases at v2.0.0 or later; v1.x databases must
+  upgrade through v2.0.2 first), rather than deleting them after a fixed
+  number of minor releases. Shared
+  revision metadata checks belong in `backend/tests/test_migration_metadata.py`.
+
 ### What Not to Test
 
-- UI components (no React Testing Library tests currently)
 - Backend endpoints (covered separately on the Python side)
 - Third-party library integrations
 
@@ -460,6 +536,7 @@ If your changes require database schema modifications:
 
 ## Additional Resources
 
+- **[Performance](./PERFORMANCE.md)**: Neighborhood API query-count/latency/memory budgets, fixture and benchmark tooling
 - **[i18n Guide](./I18N_GUIDE.md)**: Translation conventions and patterns
 - **FastAPI**: [Documentation](https://fastapi.tiangolo.com/)
 - **SQLAlchemy**: [Documentation](https://docs.sqlalchemy.org/)

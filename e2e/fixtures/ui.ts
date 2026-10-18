@@ -49,3 +49,56 @@ export async function selectTree(page: Page, name: string): Promise<void> {
   await option.click();
   await expect(selector).toContainText(name, { timeout: 15_000 });
 }
+
+/**
+ * Search the workspace nav panel for `query` and click the hit matching
+ * `name`, focusing the canvas on it. Scoped to the search dropdown's `<li>`
+ * rows (not `.getByRole("button", { name })` alone) — a member already
+ * resident on the canvas renders its own `role="button"` node with a
+ * same-named accessible label, which would otherwise make the click
+ * ambiguous whenever the workspace isn't freshly empty.
+ */
+export async function searchWorkspaceAndSelect(
+  page: Page,
+  query: string,
+  name: string | RegExp,
+): Promise<void> {
+  await openWorkspaceMenu(page);
+  await page.getByPlaceholder("Search this workspace…").fill(query);
+  await page
+    .locator("li")
+    .filter({ hasText: name })
+    .getByRole("button")
+    .click();
+}
+
+/**
+ * Open the canvas's "Whole family ▾" menu — sections, saved views and the
+ * workspace search — unless it is already open. Selecting an entry (or
+ * opening one of its dialogs) closes it again, so call this before each
+ * interaction with its contents.
+ */
+export async function openWorkspaceMenu(page: Page): Promise<void> {
+  const menu = page.getByRole("dialog", { name: "Workspace navigation" });
+  // A popover that is animating closed is still visible but about to vanish,
+  // so only an open one counts as already shown.
+  const openMenu = menu.and(page.locator('[data-state="open"]'));
+  if (await openMenu.isVisible()) return;
+  await expect(menu).toBeHidden();
+  await page.getByRole("button", { name: /sections and saved views/ }).click();
+  await expect(openMenu).toBeVisible();
+}
+
+/**
+ * Open a main view from the left navigation (Tree, People, Timeline, …).
+ * Replaces the old top tab strip.
+ */
+export async function openView(
+  page: Page,
+  name: string | RegExp,
+): Promise<void> {
+  await page
+    .getByRole("navigation", { name: "Main" })
+    .getByRole("button", { name })
+    .click();
+}

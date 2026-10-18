@@ -1,31 +1,38 @@
+import { useMemo } from "react";
 import {
-  BarChart,
   Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
 } from "recharts";
-import { BookOpen, Cake, CalendarDays, Flower2 } from "lucide-react";
-import { Card } from "@/components/ui/card";
-import type { StatisticsReport } from "@/types/statistics";
-import { isDeceased, type Member } from "@/types/member";
+import { BookOpen, CalendarDays } from "lucide-react";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Meter } from "@/components/shared/Meter";
+import { MemberAvatar } from "@/components/shared/MemberAvatar";
+import { memberFullName } from "@/components/shared/MemberChip";
+import type { LifeSpan, NameCount, StatisticsReport } from "@/types/statistics";
+import type { Member } from "@/types/member";
 import type { Event } from "@/types/event";
 import type { Story } from "@/types/story";
-import {
-  getDatePrecision,
-  getYear,
-  isValidPartialDate,
-  resolveDateLocale,
-} from "@/utils/dateUtils";
 import { getEventTypeLabel } from "@/types/eventTypes";
+import { resolveDateLocale } from "@/utils/dateUtils";
 import i18n from "@/i18n/i18n";
+import { cn } from "@/lib/utils";
 import { ChartTooltipContent } from "./ChartTooltipContent";
+import { buildOnThisDayItems, type OnThisDayItem } from "./onThisDay";
+
+type T = (key: string, opts?: Record<string, unknown>) => string;
 
 const GENDER_COLORS = {
   male: "var(--color-chart-gender-male)",
@@ -33,680 +40,632 @@ const GENDER_COLORS = {
   other: "var(--color-chart-gender-other)",
   unknown: "var(--color-chart-gender-unknown)",
 };
-
 const BIRTH_COLOR = "var(--color-chart-birth)";
 const DEATH_COLOR = "var(--color-chart-death)";
-const NAME_COLOR = "var(--color-chart-birth)";
 
-export interface StatisticsWidgetProps {
+/** How far ahead "Coming up" looks, and how many entries it lists. */
+const UPCOMING_WINDOW_DAYS = 60;
+const UPCOMING_LIMIT = 5;
+
+function LegendKey({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 text-[12.5px] text-muted-foreground">
+      <span
+        aria-hidden="true"
+        className="size-2.5 rounded-[3px]"
+        style={{ backgroundColor: color }}
+      />
+      {label}
+    </span>
+  );
+}
+
+/* ------------------------------------------------------------------------ */
+/* Births and deaths by decade                                              */
+/* ------------------------------------------------------------------------ */
+
+export function DecadeChartCard({
+  report,
+  t,
+  className,
+}: {
   report: StatisticsReport;
-  t: (key: string, opts?: Record<string, unknown>) => string;
-  members: Member[];
-  events: Event[];
-  stories: Story[];
-  onOpenMember: (memberId: string) => void;
-}
-
-export type StatisticsWidgetId =
-  | "on-this-day"
-  | "gender"
-  | "timeline"
-  | "lifespan"
-  | "first-names"
-  | "last-names";
-
-export interface StatisticsWidgetDefinition {
-  id: StatisticsWidgetId;
-  titleKey: string;
-  Component: React.ComponentType<StatisticsWidgetProps>;
-}
-
-const ON_THIS_DAY_WINDOW_DAYS = 7;
-
-export type OnThisDayItemKind =
-  | "birthday"
-  | "would-turn"
-  | "death-anniversary"
-  | "event"
-  | "story";
-
-export interface OnThisDayItem {
-  id: string;
-  kind: OnThisDayItemKind;
-  date: Date;
-  dayOffset: number;
-  member?: Member;
-  linkedMembers: Member[];
-  years?: number;
-  eventType?: string;
-  title?: string;
-  description?: string | null;
-}
-
-interface OnThisDayDate {
-  date: Date;
-  dayOffset: number;
-  monthDay: string;
-}
-
-function monthDayFromGenealogyDate(
-  value: string | null | undefined,
-  sortKey?: string | null,
-): string | null {
-  // Imported GEDCOM dates may be human-readable (for example, "15 JUN 1950")
-  // while their sort key is the exact ISO day. Fuzzy dates intentionally have
-  // zeroes in the sort key and therefore do not pass this check.
-  for (const candidate of [sortKey, value]) {
-    if (
-      candidate &&
-      getDatePrecision(candidate) === "day" &&
-      isValidPartialDate(candidate)
-    ) {
-      return candidate.slice(5);
+  t: T;
+  className?: string;
+}) {
+  // The report lists only decades with data; fill the gaps so the x-axis is
+  // continuous and an empty decade reads as zero rather than disappearing.
+  const data = useMemo(() => {
+    const rows = report.birth_death_by_decade;
+    if (rows.length === 0) return rows;
+    const byStart = new Map(rows.map((r) => [parseInt(r.decade, 10), r]));
+    const starts = [...byStart.keys()].filter((n) => !Number.isNaN(n));
+    if (starts.length !== rows.length) return rows;
+    const first = Math.min(...starts);
+    const last = Math.max(...starts);
+    const filled = [];
+    for (let y = first; y <= last; y += 10) {
+      filled.push(byStart.get(y) ?? { decade: `${y}s`, births: 0, deaths: 0 });
     }
-  }
-  return null;
-}
-
-function genealogyYear(
-  value: string | null | undefined,
-  sortKey?: string | null,
-): number | null {
-  return getYear(sortKey) ?? getYear(value);
-}
-
-function createOnThisDayDates(referenceDate: Date): OnThisDayDate[] {
-  return Array.from({ length: ON_THIS_DAY_WINDOW_DAYS + 1 }, (_, dayOffset) => {
-    const date = new Date(
-      referenceDate.getFullYear(),
-      referenceDate.getMonth(),
-      referenceDate.getDate() + dayOffset,
-    );
-    return {
-      date,
-      dayOffset,
-      monthDay: `${String(date.getMonth() + 1).padStart(2, "0")}-${String(
-        date.getDate(),
-      ).padStart(2, "0")}`,
-    };
-  });
-}
-
-/**
- * Builds the client-side upcoming-date feed without asking the browser to
- * parse genealogy strings. Only exact month-and-day values participate.
- */
-export function buildOnThisDayItems(
-  members: Member[],
-  events: Event[],
-  stories: Story[],
-  referenceDate = new Date(),
-): OnThisDayItem[] {
-  const datesByMonthDay = new Map(
-    createOnThisDayDates(referenceDate).map((entry) => [entry.monthDay, entry]),
+    return filled;
+  }, [report.birth_death_by_decade]);
+  const busiest = useMemo(
+    () =>
+      data.reduce<(typeof data)[number] | null>(
+        (best, d) => (!best || d.births > best.births ? d : best),
+        null,
+      ),
+    [data],
   );
-  const membersById = new Map(members.map((member) => [member.id, member]));
-  const items: OnThisDayItem[] = [];
+  if (data.length === 0) return null;
 
-  for (const member of members) {
-    const birthdayMonthDay = monthDayFromGenealogyDate(
-      member.date.birth,
-      member.date.birthSort,
-    );
-    const birthdayDate = birthdayMonthDay
-      ? datesByMonthDay.get(birthdayMonthDay)
-      : undefined;
-    const birthYear = genealogyYear(member.date.birth, member.date.birthSort);
-    if (birthdayDate) {
-      if (isDeceased(member)) {
-        if (birthYear !== null) {
-          items.push({
-            id: `would-turn:${member.id}:${birthdayDate.dayOffset}`,
-            kind: "would-turn",
-            date: birthdayDate.date,
-            dayOffset: birthdayDate.dayOffset,
-            member,
-            linkedMembers: [],
-            years: birthdayDate.date.getFullYear() - birthYear,
-          });
-        }
-      } else {
-        items.push({
-          id: `birthday:${member.id}:${birthdayDate.dayOffset}`,
-          kind: "birthday",
-          date: birthdayDate.date,
-          dayOffset: birthdayDate.dayOffset,
-          member,
-          linkedMembers: [],
-          years:
-            birthYear === null
-              ? undefined
-              : birthdayDate.date.getFullYear() - birthYear,
-        });
-      }
-    }
+  const decadeName = (decade: string) =>
+    t("decade", { year: decade.replace(/s$/, "") });
+  const shortDecade = (decade: string) =>
+    data.length > 12 ? decade.replace(/s$/, "") : `'${decade.slice(2, 4)}`;
 
-    const deathMonthDay = monthDayFromGenealogyDate(
-      member.date.death,
-      member.date.deathSort,
-    );
-    const deathDate = deathMonthDay
-      ? datesByMonthDay.get(deathMonthDay)
-      : undefined;
-    const deathYear = genealogyYear(member.date.death, member.date.deathSort);
-    if (deathDate && deathYear !== null) {
-      items.push({
-        id: `death-anniversary:${member.id}:${deathDate.dayOffset}`,
-        kind: "death-anniversary",
-        date: deathDate.date,
-        dayOffset: deathDate.dayOffset,
-        member,
-        linkedMembers: [],
-        years: deathDate.date.getFullYear() - deathYear,
-      });
-    }
-  }
-
-  for (const event of events) {
-    // Birth and death events mirror member vital dates and would otherwise
-    // duplicate the birthday and death-anniversary entries above.
-    if (["birth", "death"].includes(event.eventType.toLowerCase())) continue;
-    const monthDay = monthDayFromGenealogyDate(event.date);
-    const date = monthDay ? datesByMonthDay.get(monthDay) : undefined;
-    const eventYear = getYear(event.date);
-    if (!date) continue;
-    items.push({
-      id: `event:${event.id}:${date.dayOffset}`,
-      kind: "event",
-      date: date.date,
-      dayOffset: date.dayOffset,
-      linkedMembers: event.linkedMemberIds
-        .map((memberId) => membersById.get(memberId))
-        .filter((member): member is Member => member !== undefined),
-      eventType: event.eventType,
-      description: event.description,
-      years:
-        eventYear === null ? undefined : date.date.getFullYear() - eventYear,
-    });
-  }
-
-  for (const story of stories) {
-    const monthDay = monthDayFromGenealogyDate(story.date);
-    const date = monthDay ? datesByMonthDay.get(monthDay) : undefined;
-    const storyYear = getYear(story.date);
-    if (!date) continue;
-    items.push({
-      id: `story:${story.id}:${date.dayOffset}`,
-      kind: "story",
-      date: date.date,
-      dayOffset: date.dayOffset,
-      linkedMembers: story.linkedMemberIds
-        .map((memberId) => membersById.get(memberId))
-        .filter((member): member is Member => member !== undefined),
-      title: story.title,
-      description: story.content,
-      years:
-        storyYear === null ? undefined : date.date.getFullYear() - storyYear,
-    });
-  }
-
-  const kindOrder: Record<OnThisDayItemKind, number> = {
-    birthday: 0,
-    "would-turn": 1,
-    "death-anniversary": 2,
-    event: 3,
-    story: 4,
-  };
-  return items.sort(
-    (a, b) =>
-      a.dayOffset - b.dayOffset || kindOrder[a.kind] - kindOrder[b.kind],
+  return (
+    <Card className={cn("min-h-80", className)}>
+      <CardHeader>
+        <CardTitle>
+          <h2>{t("timeline-title")}</h2>
+        </CardTitle>
+        <CardDescription>{t("timeline-hint")}</CardDescription>
+        <CardAction className="flex gap-4">
+          <LegendKey color={BIRTH_COLOR} label={t("timeline-births")} />
+          <LegendKey color={DEATH_COLOR} label={t("timeline-deaths")} />
+        </CardAction>
+      </CardHeader>
+      <CardContent className="flex flex-1 flex-col">
+        <div className="min-h-52 flex-1">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={data} barGap={2} barCategoryGap="22%">
+              <CartesianGrid vertical={false} stroke="var(--color-border)" />
+              <XAxis
+                dataKey="decade"
+                tickFormatter={shortDecade}
+                tick={{ fontSize: 11.5, fill: "var(--color-muted-foreground)" }}
+                tickLine={false}
+                axisLine={{ stroke: "var(--color-input)" }}
+                interval="preserveStartEnd"
+              />
+              <YAxis
+                allowDecimals={false}
+                tick={{ fontSize: 11.5, fill: "var(--color-muted-foreground)" }}
+                tickLine={false}
+                axisLine={false}
+                width={28}
+              />
+              <Tooltip
+                cursor={{ fill: "var(--color-muted)", opacity: 0.6 }}
+                content={({ active, label, payload }) => (
+                  <ChartTooltipContent
+                    active={active}
+                    label={
+                      typeof label === "string" ? decadeName(label) : label
+                    }
+                    nameFormatter={(name) =>
+                      name === "births"
+                        ? t("timeline-births")
+                        : t("timeline-deaths")
+                    }
+                    payload={payload}
+                  />
+                )}
+              />
+              <Bar
+                dataKey="births"
+                name="births"
+                fill={BIRTH_COLOR}
+                radius={[4, 4, 0, 0]}
+                maxBarSize={16}
+              />
+              <Bar
+                dataKey="deaths"
+                name="deaths"
+                fill={DEATH_COLOR}
+                radius={[4, 4, 0, 0]}
+                maxBarSize={16}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        {busiest && busiest.births > 0 && (
+          <p className="mt-2 text-[12.5px] text-muted-foreground">
+            {t("timeline-busiest", {
+              decade: decadeName(busiest.decade),
+              count: busiest.births,
+            })}
+          </p>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
-function memberDisplayName(member: Member): string {
-  return [member.firstName, member.lastName].filter(Boolean).join(" ");
+/* ------------------------------------------------------------------------ */
+/* Gender + coming up                                                        */
+/* ------------------------------------------------------------------------ */
+
+function GenderBar({ report, t }: { report: StatisticsReport; t: T }) {
+  const g = report.gender_distribution;
+  const data = [
+    { key: "male", name: t("gender-male"), value: g.male },
+    { key: "female", name: t("gender-female"), value: g.female },
+    { key: "other", name: t("gender-other"), value: g.other },
+    { key: "unknown", name: t("gender-unknown"), value: g.unknown },
+  ].filter((d) => d.value > 0);
+  const total = data.reduce((sum, d) => sum + d.value, 0);
+  if (total === 0) return null;
+  return (
+    <div>
+      <div
+        role="img"
+        aria-label={data.map((d) => `${d.name}: ${d.value}`).join(", ")}
+        className="flex h-3.5 w-full gap-0.5 overflow-hidden rounded-full"
+      >
+        {data.map((d) => (
+          <span
+            key={d.key}
+            style={{
+              flexGrow: d.value,
+              backgroundColor:
+                GENDER_COLORS[d.key as keyof typeof GENDER_COLORS],
+            }}
+          />
+        ))}
+      </div>
+      <ul className="mt-2.5 flex flex-wrap justify-between gap-x-4 gap-y-1.5">
+        {data.map((d) => (
+          <li
+            key={d.key}
+            className="inline-flex items-center gap-1.5 text-[12.5px] text-muted-foreground"
+          >
+            <span
+              aria-hidden="true"
+              className="size-2.5 rounded-[3px]"
+              style={{
+                backgroundColor:
+                  GENDER_COLORS[d.key as keyof typeof GENDER_COLORS],
+              }}
+            />
+            {d.name}
+            <b className="font-semibold text-foreground tabular-nums">
+              {d.value}
+            </b>
+            <span className="tabular-nums">
+              {Math.round((d.value / total) * 100)}%
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
-function OnThisDayWidget({
+function upcomingTitle(item: OnThisDayItem, t: T): string {
+  const name = item.member
+    ? item.member.firstName || memberFullName(item.member)
+    : "";
+  switch (item.kind) {
+    case "birthday":
+      return item.years !== undefined
+        ? t("upcoming-birthday", { name, age: item.years })
+        : t("upcoming-birthday-unknown", { name });
+    case "would-turn":
+      return t("upcoming-would-turn", { name, age: item.years });
+    case "death-anniversary":
+      return t("upcoming-death-anniversary", { name, count: item.years });
+    case "event":
+      return `${getEventTypeLabel(item.eventType ?? "", i18n.t)} · ${t("on-this-day-years-ago", { count: item.years })}`;
+    case "story":
+      return item.title ?? "";
+  }
+}
+
+function UpcomingList({
   members,
   events,
   stories,
   onOpenMember,
   t,
-}: StatisticsWidgetProps) {
-  const today = new Date();
-  const items = buildOnThisDayItems(members, events, stories, today);
-  const groupedItems = items.reduce((groups, item) => {
-    const group = groups.get(item.dayOffset) ?? [];
-    group.push(item);
-    groups.set(item.dayOffset, group);
-    return groups;
-  }, new Map<number, OnThisDayItem[]>());
-
-  return (
-    <Card className="flex h-[320px] flex-col p-4">
-      <div className="mb-2 shrink-0">
-        <h2 className="text-sm font-medium">{t("on-this-day-title")}</h2>
-        <p className="text-xs text-muted-foreground">
-          {new Intl.DateTimeFormat(resolveDateLocale(), {
-            weekday: "long",
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          }).format(today)}
-        </p>
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-        {items.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            {t("on-this-day-empty")}
-          </p>
-        ) : (
-          <div className="space-y-4">
-            {[...groupedItems].map(([dayOffset, dayItems]) => {
-              const date = dayItems[0].date;
-              const entries = (
-                <div className="space-y-1">
-                  {dayItems.map((item) => {
-                    const Icon =
-                      item.kind === "birthday" || item.kind === "would-turn"
-                        ? Cake
-                        : item.kind === "death-anniversary"
-                          ? Flower2
-                          : item.kind === "event"
-                            ? CalendarDays
-                            : BookOpen;
-                    const detail =
-                      item.kind === "birthday"
-                        ? t("on-this-day-birthday", { age: item.years })
-                        : item.kind === "would-turn"
-                          ? t("on-this-day-would-turn", { age: item.years })
-                          : item.kind === "death-anniversary"
-                            ? t("on-this-day-death-anniversary", {
-                                count: item.years,
-                              })
-                            : item.kind === "event"
-                              ? `${getEventTypeLabel(item.eventType ?? "", i18n.t)} · ${t("on-this-day-years-ago", { count: item.years })}`
-                              : `${item.title} · ${t("on-this-day-years-ago", { count: item.years })}`;
-                    return (
-                      <div
-                        key={item.id}
-                        className="flex gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted/60"
-                      >
-                        <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                        <div className="min-w-0">
-                          {item.member ? (
-                            <p className="leading-5">
-                              <button
-                                type="button"
-                                className="font-medium hover:underline"
-                                onClick={() => onOpenMember(item.member!.id)}
-                              >
-                                {memberDisplayName(item.member)}
-                              </button>{" "}
-                              <span className="text-muted-foreground">
-                                — {detail}
-                              </span>
-                            </p>
-                          ) : (
-                            <p className="truncate font-medium leading-5">
-                              {detail}
-                            </p>
-                          )}
-                          {item.description && (
-                            <p className="line-clamp-1 text-xs text-muted-foreground">
-                              {item.description}
-                            </p>
-                          )}
-                          {item.linkedMembers.length > 0 && (
-                            <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1">
-                              {item.linkedMembers.map((member) => (
-                                <button
-                                  key={member.id}
-                                  type="button"
-                                  className="text-xs text-primary hover:underline"
-                                  onClick={() => onOpenMember(member.id)}
-                                >
-                                  {memberDisplayName(member)}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-              if (dayOffset === 0) {
-                return <div key={dayOffset}>{entries}</div>;
-              }
-              return (
-                <section key={dayOffset}>
-                  <h3 className="mb-1.5 text-xs font-medium text-muted-foreground">
-                    {new Intl.DateTimeFormat(resolveDateLocale(), {
-                      weekday: "short",
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                    }).format(date)}
-                  </h3>
-                  {entries}
-                </section>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </Card>
+}: {
+  members: Member[];
+  events: Event[];
+  stories: Story[];
+  onOpenMember: (memberId: string) => void;
+  t: T;
+}) {
+  const items = useMemo(
+    () =>
+      buildOnThisDayItems(
+        members,
+        events,
+        stories,
+        new Date(),
+        UPCOMING_WINDOW_DAYS,
+      ).slice(0, UPCOMING_LIMIT),
+    [members, events, stories],
   );
-}
+  const locale = resolveDateLocale();
+  const dateFmt = new Intl.DateTimeFormat(locale, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+  const relFmt = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
 
-function GenderChart({ report, t }: StatisticsWidgetProps) {
-  const { gender_distribution: g } = report;
-  const data = [
-    { name: t("gender-male"), value: g.male, color: GENDER_COLORS.male },
-    { name: t("gender-female"), value: g.female, color: GENDER_COLORS.female },
-    { name: t("gender-other"), value: g.other, color: GENDER_COLORS.other },
-    {
-      name: t("gender-unknown"),
-      value: g.unknown,
-      color: GENDER_COLORS.unknown,
-    },
-  ].filter((d) => d.value > 0);
-
-  if (data.length === 0) return null;
-
-  return (
-    <Card className="p-4">
-      <h2 className="text-sm font-medium mb-4">{t("gender-title")}</h2>
-      <ResponsiveContainer width="100%" height={220}>
-        <PieChart>
-          <Pie
-            data={data}
-            dataKey="value"
-            nameKey="name"
-            cx="50%"
-            cy="50%"
-            innerRadius={55}
-            outerRadius={85}
-            paddingAngle={3}
-          >
-            {data.map((entry) => (
-              <Cell key={entry.name} fill={entry.color} />
-            ))}
-          </Pie>
-          <Tooltip
-            content={({ active, label, payload }) => (
-              <ChartTooltipContent
-                active={active}
-                hideLabel
-                label={label}
-                payload={payload}
-              />
-            )}
-          />
-          <Legend
-            iconType="circle"
-            iconSize={8}
-            formatter={(value) => (
-              <span className="text-xs text-foreground">{value}</span>
-            )}
-          />
-        </PieChart>
-      </ResponsiveContainer>
-    </Card>
-  );
-}
-
-function TimelineChart({ report, t }: StatisticsWidgetProps) {
-  const data = report.birth_death_by_decade;
-  if (data.length === 0) return null;
+  if (items.length === 0) {
+    return (
+      <p className="py-2 text-sm text-muted-foreground">
+        {t("upcoming-empty")}
+      </p>
+    );
+  }
 
   return (
-    <Card className="p-4">
-      <h2 className="text-sm font-medium mb-4">{t("timeline-title")}</h2>
-      <ResponsiveContainer width="100%" height={220}>
-        <BarChart data={data} barGap={2}>
-          <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-          <XAxis
-            dataKey="decade"
-            tick={{ fontSize: 11 }}
-            tickLine={false}
-            axisLine={false}
-          />
-          <YAxis
-            allowDecimals={false}
-            tick={{ fontSize: 11 }}
-            tickLine={false}
-            axisLine={false}
-            width={28}
-          />
-          <Tooltip
-            content={({ active, label, payload }) => (
-              <ChartTooltipContent
-                active={active}
-                label={label}
-                nameFormatter={(name) =>
-                  name === "births"
-                    ? t("timeline-births")
-                    : t("timeline-deaths")
-                }
-                payload={payload}
+    <ul className="divide-y">
+      {items.map((item) => {
+        const member = item.member ?? item.linkedMembers[0];
+        const title = upcomingTitle(item, t);
+        const Icon = item.kind === "story" ? BookOpen : CalendarDays;
+        const body = (
+          <>
+            {item.member ? (
+              <MemberAvatar
+                member={item.member}
+                size="sm"
+                className={cn(item.kind !== "birthday" && "opacity-75")}
               />
-            )}
-          />
-          <Bar
-            dataKey="births"
-            fill={BIRTH_COLOR}
-            radius={[3, 3, 0, 0]}
-            name="births"
-          />
-          <Bar
-            dataKey="deaths"
-            fill={DEATH_COLOR}
-            radius={[3, 3, 0, 0]}
-            name="deaths"
-          />
-          <Legend
-            iconType="square"
-            iconSize={8}
-            formatter={(value) => (
-              <span className="text-xs text-foreground">
-                {value === "births"
-                  ? t("timeline-births")
-                  : t("timeline-deaths")}
+            ) : (
+              <span className="grid size-8 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground">
+                <Icon className="size-4" aria-hidden="true" />
               </span>
             )}
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[13.5px] font-semibold">
+                {title}
+              </span>
+              <span className="block truncate text-[12.5px] text-muted-foreground">
+                {dateFmt.format(item.date)}
+                {!item.member &&
+                  item.linkedMembers.length > 0 &&
+                  ` · ${item.linkedMembers.map((m) => m.firstName).join(", ")}`}
+              </span>
+            </span>
+            <span className="shrink-0 text-[12.5px] text-muted-foreground tabular-nums">
+              {relFmt.format(item.dayOffset, "day")}
+            </span>
+          </>
+        );
+        return (
+          <li key={item.id}>
+            {member ? (
+              <button
+                type="button"
+                onClick={() => onOpenMember(member.id)}
+                className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-lg px-2 py-2.5 text-left hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              >
+                {body}
+              </button>
+            ) : (
+              <div className="flex items-center gap-3 py-2.5">{body}</div>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+export function GenderUpcomingCard({
+  report,
+  members,
+  events,
+  stories,
+  onOpenMember,
+  t,
+  className,
+}: {
+  report: StatisticsReport;
+  members: Member[];
+  events: Event[];
+  stories: Story[];
+  onOpenMember: (memberId: string) => void;
+  t: T;
+  className?: string;
+}) {
+  const g = report.gender_distribution;
+  const recorded = g.male + g.female + g.other;
+  return (
+    <Card className={className}>
+      <CardHeader>
+        <CardTitle>
+          <h2>{t("gender-title")}</h2>
+        </CardTitle>
+        <CardDescription>
+          {t("gender-description", { count: recorded })}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-5">
+        <GenderBar report={report} t={t} />
+        <div className="border-t pt-4">
+          <h3 className="text-sm font-bold">{t("upcoming-title")}</h3>
+          <p className="mb-1 text-[13px] text-muted-foreground">
+            {t("upcoming-description", { count: UPCOMING_WINDOW_DAYS })}
+          </p>
+          <UpcomingList
+            members={members}
+            events={events}
+            stories={stories}
+            onOpenMember={onOpenMember}
+            t={t}
           />
-        </BarChart>
-      </ResponsiveContainer>
+        </div>
+      </CardContent>
     </Card>
   );
 }
 
-function LifespanChart({ report, t }: StatisticsWidgetProps) {
-  const data = report.lifespan_distribution;
-  if (data.length === 0) return null;
+/* ------------------------------------------------------------------------ */
+/* Lives lived                                                               */
+/* ------------------------------------------------------------------------ */
+
+export function LivesLivedCard({
+  report,
+  onOpenMember,
+  t,
+  className,
+}: {
+  report: StatisticsReport;
+  onOpenMember: (memberId: string) => void;
+  t: T;
+  className?: string;
+}) {
+  const lives = report.longest_lives ?? [];
+  if (lives.length === 0) return null;
+
+  const end = new Date().getFullYear();
+  const minBirth = Math.min(...lives.map((l) => l.birth_year));
+  const span0 = end - minBirth;
+  const step = span0 > 250 ? 100 : 50;
+  const start = Math.floor(minBirth / step) * step;
+  const span = Math.max(1, end - start);
+  const ticks: number[] = [];
+  for (let y = start; y < end - step / 3; y += step) ticks.push(y);
+  const pct = (year: number) => ((year - start) / span) * 100;
+  const truncated = report.members_with_death_date > lives.length;
+
+  const nameOf = (l: LifeSpan) =>
+    [l.first_name, l.last_name].filter(Boolean).join(" ");
 
   return (
-    <Card className="p-4">
-      <h2 className="text-sm font-medium mb-4">{t("lifespan-title")}</h2>
-      <ResponsiveContainer width="100%" height={220}>
-        <BarChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-          <XAxis
-            dataKey="range"
-            tick={{ fontSize: 11 }}
-            tickLine={false}
-            axisLine={false}
-          />
-          <YAxis
-            allowDecimals={false}
-            tick={{ fontSize: 11 }}
-            tickLine={false}
-            axisLine={false}
-            width={28}
-          />
-          <Tooltip
-            content={({ active, label, payload }) => (
-              <ChartTooltipContent
-                active={active}
-                label={label}
-                nameFormatter={() => t("lifespan-people")}
-                payload={payload}
-              />
-            )}
-          />
-          <Bar
-            dataKey="count"
-            fill={BIRTH_COLOR}
-            radius={[3, 3, 0, 0]}
-            name="count"
-          />
-        </BarChart>
-      </ResponsiveContainer>
+    <Card className={className}>
+      <CardHeader>
+        <CardTitle>
+          <h2>{t("lives-title")}</h2>
+        </CardTitle>
+        <CardDescription>
+          {truncated
+            ? t("lives-description-longest", {
+                count: lives.length,
+                start,
+              })
+            : t("lives-description", { start })}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ul className="flex flex-col gap-2">
+          {lives.map((life) => {
+            const name = nameOf(life);
+            return (
+              <li
+                key={life.member_id}
+                className="grid grid-cols-[minmax(0,7.5rem)_1fr_2.75rem] items-center gap-3"
+              >
+                <button
+                  type="button"
+                  onClick={() => onOpenMember(life.member_id)}
+                  className="truncate rounded-sm text-left text-[13px] font-medium hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                  title={name}
+                >
+                  {name}
+                </button>
+                <div
+                  className="relative h-2.5 rounded-full bg-muted"
+                  title={`${life.birth_year} – ${life.death_year}`}
+                >
+                  <span
+                    className="absolute inset-y-0 rounded-full"
+                    style={{
+                      left: `${pct(life.birth_year)}%`,
+                      width: `${Math.max(1, pct(life.death_year) - pct(life.birth_year))}%`,
+                      backgroundColor: DEATH_COLOR,
+                    }}
+                  />
+                </div>
+                <span className="text-right text-[12.5px] text-muted-foreground tabular-nums">
+                  {t("lives-age", { count: life.age })}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+        <div
+          aria-hidden="true"
+          className="mt-3 grid grid-cols-[minmax(0,7.5rem)_1fr_2.75rem] gap-3"
+        >
+          <span />
+          <div className="relative h-4 text-[11.5px] text-muted-foreground tabular-nums">
+            {ticks.map((y) => (
+              <span
+                key={y}
+                className="absolute -translate-x-1/2 first:translate-x-0"
+                style={{ left: `${pct(y)}%` }}
+              >
+                {y}
+              </span>
+            ))}
+            <span className="absolute right-0">{t("lives-today")}</span>
+          </div>
+          <span />
+        </div>
+      </CardContent>
     </Card>
   );
 }
 
-function FirstNamesChart({ report, t }: StatisticsWidgetProps) {
-  const data = report.top_first_names.slice(0, 10);
-  if (data.length === 0) return null;
+/* ------------------------------------------------------------------------ */
+/* Ranked lists (birthplaces, names)                                         */
+/* ------------------------------------------------------------------------ */
 
+function RankedList({ items }: { items: NameCount[] }) {
+  const max = Math.max(1, ...items.map((i) => i.count));
   return (
-    <Card className="p-4">
-      <h2 className="text-sm font-medium mb-4">{t("first-names-title")}</h2>
-      <ResponsiveContainer
-        width="100%"
-        height={Math.max(180, data.length * 28 + 40)}
-      >
-        <BarChart data={data} layout="vertical" margin={{ left: 4, right: 16 }}>
-          <CartesianGrid
-            strokeDasharray="3 3"
-            horizontal={false}
-            className="stroke-border"
+    <ul className="flex flex-col gap-3">
+      {items.map((item) => (
+        <li key={item.name}>
+          <Meter
+            label={item.name}
+            valueLabel={
+              <span className="font-semibold text-foreground">
+                {item.count}
+              </span>
+            }
+            value={item.count / max}
           />
-          <XAxis
-            type="number"
-            allowDecimals={false}
-            tick={{ fontSize: 11 }}
-            tickLine={false}
-            axisLine={false}
-          />
-          <YAxis
-            type="category"
-            dataKey="name"
-            tick={{ fontSize: 11 }}
-            tickLine={false}
-            axisLine={false}
-            width={72}
-          />
-          <Tooltip
-            content={({ active, label, payload }) => (
-              <ChartTooltipContent
-                active={active}
-                label={label}
-                nameFormatter={() => t("names-count")}
-                payload={payload}
-              />
-            )}
-          />
-          <Bar
-            dataKey="count"
-            fill={NAME_COLOR}
-            radius={[0, 3, 3, 0]}
-            name="count"
-          />
-        </BarChart>
-      </ResponsiveContainer>
-    </Card>
+        </li>
+      ))}
+    </ul>
   );
 }
 
-function LastNamesChart({ report, t }: StatisticsWidgetProps) {
-  const data = report.top_last_names.slice(0, 10);
-  if (data.length === 0) return null;
-
+export function RankedCard({
+  title,
+  description,
+  items,
+  className,
+}: {
+  title: string;
+  description?: string;
+  items: NameCount[];
+  className?: string;
+}) {
+  if (items.length === 0) return null;
   return (
-    <Card className="p-4">
-      <h2 className="text-sm font-medium mb-4">{t("last-names-title")}</h2>
-      <ResponsiveContainer
-        width="100%"
-        height={Math.max(180, data.length * 28 + 40)}
-      >
-        <BarChart data={data} layout="vertical" margin={{ left: 4, right: 16 }}>
-          <CartesianGrid
-            strokeDasharray="3 3"
-            horizontal={false}
-            className="stroke-border"
-          />
-          <XAxis
-            type="number"
-            allowDecimals={false}
-            tick={{ fontSize: 11 }}
-            tickLine={false}
-            axisLine={false}
-          />
-          <YAxis
-            type="category"
-            dataKey="name"
-            tick={{ fontSize: 11 }}
-            tickLine={false}
-            axisLine={false}
-            width={72}
-          />
-          <Tooltip
-            content={({ active, label, payload }) => (
-              <ChartTooltipContent
-                active={active}
-                label={label}
-                nameFormatter={() => t("names-count")}
-                payload={payload}
-              />
-            )}
-          />
-          <Bar
-            dataKey="count"
-            fill={NAME_COLOR}
-            radius={[0, 3, 3, 0]}
-            name="count"
-          />
-        </BarChart>
-      </ResponsiveContainer>
+    <Card className={className}>
+      <CardHeader>
+        <CardTitle>
+          <h2>{title}</h2>
+        </CardTitle>
+        {description && <CardDescription>{description}</CardDescription>}
+      </CardHeader>
+      <CardContent>
+        <RankedList items={items} />
+      </CardContent>
     </Card>
   );
 }
 
-export const STATISTICS_WIDGETS: StatisticsWidgetDefinition[] = [
-  {
-    id: "on-this-day",
-    titleKey: "on-this-day-title",
-    Component: OnThisDayWidget,
-  },
-  { id: "gender", titleKey: "gender-title", Component: GenderChart },
-  { id: "timeline", titleKey: "timeline-title", Component: TimelineChart },
-  { id: "lifespan", titleKey: "lifespan-title", Component: LifespanChart },
-  {
-    id: "first-names",
-    titleKey: "first-names-title",
-    Component: FirstNamesChart,
-  },
-  {
-    id: "last-names",
-    titleKey: "last-names-title",
-    Component: LastNamesChart,
-  },
-];
+/** First and family names side by side; a column only shows recurring names. */
+export function NamesCard({
+  first,
+  last,
+  t,
+  className,
+}: {
+  first: NameCount[];
+  last: NameCount[];
+  t: T;
+  className?: string;
+}) {
+  const columns = [
+    { key: "first", title: t("first-names-title"), items: first },
+    { key: "last", title: t("last-names-title"), items: last },
+  ].filter((c) => c.items.length > 0);
+  if (columns.length === 0) return null;
+  return (
+    <Card className={className}>
+      <CardHeader>
+        <CardTitle>
+          <h2>{t("names-title")}</h2>
+        </CardTitle>
+        <CardDescription>{t("names-description")}</CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-x-10 gap-y-6 sm:grid-cols-2">
+        {columns.map((c) => (
+          <section key={c.key}>
+            <h3 className="mb-3 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+              {c.title}
+            </h3>
+            <RankedList items={c.items} />
+          </section>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
 
-export const ALL_WIDGET_IDS: StatisticsWidgetId[] = STATISTICS_WIDGETS.map(
-  (w) => w.id,
-);
+/* ------------------------------------------------------------------------ */
+/* Completeness                                                              */
+/* ------------------------------------------------------------------------ */
 
-export const WIDGET_MAP: Record<
-  StatisticsWidgetId,
-  StatisticsWidgetDefinition
-> = Object.fromEntries(STATISTICS_WIDGETS.map((w) => [w.id, w])) as Record<
-  StatisticsWidgetId,
-  StatisticsWidgetDefinition
->;
+export function CompletenessCard({
+  report,
+  stories,
+  t,
+  onReview,
+  className,
+}: {
+  report: StatisticsReport;
+  stories: Story[];
+  t: T;
+  onReview?: () => void;
+  className?: string;
+}) {
+  const total = report.total_members;
+  const withStory = useMemo(
+    () => new Set(stories.flatMap((s) => s.linkedMemberIds)).size,
+    [stories],
+  );
+  const rows = [
+    { key: "birth-dates", n: report.members_with_birth_date },
+    { key: "birthplaces", n: report.members_with_birthplace ?? 0 },
+    { key: "stories", n: Math.min(withStory, total) },
+    { key: "photos", n: report.members_with_photo ?? 0 },
+  ];
+  return (
+    <Card className={className}>
+      <CardHeader>
+        <CardTitle>
+          <h2>{t("completeness-title")}</h2>
+        </CardTitle>
+        <CardDescription>{t("completeness-description")}</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-1 flex-col gap-3">
+        {rows.map((row) => {
+          const ratio = total ? row.n / total : 0;
+          return (
+            <Meter
+              key={row.key}
+              label={t(`completeness-${row.key}`)}
+              valueLabel={`${row.n} / ${total}`}
+              value={ratio}
+              tone={ratio < 0.25 ? "warning" : "primary"}
+            />
+          );
+        })}
+        {onReview && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-auto self-start"
+            onClick={onReview}
+          >
+            {t("completeness-review")}
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  );
+}

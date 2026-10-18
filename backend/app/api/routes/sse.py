@@ -37,13 +37,9 @@ def _resolve_user_from_ticket(ticket: str, db: Session) -> str:
 
     user = db.get(User, user_id)
     if user is None or not user.is_active:
-        raise HTTPException(
-            status_code=401, detail="Inactive or unknown user"
-        )
+        raise HTTPException(status_code=401, detail="Inactive or unknown user")
     if user.deletion_requested_at is not None:
-        raise HTTPException(
-            status_code=401, detail=ACCOUNT_PENDING_DELETION
-        )
+        raise HTTPException(status_code=401, detail=ACCOUNT_PENDING_DELETION)
     return user_id
 
 
@@ -83,9 +79,7 @@ async def stream_events(
                     break
 
                 try:
-                    event = await asyncio.wait_for(
-                        queue.get(), timeout=_POLL_INTERVAL
-                    )
+                    event = await asyncio.wait_for(queue.get(), timeout=_POLL_INTERVAL)
                     elapsed = 0.0
                     payload = json.dumps(event["data"])
                     yield f"event: {event['type']}\ndata: {payload}\n\n"

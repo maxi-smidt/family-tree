@@ -1,9 +1,9 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import type { Member } from "@/types/member";
-import type { Tree } from "@/types/tree";
+import type { Workspace } from "@/types/workspace";
 import type { MemberSheetTab } from "@/utils/memberSheetState";
 import { MemberSheet } from "./MemberSheet";
 
@@ -68,7 +68,7 @@ vi.mock("@/hooks/useGalleryStore", () => ({
   useGalleryStore: () => ({ refreshGalleryImages: vi.fn(), initialized: true }),
 }));
 
-const TREE: Tree = { id: "tree-1", name: "Tree", role: "owner" };
+const TREE: Workspace = { id: "tree-1", name: "Workspace", role: "owner" };
 
 const MEMBER: Member = {
   id: "member-1",
@@ -98,7 +98,7 @@ const NEW_MEMBER: Member = { ...MEMBER, id: "temp-new-1", firstName: "" };
 describe("MemberSheet tab switching", () => {
   beforeEach(() => {
     useMemberSheetStore.setState({ openSheets: {} });
-    useTreeStore.setState({ selectedTree: TREE });
+    useWorkspaceStore.setState({ selectedTree: TREE });
   });
 
   it("switches Identity and Life for an unsaved new member", () => {
@@ -171,9 +171,12 @@ describe("MemberSheet tab switching", () => {
 
     expect(await screen.findByTestId("view-active-tab")).toBeInTheDocument();
     expect(screen.queryByTestId("edit-active-tab")).not.toBeInTheDocument();
-    // Only the mocked ViewMode's own "view-go-life" button should render;
-    // the header's edit/view toggle button is omitted entirely when
-    // effectiveCanEdit is false.
-    expect(screen.getAllByRole("button")).toHaveLength(1);
+    // Only the mocked ViewMode's own "view-go-life" button and the header's
+    // close button should render; the edit/view toggle is omitted entirely
+    // when effectiveCanEdit is false.
+    expect(screen.getAllByRole("button")).toHaveLength(2);
+    expect(
+      screen.queryByRole("button", { name: /^edit$/i }),
+    ).not.toBeInTheDocument();
   });
 });

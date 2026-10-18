@@ -7,7 +7,7 @@ from tests.conftest import API, add_member, auth, make_tree, make_user, share
 def _setup(client, db, owner_name="unknown-face-owner"):
     owner = make_user(db, owner_name)
     tree = make_tree(db, owner)
-    db.add(GalleryImage(id="img1", tree_id=tree.id, title="Reunion photo"))
+    db.add(GalleryImage(id="img1", workspace_id=tree.id, title="Reunion photo"))
     db.commit()
     return owner, tree
 
@@ -23,7 +23,7 @@ def _create_face(client, owner, tree, image_id="img1", user=None, **overrides):
         **overrides,
     }
     return client.post(
-        f"{API}/trees/{tree.id}/gallery/images/{image_id}/unknown-faces",
+        f"{API}/workspaces/{tree.id}/gallery/images/{image_id}/unknown-faces",
         headers=auth(user or owner),
         json=payload,
     )
@@ -38,23 +38,26 @@ def test_create_unknown_face_creates_exactly_one_open_task(client, db):
     assert body["gallery_image_id"] == "img1"
     assert body["task_id"] is not None
 
-    tasks = client.get(f"{API}/trees/{tree.id}/tasks", headers=auth(owner)).json()
+    tasks = client.get(f"{API}/workspaces/{tree.id}/tasks", headers=auth(owner)).json()
     assert len(tasks) == 1
     assert tasks[0]["id"] == body["task_id"]
     assert tasks[0]["done"] is False
     assert tasks[0]["member_ids"] == []
-    assert 'Reunion photo' in tasks[0]["title"]
+    assert "Reunion photo" in tasks[0]["title"]
 
 
 def test_create_unknown_face_task_title_and_notes_passthrough(client, db):
     owner, tree = _setup(client, db)
     res = _create_face(
-        client, owner, tree,
-        task_title="Wer ist das?", task_notes="Aufgenommen 1950",
+        client,
+        owner,
+        tree,
+        task_title="Wer ist das?",
+        task_notes="Aufgenommen 1950",
     )
     assert res.status_code == 201
     task_id = res.json()["task_id"]
-    tasks = client.get(f"{API}/trees/{tree.id}/tasks", headers=auth(owner)).json()
+    tasks = client.get(f"{API}/workspaces/{tree.id}/tasks", headers=auth(owner)).json()
     task = next(t for t in tasks if t["id"] == task_id)
     assert task["title"] == "Wer ist das?"
     assert task["notes"] == "Aufgenommen 1950"
@@ -64,7 +67,7 @@ def test_create_unknown_face_falls_back_to_english_title(client, db):
     owner, tree = _setup(client, db)
     res = _create_face(client, owner, tree)
     task_id = res.json()["task_id"]
-    tasks = client.get(f"{API}/trees/{tree.id}/tasks", headers=auth(owner)).json()
+    tasks = client.get(f"{API}/workspaces/{tree.id}/tasks", headers=auth(owner)).json()
     task = next(t for t in tasks if t["id"] == task_id)
     assert task["title"] == 'Identify unknown person in "Reunion photo"'
     assert task["notes"] is None
@@ -74,7 +77,7 @@ def test_create_unknown_face_region_validation(client, db):
     owner, tree = _setup(client, db)
 
     incomplete = client.post(
-        f"{API}/trees/{tree.id}/gallery/images/img1/unknown-faces",
+        f"{API}/workspaces/{tree.id}/gallery/images/img1/unknown-faces",
         headers=auth(owner),
         json={"id": "face1", "x": 0.1, "y": 0.2, "created_at": "2026-01-01"},
     )
@@ -92,7 +95,7 @@ def test_update_unknown_face_region_creates_no_additional_task(client, db):
     _create_face(client, owner, tree)
 
     res = client.patch(
-        f"{API}/trees/{tree.id}/gallery/unknown-faces/face1",
+        f"{API}/workspaces/{tree.id}/gallery/unknown-faces/face1",
         headers=auth(owner),
         json={"x": 0.15, "y": 0.25, "w": 0.35, "h": 0.45},
     )
@@ -101,7 +104,7 @@ def test_update_unknown_face_region_creates_no_additional_task(client, db):
     assert body["x"] == 0.15
     assert body["y"] == 0.25
 
-    tasks = client.get(f"{API}/trees/{tree.id}/tasks", headers=auth(owner)).json()
+    tasks = client.get(f"{API}/workspaces/{tree.id}/tasks", headers=auth(owner)).json()
     assert len(tasks) == 1
 
 
@@ -112,26 +115,30 @@ def test_resolve_unknown_face_creates_member_link_and_completes_task(client, db)
     task_id = res.json()["task_id"]
 
     resolve = client.post(
-        f"{API}/trees/{tree.id}/gallery/unknown-faces/face1/resolve",
+        f"{API}/workspaces/{tree.id}/gallery/unknown-faces/face1/resolve",
         headers=auth(owner),
         json={"member_id": "m1"},
     )
     assert resolve.status_code == 204, resolve.text
 
     links = client.get(
-        f"{API}/trees/{tree.id}/gallery/links", headers=auth(owner)
+        f"{API}/workspaces/{tree.id}/gallery/links", headers=auth(owner)
     ).json()
     assert links == [
         {
-            "gallery_image_id": "img1", "member_id": "m1",
-            "x": 0.1, "y": 0.2, "w": 0.3, "h": 0.4,
+            "gallery_image_id": "img1",
+            "member_id": "m1",
+            "x": 0.1,
+            "y": 0.2,
+            "w": 0.3,
+            "h": 0.4,
         }
     ]
 
     faces = db.query(GalleryUnknownFace).all()
     assert faces == []
 
-    tasks = client.get(f"{API}/trees/{tree.id}/tasks", headers=auth(owner)).json()
+    tasks = client.get(f"{API}/workspaces/{tree.id}/tasks", headers=auth(owner)).json()
     task = next(t for t in tasks if t["id"] == task_id)
     assert task["done"] is True
     assert task["done_at"] is not None
@@ -145,13 +152,15 @@ def test_resolve_unknown_face_overwrites_existing_whole_image_link(client, db):
     _create_face(client, owner, tree)
 
     resolve = client.post(
-        f"{API}/trees/{tree.id}/gallery/unknown-faces/face1/resolve",
+        f"{API}/workspaces/{tree.id}/gallery/unknown-faces/face1/resolve",
         headers=auth(owner),
         json={"member_id": "m1"},
     )
     assert resolve.status_code == 204, resolve.text
 
-    links = client.get(f"{API}/trees/{tree.id}/gallery/links", headers=auth(owner)).json()
+    links = client.get(
+        f"{API}/workspaces/{tree.id}/gallery/links", headers=auth(owner)
+    ).json()
     assert len(links) == 1
     assert links[0]["member_id"] == "m1"
     assert links[0]["x"] == 0.1
@@ -164,7 +173,7 @@ def test_resolve_unknown_face_404_for_unknown_member(client, db):
     owner, tree = _setup(client, db)
     _create_face(client, owner, tree)
     resolve = client.post(
-        f"{API}/trees/{tree.id}/gallery/unknown-faces/face1/resolve",
+        f"{API}/workspaces/{tree.id}/gallery/unknown-faces/face1/resolve",
         headers=auth(owner),
         json={"member_id": "nope"},
     )
@@ -177,7 +186,7 @@ def test_delete_unknown_face_removes_open_task(client, db):
     task_id = res.json()["task_id"]
 
     delete = client.delete(
-        f"{API}/trees/{tree.id}/gallery/unknown-faces/face1", headers=auth(owner)
+        f"{API}/workspaces/{tree.id}/gallery/unknown-faces/face1", headers=auth(owner)
     )
     assert delete.status_code == 204
 
@@ -191,14 +200,14 @@ def test_delete_unknown_face_keeps_done_task(client, db):
     task_id = res.json()["task_id"]
 
     done = client.patch(
-        f"{API}/trees/{tree.id}/tasks/{task_id}",
+        f"{API}/workspaces/{tree.id}/tasks/{task_id}",
         headers=auth(owner),
         json={"title": "x", "notes": None, "done": True, "done_at": "2026-02-01"},
     )
     assert done.status_code == 200
 
     delete = client.delete(
-        f"{API}/trees/{tree.id}/gallery/unknown-faces/face1", headers=auth(owner)
+        f"{API}/workspaces/{tree.id}/gallery/unknown-faces/face1", headers=auth(owner)
     )
     assert delete.status_code == 204
 
@@ -212,7 +221,7 @@ def test_completing_task_via_tasks_route_leaves_face_intact(client, db):
     task_id = res.json()["task_id"]
 
     done = client.patch(
-        f"{API}/trees/{tree.id}/tasks/{task_id}",
+        f"{API}/workspaces/{tree.id}/tasks/{task_id}",
         headers=auth(owner),
         json={"title": "x", "notes": None, "done": True, "done_at": "2026-02-01"},
     )
@@ -229,7 +238,7 @@ def test_deleting_task_via_tasks_route_nulls_face_task_id(client, db):
     task_id = res.json()["task_id"]
 
     delete_task = client.delete(
-        f"{API}/trees/{tree.id}/tasks/{task_id}", headers=auth(owner)
+        f"{API}/workspaces/{tree.id}/tasks/{task_id}", headers=auth(owner)
     )
     assert delete_task.status_code == 204
 
@@ -240,28 +249,28 @@ def test_deleting_task_via_tasks_route_nulls_face_task_id(client, db):
 
 
 def test_unknown_face_requires_tasks_domain_for_mutations(client, db):
-    from app.models.tree import TreeMembership
+    from app.models.workspace import WorkspaceMembership
 
     owner, tree = _setup(client, db)
     created = _create_face(client, owner, tree)
     task_id = created.json()["task_id"]
     restricted = make_user(db, "unknown-face-tasks-restricted")
     share(db, tree, restricted, "editor")
-    membership = db.get(TreeMembership, (tree.id, restricted.id))
+    membership = db.get(WorkspaceMembership, (tree.id, restricted.id))
     membership.restrictions = ["tasks"]
     db.commit()
 
     assert _create_face(client, owner, tree, user=restricted).status_code == 404
 
     resolve = client.post(
-        f"{API}/trees/{tree.id}/gallery/unknown-faces/face1/resolve",
+        f"{API}/workspaces/{tree.id}/gallery/unknown-faces/face1/resolve",
         headers=auth(restricted),
         json={"member_id": "missing"},
     )
     assert resolve.status_code == 404
 
     delete = client.delete(
-        f"{API}/trees/{tree.id}/gallery/unknown-faces/face1",
+        f"{API}/workspaces/{tree.id}/gallery/unknown-faces/face1",
         headers=auth(restricted),
     )
     assert delete.status_code == 404
@@ -281,10 +290,14 @@ def test_unknown_face_writes_require_editor_or_owner(client, db):
 
     assert (
         client.post(
-            f"{API}/trees/{tree.id}/gallery/images/img1/unknown-faces",
+            f"{API}/workspaces/{tree.id}/gallery/images/img1/unknown-faces",
             headers=auth(viewer),
             json={
-                "id": "face2", "x": 0.5, "y": 0.5, "w": 0.1, "h": 0.1,
+                "id": "face2",
+                "x": 0.5,
+                "y": 0.5,
+                "w": 0.1,
+                "h": 0.1,
                 "created_at": "2026-01-01",
             },
         ).status_code
@@ -292,7 +305,7 @@ def test_unknown_face_writes_require_editor_or_owner(client, db):
     )
     assert (
         client.patch(
-            f"{API}/trees/{tree.id}/gallery/unknown-faces/face1",
+            f"{API}/workspaces/{tree.id}/gallery/unknown-faces/face1",
             headers=auth(viewer),
             json={"x": 0.1, "y": 0.1, "w": 0.1, "h": 0.1},
         ).status_code
@@ -300,7 +313,7 @@ def test_unknown_face_writes_require_editor_or_owner(client, db):
     )
     assert (
         client.post(
-            f"{API}/trees/{tree.id}/gallery/unknown-faces/face1/resolve",
+            f"{API}/workspaces/{tree.id}/gallery/unknown-faces/face1/resolve",
             headers=auth(viewer),
             json={"member_id": "m1"},
         ).status_code
@@ -308,7 +321,7 @@ def test_unknown_face_writes_require_editor_or_owner(client, db):
     )
     assert (
         client.delete(
-            f"{API}/trees/{tree.id}/gallery/unknown-faces/face1",
+            f"{API}/workspaces/{tree.id}/gallery/unknown-faces/face1",
             headers=auth(viewer),
         ).status_code
         == 403
@@ -322,7 +335,7 @@ def test_unknown_face_for_image_in_another_tree_is_404(client, db):
     _create_face(client, owner, tree)
 
     res = client.patch(
-        f"{API}/trees/{other_tree.id}/gallery/unknown-faces/face1",
+        f"{API}/workspaces/{other_tree.id}/gallery/unknown-faces/face1",
         headers=auth(other_owner),
         json={"x": 0.1, "y": 0.1, "w": 0.1, "h": 0.1},
     )

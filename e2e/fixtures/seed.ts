@@ -40,24 +40,24 @@ export async function createTree(
   name?: string,
 ): Promise<TreeRecord> {
   const id = randomUUID();
-  const treeName = name ?? `E2E-Tree-${id.slice(0, 8)}`;
-  return api.post<TreeRecord>("/trees", { id, name: treeName });
+  const workspaceName = name ?? `E2E-Workspace-${id.slice(0, 8)}`;
+  return api.post<TreeRecord>("/workspaces", { id, name: workspaceName });
 }
 
 export async function deleteTree(
   api: ApiClient,
-  treeId: string,
+  workspaceId: string,
 ): Promise<void> {
-  await api.delete(`/trees/${treeId}`);
+  await api.delete(`/workspaces/${workspaceId}`);
 }
 
 export async function createMember(
   api: ApiClient,
-  treeId: string,
+  workspaceId: string,
   fields: Partial<MemberRecord> = {},
 ): Promise<MemberRecord> {
   const id = fields.id ?? randomUUID();
-  return api.post<MemberRecord>(`/trees/${treeId}/members`, {
+  return api.post<MemberRecord>(`/workspaces/${workspaceId}/members`, {
     id,
     firstName: fields.firstName ?? "Test",
     lastName: fields.lastName ?? "Member",
@@ -67,12 +67,12 @@ export async function createMember(
 
 export async function createRelation(
   api: ApiClient,
-  treeId: string,
+  workspaceId: string,
   fromId: string,
   toId: string,
   relationType = "partner",
 ): Promise<RelationRecord> {
-  return api.post<RelationRecord>(`/trees/${treeId}/relations`, {
+  return api.post<RelationRecord>(`/workspaces/${workspaceId}/relations`, {
     from_member_id: fromId,
     to_member_id: toId,
     relation_type: relationType,
@@ -85,32 +85,32 @@ export async function createRelation(
  */
 export async function seedMinimalFamily(
   api: ApiClient,
-  treeId: string,
+  workspaceId: string,
 ): Promise<{ alice: MemberRecord; bob: MemberRecord; charlie: MemberRecord }> {
-  const alice = await createMember(api, treeId, {
+  const alice = await createMember(api, workspaceId, {
     firstName: "Alice",
     lastName: "Smith",
     gender: "f",
     dateOfBirth: "1980-01-01",
   } as Partial<MemberRecord> & Record<string, unknown>);
 
-  const bob = await createMember(api, treeId, {
+  const bob = await createMember(api, workspaceId, {
     firstName: "Bob",
     lastName: "Smith",
     gender: "m",
     dateOfBirth: "1978-06-15",
   } as Partial<MemberRecord> & Record<string, unknown>);
 
-  await createRelation(api, treeId, alice.id, bob.id, "partner");
+  await createRelation(api, workspaceId, alice.id, bob.id, "partner");
 
-  const charlie = await createMember(api, treeId, {
+  const charlie = await createMember(api, workspaceId, {
     firstName: "Charlie",
     lastName: "Smith",
     gender: "m",
     dateOfBirth: "2005-03-20",
   } as Partial<MemberRecord> & Record<string, unknown>);
 
-  await createRelation(api, treeId, alice.id, charlie.id, "parent");
+  await createRelation(api, workspaceId, alice.id, charlie.id, "parent");
 
   return { alice, bob, charlie };
 }

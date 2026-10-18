@@ -124,3 +124,4 @@ def test_backup_check_runs_only_when_leader(monkeypatch):
     _patch_leader(monkeypatch, bs, is_leader=True)
     bs._check_if_leader()
     assert calls == [True]
+

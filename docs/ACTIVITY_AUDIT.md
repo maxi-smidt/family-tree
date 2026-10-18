@@ -29,10 +29,6 @@ this PR · **Admin audit** = covered by the separate, non-tree-scoped trail
 | Story create/update/delete                                         | Logged      | `app/api/routes/stories.py`                                                                                                                   |
 | Gallery image create/update/delete                                 | Logged      | `app/api/routes/gallery.py`                                                                                                                   |
 | Document / disease CRUD                                            | Logged      | `app/api/routes/documents.py` & `MemberDisease` routes                                                                                        |
-| Subtree extract                                                    | Logged      | `app/services/extract.py::extract_subtree`                                                                                                    |
-| Tree-in-tree link (`POST /members/{id}/link`) — source side        | Logged      | existing `action="update"`, `target_type="member"` on the anchor tree                                                                         |
-| Tree-in-tree link — **target-side counterpart**                    | **Added**   | second row now written on `target.id`; `create` for a fresh clone (`mode="create"`), `update` for an existing counterpart (`mode="existing"`) |
-| Tree-in-tree unlink (via member `PATCH` clearing `linked_tree_id`) | Logged      | already captured by the ordinary member-update diff; no separate action needed                                                                |
 | Tree create                                                        | **Added**   | `app/api/routes/trees.py::create_tree`                                                                                                        |
 | Tree rename                                                        | **Added**   | `update_tree`; only written when the name actually changes                                                                                    |
 | Tree delete                                                        | Admin audit | preserved after the tree and its per-tree activity rows are deleted                                                                           |
@@ -50,7 +46,6 @@ this PR · **Admin audit** = covered by the separate, non-tree-scoped trail
 | JSON-bundle import                                                 | **Added**   | `do_import` in `app/services/tree_bundle_import.py`; one `create`/`import` row on the new tree once the importing user is resolved            |
 | GEDCOM import                                                      | **Added**   | `do_import_gedcom` in `app/services/tree_gedcom_import.py`, same pattern                                                                      |
 | Tree merge                                                         | **Added**   | `app/services/merge.py::merge_trees`; one row on the newly created tree                                                                       |
-| Virtual-view CRUD                                                  | Admin audit | owner-scoped, cross-tree overlay — no single `tree_id`                                                                                        |
 | Backup create/delete                                               | Admin audit | instance-wide; no backup restore endpoint currently exists                                                                                    |
 | App-settings change                                                | Admin audit | instance-wide setting                                                                                                                         |
 | Legal-doc version change                                           | Admin audit | legal changes are included in settings snapshots                                                                                              |
@@ -58,7 +53,7 @@ this PR · **Admin audit** = covered by the separate, non-tree-scoped trail
 | User create/delete                                                 | Admin audit | self-registration and admin account lifecycle actions                                                                                         |
 | Role/admin change                                                  | Admin audit | captured as a before/after user update                                                                                                        |
 | Password change                                                    | Admin audit | password values are never recorded                                                                                                            |
-| Merge/extract **preview** endpoints                                | N/A         | read-only, no mutation                                                                                                                        |
+| Merge **preview** endpoint                                         | N/A         | read-only, no mutation                                                                                                                        |
 
 ## (b) Rollback feasibility
 
@@ -89,15 +84,11 @@ snapshot captures everything the DB cascade removes: the full member row
 (every mapped column, collected via SQLAlchemy mapper inspection so schema
 evolution is picked up automatically), relations on either side, disease
 rows, and all four content link tables (`event_links`, `story_links`,
-`gallery_links` including face-tag regions, `document_links`), plus a
-`bridge` key recording the counterpart member/tree when deleting a bridge
-person (the delete route dissolves the tree-in-tree link on the counterpart
-row). The member's profile photo survives because `image_data` is a media
-URL and member deletion does not unlink the file. Restoring is conditional
-on referenced rows still existing (the other member of a relation, the
-event/story/image/document behind a link, the bridge counterpart).
-Virtual-view match rows also cascade but are derived state the matching
-service recomputes, so they are deliberately not snapshotted.
+`gallery_links` including face-tag regions, `document_links`). The member's
+profile photo survives because `image_data` is a media URL and member
+deletion does not unlink the file. Restoring is conditional on referenced
+rows still existing (the other member of a relation, the
+event/story/image/document behind a link).
 
 _Event, story, gallery-image, and document deletes are also **reversible in
 the product**_ (snapshotted by issue #760, undoable by the same #762 endpoint
@@ -114,7 +105,7 @@ row plus every link table that cascades away with it.
   (`gallery_member_link`, including face-tag regions), and `trashed_media` —
   the image's media URL, moved into trash rather than deleted (see below).
   `gallery_unknown_faces` rows also cascade away but are deliberately not
-  snapshotted, mirroring the virtual-view-match exclusion above.
+  snapshotted — they are derived state a re-tag recreates.
 - **Document**: `document` row, `files` (`document_files`, both `"file"` and
   `"link"` kind), `member_links` / `event_links` / `story_links`
   (`document_member_link` / `event_document_link` / `story_document_link`),
@@ -123,6 +114,15 @@ row plus every link table that cascades away with it.
   endpoint now records its own `delete` row too (`target_type
 ="document_file"`), built inline from `delete_snapshot(document_file=...,
 trashed_media=...)` since it's a single row with no link tables of its own.
+
+**Content provenance (issue #1023).** Every snapshot of a record that carries
+an origin scope (event, story, gallery image, document, disease — and the
+diseases inside a member snapshot) also stores a `content_scopes` map keyed
+`"<content_type>:<content_id>"`, so an undo puts the record back into the
+section it came from instead of restoring it workspace-wide. The key is
+optional, so pre-#1023 snapshots still restore under `version: 1`; they simply
+come back workspace-wide, as does any record whose section has been deleted in
+the meantime.
 
 **Media trash/retention (issue #760).** Gallery and document deletes used to
 call `delete_media`, unlinking the bytes immediately — a row snapshot alone
@@ -176,8 +176,7 @@ mirroring its matching `*_delete_snapshot` builder key-for-key.
 
 Restoring is **partial and safe**: the main row plus every child reference
 that still validates (the other endpoint of a relation, the parent of a link
-row, a bridge counterpart that isn't already linked elsewhere) comes back;
-anything that doesn't validate is skipped and reported rather than failing
+row) comes back; anything that doesn't validate is skipped and reported rather than failing
 the whole undo (`{"restored": {...}, "skipped": [{"table", "reason"}, ...]}`).
 A double-undo, or an undo racing a concurrent insert of the same id, surfaces
 as a structured 409, never a 500. The undo itself writes a new `create`
@@ -196,10 +195,6 @@ durably attached to, so they cannot live in the per-tree `ActivityLog`:
   here would be deleted in the same transaction as the tree, making the
   "audit" self-erasing and pointless. (Left as a one-line comment at the
   `delete_tree` call site referencing this doc.)
-- **Virtual-view CRUD** — a `VirtualView` is owned by a `User`
-  (`owner_id`), not a tree; it is a cross-tree overlay that can reference
-  members from multiple trees. There is no single tree to scope the log
-  entry to.
 - **Backup create/delete/restore** — instance-wide operations
   (`/admin/backups`) over the whole database, not one tree.
 - **App-settings changes, legal-doc version changes** — instance-wide admin
