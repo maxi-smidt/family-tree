@@ -48,6 +48,7 @@ from app.models import (
     GalleryUnknownFace,
     Member,
     MemberDisease,
+    MemberFieldCitation,
     MemberTask,
     MemberTaskLink,
     Relation,
@@ -77,7 +78,7 @@ from app.services.interchange.bundles.bundle_types import (
     BundleMemberRow,
     BundleRelationRow,
     TreeBundle,
-    TreeBundleV6,
+    TreeBundleV7,
 )
 from app.services.interchange.bundles.tree_bundle_import import do_import
 from app.services.interchange.gedcom import gedcom
@@ -122,7 +123,7 @@ def export_tree(
         if f.get("kind") == "file":
             f["url"] = media_url_to_data_url(f.get("url"))
 
-    bundle: TreeBundleV6 = {
+    bundle: TreeBundleV7 = {
         "version": BUNDLE_VERSION,
         "app_version": settings.APP_VERSION,
         "exported_at": utcnow_iso(),
@@ -151,6 +152,7 @@ def export_tree(
         "document_member_links": _document_link_rows(db, DocumentMemberLink, tree.id),
         "event_document_links": _document_link_rows(db, EventDocumentLink, tree.id),
         "story_document_links": _document_link_rows(db, StoryDocumentLink, tree.id),
+        "member_field_citations": _rows(db, MemberFieldCitation, tree.id),
         "sections": _rows(db, Section, tree.id),
         "section_members": _link_rows(db, SectionMember, Section, tree.id),
         # Saved views are private to their owner — the live API never shows

@@ -34,6 +34,7 @@ from app.models.content import (
     EventMemberLink,
     GalleryImage,
     GalleryMemberLink,
+    MemberFieldCitation,
     MemberTaskLink,
     Story,
     StoryDocumentLink,
@@ -107,6 +108,9 @@ def member_delete_snapshot(
     document_links = db.scalars(
         select(DocumentMemberLink).where(DocumentMemberLink.member_id == member.id)
     ).all()
+    citations = db.scalars(
+        select(MemberFieldCitation).where(MemberFieldCitation.member_id == member.id)
+    ).all()
 
     snapshot: MemberSnapshot = {
         "version": SNAPSHOT_VERSION,
@@ -121,6 +125,7 @@ def member_delete_snapshot(
         "story_links": [row_to_dict(r) for r in story_links],
         "gallery_links": [row_to_dict(r) for r in gallery_links],
         "document_links": [row_to_dict(r) for r in document_links],
+        "citations": [row_to_dict(c) for c in citations],
     }
     return {"snapshot": snapshot}
 
@@ -222,6 +227,11 @@ def document_delete_snapshot(
             DocumentFileText.document_file_id.in_([f.id for f in files])
         )
     ).all()
+    citations = db.scalars(
+        select(MemberFieldCitation).where(
+            MemberFieldCitation.document_id == document.id
+        )
+    ).all()
     snapshot: DocumentSnapshot = {
         "version": SNAPSHOT_VERSION,
         "document": row_to_dict(document),
@@ -232,6 +242,7 @@ def document_delete_snapshot(
         "story_links": [row_to_dict(r) for r in story_links],
         "trashed_media": [f.url for f in files if f.kind == "file"],
         "file_texts": [row_to_dict(t) for t in file_texts],
+        "citations": [row_to_dict(c) for c in citations],
     }
     return {"snapshot": snapshot}
 
@@ -261,12 +272,14 @@ def document_file_delete_snapshot(
     file: DocumentFile,
     trashed_url: str | None = None,
     text: DocumentFileText | None = None,
+    citation_ids: list[str] | None = None,
 ) -> DeleteSnapshot[DocumentFileSnapshot]:
     """Pre-image of a standalone document-file delete.
 
     ``trashed_url`` is the file's media URL when it was moved to trash
     (``kind == "file"``); link-kind attachments have no backing file.
-    ``text`` is the file's text row, if it has one.
+    ``text`` is the file's text row, if it has one. ``citation_ids`` are the
+    citations pointing at the file (the delete keeps them on the document).
     """
     snapshot: DocumentFileSnapshot = {
         "version": SNAPSHOT_VERSION,
@@ -275,6 +288,8 @@ def document_file_delete_snapshot(
     }
     if text is not None:
         snapshot["document_file_text"] = row_to_dict(text)
+    if citation_ids:
+        snapshot["citation_ids"] = citation_ids
     return {"snapshot": snapshot}
 
 

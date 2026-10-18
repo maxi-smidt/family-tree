@@ -274,6 +274,23 @@ class BundleDocumentFileTextRow(TypedDict, total=False):
     updated_at: str | None
 
 
+class BundleMemberFieldCitationRow(TypedDict, total=False):
+    id: str
+    workspace_id: str
+    member_id: str
+    field: str
+    document_id: str
+    document_file_id: str | None
+    page: int | None
+    quote: str | None
+    quote_prefix: str | None
+    quote_suffix: str | None
+    note: str | None
+    created_by: str | None
+    created_at: str | None
+    updated_at: str | None
+
+
 class BundleDocumentMemberLinkRow(TypedDict, total=False):
     document_id: str
     member_id: str
@@ -433,7 +450,7 @@ class TreeBundleV5(TypedDict, total=False):
 
 
 class TreeBundleV6(TreeBundleV5, total=False):
-    """Current bundle shape produced by ``export_tree``.
+    """Bundle shape of early v2.2.
 
     Adds the Markdown text of document files (#1121).
     """
@@ -441,5 +458,21 @@ class TreeBundleV6(TreeBundleV5, total=False):
     document_file_texts: list[BundleDocumentFileTextRow]
 
 
-TreeBundle = TreeBundleV2 | TreeBundleV3 | TreeBundleV4 | TreeBundleV5 | TreeBundleV6
+class TreeBundleV7(TreeBundleV6, total=False):
+    """Current bundle shape produced by ``export_tree``.
+
+    Adds documents cited as evidence for person fields.
+    """
+
+    member_field_citations: list[BundleMemberFieldCitationRow]
+
+
+TreeBundle = (
+    TreeBundleV2
+    | TreeBundleV3
+    | TreeBundleV4
+    | TreeBundleV5
+    | TreeBundleV6
+    | TreeBundleV7
+)
 """Any bundle version that ``migrate_bundle`` knows how to read."""

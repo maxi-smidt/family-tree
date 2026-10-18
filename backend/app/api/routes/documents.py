@@ -45,6 +45,7 @@ from app.models import (
     DocumentMemberLink,
     DocumentUpload,
     EventDocumentLink,
+    MemberFieldCitation,
     StoryDocumentLink,
     Workspace,
 )
@@ -749,7 +750,16 @@ def delete_file(
             target_id=file.id,
             target_label=file.filename,
             details=document_file_delete_snapshot(
-                file, url, db.get(DocumentFileText, file.id)
+                file,
+                url,
+                db.get(DocumentFileText, file.id),
+                list(
+                    db.scalars(
+                        select(MemberFieldCitation.id).where(
+                            MemberFieldCitation.document_file_id == file.id
+                        )
+                    )
+                ),
             ),
         )
         db.delete(file)

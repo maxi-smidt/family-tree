@@ -24,6 +24,7 @@ from app.models import (
     GalleryMemberLink,
     Member,
     MemberDisease,
+    MemberFieldCitation,
     MemberTaskLink,
     Relation,
     SectionMember,
@@ -382,6 +383,12 @@ def merge_members_in_place(
     _repoint_member_links(db, MemberTaskLink, "task_id", keep.id, remove.id)
     _repoint_member_links(db, SectionMember, "section_id", keep.id, remove.id)
     _transfer_diseases(db, keep.id, remove.id)
+    # Evidence stays evidence for the same person, whichever value won.
+    for citation in db.scalars(
+        select(MemberFieldCitation).where(MemberFieldCitation.member_id == remove.id)
+    ):
+        citation.member_id = keep.id
+    db.flush()
     repoint_identity_links_for_merge(db, keep, remove)
     repoint_identity_link_claims_for_merge(db, keep, remove)
 

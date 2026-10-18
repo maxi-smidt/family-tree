@@ -31,6 +31,7 @@ from app.models.content import (
     GalleryImage,
     GalleryMemberLink,
     GalleryUnknownFace,
+    MemberFieldCitation,
     MemberTask,
     MemberTaskLink,
     Story,
@@ -94,7 +95,7 @@ def _tree_model_bytes_for_tree_ids(db: Session, workspace_ids: list[str]) -> int
     GalleryUnknownFace, Event, EventMemberLink, Story, StoryMemberLink,
     MemberTask, MemberTaskLink,
     Document, DocumentFile, DocumentFileText, DocumentMemberLink,
-    EventDocumentLink, StoryDocumentLink.
+    EventDocumentLink, StoryDocumentLink, MemberFieldCitation.
     """
     if not workspace_ids:
         return 0
@@ -177,6 +178,7 @@ def _tree_model_bytes_for_tree_ids(db: Session, workspace_ids: list[str]) -> int
     total += _sum_model(Document, Document.workspace_id)
     total += _sum_model(DocumentFile, DocumentFile.workspace_id)
     total += _sum_model(DocumentFileText, DocumentFileText.workspace_id)
+    total += _sum_model(MemberFieldCitation, MemberFieldCitation.workspace_id)
     # The three document link tables have no workspace_id column — traverse via
     # Document, which always carries one.
     doc_member_links = (
