@@ -58,3 +58,22 @@ class MemberFieldCitationUpdate(_CitationAnchor):
     The person, field and document stay fixed: citing something else is a new
     citation.
     """
+
+
+class MemberMissingEvidence(BaseModel):
+    member_id: str
+    # The name, since the client may not have every person loaded.
+    name: str
+    fields: list[str]
+
+
+class EvidenceCoverage(BaseModel):
+    """How many of the visible people's filled-in key facts have evidence."""
+
+    facts_total: int
+    facts_cited: int
+    # People with the most facts still lacking evidence first, capped.
+    missing: list[MemberMissingEvidence]
+    missing_member_count: int
+    # Cited passages that can no longer be found in their file's text.
+    quotes_not_found: list[MemberFieldCitationOut]

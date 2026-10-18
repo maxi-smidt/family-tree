@@ -40,6 +40,10 @@ import { MemberSheetTab } from "@/utils/memberSheetState";
 import { useIsMobile } from "@/hooks/useMobile";
 import { cn } from "@/lib/utils";
 import { MemberProfileHero } from "./MemberProfileHero";
+import { FieldEvidence } from "@/components/shared/evidence/FieldEvidence";
+import { useCitationStore, useLoadCitations } from "@/hooks/useCitationStore";
+import { CitableField } from "@/types/citation";
+import { filledCitableFields } from "@/utils/citations";
 
 type Props = {
   member: Member;
@@ -79,6 +83,19 @@ export const ViewMode = ({
   const mapEnabled = eventsEnabled;
   const biographyEnabled = storiesEnabled;
   const isMobile = useIsMobile();
+  const { t: evidenceT } = useTranslation(undefined, {
+    keyPrefix: "sheet.evidence",
+  });
+  const showEvidence = documentsEnabled && !isNew;
+  useLoadCitations(showEvidence);
+  const citations = useCitationStore((s) => s.citations);
+  const citedFields = new Set(
+    citations.filter((c) => c.memberId === member.id).map((c) => c.field),
+  );
+  const keyFacts = filledCitableFields(member);
+  const coveredFacts = keyFacts.filter((f) => citedFields.has(f)).length;
+  const evidence = (field: CitableField) =>
+    showEvidence ? <FieldEvidence member={member} field={field} /> : null;
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [startIndex, setStartIndex] = useState(0);
 
@@ -169,9 +186,19 @@ export const ViewMode = ({
               layout={isMobile ? "rows" : "chips"}
             />
           )}
-          <h3 className="mb-3 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-            {t("details-heading")}
-          </h3>
+          <div className="mb-3 flex items-baseline justify-between gap-2">
+            <h3 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+              {t("details-heading")}
+            </h3>
+            {showEvidence && citedFields.size > 0 && (
+              <span className="text-xs text-muted-foreground">
+                {evidenceT("coverage", {
+                  count: keyFacts.length,
+                  covered: coveredFacts,
+                })}
+              </span>
+            )}
+          </div>
           <div
             className={cn(
               "grid gap-x-6 gap-y-4",
@@ -191,37 +218,52 @@ export const ViewMode = ({
                 </ItemContent>
               </Item>
             )}
-            <Item variant="field">
+            <Item variant="field" className="group/evidence">
               <ItemContent>
-                <ItemTitle>{t("firstname-item")}</ItemTitle>
+                <ItemTitle className="gap-1.5">
+                  {t("firstname-item")}
+                  {evidence("first_name")}
+                </ItemTitle>
                 <ItemDescription>{member.firstName}</ItemDescription>
               </ItemContent>
             </Item>
-            <Item variant="field">
+            <Item variant="field" className="group/evidence">
               <ItemContent>
-                <ItemTitle>{t("lastname-item")}</ItemTitle>
+                <ItemTitle className="gap-1.5">
+                  {t("lastname-item")}
+                  {evidence("last_name")}
+                </ItemTitle>
                 <ItemDescription>{member.lastName}</ItemDescription>
               </ItemContent>
             </Item>
-            <Item variant="field">
+            <Item variant="field" className="group/evidence">
               <ItemContent>
-                <ItemTitle>{t("middle-names-item")}</ItemTitle>
+                <ItemTitle className="gap-1.5">
+                  {t("middle-names-item")}
+                  {evidence("middle_names")}
+                </ItemTitle>
                 <ItemDescription>
                   {member.middleNames || <i>{t("name-fallback")}</i>}
                 </ItemDescription>
               </ItemContent>
             </Item>
-            <Item variant="field">
+            <Item variant="field" className="group/evidence">
               <ItemContent>
-                <ItemTitle>{t("maiden-item")}</ItemTitle>
+                <ItemTitle className="gap-1.5">
+                  {t("maiden-item")}
+                  {evidence("maiden_name")}
+                </ItemTitle>
                 <ItemDescription>
                   {member.maidenName || <i>{t("name-fallback")}</i>}
                 </ItemDescription>
               </ItemContent>
             </Item>
-            <Item variant="field">
+            <Item variant="field" className="group/evidence">
               <ItemContent>
-                <ItemTitle>{t("baptismal-name-item")}</ItemTitle>
+                <ItemTitle className="gap-1.5">
+                  {t("baptismal-name-item")}
+                  {evidence("baptismal_name")}
+                </ItemTitle>
                 <ItemDescription>
                   {member.baptismalName || <i>{t("name-fallback")}</i>}
                 </ItemDescription>
@@ -235,17 +277,23 @@ export const ViewMode = ({
                 </ItemDescription>
               </ItemContent>
             </Item>
-            <Item variant="field">
+            <Item variant="field" className="group/evidence">
               <ItemContent>
-                <ItemTitle>{t("dob-item")}</ItemTitle>
+                <ItemTitle className="gap-1.5">
+                  {t("dob-item")}
+                  {evidence("date_of_birth")}
+                </ItemTitle>
                 <ItemDescription>
                   {formatDateWithFallback(member.date.birth, i18n.t)}
                 </ItemDescription>
               </ItemContent>
             </Item>
-            <Item variant="field">
+            <Item variant="field" className="group/evidence">
               <ItemContent>
-                <ItemTitle>{t("dod-item")}</ItemTitle>
+                <ItemTitle className="gap-1.5">
+                  {t("dod-item")}
+                  {evidence("date_of_death")}
+                </ItemTitle>
                 <ItemDescription>
                   {member.date.death ? (
                     formatDate(member.date.death)
@@ -294,6 +342,14 @@ export const ViewMode = ({
                           align="start"
                           label={t("birthplace-label")}
                           location={member.birthplace}
+                          className="group/evidence"
+                          trailing={
+                            showEvidence && (
+                              <span className="ml-1.5 inline-flex align-middle">
+                                {evidence("birthplace")}
+                              </span>
+                            )
+                          }
                           onShowOnMap={
                             mapEnabled && onShowLocationOnMap
                               ? () =>

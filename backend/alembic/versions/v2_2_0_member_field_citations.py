@@ -9,6 +9,7 @@ Revises: v2_2_0_ai_transcription
 Create Date: 2026-10-18 21:30:00.000000
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op

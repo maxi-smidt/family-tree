@@ -28,6 +28,7 @@ import { SearchSnippet } from "@/components/shared/SearchSnippet";
 import { MemberChip } from "@/components/shared/MemberChip";
 import { cn } from "@/lib/utils";
 import type { Member } from "@/types/member";
+import { CITABLE_FIELDS, type CitableField } from "@/types/citation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
@@ -36,6 +37,7 @@ import { DocumentFileReaderTrigger } from "@/components/shared/member-sheet/Docu
 import { DocumentFileActions } from "@/components/shared/member-sheet/DocumentFiles";
 import { ListPagination } from "@/components/view/list-view/ListPagination";
 import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
+import { useCitationStore, useLoadCitations } from "@/hooks/useCitationStore";
 import { type DocumentFocus, useDocumentStore } from "@/hooks/useDocumentStore";
 import { useDocumentSearch } from "@/hooks/useDocumentSearch";
 import { useEventStore } from "@/hooks/useEventStore";
@@ -108,6 +110,7 @@ export const DocumentsView = () => {
   );
 
   useDeferredStoreLoad(initialized, refreshDocuments);
+  useLoadCitations();
   useDeferredStoreLoad(eventsInitialized || !canAccessEvents, refreshEvents);
   useDeferredStoreLoad(storiesInitialized || !canAccessStories, refreshStories);
 
@@ -400,7 +403,9 @@ function DocumentRow({
   onEdit,
   onDelete,
 }: DocumentRowProps) {
-  const { t } = useTranslation(undefined, { keyPrefix: "documents-view" });
+  const { t, i18n } = useTranslation(undefined, {
+    keyPrefix: "documents-view",
+  });
   const workspaceId = useWorkspaceStore((state) => state.selectedTree?.id);
   const setOpenSheet = useMemberSheetStore((state) => state.setOpenSheet);
   const navigateTo = useNavigationStore((state) => state.navigateTo);
@@ -428,10 +433,29 @@ function DocumentRow({
   const people = document.memberIds
     .map((id) => membersById.get(id))
     .filter((m): m is Member => !!m);
+  const allCitations = useCitationStore((state) => state.citations);
+  // Which fields of whom this document is cited for, one entry per person.
+  const evidence = useMemo(() => {
+    const byMember = new Map<string, CitableField[]>();
+    for (const citation of allCitations) {
+      if (citation.documentId !== document.id) continue;
+      const fields = byMember.get(citation.memberId) ?? [];
+      if (!fields.includes(citation.field)) fields.push(citation.field);
+      byMember.set(citation.memberId, fields);
+    }
+    return [...byMember.entries()].map(([memberId, fields]) => ({
+      memberId,
+      member: membersById.get(memberId),
+      fields: CITABLE_FIELDS.filter((field) => fields.includes(field)),
+    }));
+  }, [allCitations, document.id, membersById]);
 
-  const openMember = (memberId: string) => {
+  const openMember = (
+    memberId: string,
+    tab: "records" | "identity" = "records",
+  ) => {
     if (!workspaceId) return;
-    setOpenSheet(workspaceId, { memberId, tab: "records", mode: "view" });
+    setOpenSheet(workspaceId, { memberId, tab, mode: "view" });
   };
 
   const renderAttachment = (file: DocumentFile) => {
@@ -629,6 +653,33 @@ function DocumentRow({
                     hideLife
                     onOpen={openMember}
                   />
+                ))}
+              </div>
+            </div>
+          )}
+          {evidence.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground">
+                {t("evidence-for")}
+              </p>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {evidence.map((entry) => (
+                  <button
+                    key={entry.memberId}
+                    type="button"
+                    className="rounded-full bg-primary-soft px-2.5 py-1 text-xs text-primary transition-colors hover:bg-primary-soft/70"
+                    onClick={() => openMember(entry.memberId, "identity")}
+                  >
+                    {entry.member
+                      ? `${entry.member.firstName} ${entry.member.lastName}`
+                      : t("unknown-person")}{" "}
+                    ·{" "}
+                    {entry.fields
+                      .map((field) =>
+                        i18n.t(`sheet.evidence.field-lower.${field}`),
+                      )
+                      .join(", ")}
+                  </button>
                 ))}
               </div>
             </div>

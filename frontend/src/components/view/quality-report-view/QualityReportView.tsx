@@ -28,6 +28,8 @@ import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { TaskDialog } from "@/components/shared/member-sheet/TaskDialog";
 import { MergeMembersDialog } from "@/components/view/quality-report-view/MergeMembersDialog";
 import type { QualityIssue } from "@/types/quality";
+import { EvidenceCoverageCard } from "@/components/view/quality-report-view/EvidenceCoverageCard";
+import { useCitationsEnabled } from "@/hooks/useCitationStore";
 
 const ISSUE_TYPE_KEY: Record<string, string> = {
   birth_after_death: "issue-birth-after-death",
@@ -267,6 +269,8 @@ export const QualityReportView = () => {
   );
   const restrictions = useWorkspaceStore((s) => s.selectedTree?.restrictions);
   const tasksEnabled = !restrictions?.includes("tasks");
+  const evidenceEnabled = useCitationsEnabled();
+  const sideColumn = tasksEnabled || evidenceEnabled;
 
   useEffect(() => {
     if (!report) {
@@ -349,7 +353,7 @@ export const QualityReportView = () => {
         <section
           className={cn(
             "flex min-w-0 flex-col gap-3",
-            tasksEnabled ? "md:col-span-2" : "md:col-span-3",
+            sideColumn ? "md:col-span-2" : "md:col-span-3",
           )}
         >
           <h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
@@ -377,9 +381,10 @@ export const QualityReportView = () => {
           )}
         </section>
 
-        {tasksEnabled && (
-          <div className="md:pt-7">
-            <ResearchTasksCard canWrite={canWriteTasks} />
+        {sideColumn && (
+          <div className="flex flex-col gap-5 md:pt-7">
+            {tasksEnabled && <ResearchTasksCard canWrite={canWriteTasks} />}
+            {evidenceEnabled && <EvidenceCoverageCard />}
           </div>
         )}
       </div>

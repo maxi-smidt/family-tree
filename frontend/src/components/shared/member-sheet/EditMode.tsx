@@ -11,6 +11,7 @@ import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import {
   ChangeEvent,
   FormEvent,
+  ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -62,6 +63,11 @@ import { MemberPhotos } from "./MemberPhotos";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
 import { MemberSheetTab } from "@/utils/memberSheetState";
+import { FieldEvidence } from "@/components/shared/evidence/FieldEvidence";
+import { EvidenceChangeWarning } from "@/components/shared/evidence/EvidenceChangeWarning";
+import { useLoadCitations } from "@/hooks/useCitationStore";
+import { CitableField } from "@/types/citation";
+import { citableFieldValue, withCitableFieldValue } from "@/utils/citations";
 
 function getDescendants(memberId: string, allMembers: Member[]): Set<string> {
   const descendants = new Set<string>();
@@ -130,6 +136,10 @@ export const EditMode = ({
 
   const [formData, setFormData] = useState<Member>(member);
   const [initialData, setInitialData] = useState<Member>(member);
+  // The values evidence was cited for: the member as editing started.
+  const [evidenceBaseline, setEvidenceBaseline] = useState<Member>(member);
+  const showEvidence = documentsEnabled && !isNew;
+  useLoadCitations(showEvidence);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [galleryPickerOpen, setGalleryPickerOpen] = useState(false);
   const [errors, setErrors] = useState<{
@@ -158,6 +168,7 @@ export const EditMode = ({
   useEffect(() => {
     setFormData(member);
     setInitialData(member);
+    setEvidenceBaseline(member);
     setErrors({});
     setIsDirty(false);
     onDirtyChange?.(false);
@@ -517,6 +528,37 @@ export const EditMode = ({
     useCallback(() => save(), [save]),
   );
 
+  /** An input with the evidence for its field next to it. */
+  const withEvidence = (field: CitableField, input: ReactNode) =>
+    showEvidence ? (
+      <div className="flex items-center gap-1.5">
+        <div className="min-w-0 flex-1">{input}</div>
+        <FieldEvidence member={member} field={field} variant="input" />
+      </div>
+    ) : (
+      input
+    );
+
+  /** Ask what to do with a field's evidence once its value changes. */
+  const evidenceWarning = (field: CitableField) =>
+    showEvidence ? (
+      <EvidenceChangeWarning
+        memberId={member.id}
+        field={field}
+        baseline={citableFieldValue(evidenceBaseline, field)}
+        value={citableFieldValue(formData, field)}
+        onUndo={() =>
+          setFormData((prev) =>
+            withCitableFieldValue(
+              prev,
+              field,
+              citableFieldValue(evidenceBaseline, field),
+            ),
+          )
+        }
+      />
+    ) : null;
+
   const avatarImage =
     formData.imageData && galleryEnabled ? (
       <AuthenticatedImage
@@ -667,25 +709,29 @@ export const EditMode = ({
                   >
                     {t("firstname-field")}
                   </FieldLabel>
-                  <Input
-                    size="sm"
-                    ref={firstNameRef}
-                    id="firstName"
-                    required
-                    aria-required="true"
-                    aria-invalid={!!errors.firstName}
-                    aria-describedby={
-                      errors.firstName ? "firstName-error" : undefined
-                    }
-                    value={formData.firstName}
-                    className="shadow-none"
-                    placeholder={t("firstname-placeholder")}
-                    onChange={(e) => {
-                      handleChange("firstName", e.target.value);
-                      if (errors.firstName)
-                        setErrors((p) => ({ ...p, firstName: undefined }));
-                    }}
-                  />
+                  {withEvidence(
+                    "first_name",
+                    <Input
+                      size="sm"
+                      ref={firstNameRef}
+                      id="firstName"
+                      required
+                      aria-required="true"
+                      aria-invalid={!!errors.firstName}
+                      aria-describedby={
+                        errors.firstName ? "firstName-error" : undefined
+                      }
+                      value={formData.firstName}
+                      className="shadow-none"
+                      placeholder={t("firstname-placeholder")}
+                      onChange={(e) => {
+                        handleChange("firstName", e.target.value);
+                        if (errors.firstName)
+                          setErrors((p) => ({ ...p, firstName: undefined }));
+                      }}
+                    />,
+                  )}
+                  {evidenceWarning("first_name")}
                   <FieldError id="firstName-error">
                     {errors.firstName}
                   </FieldError>
@@ -698,25 +744,29 @@ export const EditMode = ({
                   >
                     {t("lastname-field")}
                   </FieldLabel>
-                  <Input
-                    size="sm"
-                    ref={lastNameRef}
-                    id="lastName"
-                    required
-                    aria-required="true"
-                    aria-invalid={!!errors.lastName}
-                    aria-describedby={
-                      errors.lastName ? "lastName-error" : undefined
-                    }
-                    value={formData.lastName}
-                    className="shadow-none"
-                    placeholder={t("lastname-field")}
-                    onChange={(e) => {
-                      handleChange("lastName", e.target.value);
-                      if (errors.lastName)
-                        setErrors((p) => ({ ...p, lastName: undefined }));
-                    }}
-                  />
+                  {withEvidence(
+                    "last_name",
+                    <Input
+                      size="sm"
+                      ref={lastNameRef}
+                      id="lastName"
+                      required
+                      aria-required="true"
+                      aria-invalid={!!errors.lastName}
+                      aria-describedby={
+                        errors.lastName ? "lastName-error" : undefined
+                      }
+                      value={formData.lastName}
+                      className="shadow-none"
+                      placeholder={t("lastname-field")}
+                      onChange={(e) => {
+                        handleChange("lastName", e.target.value);
+                        if (errors.lastName)
+                          setErrors((p) => ({ ...p, lastName: undefined }));
+                      }}
+                    />,
+                  )}
+                  {evidenceWarning("last_name")}
                   <FieldError id="lastName-error">{errors.lastName}</FieldError>
                 </Field>
               </div>
@@ -726,30 +776,40 @@ export const EditMode = ({
                   <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
                     {t("middle-names-field")}
                   </FieldLabel>
-                  <Input
-                    size="sm"
-                    id="middleNames"
-                    value={formData.middleNames || ""}
-                    className="shadow-none"
-                    placeholder={t("middle-names-field")}
-                    onChange={(e) =>
-                      handleChange("middleNames", e.target.value)
-                    }
-                  />
+                  {withEvidence(
+                    "middle_names",
+                    <Input
+                      size="sm"
+                      id="middleNames"
+                      value={formData.middleNames || ""}
+                      className="shadow-none"
+                      placeholder={t("middle-names-field")}
+                      onChange={(e) =>
+                        handleChange("middleNames", e.target.value)
+                      }
+                    />,
+                  )}
+                  {evidenceWarning("middle_names")}
                 </Field>
 
                 <Field>
                   <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
                     {t("maiden-field")}
                   </FieldLabel>
-                  <Input
-                    size="sm"
-                    id="maidenName"
-                    value={formData.maidenName || ""}
-                    className="shadow-none"
-                    placeholder={t("lastname-field")}
-                    onChange={(e) => handleChange("maidenName", e.target.value)}
-                  />
+                  {withEvidence(
+                    "maiden_name",
+                    <Input
+                      size="sm"
+                      id="maidenName"
+                      value={formData.maidenName || ""}
+                      className="shadow-none"
+                      placeholder={t("lastname-field")}
+                      onChange={(e) =>
+                        handleChange("maidenName", e.target.value)
+                      }
+                    />,
+                  )}
+                  {evidenceWarning("maiden_name")}
                 </Field>
               </div>
 
@@ -757,16 +817,20 @@ export const EditMode = ({
                 <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
                   {t("baptismal-name-field")}
                 </FieldLabel>
-                <Input
-                  size="sm"
-                  id="baptismalName"
-                  value={formData.baptismalName || ""}
-                  className="shadow-none"
-                  placeholder={t("baptismal-name-field")}
-                  onChange={(e) =>
-                    handleChange("baptismalName", e.target.value)
-                  }
-                />
+                {withEvidence(
+                  "baptismal_name",
+                  <Input
+                    size="sm"
+                    id="baptismalName"
+                    value={formData.baptismalName || ""}
+                    className="shadow-none"
+                    placeholder={t("baptismal-name-field")}
+                    onChange={(e) =>
+                      handleChange("baptismalName", e.target.value)
+                    }
+                  />,
+                )}
+                {evidenceWarning("baptismal_name")}
               </Field>
             </FieldGroup>
 
@@ -785,27 +849,35 @@ export const EditMode = ({
                   <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
                     {t("born-field")}
                   </FieldLabel>
-                  <PartialDatePicker
-                    size="sm"
-                    className="shadow-none border-input"
-                    value={formData.date.birth}
-                    onChange={(date) => handleDateChange("birth", date)}
-                    placeholder={t("date-placeholder")}
-                  />
+                  {withEvidence(
+                    "date_of_birth",
+                    <PartialDatePicker
+                      size="sm"
+                      className="shadow-none border-input"
+                      value={formData.date.birth}
+                      onChange={(date) => handleDateChange("birth", date)}
+                      placeholder={t("date-placeholder")}
+                    />,
+                  )}
+                  {evidenceWarning("date_of_birth")}
                 </Field>
 
                 <Field>
                   <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
                     {t("birthplace-field")}
                   </FieldLabel>
-                  <LocationInput
-                    id="birthplace"
-                    value={formData.birthplace}
-                    size="sm"
-                    placeholder={t("location-placeholder")}
-                    geocodeEnabled={mapEnabled}
-                    onChange={(value) => handleChange("birthplace", value)}
-                  />
+                  {withEvidence(
+                    "birthplace",
+                    <LocationInput
+                      id="birthplace"
+                      value={formData.birthplace}
+                      size="sm"
+                      placeholder={t("location-placeholder")}
+                      geocodeEnabled={mapEnabled}
+                      onChange={(value) => handleChange("birthplace", value)}
+                    />,
+                  )}
+                  {evidenceWarning("birthplace")}
                 </Field>
               </div>
 
@@ -836,13 +908,17 @@ export const EditMode = ({
                     <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
                       {t("death-field")}
                     </FieldLabel>
-                    <PartialDatePicker
-                      size="sm"
-                      className="shadow-none border-input"
-                      value={formData.date.death}
-                      onChange={(date) => handleDateChange("death", date)}
-                      placeholder={t("date-placeholder")}
-                    />
+                    {withEvidence(
+                      "date_of_death",
+                      <PartialDatePicker
+                        size="sm"
+                        className="shadow-none border-input"
+                        value={formData.date.death}
+                        onChange={(date) => handleDateChange("death", date)}
+                        placeholder={t("date-placeholder")}
+                      />,
+                    )}
+                    {evidenceWarning("date_of_death")}
                   </Field>
 
                   {mapEnabled && (

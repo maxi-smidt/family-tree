@@ -34,12 +34,14 @@ from app.models import (
 )
 from app.models.user import User
 from app.schemas.citations import (
+    EvidenceCoverage,
     MemberFieldCitationCreate,
     MemberFieldCitationOut,
     MemberFieldCitationUpdate,
+    MemberMissingEvidence,
 )
 from app.services.activity.activity import record_activity
-from app.services.documents.citations import quote_states
+from app.services.documents.citations import CITABLE_FIELDS, quote_states
 from app.services.documents.document_service import DOMAIN
 from app.services.event_bus import publish_workspace_event
 from app.services.media.storage_usage import check_workspace_quota
@@ -105,9 +107,7 @@ def _require_write(
     context.require_write_member(db, member_id)
 
 
-def _get_citation(
-    db: Session, tree: Workspace, citation_id: str
-) -> MemberFieldCitation:
+def _get_citation(db: Session, tree: Workspace, citation_id: str) -> MemberFieldCitation:
     citation = db.get(MemberFieldCitation, citation_id)
     if citation is None or citation.workspace_id != tree.id:
         raise HTTPException(status_code=404, detail="Citation not found")
@@ -152,21 +152,14 @@ def _record(
     )
 
 
-@router.get("", response_model=list[MemberFieldCitationOut])
-def list_citations(
-    member_id: str | None = Query(None),
-    document_id: str | None = Query(None),
-    tree: Workspace = Depends(get_readable_workspace),
-    context: WorkspaceAccessContext = Depends(get_workspace_access_authenticated),
-    db: Session = Depends(get_db),
-):
-    """Every citation the caller may see: its document and its person are
-    both readable to them."""
-    filters = [MemberFieldCitation.workspace_id == tree.id]
-    if member_id is not None:
-        filters.append(MemberFieldCitation.member_id == member_id)
-    if document_id is not None:
-        filters.append(MemberFieldCitation.document_id == document_id)
+def _visible_citations(
+    db: Session,
+    tree: Workspace,
+    context: WorkspaceAccessContext,
+    *extra,
+) -> list[MemberFieldCitation]:
+    """Citations whose document and person are both readable to the caller."""
+    filters = [MemberFieldCitation.workspace_id == tree.id, *extra]
     document_filter = context.content_filter(
         ContentType.DOCUMENT, MemberFieldCitation.document_id, domain=DOMAIN
     )
@@ -182,7 +175,75 @@ def list_citations(
         .where(*filters)
         .order_by(MemberFieldCitation.created_at, MemberFieldCitation.id)
     )
-    return _outs(db, list(db.scalars(statement)))
+    return list(db.scalars(statement))
+
+
+@router.get("", response_model=list[MemberFieldCitationOut])
+def list_citations(
+    member_id: str | None = Query(None),
+    document_id: str | None = Query(None),
+    tree: Workspace = Depends(get_readable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_authenticated),
+    db: Session = Depends(get_db),
+):
+    """Every citation the caller may see: its document and its person are
+    both readable to them."""
+    extra = []
+    if member_id is not None:
+        extra.append(MemberFieldCitation.member_id == member_id)
+    if document_id is not None:
+        extra.append(MemberFieldCitation.document_id == document_id)
+    return _outs(db, _visible_citations(db, tree, context, *extra))
+
+
+MISSING_LIMIT = 50
+
+
+@router.get("/coverage", response_model=EvidenceCoverage)
+def evidence_coverage(
+    tree: Workspace = Depends(get_readable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_authenticated),
+    db: Session = Depends(get_db),
+):
+    """Which filled-in names, dates and birthplaces of the visible people
+    have evidence, for Data quality."""
+    statement = select(
+        Member.id, *(getattr(Member, field) for field in CITABLE_FIELDS)
+    ).where(Member.workspace_id == tree.id)
+    member_filter = context.member_filter()
+    if member_filter is not None:
+        statement = statement.where(member_filter)
+    citations = _visible_citations(db, tree, context)
+    cited = {(c.member_id, c.field) for c in citations}
+    facts_total = 0
+    facts_cited = 0
+    missing: list[MemberMissingEvidence] = []
+    for row in db.execute(statement):
+        member_id, *values = row
+        lacking = []
+        for field, value in zip(CITABLE_FIELDS, values, strict=True):
+            if not value:
+                continue
+            facts_total += 1
+            if (member_id, field) in cited:
+                facts_cited += 1
+            else:
+                lacking.append(field)
+        if lacking:
+            first, last = values[0], values[2]
+            name = " ".join(filter(None, [first, last]))
+            missing.append(
+                MemberMissingEvidence(member_id=member_id, name=name, fields=lacking)
+            )
+    missing.sort(key=lambda entry: (-len(entry.fields), entry.member_id))
+    outs = _outs(db, [c for c in citations if c.quote and c.document_file_id])
+    return EvidenceCoverage(
+        facts_total=facts_total,
+        facts_cited=facts_cited,
+        missing=missing[:MISSING_LIMIT],
+        missing_member_count=len(missing),
+        quotes_not_found=[out for out in outs if out.quote_found is False],
+    )
 
 
 @router.post("", response_model=MemberFieldCitationOut, status_code=201)

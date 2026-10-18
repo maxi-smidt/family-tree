@@ -58,6 +58,9 @@ const DYNAMIC_KEY_PREFIXES = [
   // t("nee", { context: birthNameContext(gender) }) → nee_male / nee_female
   //   — member sublabels in pickers, list view and searches
   "common.nee_",
+  // t(`field.${field}`), t(`field-lower.${field}`) — evidence for person fields
+  "sheet.evidence.field.",
+  "sheet.evidence.field-lower.",
   "tree-view.search.nee_",
   "workspace-nav.search.nee_",
 ];

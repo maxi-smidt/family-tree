@@ -17,6 +17,7 @@ import { useEventStore } from "@/hooks/useEventStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
 import { clearTaskStore } from "@/hooks/taskStoreRegistry";
 import { useDocumentStore } from "@/hooks/useDocumentStore";
+import { useCitationStore } from "@/hooks/useCitationStore";
 import { useActivityStore } from "@/hooks/useActivityStore";
 import { useStatisticsStore } from "@/hooks/useStatisticsStore";
 import { useQualityReportStore } from "@/hooks/useQualityReportStore";
@@ -95,6 +96,7 @@ const clearDataStores = () => {
   useStoryStore.getState().clear();
   clearTaskStore();
   useDocumentStore.getState().clear();
+  useCitationStore.getState().clear();
   useActivityStore.getState().clear();
   useStatisticsStore.getState().clear();
   useQualityReportStore.getState().clear();

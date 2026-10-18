@@ -417,3 +417,21 @@ def test_plain_text_ignores_markdown_and_spacing():
         "johann georg weber"
     )
     assert plain_text("[Linz](https://example.com) | Hofgasse") == "linz hofgasse"
+
+
+def test_coverage_counts_filled_facts_and_lost_quotes(client, db, media_root):
+    user, tree, file_id = _setup(client, db)
+    add_member(db, tree, "m2", first_name="Maria", last_name="Hofer")
+    assert _cite(client, user, tree, file_id, field="first_name").status_code == 201
+    _cite(client, user, tree, file_id, field="last_name", quote="nicht im Text")
+
+    body = client.get(_url(tree, "/coverage"), headers=auth(user)).json()
+
+    # Both people have only a first and last name; m1's two are cited.
+    assert body["facts_cited"] == 2
+    assert body["facts_total"] == 4
+    missing = {entry["member_id"]: entry["fields"] for entry in body["missing"]}
+    assert "first_name" in missing["m2"]
+    assert "m1" not in missing
+    assert body["missing"][0]["name"] == "Maria Hofer"
+    assert [c["field"] for c in body["quotes_not_found"]] == ["last_name"]

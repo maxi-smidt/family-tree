@@ -9,6 +9,9 @@ import {
 } from "@/test/utils";
 import { useDocumentStore } from "@/hooks/useDocumentStore";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
+import { useCitationStore } from "@/hooks/useCitationStore";
+import { useMemberStore } from "@/hooks/useMemberStore";
+import type { Member } from "@/types/member";
 import { downloadMedia } from "@/hooks/useMediaUrl";
 import type { DocumentFile, DocumentFileText } from "@/types/document";
 import {
@@ -85,6 +88,7 @@ describe("DocumentFileTextDialog", () => {
     useWorkspaceStore.setState({
       selectedTree: { id: "tree-1", name: "Tree", role: "owner" },
     });
+    useCitationStore.setState({ citations: [], initialized: true });
   });
 
   it("loads and renders the file's text", async () => {
@@ -292,6 +296,90 @@ describe("DocumentFileTextDialog", () => {
     expect(
       screen.queryByRole("button", { name: "Restore AI version" }),
     ).not.toBeInTheDocument();
+  });
+  it("lists who this file is evidence for and marks the picked one", async () => {
+    loadFileText.mockResolvedValue(TEXT);
+    useMemberStore.setState({
+      members: [
+        {
+          id: "m1",
+          firstName: "Johann",
+          lastName: "Schmidt",
+          maidenName: null,
+          date: { birth: "1890", death: null },
+        },
+      ] as unknown as Member[],
+    });
+    useCitationStore.setState({
+      citations: [
+        {
+          id: "c1",
+          memberId: "m1",
+          field: "first_name",
+          documentId: "doc-1",
+          fileId: "file-1",
+          page: null,
+          quote: "Johann",
+          quotePrefix: "Taufschein",
+          quoteSuffix: "Schmidt",
+          note: null,
+          createdAt: "2026-01-01T00:00:00Z",
+          quoteFound: true,
+        },
+      ],
+    });
+    renderDialog();
+    await screen.findByText("Johann Schmidt", {}, { timeout: 5000 });
+
+    expect(screen.getByText("Cited in this file:")).toBeInTheDocument();
+    const chip = screen.getByRole("button", {
+      name: "Johann Schmidt · first name",
+    });
+    fireEvent.click(chip);
+    expect(chip).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("cites a selected passage as evidence", async () => {
+    loadFileText.mockResolvedValue(TEXT);
+    useDocumentStore.setState({
+      documents: [
+        {
+          id: "doc-1",
+          title: "Taufschein",
+          description: null,
+          documentDate: null,
+          createdAt: "2026-01-01T00:00:00Z",
+          updatedAt: "2026-01-01T00:00:00Z",
+          files: [FILE],
+          memberIds: [],
+          eventIds: [],
+          storyIds: [],
+        },
+      ],
+    });
+    useMemberStore.setState({ members: [] });
+    renderDialog();
+    const paragraph = await screen.findByText(
+      "Johann Schmidt",
+      {},
+      { timeout: 5000 },
+    );
+
+    const range = document.createRange();
+    range.setStart(paragraph.firstChild!, 0);
+    range.setEnd(paragraph.firstChild!, "Johann".length);
+    const selection = window.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+    fireEvent.mouseUp(paragraph);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Use as evidence" }),
+    );
+    expect(
+      await screen.findByRole("heading", { name: "Add evidence" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("“Johann”")).toBeInTheDocument();
   });
 });
 

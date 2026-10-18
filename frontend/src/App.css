@@ -412,6 +412,16 @@
   display: block;
 }
 
+/* Quotes cited as evidence for a person's fields, in a file's text. */
+::highlight(document-citation) {
+  background-color: var(--primary-soft);
+  color: inherit;
+}
+::highlight(document-citation-focus) {
+  background-color: var(--warning-soft);
+  color: inherit;
+}
+
 /* Words found by document search, marked in a file's text (#1122). */
 ::highlight(document-search) {
   background-color: var(--warning-soft);
