@@ -71,10 +71,8 @@ import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import { NoDatabasePlaceholder } from "@/components/layout/NoDatabasePlaceholder";
 import { PresenceChips } from "@/components/layout/PresenceChips";
 import { PageHeader } from "@/components/layout/PageHeader";
-import {
-  clearMemberSheetDeepLink,
-  readMemberSheetDeepLink,
-} from "@/utils/memberSheetState";
+import { requestLocationReplace } from "@/hooks/useUrlLocation";
+import { toast } from "sonner";
 import { getGenerationLineGap } from "@/utils/generationLineSpacing";
 import { buildMemberNodes } from "@/utils/memberNodes";
 
@@ -115,7 +113,6 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   const savedMemberSheetState = useMemberSheetStore((s) =>
     activeTree?.id ? s.openSheets[activeTree.id] : undefined,
   );
-  const setOpenSheet = useMemberSheetStore((s) => s.setOpenSheet);
   const clearOpenSheet = useMemberSheetStore((s) => s.clearOpenSheet);
   const availableTreeCount = useWorkspaceStore((s) => s.workspaces.length);
   const isMobile = useIsMobile();
@@ -306,64 +303,75 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   const pending = usePendingMember({
     onHorizontalRelationReady: relation.startHorizontalRelation,
   });
-  const memberSheetDeepLink = useMemo(readMemberSheetDeepLink, []);
-  const consumedMemberSheetDeepLinkRef = useRef(false);
+  // The sheet follows the sheet store, which the URL drives (#1128). React
+  // only when the store names a different member than the one on screen —
+  // a link or Back/forward — never when the sheet itself just wrote its own
+  // member there: open it once loaded (re-focusing a windowed canvas on it
+  // first), close it when the URL drops it, and drop a member the viewer
+  // can't reach with a toast instead of leaving a broken URL behind.
+  const requestedSheetMemberId = savedMemberSheetState?.memberId ?? null;
+  const lastRequestedSheetRef = useRef<string | null | undefined>(undefined);
+  const sheetRequestRef = useRef<{ memberId: string | null } | null>(null);
   const attemptedMemberSheetRestoreRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const deepLinkState = consumedMemberSheetDeepLinkRef.current
-      ? undefined
-      : memberSheetDeepLink;
-    const requestedState = deepLinkState ?? savedMemberSheetState;
     const workspaceId = activeTree?.id;
-    if (
-      publicView ||
-      !requestedState ||
-      !workspaceId ||
-      pending.editingMemberId
-    ) {
+    if (publicView || !workspaceId) return;
+    if (lastRequestedSheetRef.current !== requestedSheetMemberId) {
+      lastRequestedSheetRef.current = requestedSheetMemberId;
+      attemptedMemberSheetRestoreRef.current = null;
+      sheetRequestRef.current =
+        requestedSheetMemberId === pending.editingMemberId
+          ? null
+          : { memberId: requestedSheetMemberId };
+    }
+    const request = sheetRequestRef.current;
+    if (!request) return;
+    // A member still being created is client-only; leave its sheet alone.
+    if (pending.isNewMemberSession) {
+      sheetRequestRef.current = null;
       return;
     }
+    if (request.memberId === null) {
+      sheetRequestRef.current = null;
+      if (pending.editingMemberId) pending.closeSheet();
+      return;
+    }
+    if (focusPending) return;
 
-    const savedMember = members.find(
-      (member) => member.id === requestedState.memberId,
-    );
-    if (savedMember) {
+    const target = members.find((member) => member.id === request.memberId);
+    if (target) {
+      sheetRequestRef.current = null;
       attemptedMemberSheetRestoreRef.current = null;
-      setOpenSheet(workspaceId, requestedState);
-      if (deepLinkState) {
-        consumedMemberSheetDeepLinkRef.current = true;
-        clearMemberSheetDeepLink();
-      }
-      pending.setEditingMemberId(savedMember.id);
-      pending.setIsEditMode(requestedState.mode === "edit");
+      pending.setEditingMemberId(target.id);
+      pending.setIsEditMode(savedMemberSheetState?.mode === "edit");
     } else if (
       isReady &&
       windowed &&
-      attemptedMemberSheetRestoreRef.current !== requestedState.memberId
+      attemptedMemberSheetRestoreRef.current !== request.memberId
     ) {
-      attemptedMemberSheetRestoreRef.current = requestedState.memberId;
-      void setFocusRoot(requestedState.memberId);
+      attemptedMemberSheetRestoreRef.current = request.memberId;
+      requestLocationReplace();
+      void setFocusRoot(request.memberId);
     } else if (isReady) {
+      sheetRequestRef.current = null;
+      attemptedMemberSheetRestoreRef.current = null;
+      toast.error(t("hooks.url-location.member-unavailable"));
+      requestLocationReplace();
       clearOpenSheet(workspaceId);
-      if (deepLinkState) {
-        consumedMemberSheetDeepLinkRef.current = true;
-        clearMemberSheetDeepLink();
-      }
     }
   }, [
     activeTree?.id,
     clearOpenSheet,
+    focusPending,
     isReady,
-    memberSheetDeepLink,
     members,
-    pending.editingMemberId,
-    pending.setEditingMemberId,
-    pending.setIsEditMode,
+    pending,
     publicView,
-    savedMemberSheetState,
-    setOpenSheet,
+    requestedSheetMemberId,
+    savedMemberSheetState?.mode,
     setFocusRoot,
+    t,
     windowed,
   ]);
 
