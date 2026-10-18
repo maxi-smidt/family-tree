@@ -136,7 +136,7 @@ def resolve_public_grant_for_read(
 
 
 # ---------------------------------------------------------------------------
-# Section public-link management (used directly by migration/tests; no
+# Section public-link management (used directly by tests; no
 # owner-facing route exists yet — richer section-sharing UX is a follow-up
 # per #993/#980, same as the section-grant management below in
 # ``app.services.workspaces.grants``).

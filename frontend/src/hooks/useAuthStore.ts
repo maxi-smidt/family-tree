@@ -81,7 +81,10 @@ interface AuthState {
   loadOwnershipTransferTargets: (
     workspaceId: string,
   ) => Promise<Array<{ user_id: string; username: string }>>;
-  transferTreeOwnership: (workspaceId: string, username: string) => Promise<void>;
+  transferTreeOwnership: (
+    workspaceId: string,
+    username: string,
+  ) => Promise<void>;
   register: (
     username: string,
     password: string,
@@ -181,7 +184,7 @@ async function checkAuthSession(): Promise<void> {
       error.message === STARTUP_IN_PROGRESS_DETAIL
     ) {
       // onStartupInProgress (registered below) already set status:
-      // "starting" for the backend's own startup-migration gate — leave it
+      // "starting" for the backend's own startup gate — leave it
       // in place instead of falling through to the generic unreachable
       // retry screen. Any other 503 (e.g. a degraded-Redis /health/ready
       // response reaching some other caller) falls through below like any
@@ -452,7 +455,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     const { pendingInviteToken } = useAuthStore.getState();
     if (!pendingInviteToken) return null;
     try {
-      const result = await WorkspaceSharingService.acceptInvite(pendingInviteToken);
+      const result =
+        await WorkspaceSharingService.acceptInvite(pendingInviteToken);
       set({ pendingInviteToken: null });
       return result.workspace_id;
     } catch {
@@ -497,7 +501,7 @@ onSchemaEpochMismatch(() => {
   useAuthStore.setState({ status: "upgrade-required" });
 });
 
-// Fires from any request while the backend's own startup migration is still
+// Fires from any request while the backend's own database startup is still
 // running (#1020) — the session/token is left untouched, so once it
 // finishes the next auth check (see MaintenanceScreen) picks up right where
 // the user left off instead of forcing a fresh sign-in.

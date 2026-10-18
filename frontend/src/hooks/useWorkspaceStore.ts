@@ -27,23 +27,6 @@ import { useIdentityLinkStore } from "@/hooks/useIdentityLinkStore";
 import { useSavedViewStore } from "@/hooks/useSavedViewStore";
 import { useWorkspaceNavStore } from "@/hooks/useWorkspaceNavStore";
 
-// A 403/404 against `workspaceId` gets one fallback attempt through the
-// v1->v2 migration mapping (#1012): the id may be a stale deep link or
-// public bookmark from before the conversion folded that workspace into
-// another one. Returns the current id, or null if there's no mapping (the
-// caller should surface the original error instead).
-async function resolveLegacyWorkspaceIdOnFailure(
-  workspaceId: string,
-  error: unknown,
-): Promise<string | null> {
-  const status = error instanceof ApiError ? error.status : undefined;
-  if (status !== 403 && status !== 404) return null;
-  const targetId = await WorkspaceService.resolveLegacyWorkspaceId(
-    workspaceId,
-  ).catch(() => null);
-  return targetId && targetId !== workspaceId ? targetId : null;
-}
-
 // Incremented for every explicit tree transition so a slower link resolution
 // cannot select a tree after a newer selection or disconnect has won.
 let treeRequestVersion = 0;
@@ -166,22 +149,9 @@ export const useWorkspaceStore = create<DatabaseState>((set, get) => ({
   // Resolve a tree before selecting it. This keeps link routing, including
   // public-tree links that are absent from a user's normal tree list, inside
   // the tree domain rather than making view components call the API directly.
-  // The legacy-id fallback (#1012) covers every caller — the authenticated
-  // deep-link bootstrap in App.tsx and the anonymous PublicTreeViewer both go
-  // through here.
   openTreeById: async (workspaceId: string) => {
     const requestVersion = ++treeRequestVersion;
-    let tree: Workspace;
-    try {
-      tree = await api.get<Workspace>(`/workspaces/${workspaceId}`);
-    } catch (error) {
-      const targetId = await resolveLegacyWorkspaceIdOnFailure(
-        workspaceId,
-        error,
-      );
-      if (!targetId) throw error;
-      tree = await api.get<Workspace>(`/workspaces/${targetId}`);
-    }
+    const tree = await api.get<Workspace>(`/workspaces/${workspaceId}`);
     if (requestVersion !== treeRequestVersion) return tree;
     await get().selectTree(tree);
     return tree;
@@ -200,32 +170,13 @@ export const useWorkspaceStore = create<DatabaseState>((set, get) => ({
     useMemberStore.getState().setPendingLocateMemberId(memberId);
   },
 
-  // Same legacy-id fallback as openTreeById: a stale bookmark's password
-  // gate lives under the id the conversion mapped it to (the old workspace
-  // row is gone), so the unlock POST itself needs the resolved id, not just
-  // the follow-up openTreeById below.
   unlockPublicTree: async (workspaceId: string, password: string) => {
-    let targetId = workspaceId;
-    try {
-      const { token } = await WorkspaceSharingService.unlockPublicTree(
-        targetId,
-        password,
-      );
-      setPublicTreeToken(token);
-    } catch (error) {
-      const resolvedId = await resolveLegacyWorkspaceIdOnFailure(
-        workspaceId,
-        error,
-      );
-      if (!resolvedId) throw error;
-      targetId = resolvedId;
-      const { token } = await WorkspaceSharingService.unlockPublicTree(
-        targetId,
-        password,
-      );
-      setPublicTreeToken(token);
-    }
-    return get().openTreeById(targetId);
+    const { token } = await WorkspaceSharingService.unlockPublicTree(
+      workspaceId,
+      password,
+    );
+    setPublicTreeToken(token);
+    return get().openTreeById(workspaceId);
   },
 
   createTree: async (name: string, options?: { select?: boolean }) => {
@@ -307,7 +258,9 @@ export const useWorkspaceStore = create<DatabaseState>((set, get) => ({
       await get().disconnect();
       return;
     }
-    set({ selectedTree: tree });
+    // Not ready from the very first moment the selection changes, so nothing
+    // reads the new workspace together with the old one's loaded state.
+    set({ selectedTree: tree, isReady: false });
     await get().connect(tree);
   },
 

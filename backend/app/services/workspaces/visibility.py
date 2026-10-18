@@ -10,8 +10,7 @@ one.
 
 Whole-workspace operations such as export, copy, and activity history require
 workspace-wide access. Media serving checks the visibility of the referencing
-record. Migration creates scoped grants even without a grant-management UI,
-so these boundaries must also hold immediately after an upgrade.
+record.
 
 Two visibility rules feed every method here:
 

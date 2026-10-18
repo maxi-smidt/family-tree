@@ -5,7 +5,6 @@ import {
   Clock,
   FileText,
   Folder,
-  GitMerge,
   Image,
   Link2,
   Map as MapIcon,
@@ -22,7 +21,6 @@ import {
 import { useVisibleViews } from "@/hooks/useVisibleViews";
 import { useUnsavedChangesStore } from "@/hooks/useUnsavedChangesStore";
 import { useIncomingFriendCount } from "@/hooks/useFriendStore";
-import { usePendingMigrationReviewCount } from "@/hooks/useMigrationReviewStore";
 import { useIncomingIdentityClaimCount } from "@/hooks/useIdentityLinkStore";
 import { MEDIA_VIEW, type ViewId } from "@/lib/tabs";
 
@@ -56,12 +54,7 @@ export const NAV_GROUPS: {
   },
   {
     id: "workspace",
-    views: [
-      "database-management-view",
-      "friends-view",
-      "identity-links-view",
-      "migration-review-view",
-    ],
+    views: ["database-management-view", "friends-view", "identity-links-view"],
   },
 ];
 
@@ -77,7 +70,6 @@ const ICONS: Record<ViewId, LucideIcon> = {
   "database-management-view": Folder,
   "friends-view": UserPlus,
   "identity-links-view": Link2,
-  "migration-review-view": GitMerge,
 };
 
 /**
@@ -94,7 +86,6 @@ export function useNavEntries(onNavigate?: () => void) {
   const guardNavigate = useUnsavedChangesStore((s) => s.guardNavigate);
   const { visible, galleryAvailable, documentsAvailable } = useVisibleViews();
   const friendCount = useIncomingFriendCount();
-  const migrationCount = usePendingMigrationReviewCount();
   const identityCount = useIncomingIdentityClaimCount();
   const labels: Record<ViewId, string> = {
     "tree-view": t("main-panel.tree"),
@@ -107,7 +98,6 @@ export function useNavEntries(onNavigate?: () => void) {
     "statistics-view": t("main-panel.statistics"),
     "database-management-view": t("main-panel.database-management"),
     "friends-view": t("main-panel.friends"),
-    "migration-review-view": t("main-panel.migration-review"),
     "identity-links-view": t("main-panel.identity-links"),
   };
 
@@ -138,11 +128,9 @@ export function useNavEntries(onNavigate?: () => void) {
       const badge =
         view === "friends-view"
           ? friendCount
-          : view === "migration-review-view"
-            ? migrationCount
-            : view === "identity-links-view"
-              ? identityCount
-              : 0;
+          : view === "identity-links-view"
+            ? identityCount
+            : 0;
       return [
         {
           key: view,

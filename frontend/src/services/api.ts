@@ -21,7 +21,7 @@ export const FRONTEND_SCHEMA_EPOCH = 2;
 const SCHEMA_EPOCH_HEADER = "X-Schema-Epoch";
 const SCHEMA_EPOCH_MISMATCH_DETAIL = "schema_epoch_mismatch";
 
-/** Detail on a 503 while the backend's startup migration is still running
+/** Detail on a 503 while the backend's database startup is still running
  *  (see app.main.StartupGateMiddleware, #1020) — routed to the maintenance
  *  screen instead of the generic "can't reach the server" retry screen. */
 export const STARTUP_IN_PROGRESS_DETAIL = "startup_in_progress";
@@ -85,7 +85,7 @@ export function onSchemaEpochMismatch(handler: () => void) {
 
 let startupInProgressHandler: (() => void) | null = null;
 
-/** Fires on every 503 the backend returns while its startup migration is
+/** Fires on every 503 the backend returns while its database startup is
  *  still running (see STARTUP_IN_PROGRESS_DETAIL) — the global maintenance
  *  state, not per-caller error handling. */
 export function onStartupInProgress(handler: () => void) {

@@ -54,8 +54,9 @@ test("adminPage fixture yields an authenticated session", async ({
   await expect(adminPage.locator("#username")).not.toBeVisible({
     timeout: 5_000,
   });
-  // The page URL should be the root (authenticated layout)
-  expect(adminPage.url()).toMatch(/https?:\/\/[^/]+\/?$/);
+  // The URL names the opened workspace and page (#1128), or stays at the
+  // root when the account has no workspace yet.
+  expect(adminPage.url()).toMatch(/https?:\/\/[^/]+(\/|\/w\/[^/]+\/[a-z-]+)?$/);
 });
 
 test("seed helper can create a tree and a member via API; UI reflects it after reload", async ({
@@ -75,7 +76,9 @@ test("seed helper can create a tree and a member via API; UI reflects it after r
     // parallel worker has connected to a different tree more recently.
     await adminApi.get(`/workspaces/${tree.id}`);
 
-    await adminPage.reload({ waitUntil: "networkidle" });
+    // Open the bare root: a reload would keep the workspace the URL names
+    // (#1128), while `/` falls back to the most recently opened one.
+    await adminPage.goto("/", { waitUntil: "networkidle" });
 
     // The SPA auto-selects workspaces[0] (sorted by last_opened) when no tree is
     // pre-selected. Wait for the tree selector to reflect our tree.
