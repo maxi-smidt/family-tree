@@ -12,10 +12,11 @@ export const MIN_DOCUMENT_QUERY_LENGTH = 2;
 export function useDocumentSearch(
   query: string,
   { enabled = true, limit }: { enabled?: boolean; limit?: number } = {},
-): { result: DocumentSearchResult | null; loading: boolean } {
+): { result: DocumentSearchResult | null; loading: boolean; failed: boolean } {
   const searchDocuments = useDocumentStore((s) => s.searchDocuments);
   const [result, setResult] = useState<DocumentSearchResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [failed, setFailed] = useState(false);
   const q = query.trim();
   const active = enabled && q.length >= MIN_DOCUMENT_QUERY_LENGTH;
 
@@ -30,11 +31,14 @@ export function useDocumentSearch(
     const timer = setTimeout(() => {
       searchDocuments(q, limit)
         .then((found) => {
-          if (!cancelled) setResult(found);
+          if (cancelled) return;
+          setResult(found);
+          setFailed(false);
         })
         .catch(() => {
-          // Rate limited or offline: keep the last results rather than
-          // flashing an error while the user is still typing.
+          // Keep the last results, but let the caller say the search
+          // didn't answer instead of looking like "nothing found".
+          if (!cancelled) setFailed(true);
         })
         .finally(() => {
           if (!cancelled) setLoading(false);
@@ -46,5 +50,9 @@ export function useDocumentSearch(
     };
   }, [active, q, limit, searchDocuments]);
 
-  return { result: active ? result : null, loading: active && loading };
+  return {
+    result: active ? result : null,
+    loading: active && loading,
+    failed: active && failed,
+  };
 }

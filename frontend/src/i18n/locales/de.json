@@ -543,7 +543,8 @@
       "documents-similar": "Dokumente (ähnliche Schreibweisen)",
       "document-file-page": "{{file}} · S. {{page}}",
       "document-matches_one": "{{count}} Treffer",
-      "document-matches_other": "{{count}} Treffer"
+      "document-matches_other": "{{count}} Treffer",
+      "documents-failed": "Dokumente konnten gerade nicht durchsucht werden."
     }
   },
   "list-view": {

@@ -96,10 +96,11 @@ export function GlobalSearch({ className }: { className?: string }) {
   const setActiveView = useActiveViewStore((s) => s.setActiveView);
   const setMediaSection = useActiveViewStore((s) => s.setMediaSection);
   const setDocumentFocus = useDocumentStore((s) => s.setFocus);
-  const { result: documentResult } = useDocumentSearch(query, {
-    enabled: open && documentsAvailable,
-    limit: MAX_DOCUMENTS,
-  });
+  const { result: documentResult, failed: documentSearchFailed } =
+    useDocumentSearch(query, {
+      enabled: open && documentsAvailable,
+      limit: MAX_DOCUMENTS,
+    });
   const documentHits = documentResult?.hits ?? [];
 
   const sections = useSectionStore((s) => s.sections);
@@ -331,6 +332,14 @@ export function GlobalSearch({ className }: { className?: string }) {
             />
             <CommandList className="max-h-[min(60vh,28rem)]">
               <CommandEmpty>{t("empty")}</CommandEmpty>
+              {documentSearchFailed && (
+                <p
+                  role="status"
+                  className="px-4 py-2 text-xs text-muted-foreground"
+                >
+                  {t("documents-failed")}
+                </p>
+              )}
               {people.length > 0 && (
                 <CommandGroup heading={t("people")}>
                   {people.map((m) => (

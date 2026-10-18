@@ -543,7 +543,8 @@
       "documents-similar": "Documents (similar spellings)",
       "document-file-page": "{{file}} · p. {{page}}",
       "document-matches_one": "{{count}} match",
-      "document-matches_other": "{{count}} matches"
+      "document-matches_other": "{{count}} matches",
+      "documents-failed": "Documents couldn't be searched right now."
     }
   },
   "list-view": {

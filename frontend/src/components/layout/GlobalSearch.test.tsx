@@ -100,6 +100,16 @@ describe("GlobalSearch", () => {
     });
   });
 
+  it("says so when the document search fails", async () => {
+    useDocumentStore.setState({
+      searchDocuments: vi.fn().mockRejectedValue(new Error("404")),
+    });
+    openPalette("weber");
+    expect(
+      await screen.findByText("Documents couldn't be searched right now."),
+    ).toBeInTheDocument();
+  });
+
   it("searches document texts and opens the matching file", async () => {
     const searchDocuments = vi.fn().mockResolvedValue(DOCUMENT_RESULT);
     useDocumentStore.setState({ searchDocuments });

@@ -146,6 +146,9 @@ def test_plain_text_strips_markdown_and_tracks_pages():
     )
     assert plain.text == "Taufbuch Johann Weber Name Ort Maria Hofer"
     assert plain.page_at(plain.text.index("Johann")) is None
+    assert plain_text("Getauft: **Johann Weber**, Bauer").text == (
+        "Getauft: Johann Weber, Bauer"
+    )
     assert plain.page_at(plain.text.index("Maria")) == 2
 
 

@@ -136,7 +136,8 @@ _TABLE_RULE = re.compile(r"^\s*\|?[\s:|-]*-[\s:|-]*\|?\s*$", re.MULTILINE)
 _BLOCK_PREFIX = re.compile(r"^\s{0,3}(?:#{1,6}|>+|[-*+]|\d+[.)])\s+", re.MULTILINE)
 _RULE = re.compile(r"^\s{0,3}(?:[-*_]\s*){3,}$", re.MULTILINE)
 _ESCAPE = re.compile(r"\\([\\`*_{}\[\]()#+\-.!|>~])")
-_INLINE_MARKS = re.compile(r"[*_~`|]")
+_INLINE_MARKS = re.compile(r"[*_~`]")
+_TABLE_PIPE = re.compile(r"\|")
 _SPACE = re.compile(r"\s+")
 
 
@@ -149,7 +150,10 @@ def _strip_markdown(value: str) -> str:
     value = _RULE.sub(" ", value)
     value = _BLOCK_PREFIX.sub("", value)
     value = _ESCAPE.sub(lambda m: "\0" + m.group(1), value)
-    value = _INLINE_MARKS.sub(" ", value)
+    # Emphasis marks hug their words ("**Weber**,"): drop them without a
+    # gap; table pipes separate cells.
+    value = _INLINE_MARKS.sub("", value)
+    value = _TABLE_PIPE.sub(" ", value)
     value = value.replace("\0", "")
     return _SPACE.sub(" ", value).strip()
 
