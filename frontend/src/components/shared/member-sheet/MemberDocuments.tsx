@@ -146,7 +146,7 @@ export const MemberDocuments = ({ member }: Props) => {
                           {doc.description}
                         </p>
                       )}
-                      <DocumentFileList files={doc.files} />
+                      <DocumentFileList documentId={doc.id} files={doc.files} />
                     </div>
                   )}
                 </div>

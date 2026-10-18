@@ -3,8 +3,10 @@ import { create } from "zustand";
 import {
   Document,
   DocumentFileOps,
+  DocumentFileText,
   DocumentInput,
   DocumentSavePayload,
+  mapDocumentFileTextFromDB,
   mapDocumentFromDB,
 } from "@/types/document";
 import { WorkspaceService } from "@/services/WorkspaceService";
@@ -50,6 +52,17 @@ interface DocumentState {
     onFileProgress?: (uploaded: number, total: number) => void,
   ) => Promise<void>;
   removeDocument: (id: string) => Promise<void>;
+  /** Load one file's text on demand (`null` when it has none yet). */
+  loadFileText: (
+    documentId: string,
+    fileId: string,
+  ) => Promise<DocumentFileText | null>;
+  /** Save a file's text; an empty text removes it. */
+  saveFileText: (
+    documentId: string,
+    fileId: string,
+    markdown: string,
+  ) => Promise<DocumentFileText | null>;
   clear: () => void;
 }
 
@@ -211,6 +224,48 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     await get().refreshDocuments(workspaceId);
     useStorageStore.getState().refreshStorageUsage();
     invalidateActivityView();
+  },
+
+  loadFileText: async (documentId: string, fileId: string) => {
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return null;
+    const row = await WorkspaceService.getDocumentFileText(
+      workspaceId,
+      documentId,
+      fileId,
+    );
+    return row ? mapDocumentFileTextFromDB(row) : null;
+  },
+
+  saveFileText: async (
+    documentId: string,
+    fileId: string,
+    markdown: string,
+  ) => {
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return null;
+    const row = await WorkspaceService.saveDocumentFileText(
+      workspaceId,
+      documentId,
+      fileId,
+      markdown,
+    );
+    // Only the file's "has text" flag changes in the list.
+    const hasText = row !== null;
+    set((state) => ({
+      documents: state.documents.map((d) =>
+        d.id === documentId
+          ? {
+              ...d,
+              files: d.files.map((f) =>
+                f.id === fileId ? { ...f, hasText } : f,
+              ),
+            }
+          : d,
+      ),
+    }));
+    invalidateActivityView();
+    return row ? mapDocumentFileTextFromDB(row) : null;
   },
 
   clear: () => set({ documents: [], initialized: false }),

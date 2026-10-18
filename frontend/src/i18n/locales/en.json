@@ -882,6 +882,27 @@
           "cancel": "Cancel",
           "save": "Save",
           "error-save": "Could not save the document."
+        },
+        "text": {
+          "open": "Show the file's text",
+          "open-empty": "Add the file's text",
+          "title": "Text of {{name}}",
+          "untitled": "file",
+          "description": "This file has no text yet. Its text helps you read it and will make it searchable.",
+          "empty": "No text yet.",
+          "hint": "Write what the file says, in its original language. Markdown works, and the Preview tab shows how it looks.",
+          "placeholder": "What the file says…",
+          "source-manual": "Written by hand.",
+          "source-ai": "Transcribed automatically.",
+          "add": "Add text",
+          "edit": "Edit text",
+          "save": "Save",
+          "cancel": "Cancel",
+          "open-file": "Open file",
+          "saved": "Text saved",
+          "error-load": "Could not load the text.",
+          "error-save": "Could not save the text.",
+          "error-open": "Could not open the file."
         }
       },
       "diseases": {

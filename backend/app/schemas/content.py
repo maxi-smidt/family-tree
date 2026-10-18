@@ -283,6 +283,29 @@ class DocumentFileOut(BaseModel):
     mime_type: str | None = None
     size: int | None = None
     created_at: str
+    # Whether the file has a readable text (#1121); the text itself is only
+    # loaded when the file is opened, never as part of a document list.
+    has_text: bool = False
+
+
+class DocumentFileTextOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    document_file_id: str
+    language: str | None = None
+    markdown: str
+    source: str
+    edited_by: str | None = None
+    edited_at: str | None = None
+    created_at: str
+    updated_at: str
+
+
+class DocumentFileTextSave(BaseModel):
+    """Replace a file's text. An empty (or whitespace-only) text removes it."""
+
+    markdown: str = Field(max_length=1_000_000)
+    language: str | None = Field(default=None, max_length=16)
 
 
 class DocumentLinkCreate(BaseModel):

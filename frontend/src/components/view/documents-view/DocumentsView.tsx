@@ -32,6 +32,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
 import { DocumentDialog } from "@/components/shared/member-sheet/DocumentDialog";
+import { DocumentFileTextButton } from "@/components/shared/member-sheet/DocumentFileTextDialog";
 import { ListPagination } from "@/components/view/list-view/ListPagination";
 import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { useDocumentStore } from "@/hooks/useDocumentStore";
@@ -377,19 +378,32 @@ function DocumentRow({
     setOpenSheet(workspaceId, { memberId, tab: "records", mode: "view" });
   };
 
-  const renderAttachment = (file: DocumentFile) => (
-    <Button
-      key={file.id}
-      type="button"
-      variant="outline"
-      size="sm"
-      className="max-w-60"
-      onClick={() => openFile(file)}
-    >
-      {file.kind === "file" ? <FileText /> : <LinkIcon />}
-      <span className="truncate">{file.filename ?? file.url}</span>
-    </Button>
-  );
+  const renderAttachment = (file: DocumentFile) => {
+    const button = (
+      <Button
+        key={file.id}
+        type="button"
+        variant="outline"
+        size="sm"
+        className="max-w-60"
+        onClick={() => openFile(file)}
+      >
+        {file.kind === "file" ? <FileText /> : <LinkIcon />}
+        <span className="truncate">{file.filename ?? file.url}</span>
+      </Button>
+    );
+    if (file.kind !== "file") return button;
+    return (
+      <span key={file.id} className="group/file inline-flex items-center gap-1">
+        {button}
+        <DocumentFileTextButton
+          documentId={document.id}
+          file={file}
+          className="px-1"
+        />
+      </span>
+    );
+  };
 
   const isInteractiveTarget = (event: MouseEvent) =>
     (event.target as HTMLElement).closest("button, a, input") !== null;

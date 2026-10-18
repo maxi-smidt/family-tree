@@ -36,6 +36,7 @@ import { DiseaseDB, DiseaseInput, mapDiseaseInputToDB } from "@/types/disease";
 import {
   DocumentDB,
   DocumentFileDB,
+  DocumentFileTextDB,
   DocumentInput,
   DocumentSavePayload,
   DocumentUploadDB,
@@ -688,6 +689,30 @@ export class WorkspaceService {
 
   static removeDocument(workspaceId: string, id: string) {
     return api.del(`${base(workspaceId)}/documents/${id}`);
+  }
+
+  /** A file's Markdown text, or `null` when it has none yet. */
+  static getDocumentFileText(
+    workspaceId: string,
+    documentId: string,
+    fileId: string,
+  ) {
+    return api.get<DocumentFileTextDB | null>(
+      `${base(workspaceId)}/documents/${documentId}/files/${fileId}/text`,
+    );
+  }
+
+  /** Replace a file's text; an empty text removes it (returns `null`). */
+  static saveDocumentFileText(
+    workspaceId: string,
+    documentId: string,
+    fileId: string,
+    markdown: string,
+  ) {
+    return api.put<DocumentFileTextDB | null>(
+      `${base(workspaceId)}/documents/${documentId}/files/${fileId}/text`,
+      { markdown },
+    );
   }
 
   static setDocumentMembers(

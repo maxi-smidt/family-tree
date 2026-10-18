@@ -882,6 +882,27 @@
           "cancel": "Abbrechen",
           "save": "Speichern",
           "error-save": "Dokument konnte nicht gespeichert werden."
+        },
+        "text": {
+          "open": "Text der Datei anzeigen",
+          "open-empty": "Text der Datei hinzufügen",
+          "title": "Text von {{name}}",
+          "untitled": "Datei",
+          "description": "Diese Datei hat noch keinen Text. Mit Text lässt sie sich leichter lesen und später durchsuchen.",
+          "empty": "Noch kein Text.",
+          "hint": "Schreibe, was in der Datei steht, in ihrer Originalsprache. Markdown funktioniert, der Tab Vorschau zeigt das Ergebnis.",
+          "placeholder": "Was in der Datei steht…",
+          "source-manual": "Von Hand geschrieben.",
+          "source-ai": "Automatisch transkribiert.",
+          "add": "Text hinzufügen",
+          "edit": "Text bearbeiten",
+          "save": "Speichern",
+          "cancel": "Abbrechen",
+          "open-file": "Datei öffnen",
+          "saved": "Text gespeichert",
+          "error-load": "Der Text konnte nicht geladen werden.",
+          "error-save": "Der Text konnte nicht gespeichert werden.",
+          "error-open": "Die Datei konnte nicht geöffnet werden."
         }
       },
       "diseases": {

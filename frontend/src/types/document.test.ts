@@ -18,6 +18,7 @@ describe("Document type mapping", () => {
         mime_type: "application/pdf",
         size: 12345,
         created_at: "2024-01-01T00:00:00Z",
+        has_text: true,
       };
 
       expect(mapDocumentFileFromDB(row)).toEqual({
@@ -28,6 +29,7 @@ describe("Document type mapping", () => {
         mimeType: "application/pdf",
         size: 12345,
         createdAt: "2024-01-01T00:00:00Z",
+        hasText: true,
       });
     });
 
@@ -91,6 +93,7 @@ describe("Document type mapping", () => {
             mimeType: "application/pdf",
             size: 999,
             createdAt: "2024-01-01T00:00:00Z",
+            hasText: false,
           },
         ],
         memberIds: ["m1", "m2"],

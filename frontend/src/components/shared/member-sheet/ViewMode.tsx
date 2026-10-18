@@ -535,7 +535,10 @@ export const ViewMode = ({
                                     {doc.description}
                                   </p>
                                 )}
-                                <DocumentFileList files={doc.files} />
+                                <DocumentFileList
+                                  documentId={doc.id}
+                                  files={doc.files}
+                                />
                               </div>
                             </div>
                           </div>
