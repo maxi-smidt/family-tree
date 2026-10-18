@@ -3,7 +3,10 @@ import { fireEvent, renderWithProviders, screen, waitFor } from "@/test/utils";
 import { useDocumentStore } from "@/hooks/useDocumentStore";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import type { DocumentFile, DocumentFileText } from "@/types/document";
-import { DocumentFileTextDialog } from "./DocumentFileTextDialog";
+import {
+  DocumentFileTextButton,
+  DocumentFileTextDialog,
+} from "./DocumentFileTextDialog";
 
 const FILE: DocumentFile = {
   id: "file-1",
@@ -94,5 +97,41 @@ describe("DocumentFileTextDialog", () => {
     expect(
       screen.queryByRole("button", { name: "Add text" }),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("DocumentFileTextButton", () => {
+  const viewer = { id: "tree-1", name: "Tree", role: "viewer" as const };
+  const owner = { id: "tree-1", name: "Tree", role: "owner" as const };
+
+  it("shows viewers the button only when the file has text", () => {
+    useWorkspaceStore.setState({ selectedTree: viewer });
+    const { rerender } = renderWithProviders(
+      <DocumentFileTextButton documentId="doc-1" file={FILE} />,
+    );
+    expect(
+      screen.getByRole("button", { name: "Show the file's text" }),
+    ).toBeInTheDocument();
+
+    rerender(
+      <DocumentFileTextButton
+        documentId="doc-1"
+        file={{ ...FILE, hasText: false }}
+      />,
+    );
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("offers editors an add button for files without text", () => {
+    useWorkspaceStore.setState({ selectedTree: owner });
+    renderWithProviders(
+      <DocumentFileTextButton
+        documentId="doc-1"
+        file={{ ...FILE, hasText: false }}
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: "Add the file's text" }),
+    ).toBeInTheDocument();
   });
 });

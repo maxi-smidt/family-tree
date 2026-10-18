@@ -394,7 +394,7 @@ function DocumentRow({
     );
     if (file.kind !== "file") return button;
     return (
-      <span key={file.id} className="inline-flex items-center gap-1">
+      <span key={file.id} className="group/file inline-flex items-center gap-1">
         {button}
         <DocumentFileTextButton
           documentId={document.id}

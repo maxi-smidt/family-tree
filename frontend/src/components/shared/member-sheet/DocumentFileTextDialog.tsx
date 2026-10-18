@@ -183,7 +183,9 @@ export const DocumentFileTextDialog = ({
   );
 };
 
-/** Icon button that opens a file's text. Filled in when the file has text. */
+/** Icon button that opens a file's text, highlighted when the file has one.
+ *  Without a text it is an add button for editors only, shown on hover of
+ *  the surrounding `group/file` row (always shown on touch screens). */
 export const DocumentFileTextButton = ({
   documentId,
   file,
@@ -196,7 +198,11 @@ export const DocumentFileTextButton = ({
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.member-sheet.documents.text",
   });
+  const canEdit = useWorkspaceStore((s) =>
+    canEditArea(s.selectedTree, "sources"),
+  );
   const [open, setOpen] = useState(false);
+  if (!file.hasText && !canEdit) return null;
   const label = file.hasText ? t("open") : t("open-empty");
   // React events bubble through the dialog's portal: keep clicks inside it
   // from reaching clickable rows (the documents list toggles on click).
@@ -208,7 +214,9 @@ export const DocumentFileTextButton = ({
         onClick={() => setOpen(true)}
         className={cn(
           "shrink-0 hover:text-foreground",
-          file.hasText ? "text-primary" : "text-muted-foreground",
+          file.hasText
+            ? "text-primary"
+            : "text-muted-foreground pointer-fine:opacity-0 pointer-fine:group-hover/file:opacity-100 pointer-fine:focus-visible:opacity-100",
           className,
         )}
         title={label}
