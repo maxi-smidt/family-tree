@@ -173,7 +173,7 @@ function ResearchTasksCard({ canWrite }: { canWrite: boolean }) {
   const openCount = tasks.filter((task) => !task.done).length;
 
   return (
-    <Card className="gap-3 self-start">
+    <Card className="gap-3">
       <CardHeader>
         <CardTitle>
           <h2>{t("open-tasks-title", { count: openCount })}</h2>
@@ -382,7 +382,7 @@ export const QualityReportView = () => {
         </section>
 
         {sideColumn && (
-          <div className="flex flex-col gap-5 md:pt-7">
+          <div className="flex min-w-0 flex-col gap-5 md:pt-7">
             {tasksEnabled && <ResearchTasksCard canWrite={canWriteTasks} />}
             {evidenceEnabled && <EvidenceCoverageCard />}
           </div>

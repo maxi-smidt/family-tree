@@ -84,7 +84,7 @@ export function EvidenceCoverageCard() {
 
   return (
     <>
-      <Card className="gap-3">
+      <Card className="min-w-0 gap-3">
         <CardHeader>
           <CardTitle>
             <h2>{t("title")}</h2>
@@ -115,7 +115,7 @@ export function EvidenceCoverageCard() {
               {coverage.missing.slice(0, SHOWN).map((entry) => (
                 <li
                   key={entry.memberId}
-                  className="flex items-baseline justify-between gap-3 py-2 text-sm"
+                  className="flex min-w-0 flex-col gap-0.5 py-2 text-sm"
                 >
                   <button
                     type="button"
@@ -124,7 +124,7 @@ export function EvidenceCoverageCard() {
                   >
                     {entry.name || t("unknown")}
                   </button>
-                  <span className="shrink-0 text-xs text-muted-foreground">
+                  <span className="text-xs break-words text-muted-foreground">
                     {entry.fields.map((field) => fields(field)).join(", ")}
                   </span>
                 </li>
@@ -140,7 +140,7 @@ export function EvidenceCoverageCard() {
       </Card>
 
       {coverage.quotesNotFound.length > 0 && (
-        <Card className="gap-3 border-warning/30">
+        <Card className="min-w-0 gap-3 border-warning/30">
           <CardHeader>
             <CardTitle>
               <h2 className="flex items-center gap-2">
@@ -163,7 +163,7 @@ export function EvidenceCoverageCard() {
                     key={citation.id}
                     className="flex items-center justify-between gap-3 py-2 text-sm"
                   >
-                    <span className="min-w-0">
+                    <span className="min-w-0 break-words">
                       <button
                         type="button"
                         className="font-medium hover:underline"
