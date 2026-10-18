@@ -28,7 +28,7 @@ export interface DocumentFile {
 }
 
 /** Where a file's text came from. */
-export type DocumentFileTextSource = "manual" | "pdf_text" | "ai";
+export type DocumentFileTextSource = "manual" | "ai";
 
 /** The Markdown text of one uploaded file, in the file's own language. */
 export interface DocumentFileTextDB {

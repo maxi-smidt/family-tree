@@ -30,9 +30,6 @@ interface DocumentFileTextDialogProps {
 }
 
 function sourceKey(text: DocumentFileText): string {
-  if (text.source === "pdf_text") {
-    return text.editedAt ? "source-pdf-edited" : "source-pdf";
-  }
   return text.source === "ai" ? "source-ai" : "source-manual";
 }
 

@@ -893,8 +893,6 @@
           "hint": "Write what the file says, in its original language. Markdown works, and the Preview tab shows how it looks.",
           "placeholder": "What the file says…",
           "source-manual": "Written by hand.",
-          "source-pdf": "Taken from the PDF's own text.",
-          "source-pdf-edited": "Taken from the PDF's own text and corrected by hand.",
           "source-ai": "Transcribed automatically.",
           "add": "Add text",
           "edit": "Edit text",

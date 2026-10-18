@@ -848,17 +848,6 @@ def _normalize_image(
 _EXT_MIME = {**_DOC_EXT_MIME, "avif": "image/avif"}
 
 
-def media_url_to_path(
-    value: str | None, *, expected_tree_id: str | None = None
-) -> Path | None:
-    """The on-disk path of a stored media URL, or ``None`` when it isn't one
-    of ours or the file is missing."""
-    path = _safe_media_path(value, expected_tree_id=expected_tree_id)
-    if path is None or not path.is_file():
-        return None
-    return path
-
-
 def media_url_to_data_url(value: str | None) -> str | None:
     """Inline a stored media URL as a base64 data URL (for portable exports).
 

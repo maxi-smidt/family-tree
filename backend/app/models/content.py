@@ -241,8 +241,8 @@ class DocumentFileText(Base):
     file's original language (there are no translations). Kept out of
     ``document_files`` so document lists never carry transcripts: the text is
     loaded only when a file is opened. ``markdown`` is what people read and
-    edit; ``machine_markdown`` is the last machine-produced version (the PDF
-    text layer, later AI transcription) and is never edited, so a re-run can
+    edit; ``machine_markdown`` is the last machine-produced version (AI
+    transcription, a later step) and is never edited, so a re-run can
     tell whether a person has corrected the text since.
     """
 
@@ -257,7 +257,7 @@ class DocumentFileText(Base):
     language: Mapped[str | None] = mapped_column(String(16), nullable=True)
     markdown: Mapped[str] = mapped_column(Text)
     machine_markdown: Mapped[str | None] = mapped_column(Text, nullable=True)
-    source: Mapped[str] = mapped_column(String(20))  # "manual" | "pdf_text" | "ai"
+    source: Mapped[str] = mapped_column(String(20))  # "manual" | "ai"
     provider: Mapped[str | None] = mapped_column(String(100), nullable=True)
     model: Mapped[str | None] = mapped_column(String(100), nullable=True)
     status: Mapped[str | None] = mapped_column(String(20), nullable=True)

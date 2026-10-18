@@ -20,7 +20,7 @@ const TEXT: DocumentFileText = {
   fileId: "file-1",
   language: null,
   markdown: "# Taufschein\n\nJohann Schmidt",
-  source: "pdf_text",
+  source: "manual",
   editedBy: null,
   editedAt: null,
   updatedAt: "2026-01-01T00:00:00Z",
@@ -56,9 +56,7 @@ describe("DocumentFileTextDialog", () => {
 
     expect(await screen.findByText("Johann Schmidt")).toBeInTheDocument();
     expect(loadFileText).toHaveBeenCalledWith("doc-1", "file-1");
-    expect(
-      screen.getByText("Taken from the PDF's own text."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Written by hand.")).toBeInTheDocument();
   });
 
   it("lets an editor correct and save the text", async () => {

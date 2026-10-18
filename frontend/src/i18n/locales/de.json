@@ -893,8 +893,6 @@
           "hint": "Schreibe, was in der Datei steht, in ihrer Originalsprache. Markdown funktioniert, der Tab Vorschau zeigt das Ergebnis.",
           "placeholder": "Was in der Datei steht…",
           "source-manual": "Von Hand geschrieben.",
-          "source-pdf": "Aus dem Text des PDFs übernommen.",
-          "source-pdf-edited": "Aus dem Text des PDFs übernommen und von Hand korrigiert.",
           "source-ai": "Automatisch transkribiert.",
           "add": "Text hinzufügen",
           "edit": "Text bearbeiten",

@@ -9,7 +9,6 @@ from uuid import uuid4
 
 from fastapi import (
     APIRouter,
-    BackgroundTasks,
     Depends,
     File,
     Form,
@@ -68,7 +67,7 @@ from app.services.documents.document_service import (
     prune_stale_uploads,
     save_document,
 )
-from app.services.documents.file_text import extract_pdf_texts, files_with_text
+from app.services.documents.file_text import files_with_text
 from app.services.event_bus import publish_workspace_event
 from app.services.media.storage import (
     ChecksumMismatch,
@@ -327,7 +326,6 @@ def update_document(
 def save_document_route(
     document_id: str,
     payload: DocumentSave,
-    background_tasks: BackgroundTasks,
     tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
     context: WorkspaceAccessContext = Depends(get_workspace_access_write),
@@ -349,11 +347,6 @@ def save_document_route(
         document_id=document_id,
         payload=payload,
     )
-    # An attached upload keeps its id as the new file's id.
-    if payload.attached_upload_ids:
-        background_tasks.add_task(
-            extract_pdf_texts, tree.id, list(payload.attached_upload_ids)
-        )
     return _document_out(db, document)
 
 
@@ -521,7 +514,6 @@ async def stage_upload(
 @router.post("/{document_id}/files", response_model=DocumentFileOut, status_code=201)
 async def add_file(
     document_id: str,
-    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     filename: str = Form(...),
     checksum: str | None = Form(default=None),
@@ -586,7 +578,6 @@ async def add_file(
         delete_media(url)
         raise
     db.refresh(file)
-    background_tasks.add_task(extract_pdf_texts, tree.id, [file.id])
     return file
 
 
@@ -733,8 +724,8 @@ def save_file_text(
 ):
     """Replace the file's text with a person's version; an empty text removes it.
 
-    ``machine_markdown`` is left alone, so the machine's original (the PDF
-    text layer, later AI) stays available next to the corrected text.
+    ``machine_markdown`` is left alone, so a machine original (AI
+    transcription, a later step) stays available next to the corrected text.
     """
     document = _get_document(db, tree, document_id, context)
     file = _get_file(db, document, file_id)
