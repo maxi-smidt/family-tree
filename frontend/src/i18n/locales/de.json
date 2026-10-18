@@ -916,7 +916,12 @@
           "transcribing": "Die KI-Transkription läuft. Der Text erscheint hier, sobald er fertig ist.",
           "machine-differs": "Eine neue KI-Transkription ist fertig. Dein bearbeiteter Text wurde beibehalten.",
           "use-machine": "KI-Version verwenden",
-          "keep-mine": "Meinen behalten"
+          "keep-mine": "Meinen behalten",
+          "restore-ai": "KI-Version wiederherstellen",
+          "restore-ai-confirm": {
+            "title": "KI-Version wiederherstellen?",
+            "description": "Dein bearbeiteter Text wird durch die letzte KI-Transkription ersetzt."
+          }
         },
         "ai": {
           "start": "Mit KI transkribieren",

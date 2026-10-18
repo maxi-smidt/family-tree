@@ -916,7 +916,12 @@
           "transcribing": "AI transcription is running. The text appears here when it is ready.",
           "machine-differs": "A new AI transcription is ready. Your edited text was kept.",
           "use-machine": "Use AI version",
-          "keep-mine": "Keep mine"
+          "keep-mine": "Keep mine",
+          "restore-ai": "Restore AI version",
+          "restore-ai-confirm": {
+            "title": "Restore the AI version?",
+            "description": "Your edited text is replaced by the last AI transcription."
+          }
         },
         "ai": {
           "start": "Transcribe with AI",

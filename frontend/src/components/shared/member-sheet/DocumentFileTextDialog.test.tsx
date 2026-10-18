@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, renderWithProviders, screen, waitFor } from "@/test/utils";
+import {
+  fireEvent,
+  renderWithProviders,
+  screen,
+  waitFor,
+  within,
+} from "@/test/utils";
 import { useDocumentStore } from "@/hooks/useDocumentStore";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import type { DocumentFile, DocumentFileText } from "@/types/document";
@@ -95,6 +101,48 @@ describe("DocumentFileTextDialog", () => {
     expect(await screen.findByText("Johann Schmidt")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Use AI version" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("restores the stored AI version after confirmation", async () => {
+    loadFileText.mockResolvedValue({ ...TEXT, machineMarkdown: "KI-Text" });
+    saveFileText.mockResolvedValue({
+      ...TEXT,
+      markdown: "KI-Text",
+      source: "ai",
+      machineMarkdown: "KI-Text",
+    });
+    renderDialog();
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Restore AI version" }),
+    );
+    expect(saveFileText).not.toHaveBeenCalled();
+    const confirm = await screen.findByRole("alertdialog");
+    fireEvent.click(
+      within(confirm).getByRole("button", { name: "Restore AI version" }),
+    );
+
+    await waitFor(() =>
+      expect(saveFileText).toHaveBeenCalledWith("doc-1", "file-1", "KI-Text"),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: "Restore AI version" }),
+      ).not.toBeInTheDocument(),
+    );
+  });
+
+  it("offers no restore when the text is the AI version", async () => {
+    loadFileText.mockResolvedValue({
+      ...TEXT,
+      source: "ai",
+      machineMarkdown: TEXT.markdown,
+    });
+    renderDialog();
+    expect(await screen.findByText("Johann Schmidt")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Restore AI version" }),
     ).not.toBeInTheDocument();
   });
 

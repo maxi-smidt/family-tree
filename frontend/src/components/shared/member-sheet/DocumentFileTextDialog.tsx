@@ -5,9 +5,25 @@ import {
   useRef,
   useState,
 } from "react";
-import { ExternalLink, Pencil, ScrollText, Sparkles } from "lucide-react";
+import {
+  ExternalLink,
+  Pencil,
+  RotateCcw,
+  ScrollText,
+  Sparkles,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -101,6 +117,7 @@ export const DocumentFileTextDialog = ({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
+  const [confirmRestore, setConfirmRestore] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
   const showing = open && !loading && !editing && text !== null;
@@ -162,6 +179,13 @@ export const DocumentFileTextDialog = ({
   );
 
   useUnsavedGuard(`document-file-text-${file.id}`, isDirty, save);
+
+  // The last AI version is kept next to an edited text; offer it back
+  // (the review banner covers a version that is still waiting).
+  const canRestore =
+    !!text?.machineMarkdown &&
+    text.machineMarkdown !== text.markdown &&
+    !text.aiVersionWaiting;
 
   const openFile = () => {
     void openMedia(file.url).catch(() => toast.error(t("error-open")));
@@ -270,6 +294,17 @@ export const DocumentFileTextDialog = ({
             canEdit &&
             !loading && (
               <div className="flex gap-2">
+                {canRestore && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={saving}
+                    onClick={() => setConfirmRestore(true)}
+                  >
+                    <RotateCcw />
+                    {t("restore-ai")}
+                  </Button>
+                )}
                 <DocumentFileTranscribeButton
                   documentId={documentId}
                   file={file}
@@ -284,6 +319,26 @@ export const DocumentFileTextDialog = ({
           )}
         </DialogFooter>
       </DialogContent>
+      <AlertDialog open={confirmRestore} onOpenChange={setConfirmRestore}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("restore-ai-confirm.title")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("restore-ai-confirm.description")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() =>
+                void save(text?.machineMarkdown ?? text?.markdown ?? "")
+              }
+            >
+              {t("restore-ai")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 };
