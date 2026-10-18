@@ -151,7 +151,9 @@ describe("DocumentsView", () => {
       },
     });
     render(<DocumentsView />);
-    expect(await screen.findByText("Geboren: Ada")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Geboren: Ada", {}, { timeout: 5000 }),
+    ).toBeInTheDocument();
     expect(loadFileText).toHaveBeenCalledWith("linked-document", "file-1");
     expect(useDocumentStore.getState().focus).toBeNull();
   });

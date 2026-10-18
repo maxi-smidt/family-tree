@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { useEffect } from "react";
 import {
   fireEvent,
   renderWithProviders,
@@ -44,6 +45,21 @@ const TEXT: DocumentFileText = {
 const loadFileText = vi.fn();
 const saveFileText = vi.fn();
 
+// PDF canvas rendering is exercised in Playwright; keep the page coordination
+// and the real editor/save flow here without a browser canvas implementation.
+vi.mock("./DocumentFilePreview", () => ({
+  DocumentFilePreview: ({
+    page,
+    onPageCount,
+  }: {
+    page: number;
+    onPageCount: (count: number) => void;
+  }) => {
+    useEffect(() => onPageCount(3), [onPageCount]);
+    return <div role="img" aria-label={`Original page ${page}`} />;
+  },
+}));
+
 function renderDialog() {
   return renderWithProviders(
     <DocumentFileTextDialog
@@ -69,7 +85,10 @@ describe("DocumentFileTextDialog", () => {
     loadFileText.mockResolvedValue(TEXT);
     renderDialog();
 
-    expect(await screen.findByText("Johann Schmidt")).toBeInTheDocument();
+    // The real Markdown pipeline loads lazily on the first read.
+    expect(
+      await screen.findByText("Johann Schmidt", {}, { timeout: 5000 }),
+    ).toBeInTheDocument();
     expect(loadFileText).toHaveBeenCalledWith("doc-1", "file-1");
     expect(screen.getByText("Written by hand.")).toBeInTheDocument();
   });
@@ -180,6 +199,83 @@ describe("DocumentFileTextDialog", () => {
     expect(await screen.findByText("No text yet.")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Add text" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps the original page and rendered Markdown together while navigating", async () => {
+    loadFileText.mockResolvedValue({
+      ...TEXT,
+      markdown: "<!-- page 1 -->\nFirst page\n<!-- page 2 -->\nSecond page",
+    });
+    renderDialog();
+    expect(await screen.findByText("First page")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+    expect(await screen.findByText("Second page")).toBeInTheDocument();
+    expect(screen.queryByText("First page")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "Original page 2" }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+    expect(screen.getByText("No text for this page yet.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next page" })).toBeDisabled();
+  });
+
+  it("saves corrections on several pages as one Markdown text with its markers intact", async () => {
+    const original = "<!-- page 1 -->\nFirst\n<!-- page 3 -->\nThird";
+    loadFileText.mockResolvedValue({ ...TEXT, markdown: original });
+    saveFileText.mockImplementation(
+      async (_doc: string, _file: string, markdown: string) => ({
+        ...TEXT,
+        markdown,
+      }),
+    );
+    renderDialog();
+    fireEvent.click(await screen.findByRole("button", { name: "Edit text" }));
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "Corrected first\n" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "Second" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+    expect(screen.getByRole("textbox")).toHaveValue("\nThird");
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(saveFileText).toHaveBeenCalledWith(
+        "doc-1",
+        "file-1",
+        expect.stringMatching(
+          /<!-- page 1 -->Corrected first\n[\s\S]*<!-- page 2 -->\nSecond[\s\S]*<!-- page 3 -->\nThird/,
+        ),
+      ),
+    );
+  });
+
+  it("opens the matching page for a search hit and keeps viewers read-only", async () => {
+    useWorkspaceStore.setState({
+      selectedTree: { id: "tree-1", name: "Tree", role: "viewer" },
+    });
+    loadFileText.mockResolvedValue({
+      ...TEXT,
+      markdown: "<!-- page 1 -->\nFirst\n<!-- page 2 -->\nJohann Schmidt",
+    });
+    renderWithProviders(
+      <DocumentFileTextDialog
+        documentId="doc-1"
+        file={FILE}
+        open
+        onOpenChange={() => {}}
+        highlight={["schmidt"]}
+      />,
+    );
+    expect(await screen.findByText("Johann Schmidt")).toBeInTheDocument();
+    expect(screen.getByRole("spinbutton", { name: "Page" })).toHaveValue(2);
+    expect(
+      screen.queryByRole("button", { name: "Edit text" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Restore AI version" }),
     ).not.toBeInTheDocument();
   });
 });

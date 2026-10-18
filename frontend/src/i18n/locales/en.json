@@ -892,6 +892,24 @@
           "save": "Save",
           "error-save": "Could not save the document."
         },
+        "reader": {
+          "file": "Original file",
+          "text": "Document text",
+          "resize": "Resize file and text panes",
+          "pages": "Document pages",
+          "page": "Page",
+          "of": "of {{count}}",
+          "previous": "Previous page",
+          "next": "Next page",
+          "page-image": "Original page {{page}}",
+          "zoom": "File zoom",
+          "zoom-in": "Zoom in",
+          "zoom-out": "Zoom out",
+          "fit-width": "Fit to width",
+          "empty-page": "No text for this page yet.",
+          "unsupported": "Preview is available for images and PDFs. Use Open file to read this file.",
+          "error": "Could not preview this file. You can still read its text or use Open file."
+        },
         "text": {
           "open": "Show the file's text",
           "open-empty": "Add the file's text",

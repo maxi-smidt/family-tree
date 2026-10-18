@@ -78,10 +78,10 @@ on every response:
 
 ```
 default-src 'self';
-script-src 'self';
+script-src 'self' 'wasm-unsafe-eval';
 style-src 'self' 'unsafe-inline';
 img-src 'self' blob: data:;
-connect-src 'self';
+connect-src 'self' blob:;
 font-src 'self';
 frame-ancestors 'none';
 base-uri 'self';
@@ -100,6 +100,13 @@ exfiltrate tokens (only JS can), this does not weaken the main XSS defence.
 `useMediaUrl` (`frontend/src/hooks/useMediaUrl.ts`) fetches `/api/media/*`
 endpoints with the Bearer token and converts the response to a `blob:` URL so
 the `<img>` tag can display it without embedding the token in the src attribute.
+
+**Why `blob:` for `connect-src` and `'wasm-unsafe-eval'` for `script-src`?**
+The document reader uses PDF.js to read the same authenticated media object
+URLs. Its worker, fonts, character maps and WebAssembly scan decoders are
+bundled and served locally. The Wasm permission allows these decoders to run;
+JavaScript string evaluation remains blocked. PDF rendering loads only when
+the reader opens a PDF.
 
 **Authentik/OIDC OAuth flow**: the OAuth redirect is a browser _navigation_
 (top-level `Location:` redirect), not a fetch. Navigation is not governed by
