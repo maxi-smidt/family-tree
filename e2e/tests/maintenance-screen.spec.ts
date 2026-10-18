@@ -10,7 +10,7 @@
 
 import { expect, test } from "../fixtures";
 
-test("shows the upgrade screen without a login form", async ({ page }) => {
+test("shows the starting screen without a login form", async ({ page }) => {
   await page.route("**/api/auth/me", (route) =>
     route.fulfill({
       status: 503,
@@ -20,10 +20,10 @@ test("shows the upgrade screen without a login form", async ({ page }) => {
 
   await page.goto("/");
 
-  await expect(page.getByText("Upgrading Family Tree")).toBeVisible();
+  await expect(page.getByText("Starting Family Tree")).toBeVisible();
   await expect(
     page.getByText(
-      "This takes a moment. The page continues on its own once it's ready.",
+      "The server is starting up. The page continues on its own once it's ready.",
     ),
   ).toBeVisible();
   await expect(page.locator("#username")).toHaveCount(0);

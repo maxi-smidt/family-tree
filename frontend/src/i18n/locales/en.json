@@ -1948,8 +1948,8 @@
     "reload": "Reload"
   },
   "maintenance": {
-    "title": "Upgrading Family Tree",
-    "description": "This takes a moment. The page continues on its own once it's ready."
+    "title": "Starting Family Tree",
+    "description": "The server is starting up. The page continues on its own once it's ready."
   },
   "admin": {
     "title": "Administration",
