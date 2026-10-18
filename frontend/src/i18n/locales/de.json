@@ -1903,8 +1903,8 @@
     "reload": "Neu laden"
   },
   "maintenance": {
-    "title": "Family Tree wird aktualisiert",
-    "description": "Das dauert einen Moment. Die Seite lädt automatisch weiter, sobald alles bereit ist."
+    "title": "Family Tree wird gestartet",
+    "description": "Der Server startet gerade. Die Seite lädt automatisch weiter, sobald alles bereit ist."
   },
   "admin": {
     "title": "Verwaltung",
