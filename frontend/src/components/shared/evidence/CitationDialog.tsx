@@ -52,6 +52,8 @@ import {
 type PointsTo = "document" | "file" | "passage";
 
 const PICK_HIGHLIGHT = "document-citation-focus";
+/** The file select's value while the whole document is cited. */
+const ALL_FILES = "__all__";
 
 /** Where a new citation starts, e.g. a passage selected in the reader. */
 export interface CitationDraft {
@@ -279,7 +281,7 @@ export const CitationDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[calc(100dvh-1rem)] flex-col gap-4 overflow-hidden sm:max-w-4xl">
+      <DialogContent className="flex max-h-[calc(100dvh-1rem)] flex-col gap-4 overflow-hidden sm:max-w-4xl md:h-[min(42rem,calc(100dvh-2rem))]">
         <DialogHeader>
           <DialogTitle>
             {citation
@@ -368,7 +370,7 @@ export const CitationDialog = ({
 
           <div
             className={cn(
-              "grid gap-4",
+              "grid gap-4 md:min-h-0 md:flex-1",
               !documentFixed && "md:grid-cols-[16rem_minmax(0,1fr)]",
             )}
           >
@@ -388,9 +390,9 @@ export const CitationDialog = ({
               />
             )}
 
-            <div className="flex min-w-0 flex-col gap-3">
+            <div className="flex min-h-0 min-w-0 flex-col gap-3">
               {documentFixed && document && (
-                <p className="text-sm">
+                <p className="truncate text-sm">
                   <span className="text-muted-foreground">
                     {t("editor.document")}:{" "}
                   </span>
@@ -398,12 +400,12 @@ export const CitationDialog = ({
                 </p>
               )}
               {!document ? (
-                <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+                <p className="flex min-h-40 flex-1 items-center justify-center rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
                   {t("editor.pick-document")}
                 </p>
               ) : (
                 <>
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-col gap-1.5">
                     <span className="text-xs font-semibold text-muted-foreground">
                       {t("editor.points-to")}
                     </span>
@@ -411,45 +413,67 @@ export const CitationDialog = ({
                       type="single"
                       variant="outline"
                       size="sm"
+                      className="w-full"
                       value={pointsTo}
                       onValueChange={(value) =>
                         value && setPointsTo(value as PointsTo)
                       }
                     >
-                      <ToggleGroupItem value="document" className="px-2.5">
+                      <ToggleGroupItem value="document" className="flex-1">
                         {t("editor.whole-document")}
                       </ToggleGroupItem>
                       <ToggleGroupItem
                         value="file"
-                        className="px-2.5"
+                        className="flex-1"
                         disabled={files.length === 0}
                       >
                         {t("editor.one-file")}
                       </ToggleGroupItem>
                       <ToggleGroupItem
                         value="passage"
-                        className="px-2.5"
+                        className="flex-1"
                         disabled={!files.some((f) => f.kind === "file")}
                       >
                         {t("editor.passage")}
                       </ToggleGroupItem>
                     </ToggleGroup>
-                    {pointsTo !== "document" && files.length > 0 && (
+                  </div>
+
+                  {/* File and page keep their place in every mode, so the
+                      dialog doesn't jump when switching. */}
+                  <div className="grid grid-cols-[minmax(0,1fr)_6rem] gap-3">
+                    <div className="flex min-w-0 flex-col gap-1.5">
+                      <Label
+                        htmlFor="citation-file"
+                        className="text-xs font-semibold text-muted-foreground"
+                      >
+                        {t("editor.file")}
+                      </Label>
                       <Select
-                        value={fileId ?? undefined}
+                        value={
+                          pointsTo === "document"
+                            ? ALL_FILES
+                            : (fileId ?? undefined)
+                        }
+                        disabled={pointsTo === "document" || files.length === 0}
                         onValueChange={(value) => {
                           setFileId(value);
                           setQuote({ quote: "", prefix: "", suffix: "" });
                         }}
                       >
                         <SelectTrigger
+                          id="citation-file"
                           size="sm"
-                          className="ml-auto max-w-56"
-                          aria-label={t("editor.file")}
+                          className="w-full min-w-0 [&_[data-slot=select-value]]:truncate"
                         >
                           <SelectValue placeholder={t("editor.file")} />
                         </SelectTrigger>
                         <SelectContent position="popper">
+                          {pointsTo === "document" && (
+                            <SelectItem value={ALL_FILES}>
+                              {t("editor.all-files")}
+                            </SelectItem>
+                          )}
                           {files
                             .filter(
                               (f) =>
@@ -462,87 +486,76 @@ export const CitationDialog = ({
                             ))}
                         </SelectContent>
                       </Select>
-                    )}
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label
+                        htmlFor="citation-page"
+                        className="text-xs font-semibold text-muted-foreground"
+                      >
+                        {t("editor.page")}
+                      </Label>
+                      <Input
+                        id="citation-page"
+                        type="number"
+                        min={1}
+                        className="h-8"
+                        disabled={pointsTo === "document"}
+                        value={pointsTo === "document" ? "" : page}
+                        onChange={(event) => setPage(event.target.value)}
+                      />
+                    </div>
                   </div>
 
-                  {pointsTo === "passage" && (
-                    <div className="flex flex-col gap-1.5">
-                      {textLoading ? (
-                        <div className="flex justify-center rounded-lg border py-8">
-                          <Spinner className="size-5 text-muted-foreground" />
-                        </div>
-                      ) : text ? (
-                        <>
-                          <div
-                            ref={textRef}
-                            data-testid="citation-passage-text"
-                            className="max-h-72 overflow-y-auto rounded-lg border bg-card px-4 py-3 text-sm select-text"
-                            onMouseUp={pickSelection}
-                            onTouchEnd={pickSelection}
-                            onKeyUp={(event: KeyboardEvent) => {
-                              if (event.shiftKey) pickSelection();
-                            }}
-                          >
-                            {pages.map((entry) => (
-                              <div key={entry.page} data-page={entry.page}>
-                                <MarkdownContent content={entry.markdown} />
-                              </div>
-                            ))}
+                  <div className="flex min-h-56 flex-1 flex-col gap-1.5 md:min-h-0">
+                    {pointsTo !== "passage" ? (
+                      <p className="flex flex-1 items-center justify-center rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+                        {pointsTo === "document"
+                          ? t("editor.whole-document-hint")
+                          : t("editor.one-file-hint")}
+                      </p>
+                    ) : textLoading ? (
+                      <div className="flex flex-1 items-center justify-center rounded-lg border py-8">
+                        <Spinner className="size-5 text-muted-foreground" />
+                      </div>
+                    ) : text ? (
+                      <div
+                        ref={textRef}
+                        data-testid="citation-passage-text"
+                        className="min-h-0 flex-1 overflow-y-auto rounded-lg border bg-card px-4 py-3 text-sm select-text max-md:max-h-72"
+                        onMouseUp={pickSelection}
+                        onTouchEnd={pickSelection}
+                        onKeyUp={(event: KeyboardEvent) => {
+                          if (event.shiftKey) pickSelection();
+                        }}
+                      >
+                        {pages.map((entry) => (
+                          <div key={entry.page} data-page={entry.page}>
+                            <MarkdownContent content={entry.markdown} />
                           </div>
-                          <p className="text-xs text-muted-foreground">
-                            {t("editor.select-hint")}
-                          </p>
-                        </>
-                      ) : (
-                        <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                          {t("editor.no-text")}
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  <div
-                    className={cn(
-                      "grid gap-3",
-                      pointsTo !== "document" &&
-                        "sm:grid-cols-[minmax(0,1fr)_7rem]",
-                    )}
-                  >
-                    {pointsTo === "passage" ? (
-                      <div className="flex min-w-0 flex-col gap-1.5">
-                        <span className="text-xs font-semibold text-muted-foreground">
-                          {t("editor.quote")}
-                        </span>
-                        <p
-                          className={cn(
-                            "min-h-9 rounded-md border px-3 py-2 text-sm",
-                            !quote.quote && "text-muted-foreground",
-                          )}
-                        >
-                          {quote.quote
-                            ? t("editor.quoted", { quote: quote.quote })
-                            : t("editor.no-quote")}
-                        </p>
+                        ))}
                       </div>
                     ) : (
-                      pointsTo === "file" && <span aria-hidden="true" />
+                      <p className="flex flex-1 items-center justify-center rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+                        {t("editor.no-text")}
+                      </p>
                     )}
-                    {pointsTo !== "document" && (
-                      <div className="flex flex-col gap-1.5">
-                        <Label
-                          htmlFor="citation-page"
-                          className="text-xs font-semibold text-muted-foreground"
-                        >
-                          {t("editor.page")}
-                        </Label>
-                        <Input
-                          id="citation-page"
-                          type="number"
-                          min={1}
-                          value={page}
-                          onChange={(event) => setPage(event.target.value)}
-                        />
-                      </div>
+                    {pointsTo === "passage" && (
+                      <p
+                        className={cn(
+                          "truncate rounded-md border px-3 py-1.5 text-sm",
+                          !quote.quote && "text-muted-foreground",
+                        )}
+                        title={quote.quote || undefined}
+                      >
+                        <span className="font-semibold text-muted-foreground">
+                          {t("editor.quote")}:{" "}
+                        </span>
+                        <span>
+                          {quote.quote
+                            ? t("editor.quoted", { quote: quote.quote })
+                            : t("editor.select-hint")}
+                        </span>
+                      </p>
                     )}
                   </div>
                 </>
@@ -642,7 +655,7 @@ const DocumentPicker = ({
     );
   };
   return (
-    <div className="flex min-w-0 flex-col gap-2">
+    <div className="flex min-h-0 min-w-0 flex-col gap-2">
       <Label
         htmlFor="citation-document-search"
         className="text-xs font-semibold text-muted-foreground"
@@ -655,7 +668,8 @@ const DocumentPicker = ({
         placeholder={t("editor.search-documents")}
         onChange={(event) => onSearch(event.target.value)}
       />
-      <div className="flex max-h-80 flex-col gap-2 overflow-y-auto">
+      {/* Padding keeps focus and selection rings inside the scroll box. */}
+      <div className="-mx-1 flex max-h-80 min-h-0 flex-col gap-2 overflow-y-auto p-1 md:max-h-none md:flex-1">
         {linked.length > 0 && (
           <>
             <p className="mt-1 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">

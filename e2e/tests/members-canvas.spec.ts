@@ -139,7 +139,9 @@ canvasTest(
     const birthField = sheet
       .locator('[data-slot="field"]')
       .filter({ hasText: "Date of Birth" });
-    await birthField.getByRole("button").click();
+    await birthField
+      .getByRole("button", { name: "Open date picker" })
+      .click();
     let popover = page.locator('[data-slot="popover-content"]');
     await popover.getByRole("button", { name: "Y", exact: true }).click();
     await popover.getByRole("button", { name: "2020", exact: true }).click();
@@ -157,7 +159,9 @@ canvasTest(
     const deathField = sheet
       .locator('[data-slot="field"]')
       .filter({ hasText: "Date of Death" });
-    await deathField.getByRole("button").click();
+    await deathField
+      .getByRole("button", { name: "Open date picker" })
+      .click();
     popover = page.locator('[data-slot="popover-content"]');
     await popover.getByRole("button", { name: "Y", exact: true }).click();
     await popover.getByRole("button", { name: "2024", exact: true }).click();

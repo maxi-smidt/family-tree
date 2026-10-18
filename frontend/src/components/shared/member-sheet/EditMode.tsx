@@ -531,7 +531,7 @@ export const EditMode = ({
   /** An input with the evidence for its field next to it. */
   const withEvidence = (field: CitableField, input: ReactNode) =>
     showEvidence ? (
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-start gap-1.5">
         <div className="min-w-0 flex-1">{input}</div>
         <FieldEvidence member={member} field={field} variant="input" />
       </div>
