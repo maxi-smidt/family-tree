@@ -148,6 +148,27 @@ describe("useUrlLocation", () => {
     expect(window.location.search).toBe("");
   });
 
+  it("names a newly selected workspace while it is still loading", () => {
+    renderHook(() => useUrlLocation());
+    const pushSpy = vi.spyOn(window.history, "pushState");
+    const replaceSpy = vi.spyOn(window.history, "replaceState");
+
+    act(() =>
+      useWorkspaceStore.setState({
+        selectedTree: { id: "tree-next", name: "Novák" } as Workspace,
+        isReady: false,
+      }),
+    );
+    expect(pushSpy).toHaveBeenCalledTimes(1);
+    expect(window.location.pathname).toBe("/w/tree-next/tree");
+
+    // Its own canvas state arriving is not a separate step.
+    act(() => useWorkspaceStore.setState({ isReady: true }));
+    expect(pushSpy).toHaveBeenCalledTimes(1);
+    expect(replaceSpy).toHaveBeenCalled();
+    expect(window.location.search).toBe("?focus=m1");
+  });
+
   it("adds exactly one entry for a section whose root resolves asynchronously", async () => {
     renderHook(() => useUrlLocation());
     const pushSpy = vi.spyOn(window.history, "pushState");

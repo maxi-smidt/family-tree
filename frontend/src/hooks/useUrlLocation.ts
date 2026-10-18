@@ -60,6 +60,8 @@ export function requestLocationReplace() {
 
 let applying = false;
 let lastWritten: AppLocation | null = null;
+// Whether `lastWritten` was written for a workspace that was still loading.
+let lastWrittenProvisional = false;
 // What the page was opened with, applied once its workspace is ready.
 let pendingInitial: ParsedLocation | null = null;
 
@@ -88,20 +90,47 @@ export function readStoreLocation(): AppLocation | null {
   };
 }
 
+/**
+ * A workspace that is still loading has no canvas state yet, but the URL
+ * should name it right away — a reload or a copied link in that window must
+ * not land on the previous workspace.
+ */
+function readLoadingWorkspaceLocation(): AppLocation | null {
+  const { selectedTree, isReady } = useWorkspaceStore.getState();
+  if (!selectedTree || isReady) return null;
+  if (lastWritten?.workspaceId === selectedTree.id) return null;
+  const { activeView, mediaSection } = useActiveViewStore.getState();
+  return {
+    workspaceId: selectedTree.id,
+    view: activeView,
+    mediaSection,
+    scope: { kind: "explore", focusId: null },
+    member: null,
+  };
+}
+
 function writeLocation() {
   if (applying || pendingInitial) return;
-  const location = readStoreLocation();
+  const settled = readStoreLocation();
+  const location = settled ?? readLoadingWorkspaceLocation();
   if (!location) return;
   const url = formatLocation(location);
   const current = `${window.location.pathname}${window.location.search}`;
   const previous = lastWritten;
+  // Filling in a loading workspace's own state is not a step of its own.
+  const completesLoading =
+    lastWrittenProvisional && previous?.workspaceId === location.workspaceId;
   lastWritten = location;
+  lastWrittenProvisional = !settled;
   if (url === current) {
     replaceNextWrite = false;
     return;
   }
   const push =
-    !replaceNextWrite && previous !== null && isHistoryStep(previous, location);
+    !replaceNextWrite &&
+    !completesLoading &&
+    previous !== null &&
+    isHistoryStep(previous, location);
   replaceNextWrite = false;
   if (push) {
     const state: LocationHistoryState = { __ftLocation: true };
@@ -274,6 +303,7 @@ export function captureInitialLocation() {
     window.location.search,
   );
   lastWritten = null;
+  lastWrittenProvisional = false;
 }
 
 /**
@@ -328,6 +358,7 @@ export function useUrlLocation() {
 export function resetUrlLocationForTests() {
   applying = false;
   lastWritten = null;
+  lastWrittenProvisional = false;
   pendingInitial = null;
   replaceNextWrite = false;
   useLocationRestoreStore.setState({ restoring: false, restoredSeq: 0 });
