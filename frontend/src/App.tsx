@@ -1,6 +1,13 @@
 import "./App.css";
 import { useEffect, useState } from "react";
 import { useAuthStore } from "@/hooks/useAuthStore";
+import {
+  captureInitialLocation,
+  initialUrlWorkspaceId,
+  openWorkspace,
+} from "@/hooks/useUrlLocation";
+import { toast } from "sonner";
+import i18n from "@/i18n/i18n";
 import { resetLegalStoreForSession } from "@/hooks/useLegalStore";
 import {
   resetTreeStoreForSession,
@@ -68,6 +75,8 @@ export const App = () => {
         // Accept a pending invite (from an #invite= link) before loading workspaces
         // so the newly granted tree appears in the list immediately.
         const { acceptPendingInvite } = useAuthStore.getState();
+        // Note what the URL asks for before anything below changes it.
+        captureInitialLocation();
         await acceptPendingInvite();
 
         await loadTrees();
@@ -91,8 +100,19 @@ export const App = () => {
           }
         }
 
-        // Re-open the most recently used tree. The API returns the list
-        // sorted by `last_opened`, newest first.
+        // A link or reload names its workspace in the URL (#1128); open that
+        // one. Without one — or when this account can't reach it — re-open
+        // the most recently used tree. The API returns the list sorted by
+        // `last_opened`, newest first.
+        const urlWorkspaceId = initialUrlWorkspaceId();
+        if (urlWorkspaceId && !useWorkspaceStore.getState().selectedTree) {
+          try {
+            await openWorkspace(urlWorkspaceId);
+          } catch {
+            toast.error(i18n.t("hooks.url-location.workspace-unavailable"));
+          }
+          if (cancelled) return;
+        }
         const { selectedTree, workspaces, selectTree } =
           useWorkspaceStore.getState();
         const nextTree = workspaces[0];

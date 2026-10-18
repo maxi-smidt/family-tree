@@ -1,7 +1,8 @@
 import { useEffect, useRef } from "react";
-import { useMemberStore } from "@/hooks/useMemberStore";
-import { useSavedViewStore } from "@/hooks/useSavedViewStore";
-import { useWorkspaceNavStore } from "@/hooks/useWorkspaceNavStore";
+import {
+  isLocationHistoryState,
+  useLocationRestoreStore,
+} from "@/hooks/useUrlLocation";
 
 interface Viewport {
   x: number;
@@ -9,30 +10,14 @@ interface Viewport {
   zoom: number;
 }
 
-interface CanvasHistoryState {
-  __ftCanvas: true;
-  workspaceId: string;
-  focusRootId: string | null;
-  focusSectionIds: string[] | null;
-  viewport: Viewport;
-  savedViewId?: string | null;
-}
-
-function isCanvasHistoryState(value: unknown): value is CanvasHistoryState {
-  return (
-    !!value &&
-    typeof value === "object" &&
-    (value as { __ftCanvas?: unknown }).__ftCanvas === true
-  );
-}
-
 /**
- * Browser back/forward for canvas focus (#989 hardening): pushes a history
- * entry whenever the committed focus root/section scope changes, and on
- * popstate re-derives the canvas from a fresh fetch rather than restoring
- * cached member data — a revoked or mutated node is never resurrected from
- * history state. Only the focus/section identity and the camera position are
- * stored; no member/relation data ever goes into `history.state`.
+ * Camera position per history entry for the tree canvas. The URL itself —
+ * workspace, page, saved view / section / focus person, open member — is
+ * written and restored by `useUrlLocation` (#1128); this hook only keeps the
+ * current entry's camera up to date while panning and re-applies it after
+ * Back/forward, so the user lands where they actually left off rather than
+ * on a fresh fit. Only the camera goes into `history.state`; member data
+ * never does, so a revoked node can't be resurrected from history.
  */
 export function useCanvasHistory(
   workspaceId: string | undefined,
@@ -40,105 +25,38 @@ export function useCanvasHistory(
     setViewport: (vp: Viewport, opts?: { duration?: number }) => void;
   } | null,
 ) {
-  const focusRootId = useMemberStore((s) => s.focusRootId);
-  const focusSectionIds = useMemberStore((s) => s.focusSectionIds);
-  const focusPending = useMemberStore((s) => s.focusPending);
-  const savedViewId = useMemberStore((s) => s.activeSavedViewId);
-  const openSavedView = useSavedViewStore((s) => s.openSavedView);
-  const setFocusRoot = useMemberStore((s) => s.setFocusRoot);
-  const focusSection = useMemberStore((s) => s.focusSection);
-  const exitFocus = useMemberStore((s) => s.exitFocus);
-
-  const mountedRef = useRef(false);
-  const suppressNextPushRef = useRef(false);
-  // True while a popstate-triggered refetch is in flight — lets the canvas
-  // skip its own "re-fit on focus change" behaviour in favour of the exact
-  // restored camera position.
+  // True while Back/forward is restoring an entry that has a saved camera —
+  // lets the canvas skip its own "re-fit on focus change" in favour of the
+  // exact restored position.
   const restoringRef = useRef(false);
+  const restoring = useLocationRestoreStore((s) => s.restoring);
+  const restoredSeq = useLocationRestoreStore((s) => s.restoredSeq);
 
   useEffect(() => {
-    if (!workspaceId) return;
-    // A focus/scope change is still resolving (e.g. a section's default root
-    // hasn't come back yet) — focusRootId/focusSectionIds are transitional,
-    // not a settled state worth recording. Wait for it to commit; the effect
-    // re-runs once `focusPending` flips back to false.
-    if (focusPending) return;
-    const state: CanvasHistoryState = {
-      __ftCanvas: true,
-      workspaceId,
-      focusRootId,
-      focusSectionIds,
-      viewport: { x: 0, y: 0, zoom: 1 },
-      savedViewId,
-    };
-    // Nothing to go "back" to on the very first render of a workspace — seed
-    // the *current* entry instead of leaving it unmarked, so a subsequent
-    // push (from the first real focus change) has a valid entry underneath
-    // it for Back to land on and popstate to recognize.
-    if (!mountedRef.current) {
-      mountedRef.current = true;
-      window.history.replaceState(state, "");
-      return;
-    }
-    if (suppressNextPushRef.current) {
-      suppressNextPushRef.current = false;
-      return;
-    }
-    window.history.pushState(state, "");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workspaceId, focusRootId, focusSectionIds, focusPending, savedViewId]);
-
-  useEffect(() => {
-    function onPopState(event: PopStateEvent) {
-      if (
-        !workspaceId ||
-        !isCanvasHistoryState(event.state) ||
-        event.state.workspaceId !== workspaceId
-      ) {
-        return;
-      }
-      const target = event.state;
-      suppressNextPushRef.current = true;
-      restoringRef.current = true;
-      const navigation = useWorkspaceNavStore.getState();
-      if (target.savedViewId) navigation.selectSavedView(target.savedViewId);
-      else if (target.focusSectionIds?.length)
-        navigation.selectSection(target.focusSectionIds[0]);
-      else navigation.selectExplore();
-      const restore = target.savedViewId
-        ? openSavedView(target.savedViewId)
-        : target.focusSectionIds?.length
-          ? focusSection(target.focusSectionIds[0])
-          : target.focusRootId
-            ? setFocusRoot(target.focusRootId)
-            : exitFocus();
-      void restore
-        .catch(() => undefined)
-        .finally(() => {
-          requestAnimationFrame(() => {
-            rfInstance?.setViewport(target.viewport, { duration: 0 });
-            restoringRef.current = false;
-          });
-        });
-    }
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
-  }, [
-    workspaceId,
-    rfInstance,
-    setFocusRoot,
-    focusSection,
-    exitFocus,
-    openSavedView,
-  ]);
-
-  // Keep the most recent entry's stored camera current as the user pans, so
-  // navigating back later restores where they actually left off rather than
-  // wherever the viewport happened to be the instant focus changed.
-  function updateHistoryViewport(viewport: Viewport) {
+    if (!workspaceId || !restoring) return;
     const state = window.history.state as unknown;
-    if (!isCanvasHistoryState(state) || state.workspaceId !== workspaceId)
-      return;
+    restoringRef.current =
+      isLocationHistoryState(state) && state.viewport !== undefined;
+  }, [restoring, workspaceId]);
+
+  useEffect(() => {
+    if (!restoringRef.current) return;
+    const state = window.history.state as unknown;
+    const frame = requestAnimationFrame(() => {
+      if (isLocationHistoryState(state) && state.viewport) {
+        rfInstance?.setViewport(state.viewport, { duration: 0 });
+      }
+      restoringRef.current = false;
+    });
+    return () => cancelAnimationFrame(frame);
+    // Runs once per finished restore, not when the canvas instance changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restoredSeq]);
+
+  function updateHistoryViewport(viewport: Viewport) {
+    if (!workspaceId) return;
+    const state = window.history.state as unknown;
+    if (!isLocationHistoryState(state)) return;
     window.history.replaceState({ ...state, viewport }, "");
   }
 

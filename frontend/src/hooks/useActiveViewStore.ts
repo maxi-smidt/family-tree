@@ -1,8 +1,8 @@
 import { create } from "zustand";
 import { isViewId, MEDIA_VIEW, TREE_VIEW, type ViewId } from "@/lib/tabs";
-import { readMemberSheetDeepLink } from "@/utils/memberSheetState";
+import { parseLocation, type MediaSection } from "@/utils/appLocation";
 
-export type MediaSection = "gallery" | "documents";
+export type { MediaSection };
 
 const ACTIVE_VIEW_STORAGE_KEY = "ft_active_tab";
 const ACTIVE_MEDIA_SECTION_STORAGE_KEY = "ft_active_media_section";
@@ -23,8 +23,15 @@ function safeSet(key: string, value: string) {
   }
 }
 
+// The URL wins over the remembered page, so a link or a reload opens exactly
+// what it names; a bare `/` falls back to the page this browser used last.
+function urlLocation() {
+  return parseLocation(window.location.pathname, window.location.search);
+}
+
 function readInitialView(): ViewId {
-  if (readMemberSheetDeepLink()) return TREE_VIEW;
+  const fromUrl = urlLocation().view;
+  if (fromUrl) return fromUrl;
   const stored = safeGet(ACTIVE_VIEW_STORAGE_KEY);
   // Gallery and Documents used to be separate top-level views.
   if (stored === "gallery-view" || stored === "documents-view") {
@@ -34,6 +41,8 @@ function readInitialView(): ViewId {
 }
 
 function readInitialMediaSection(): MediaSection {
+  const fromUrl = urlLocation().mediaSection;
+  if (fromUrl) return fromUrl;
   const stored = safeGet(ACTIVE_MEDIA_SECTION_STORAGE_KEY);
   if (stored === "documents") return "documents";
   if (safeGet(ACTIVE_VIEW_STORAGE_KEY) === "documents-view") return "documents";
@@ -45,14 +54,15 @@ interface ActiveViewState {
   mediaSection: MediaSection;
   setActiveView: (view: ViewId) => void;
   setMediaSection: (section: MediaSection) => void;
-  /** Re-read the persisted view and media section from localStorage. */
+  /** Re-read the view and media section from the URL, else localStorage. */
   hydrate: () => void;
 }
 
 /**
  * The view currently shown in the main panel. Shared between the left
- * navigation (which changes it) and MainPanel (which renders it), and
- * mirrored to localStorage so a reload reopens the same view.
+ * navigation (which changes it) and MainPanel (which renders it). The URL
+ * carries it (see `useUrlLocation`); localStorage only remembers the last
+ * page for a bare `/`.
  */
 export const useActiveViewStore = create<ActiveViewState>((set) => ({
   activeView: readInitialView(),

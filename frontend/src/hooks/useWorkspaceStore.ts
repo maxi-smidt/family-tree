@@ -258,7 +258,9 @@ export const useWorkspaceStore = create<DatabaseState>((set, get) => ({
       await get().disconnect();
       return;
     }
-    set({ selectedTree: tree });
+    // Not ready from the very first moment the selection changes, so nothing
+    // reads the new workspace together with the old one's loaded state.
+    set({ selectedTree: tree, isReady: false });
     await get().connect(tree);
   },
 

@@ -1439,6 +1439,11 @@
     },
     "content-origin": {
       "choose-section": "Wähle einen einzelnen Bereich aus, bevor du Inhalte in einer Ansicht mit mehreren Bereichen erstellst."
+    },
+    "url-location": {
+      "workspace-unavailable": "Dieser Arbeitsbereich ist für dich nicht verfügbar. Stattdessen wurde dein zuletzt genutzter geöffnet.",
+      "view-unavailable": "Dieser Teil des Stammbaums ist für dich nicht verfügbar. Stattdessen wird die ganze Familie angezeigt.",
+      "member-unavailable": "Diese Person ist für dich nicht verfügbar."
     }
   },
   "quality-report-view": {

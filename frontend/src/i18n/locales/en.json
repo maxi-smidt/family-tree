@@ -1439,6 +1439,11 @@
     },
     "content-origin": {
       "choose-section": "Select one section before creating content in a view that includes multiple sections."
+    },
+    "url-location": {
+      "workspace-unavailable": "That workspace isn't available to you. Opened your most recent one instead.",
+      "view-unavailable": "That part of the tree isn't available to you. Showing the whole family instead.",
+      "member-unavailable": "That person isn't available to you."
     }
   },
   "quality-report-view": {

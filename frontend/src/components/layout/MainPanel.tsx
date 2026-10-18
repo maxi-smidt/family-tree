@@ -70,6 +70,7 @@ import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import { usePresence } from "@/hooks/usePresence";
 import { useActiveViewStore } from "@/hooks/useActiveViewStore";
+import { requestLocationReplace, useUrlLocation } from "@/hooks/useUrlLocation";
 import { useVisibleViews } from "@/hooks/useVisibleViews";
 import { WorkspaceBreadcrumb } from "@/components/layout/WorkspaceBreadcrumb";
 
@@ -89,6 +90,8 @@ const VIEW_COMPONENTS: Omit<Record<ViewId, React.ReactNode>, "media-view"> = {
 export const MainPanel = () => {
   // Announce this client's presence and track who else is in the tree.
   usePresence();
+  // Mirror where the user is into the URL, and follow it on back/forward.
+  useUrlLocation();
 
   const activeTab = useActiveViewStore((s) => s.activeView);
   const activeMediaSection = useActiveViewStore((s) => s.mediaSection);
@@ -182,6 +185,9 @@ export const MainPanel = () => {
   // If the active view is hidden and no pending navigation, move to first visible.
   useEffect(() => {
     if (loaded && pendingView === null && !visible.includes(activeTab)) {
+      // A correction, not a step the user took — don't leave the hidden
+      // page behind in history.
+      requestLocationReplace();
       applyTab(visible[0]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
