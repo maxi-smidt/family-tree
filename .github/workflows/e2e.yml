@@ -45,15 +45,65 @@ jobs:
       - name: "Checkout"
         uses: actions/checkout@v7
 
-      - name: "Build & start compose stack"
+      # The stack build is the slowest step, so it runs in the background
+      # while the test runner and its browser install alongside it.
+      - name: "Start building the compose stack"
         run: |
-          docker compose -f docker-compose.e2e.yml up --build -d
+          (
+            docker compose -f docker-compose.e2e.yml up --build -d \
+              > "$RUNNER_TEMP/compose-up.log" 2>&1
+            echo $? > "$RUNNER_TEMP/compose-up.exit"
+          ) &
         env:
           E2E_ADMIN_USERNAME: ${{ env.E2E_ADMIN_USERNAME }}
           E2E_ADMIN_PASSWORD: ${{ env.E2E_ADMIN_PASSWORD }}
 
+      - name: "Set up Node.js"
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: "Install dependencies"
+        working-directory: e2e
+        run: npm ci
+
+      - name: "Read Playwright version"
+        id: playwright
+        working-directory: e2e
+        run: echo "version=$(node -p 'require("@playwright/test/package.json").version')" >> "$GITHUB_OUTPUT"
+
+      - name: "Cache Playwright browsers"
+        id: playwright-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium
+
+      - name: "Install Playwright browsers"
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        working-directory: e2e
+        run: npx playwright install --with-deps chromium
+
+      - name: "Install Playwright system dependencies"
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        working-directory: e2e
+        run: npx playwright install-deps chromium
+
       - name: "Wait for stack to be healthy"
         run: |
+          echo "Waiting for the stack build to finish..."
+          for i in $(seq 1 120); do
+            [ -f "$RUNNER_TEMP/compose-up.exit" ] && break
+            sleep 5
+          done
+          cat "$RUNNER_TEMP/compose-up.log"
+          if [ "$(cat "$RUNNER_TEMP/compose-up.exit" 2>/dev/null)" != "0" ]; then
+            echo "Compose stack failed to build or start"
+            docker compose -f docker-compose.e2e.yml logs
+            exit 1
+          fi
           echo "Waiting for frontend to be reachable..."
           for i in $(seq 1 30); do
             if curl -sf http://localhost:8080 > /dev/null 2>&1; then
@@ -68,21 +118,6 @@ jobs:
             docker compose -f docker-compose.e2e.yml logs
             exit 1
           }
-
-      - name: "Set up Node.js"
-        uses: actions/setup-node@v7
-        with:
-          node-version: "24"
-          cache: "npm"
-          cache-dependency-path: e2e/package-lock.json
-
-      - name: "Install dependencies"
-        working-directory: e2e
-        run: npm ci
-
-      - name: "Install Playwright browsers"
-        working-directory: e2e
-        run: npx playwright install --with-deps chromium
 
       - name: "Run Playwright tests"
         working-directory: e2e
