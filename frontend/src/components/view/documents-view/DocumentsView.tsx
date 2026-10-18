@@ -172,6 +172,7 @@ export const DocumentsView = () => {
   return (
     <ViewLayout
       title={t("title")}
+      contentClassName="overflow-hidden"
       subtitle={
         documents.length > 0
           ? t("subtitle", { count: documents.length, people: peopleCovered })
@@ -249,7 +250,7 @@ export const DocumentsView = () => {
         </p>
       ) : (
         <>
-          <ul className="shrink-0 divide-y overflow-hidden rounded-2xl border bg-card shadow-xs">
+          <ul className="min-h-0 divide-y overflow-y-auto rounded-2xl border bg-card shadow-xs">
             {pagedDocuments.map((document) => (
               <DocumentRow
                 key={document.id}
