@@ -435,3 +435,12 @@ def test_coverage_counts_filled_facts_and_lost_quotes(client, db, media_root):
     assert "m1" not in missing
     assert body["missing"][0]["name"] == "Maria Hofer"
     assert [c["field"] for c in body["quotes_not_found"]] == ["last_name"]
+
+
+def test_plain_text_stays_fast_on_unclosed_marks():
+    # Many unclosed comment, tag and link marks must not take quadratic time.
+    for text in ("<!--" * 50_000, "<" * 100_000, "[\\" * 50_000, "[](" * 50_000):
+        assert isinstance(plain_text(text), str)
+    assert (
+        plain_text("[Taufbuch](x.png) <b>Linz</b> <!-- open") == "taufbuch linz <!-- open"
+    )

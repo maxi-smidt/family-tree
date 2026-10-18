@@ -28,11 +28,81 @@ CITABLE_FIELDS: tuple[str, ...] = (
     "birthplace",
 )
 
-_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
-_TAG = re.compile(r"<[^>]+>")
-_LINK = re.compile(r"!?\[([^\]]*)\]\([^)]*\)")
 _MARKERS = re.compile(r"[*_`~#>|\\]")
 _SPACE = re.compile(r"\s+")
+
+
+def _drop_comments(text: str) -> str:
+    """Replace each ``<!-- … -->`` with a space. A plain scan rather than a regex:
+    file texts are long and user-written, and a lazy regex over many
+    unclosed marks takes quadratic time; so do the scans below."""
+    parts: list[str] = []
+    position = 0
+    while True:
+        open_at = text.find("<!--", position)
+        if open_at == -1:
+            break
+        close_at = text.find("-->", open_at + 4)
+        if close_at == -1:
+            # No later comment can close either.
+            break
+        parts.append(text[position:open_at])
+        parts.append(" ")
+        position = close_at + 3
+    parts.append(text[position:])
+    return "".join(parts)
+
+
+def _drop_tags(text: str) -> str:
+    """``<…>`` with at least one character inside becomes a space."""
+    parts: list[str] = []
+    position = 0
+    search = 0
+    while True:
+        open_at = text.find("<", search)
+        if open_at == -1:
+            break
+        close_at = text.find(">", open_at + 1)
+        if close_at == -1:
+            break
+        if close_at == open_at + 1:
+            # "<>" is no tag; keep it and look past it.
+            search = close_at + 1
+            continue
+        parts.append(text[position:open_at])
+        parts.append(" ")
+        position = search = close_at + 1
+    parts.append(text[position:])
+    return "".join(parts)
+
+
+def _unwrap_links(text: str) -> str:
+    """``[label](url)`` and ``![alt](src)`` become their label."""
+    parts: list[str] = []
+    position = 0
+    search = 0
+    while True:
+        open_at = text.find("[", search)
+        if open_at == -1:
+            break
+        label_end = text.find("]", open_at + 1)
+        if label_end == -1:
+            break
+        if not text.startswith("(", label_end + 1):
+            # Every "[" up to this "]" closes here too: none is a link.
+            search = label_end + 1
+            continue
+        url_end = text.find(")", label_end + 2)
+        if url_end == -1:
+            break
+        start = open_at
+        if open_at > position and text[open_at - 1] == "!":
+            start -= 1
+        parts.append(text[position:start])
+        parts.append(text[open_at + 1 : label_end])
+        position = search = url_end + 1
+    parts.append(text[position:])
+    return "".join(parts)
 
 
 def plain_text(text: str) -> str:
@@ -43,9 +113,9 @@ def plain_text(text: str) -> str:
     comparing; case and runs of whitespace don't count either. The frontend's
     ``plainQuoteText`` applies the same rules.
     """
-    text = _COMMENT.sub(" ", text)
-    text = _LINK.sub(r"\1", text)
-    text = _TAG.sub(" ", text)
+    text = _drop_comments(text)
+    text = _unwrap_links(text)
+    text = _drop_tags(text)
     text = _MARKERS.sub(" ", text)
     return _SPACE.sub(" ", text).strip().casefold()
 
