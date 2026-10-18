@@ -1,12 +1,10 @@
 """Saved views: named canvas arrangements over one workspace's canonical graph.
 
-Unlike ``VirtualView`` (multiple trees stitched into one composite graph), a
-saved view lives inside a single workspace and never serves its own content —
+A saved view lives inside a single workspace and never serves its own content —
 it only stores a *configuration* (focus member, included sections, traversal
 depths, filters) that the frontend replays against the canonical bounded
 graph API (``GET /workspaces/{id}/members/neighborhood``) and the ordinary
-member/content endpoints. A view is owned by its creator, like today's
-``VirtualView``.
+member/content endpoints. A view is owned by its creator.
 
 ``version`` drives SQLAlchemy's optimistic-concurrency check (see
 ``__mapper_args__``): a concurrent edit against a stale copy raises
@@ -132,10 +130,8 @@ class SavedViewSection(Base):
 class SavedViewPosition(Base):
     """Canvas layout overlay for a saved view.
 
-    ``node_id`` is usually a real member id; see
-    ``app.services.saved_views.position_conversion`` for the synthetic
-    match-group anchor ids a virtual-view conversion (#987) may also write
-    here.
+    ``node_id`` is usually a real member id; views converted from v1 virtual
+    views (#987) may also hold synthetic match-group anchor ids.
     """
 
     __tablename__ = "saved_view_positions"

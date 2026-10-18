@@ -105,20 +105,32 @@ export const MemberSheet = ({
     if (isNewMember) setNewMemberTab("identity");
   }, [isNewMember, member?.id]);
 
+  // Record the member on screen (and view/edit mode) in the sheet store, which
+  // the URL mirrors. Only this sheet's own transitions write: when the store
+  // changes from outside (Back/forward naming another member), the canvas
+  // switches the sheet first and this then records it — reacting to the
+  // store here too would fight that switch.
+  const recordedSheetRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!isOpen || !member || isNewMember || !workspaceId) return;
+    if (!isOpen || !member || isNewMember || !workspaceId) {
+      recordedSheetRef.current = null;
+      return;
+    }
+    const mode = isViewingEditMode ? "edit" : "view";
+    const key = `${workspaceId}:${member.id}:${mode}`;
+    if (recordedSheetRef.current === key) return;
+    recordedSheetRef.current = key;
+    const saved = useMemberSheetStore.getState().openSheets[workspaceId];
     setOpenSheet(workspaceId, {
       memberId: member.id,
-      tab: savedSheetState?.memberId === member.id ? activeTab : "identity",
-      mode: isViewingEditMode ? "edit" : "view",
+      tab: saved?.memberId === member.id ? saved.tab : "identity",
+      mode,
     });
   }, [
-    activeTab,
     isNewMember,
     isOpen,
     isViewingEditMode,
     member?.id,
-    savedSheetState?.memberId,
     setOpenSheet,
     workspaceId,
   ]);

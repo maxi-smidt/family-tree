@@ -15,11 +15,7 @@ import { formatDate } from "@/utils/dateUtils";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useNotificationStore } from "@/hooks/useNotificationStore";
-import {
-  FRIENDS_VIEW,
-  IDENTITY_LINKS_VIEW,
-  MIGRATION_REVIEW_VIEW,
-} from "@/lib/tabs";
+import { FRIENDS_VIEW, IDENTITY_LINKS_VIEW } from "@/lib/tabs";
 import { NotificationDB } from "@/types/notification";
 
 const MAX_BADGE_DISPLAY = 9;
@@ -30,10 +26,6 @@ function navigateForNotification(n: NotificationDB): void {
     case "friend_request_received":
     case "friend_request_accepted":
       useNavigationStore.getState().navigateTo(FRIENDS_VIEW);
-      break;
-    case "migration_report_ready":
-    case "migration_conflict_pending":
-      useNavigationStore.getState().navigateTo(MIGRATION_REVIEW_VIEW);
       break;
     case "identity_link_claim_received":
     case "identity_link_claim_decided":

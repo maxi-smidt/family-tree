@@ -37,7 +37,6 @@ from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.exceptions import ConflictError
 from app.db.base import new_uuid, utcnow_iso
 from app.models import (
     ActivityLog,
@@ -68,11 +67,6 @@ from app.models import (
     MemberDisease,
     MemberTask,
     MemberTaskLink,
-    MigrationConflict,
-    MigrationIdempotencyKey,
-    MigrationMapping,
-    MigrationReport,
-    MigrationRun,
     Notification,
     QualityIssueDismissal,
     Relation,
@@ -88,11 +82,6 @@ from app.models import (
     StoryDocumentLink,
     StoryMemberLink,
     User,
-    VirtualView,
-    VirtualViewMemberMatch,
-    VirtualViewPosition,
-    VirtualViewSource,
-    VirtualViewUserState,
     Workspace,
     WorkspaceInvitation,
     WorkspaceMembership,
@@ -101,7 +90,6 @@ from app.models import (
     WorkspaceUserState,
 )
 from app.models.backup import BackupRecord
-from app.models.migration import MigrationStatus
 from app.schemas.backup import BackupBundle, MediaItem
 from app.services.crypto_export import decrypt_bundle
 from app.services.members.member_search import normalize_member_name
@@ -183,20 +171,10 @@ BACKUP_MODELS: tuple[type, ...] = (
     BackgroundJob,
     LegalAcceptance,
     QualityIssueDismissal,
-    VirtualView,
-    VirtualViewSource,
-    VirtualViewMemberMatch,
-    VirtualViewPosition,
-    VirtualViewUserState,
     SavedView,
     SavedViewSection,
     SavedViewPosition,
     SavedViewUserState,
-    MigrationRun,
-    MigrationMapping,
-    MigrationReport,
-    MigrationConflict,
-    MigrationIdempotencyKey,
 )
 
 # Every other model registered on Base must be listed here, with a reason it
@@ -298,23 +276,6 @@ def _expected_table_names() -> set[str]:
 _MODEL_BY_TABLE: dict[str, type] = {model.__tablename__: model for model in BACKUP_MODELS}
 
 
-def _live_backup_models(db: Session) -> tuple[type, ...]:
-    """``BACKUP_MODELS`` restricted to tables that still physically exist.
-
-    A model here may outlive its table: once
-    ``app.services.migration.legacy_cleanup`` drops the legacy virtual-view
-    tables (#1021), the five ``VirtualView*`` models stay in ``BACKUP_MODELS``
-    (an archive predating that cleanup can still contain rows for them,
-    and the streaming format's manifest always records one row count per
-    ``BACKUP_MODELS`` entry — 0 for a table that no longer exists, exactly
-    like an empty one), but nothing may ``SELECT``/``DELETE`` against a
-    dropped table. Callers that touch the live database directly (as opposed
-    to reading an already-decoded archive) filter through this first.
-    """
-    existing = set(sa_inspect(db.connection()).get_table_names())
-    return tuple(model for model in BACKUP_MODELS if model.__tablename__ in existing)
-
-
 def _current_schema_epoch(db: Session) -> str:
     """Return the database's current Alembic head(s) as a stable string."""
     heads = MigrationContext.configure(db.connection()).get_current_heads()
@@ -331,7 +292,6 @@ LEGACY_OPTIONAL_TABLES: frozenset[str] = frozenset(
     {
         DocumentUpload.__tablename__,
         WorkspaceUserState.__tablename__,
-        VirtualViewUserState.__tablename__,
         # Sections (#982) landed after v2 was already in development; a v2
         # backup taken before this table existed must stay restorable too.
         Section.__tablename__,
@@ -348,14 +308,6 @@ LEGACY_OPTIONAL_TABLES: frozenset[str] = frozenset(
         SavedViewSection.__tablename__,
         SavedViewPosition.__tablename__,
         SavedViewUserState.__tablename__,
-        # Durable migration state (#997) landed after v2 was already in
-        # development; a v2 backup taken before these existed must stay
-        # restorable too.
-        MigrationRun.__tablename__,
-        MigrationMapping.__tablename__,
-        MigrationReport.__tablename__,
-        MigrationConflict.__tablename__,
-        MigrationIdempotencyKey.__tablename__,
     }
 )
 
@@ -368,6 +320,20 @@ DROPPED_TABLES: frozenset[str] = frozenset(
         # Per-section layout overlay, never used by the app; sections show
         # members at their workspace positions.
         "section_positions",
+        # Legacy virtual views, replaced by saved views in v2.0.0 and dropped
+        # by v2_1_0_drop_v1_migration_state.
+        "virtual_views",
+        "virtual_view_sources",
+        "virtual_view_member_matches",
+        "virtual_view_positions",
+        "virtual_view_user_states",
+        # v1 -> v2 migration bookkeeping, dropped by the same revision once
+        # every deployed instance had finished the conversion.
+        "migration_runs",
+        "migration_mappings",
+        "migration_reports",
+        "migration_conflicts",
+        "migration_idempotency_keys",
     }
 )
 LEGACY_FEATURE_SETTING_PREFIX = "feature."
@@ -421,9 +387,6 @@ def _backfill_legacy_optional_tables(bundle_dict: dict[str, Any]) -> dict[str, A
         return bundle_dict
     _migrate_legacy_last_opened(
         tables, "workspaces", "workspace_user_states", "workspace_id"
-    )
-    _migrate_legacy_last_opened(
-        tables, "virtual_views", "virtual_view_user_states", "view_id"
     )
     for name in LEGACY_OPTIONAL_TABLES:
         tables.setdefault(name, [])
@@ -496,7 +459,7 @@ def _verify_database_counts(db: Session, expected_counts: dict[str, int]) -> Non
     # once dropped — #1021) was deliberately skipped by _insert_rows/
     # _insert_row_batch above, so its restored count can never match an
     # archive's pre-cleanup expectation; nothing else to verify for it.
-    for model in _live_backup_models(db):
+    for model in BACKUP_MODELS:
         actual = db.scalar(select(func.count()).select_from(model))
         if actual != expected_counts[model.__tablename__]:
             raise BackupValidationError(
@@ -578,43 +541,34 @@ def _write_streaming_archive(db: Session, filepath: Path) -> None:
             {"t": "meta", "format": STREAM_FORMAT, "version": STREAM_FORMAT_VERSION}
         )
 
-        # A model in BACKUP_MODELS whose table has been physically dropped
-        # (the legacy virtual-view tables, once app.services.migration.
-        # legacy_cleanup runs — see #1021) contributes a 0 count exactly like
-        # an empty table would: no "row" frame is written for it either way
-        # (see the `if batch:` check below), so the manifest stays the same
-        # shape regardless of which BACKUP_MODELS tables this instance still
-        # physically has.
-        existing_tables = set(sa_inspect(db.connection()).get_table_names())
         table_row_counts: dict[str, int] = {}
         row_count_total = 0
         for model in BACKUP_MODELS:
             table = model.__tablename__
             count = 0
-            if table in existing_tables:
-                columns = [
-                    column.key for column in sa_inspect(model).mapper.column_attrs
-                ]
-                batch: list[dict[str, Any]] = []
-                batch_bytes = 0
-                query = select(model).execution_options(
-                    yield_per=ROW_BATCH_TARGET_ROWS, stream_results=True
-                )
-                for item in db.scalars(query):
-                    row = {column: getattr(item, column) for column in columns}
-                    db.expunge(item)
-                    batch.append(row)
-                    batch_bytes += len(json.dumps(row, default=str))
-                    count += 1
-                    if (
-                        len(batch) >= ROW_BATCH_TARGET_ROWS
-                        or batch_bytes >= ROW_BATCH_TARGET_BYTES
-                    ):
-                        writer.write_frame({"t": "row", "table": table, "rows": batch})
-                        batch = []
-                        batch_bytes = 0
-                if batch:
+            columns = [
+                column.key for column in sa_inspect(model).mapper.column_attrs
+            ]
+            batch: list[dict[str, Any]] = []
+            batch_bytes = 0
+            query = select(model).execution_options(
+                yield_per=ROW_BATCH_TARGET_ROWS, stream_results=True
+            )
+            for item in db.scalars(query):
+                row = {column: getattr(item, column) for column in columns}
+                db.expunge(item)
+                batch.append(row)
+                batch_bytes += len(json.dumps(row, default=str))
+                count += 1
+                if (
+                    len(batch) >= ROW_BATCH_TARGET_ROWS
+                    or batch_bytes >= ROW_BATCH_TARGET_BYTES
+                ):
                     writer.write_frame({"t": "row", "table": table, "rows": batch})
+                    batch = []
+                    batch_bytes = 0
+            if batch:
+                writer.write_frame({"t": "row", "table": table, "rows": batch})
             table_row_counts[table] = count
             row_count_total += count
 
@@ -794,24 +748,9 @@ def _insert_row_batch(
         raise BackupValidationError(
             f"Backup archive contains a malformed row for {table}"
         )
-    # An archive taken before app.services.migration.legacy_cleanup dropped
-    # the legacy virtual-view tables (#1021) can still carry "row" frames for
-    # them; restoring into a target where they're already gone silently
-    # drops those rows rather than erroring — see the matching comment on
-    # _insert_rows.
-    if not sa_inspect(db.connection()).has_table(table):
-        return
     prepared = [dict(row) for row in rows]
     if model is Member:
         _backfill_member_name_normalized(prepared)
-    if model is MigrationRun:
-        # See the matching comment in _insert_rows: BackupRecord is never
-        # part of a restorable archive, so a restored run's backup_id/
-        # backup_path would otherwise dangle-reference a row that was never
-        # brought back.
-        for row in prepared:
-            row["backup_id"] = None
-            row["backup_path"] = None
     if prepared:
         db.bulk_insert_mappings(model, prepared)
 
@@ -939,9 +878,7 @@ def _consume_streaming_archive(
 def verify_archive(filepath: Path) -> dict[str, Any]:
     """Stream-validate a completed archive without touching the database or media.
 
-    Used to self-verify a freshly written backup, and available for the
-    migration coordinator to confirm a recovery artifact before any
-    destructive change (see #994).
+    Used to self-verify a freshly written backup.
     """
     return _consume_streaming_archive(filepath, db=None, staging_root=None)
 
@@ -992,7 +929,7 @@ def _media_root_is_empty(media_root: Path) -> bool:
 def _database_is_empty(db: Session) -> bool:
     return all(
         db.scalar(select(func.count()).select_from(model)) == 0
-        for model in _live_backup_models(db)
+        for model in BACKUP_MODELS
     )
 
 
@@ -1002,7 +939,7 @@ def _clear_instance(db: Session) -> None:
     Media is handled separately by the journaled swap in ``restore_bundle``;
     this only ever touches the (uncommitted) database transaction.
     """
-    for model in reversed(_live_backup_models(db)):
+    for model in reversed(BACKUP_MODELS):
         db.execute(delete(model))
     db.flush()
 
@@ -1091,27 +1028,11 @@ def _sweep_orphaned_media_dirs(media_root: Path) -> None:
 
 
 def _insert_rows(db: Session, tables: dict[str, list[dict[str, Any]]]) -> None:
-    """Restore rows for every backed-up model whose table still exists.
-
-    An archive taken before app.services.migration.legacy_cleanup dropped
-    the legacy virtual-view tables (#1021) can still carry rows for them;
-    restoring into a target where they're already gone silently drops those
-    rows rather than erroring — that data described a feature that no longer
-    exists to read it back.
-    """
-    for model in _live_backup_models(db):
+    """Restore rows for every backed-up model."""
+    for model in BACKUP_MODELS:
         rows = [dict(row) for row in tables[model.__tablename__]]
         if model is Member:
             _backfill_member_name_normalized(rows)
-        if model is MigrationRun:
-            # BackupRecord is deliberately excluded from every restorable
-            # archive (see BACKUP_EXCLUDED_MODELS below), so a restored run's
-            # backup_id/backup_path would otherwise dangle-reference a
-            # backup_records row that was never brought back. Mark that
-            # recovery artifact unavailable instead of retaining the claim.
-            for row in rows:
-                row["backup_id"] = None
-                row["backup_path"] = None
         if rows:
             db.bulk_insert_mappings(model, rows)
 
@@ -1325,9 +1246,9 @@ def restore_backup_file(
     Streaming (format version 3) archives are restored directly. Older
     (format version 2) files are still a single encrypted JSON bundle — see
     the module docstring — so they're decrypted and validated as a whole
-    before restoring. A version-2 bundle may be a genuine v1.x-era archive
-    (v1 table/column names, predating every v2-only table) rather than a
-    v2 one; see ``legacy_v1_backup`` for that compatibility adapter.
+    before restoring. A v1.x-era archive (v1 table names such as ``trees``)
+    is refused: restore it on v2.0.x, which still converts v1 data, and
+    upgrade from there.
     """
     if _is_streaming_archive(filepath):
         restore_streaming_backup(db, filepath, replace=replace, media_root=media_root)
@@ -1338,25 +1259,19 @@ def restore_backup_file(
         raise BackupValidationError("Could not decrypt backup file") from exc
     bundle_dict = _drop_legacy_feature_metadata(bundle_dict)
 
-    # Local import: legacy_v1_backup imports this module back (BACKUP_MODELS,
-    # _collect_bundle, _insert_rows), so importing it at module scope here
-    # would be circular.
-    from app.services.system.backups.legacy_v1_backup import (
-        convert_v1_bundle,
-        is_v1_bundle,
-    )
-
-    bundle: BackupBundle | dict[str, Any]
-    if is_v1_bundle(bundle_dict.get("tables")):
-        bundle = convert_v1_bundle(bundle_dict)
-    else:
-        bundle_dict = _backfill_legacy_optional_tables(bundle_dict)
-        try:
-            bundle = BackupBundle.model_validate(bundle_dict)
-        except ValidationError as exc:
-            raise BackupValidationError(
-                f"Invalid instance backup: {exc.errors(include_url=False)}"
-            ) from exc
+    tables = bundle_dict.get("tables")
+    if isinstance(tables, dict) and "trees" in tables and "workspaces" not in tables:
+        raise BackupValidationError(
+            "This backup was taken on v1.x. Restore it on v2.0.x first, then "
+            "upgrade to this version."
+        )
+    bundle_dict = _backfill_legacy_optional_tables(bundle_dict)
+    try:
+        bundle = BackupBundle.model_validate(bundle_dict)
+    except ValidationError as exc:
+        raise BackupValidationError(
+            f"Invalid instance backup: {exc.errors(include_url=False)}"
+        ) from exc
     restore_bundle(db, bundle, replace=replace, media_root=media_root)
 
 
@@ -1431,26 +1346,7 @@ def list_backups(db: Session) -> list[BackupRecord]:
     )
 
 
-def _is_unfinalized_pre_migration_backup(db: Session, record: BackupRecord) -> bool:
-    """A ``pre_migration`` backup (see ``app.services.migration.orchestrator``,
-    #994) is the only rollback path for a v2 conversion until an operator
-    finalizes that run, so it must survive both scheduled pruning and manual
-    deletion until then. A failed attempt holds no usable rollback data and
-    is never protected, regardless of whether a run references it."""
-    if record.trigger != "pre_migration" or record.status != "success":
-        return False
-    run = db.scalars(
-        select(MigrationRun).where(MigrationRun.backup_id == record.id)
-    ).first()
-    return run is None or run.status != MigrationStatus.FINALIZED
-
-
 def delete_backup(db: Session, record: BackupRecord) -> None:
-    if _is_unfinalized_pre_migration_backup(db, record):
-        raise ConflictError(
-            "Cannot delete the pre-migration backup before its migration run "
-            "is finalized"
-        )
     if record.filename:
         filepath = BACKUP_DIR / record.filename
         if filepath.is_file():
@@ -1467,7 +1363,6 @@ def prune_backups(db: Session, keep: int) -> None:
             .where(BackupRecord.status == "success")
             .order_by(BackupRecord.created_at.desc())
         ).all()
-        if not _is_unfinalized_pre_migration_backup(db, record)
     ]
     for record in successful[keep:]:
         logger.info("Pruning old backup: %s", record.filename)

@@ -52,11 +52,6 @@ const FriendsView = lazy(() =>
     default: m.FriendsView,
   })),
 );
-const MigrationReviewView = lazy(() =>
-  import("@/components/view/migration-review-view/MigrationReviewView").then(
-    (m) => ({ default: m.MigrationReviewView }),
-  ),
-);
 const IdentityLinksView = lazy(() =>
   import("@/components/view/identity-links-view/IdentityLinksView").then(
     (m) => ({ default: m.IdentityLinksView }),
@@ -66,7 +61,6 @@ import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { useFriendStore } from "@/hooks/useFriendStore";
 import { useIdentityLinkStore } from "@/hooks/useIdentityLinkStore";
-import { useMigrationReviewStore } from "@/hooks/useMigrationReviewStore";
 import { useTabPreferences } from "@/hooks/useTabPreferences";
 import { useTutorialStore } from "@/hooks/useTutorialStore";
 import { useLegalStore } from "@/hooks/useLegalStore";
@@ -76,6 +70,7 @@ import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import { usePresence } from "@/hooks/usePresence";
 import { useActiveViewStore } from "@/hooks/useActiveViewStore";
+import { requestLocationReplace, useUrlLocation } from "@/hooks/useUrlLocation";
 import { useVisibleViews } from "@/hooks/useVisibleViews";
 import { WorkspaceBreadcrumb } from "@/components/layout/WorkspaceBreadcrumb";
 
@@ -89,13 +84,14 @@ const VIEW_COMPONENTS: Omit<Record<ViewId, React.ReactNode>, "media-view"> = {
   "statistics-view": <StatisticsView />,
   "database-management-view": <DatabaseManagementView />,
   "friends-view": <FriendsView />,
-  "migration-review-view": <MigrationReviewView />,
   "identity-links-view": <IdentityLinksView />,
 };
 
 export const MainPanel = () => {
   // Announce this client's presence and track who else is in the tree.
   usePresence();
+  // Mirror where the user is into the URL, and follow it on back/forward.
+  useUrlLocation();
 
   const activeTab = useActiveViewStore((s) => s.activeView);
   const activeMediaSection = useActiveViewStore((s) => s.mediaSection);
@@ -135,7 +131,6 @@ export const MainPanel = () => {
     !!user?.legal_acceptance_required && !user?.legal_accepted;
   const loadLegalDocuments = useLegalStore((s) => s.load);
   const loadIncomingFriends = useFriendStore((s) => s.loadIncoming);
-  const loadMigrationReview = useMigrationReviewStore((s) => s.load);
   const loadIdentityClaimInbox = useIdentityLinkStore((s) => s.loadClaimInbox);
 
   useEffect(() => {
@@ -175,15 +170,11 @@ export const MainPanel = () => {
     startTutorial,
   ]);
 
-  // Keep the navigation badges (Friends, Migration review, Identity links)
+  // Keep the navigation badges (Friends, Identity links)
   // accurate without opening those views.
   useEffect(() => {
     if (user) void loadIncomingFriends();
   }, [user, loadIncomingFriends]);
-
-  useEffect(() => {
-    if (user) void loadMigrationReview();
-  }, [user, loadMigrationReview]);
 
   useEffect(() => {
     if (user) void loadIdentityClaimInbox();
@@ -194,6 +185,9 @@ export const MainPanel = () => {
   // If the active view is hidden and no pending navigation, move to first visible.
   useEffect(() => {
     if (loaded && pendingView === null && !visible.includes(activeTab)) {
+      // A correction, not a step the user took — don't leave the hidden
+      // page behind in history.
+      requestLocationReplace();
       applyTab(visible[0]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

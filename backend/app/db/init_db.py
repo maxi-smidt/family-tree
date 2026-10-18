@@ -13,7 +13,6 @@ from app.core.config import settings
 from app.core.security import hash_password
 from app.db.session import SessionLocal
 from app.models import RelationType, User
-from app.services.migration.orchestrator import run_startup_migration
 from app.services.system.backups.backup_service import reconcile_interrupted_restore
 from app.services.system.settings_service import ensure_defaults
 
@@ -22,18 +21,15 @@ logger = logging.getLogger("app.init")
 # backend/app/db/init_db.py -> backend/
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 
-# Revision ID of the squashed baseline migration.  Any database stamped with a
-# pre-squash revision (unknown to the current chain) is stamped here first so
-# that the normal upgrade can apply post-squash migrations on top.
-BASELINE_REVISION = "v1_0_0_baseline"
 
-# The v2.0.0 schema was squashed into one revision. A database built from the
-# pre-squash v2 chain and sitting at its old head already has exactly that
-# schema, so it is restamped onto the squashed revision instead of the
-# baseline (rebuilding v2 on top of v2 tables would fail).
-SQUASHED_V2_HEADS: dict[str, str] = {
-    "v2_0_0_idempotency_target_id": "v2_0_0_workspaces",
-}
+class UnsupportedDatabaseVersionError(RuntimeError):
+    """The database is on a schema this release can no longer upgrade."""
+
+
+# v1.x databases had to go through the v1 -> v2 conversion that shipped in
+# v2.0.x (workspace consolidation, media relocation). That code is gone, so a
+# database still on a v1 revision must be upgraded by a 2.0.x release first.
+V1_REVISION_PREFIX = "v1_"
 
 # Seeded into the instance-wide registry on startup. Admins manage the registry
 # afterwards, so startup only tops up built-in defaults that are missing.
@@ -56,23 +52,27 @@ def _current_heads() -> tuple[str, ...]:
         engine.dispose()
 
 
-def _stored_revision_is_unknown(cfg: Config) -> bool:
-    """Return True if alembic_version points to a revision not in the scripts.
+def _check_upgradable(cfg: Config) -> None:
+    """Refuse a database this release cannot upgrade safely.
 
-    A fresh database (no alembic_version row) returns False — normal upgrade
-    will build the schema from scratch.  A database at any known revision also
-    returns False.  Only a database stamped with a revision that no longer
-    exists in the migration chain (e.g. a pre-squash revision) returns True.
+    A fresh database (no alembic_version row) is fine: ``upgrade head`` builds
+    the schema from scratch. A database on a v1 revision, or on a revision
+    unknown to these scripts, is refused instead of being upgraded into a
+    half-converted state.
     """
+    current_heads = _current_heads()
+    if not current_heads:
+        return
+
     script = ScriptDirectory.from_config(cfg)
     known_ids = {rev.revision for rev in script.walk_revisions()}
-
-    current_heads = _current_heads()
-
-    if not current_heads:
-        return False  # fresh DB; upgrade head will create the schema normally
-
-    return any(head not in known_ids for head in current_heads)
+    for head in current_heads:
+        if head.startswith(V1_REVISION_PREFIX) or head not in known_ids:
+            raise UnsupportedDatabaseVersionError(
+                f"Database is at revision {head!r}, which this release cannot "
+                "upgrade. Upgrade to v2.0.2 first so the v1 -> v2 conversion "
+                "runs, then upgrade to this release."
+            )
 
 
 def run_migrations() -> None:
@@ -80,29 +80,7 @@ def run_migrations() -> None:
     cfg.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
     cfg.set_main_option("sqlalchemy.url", settings.sqlalchemy_database_uri)
 
-    current_heads = _current_heads()
-    if len(current_heads) == 1 and current_heads[0] in SQUASHED_V2_HEADS:
-        squashed = SQUASHED_V2_HEADS[current_heads[0]]
-        logger.warning(
-            "Database is at pre-squash v2 revision %s. Restamping it as %s.",
-            current_heads[0],
-            squashed,
-        )
-        command.stamp(cfg, squashed, purge=True)
-
-    if _stored_revision_is_unknown(cfg):
-        logger.warning(
-            "Database is stamped with a revision unknown to the current "
-            "migration scripts (pre-squash database detected). Stamping "
-            "baseline %s and continuing with pending migrations.",
-            BASELINE_REVISION,
-        )
-        # purge=True clears alembic_version and writes the baseline directly.
-        # A plain stamp would fail here because Alembic tries to resolve the
-        # current (now-removed) revision to compute the path, raising
-        # "Can't locate revision ...".
-        command.stamp(cfg, BASELINE_REVISION, purge=True)
-
+    _check_upgradable(cfg)
     command.upgrade(cfg, "head")
 
 
@@ -110,15 +88,6 @@ def init_db() -> None:
     settings.APP_DATA_PATH.mkdir(parents=True, exist_ok=True)
 
     run_migrations()
-
-    # The v2 startup migration (#994) must settle before anything else below
-    # touches the database or media tree: it holds an exclusive advisory lock
-    # for as long as a v1->v2 conversion is pending or in progress, so a
-    # sibling worker process blocks here too instead of racing ahead into
-    # restore reconciliation, seeding, or (once lifespan reaches `yield`)
-    # normal requests and background jobs.
-    with SessionLocal() as db:
-        run_startup_migration(db)
 
     # Reconcile any restore interrupted by a crash before the media root is
     # (re)created below — an empty directory here would block the rollback

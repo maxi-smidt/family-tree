@@ -3,7 +3,6 @@ import { useMemberSheetStore } from "./useMemberSheetStore";
 
 afterEach(() => {
   useMemberSheetStore.setState({ openSheets: {} });
-  localStorage.removeItem("ft-member-sheet-state");
 });
 
 describe("useMemberSheetStore", () => {

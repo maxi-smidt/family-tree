@@ -75,23 +75,6 @@ class IdentityLinkLegacyMigratedPayload(BaseModel):
     workspace_name: str
 
 
-class MigrationReportReadyPayload(BaseModel):
-    """Points at the durable report (#997) instead of duplicating its
-    content — see ``app.models.migration.MigrationReport``."""
-
-    run_id: str
-    report_id: str
-
-
-class MigrationConflictPendingPayload(BaseModel):
-    """Points at a durable pending review — see
-    ``app.models.migration.MigrationConflict``."""
-
-    run_id: str
-    conflict_id: str
-    workspace_id: str
-
-
 # Structurally overlapping members (e.g. InvitationReceivedPayload and
 # WorkspaceUnsharedPayload both are {workspace_id, workspace_name}) still round-trip the
 # same JSON either way pydantic's smart-union picks, since Pydantic favors
@@ -107,8 +90,6 @@ NotificationPayload = (
     | IdentityLinkClaimReceivedPayload
     | IdentityLinkClaimDecidedPayload
     | IdentityLinkLegacyMigratedPayload
-    | MigrationReportReadyPayload
-    | MigrationConflictPendingPayload
 )
 
 
