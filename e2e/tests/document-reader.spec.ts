@@ -112,6 +112,24 @@ for (const width of [360, 1280]) {
     await expect(
       dialog.getByRole("button", { name: "Previous page" }),
     ).toBeDisabled();
+    const footer = dialog.locator('[data-slot="dialog-footer"]');
+    const pagination = footer.getByRole("group", { name: "Document pages" });
+    await expect(pagination).toBeVisible();
+    const paginationBox = (await pagination.boundingBox())!;
+    const footerBox = (await footer.boundingBox())!;
+    expect(
+      Math.abs(
+        paginationBox.x +
+          paginationBox.width / 2 -
+          (footerBox.x + footerBox.width / 2),
+      ),
+    ).toBeLessThanOrEqual(1);
+    const readerBox = (await dialog
+      .locator('[data-slot="document-reader"]')
+      .boundingBox())!;
+    expect(paginationBox.y).toBeGreaterThanOrEqual(
+      readerBox.y + readerBox.height - 1,
+    );
     const downloadEvent = page.waitForEvent("download");
     await dialog.getByRole("button", { name: "Download", exact: true }).click();
     const download = await downloadEvent;

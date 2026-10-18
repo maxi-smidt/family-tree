@@ -310,58 +310,6 @@ export const DocumentFileTextDialog = ({
           </div>
         )}
 
-        {isPdf && (
-          <div
-            role="group"
-            aria-label={reader("pages")}
-            className="flex shrink-0 items-center justify-center gap-2"
-          >
-            <Button
-              type="button"
-              size="icon-sm"
-              variant="outline"
-              aria-label={reader("previous")}
-              disabled={page <= 1}
-              onClick={() => setPage((current) => current - 1)}
-            >
-              <ChevronLeft />
-            </Button>
-            <label className="flex items-center gap-2 text-sm">
-              {reader("page")}
-              <Input
-                size="sm"
-                type="number"
-                min={1}
-                max={totalPages}
-                value={page}
-                className="w-16"
-                aria-label={reader("page")}
-                onChange={(event) => {
-                  const value = event.currentTarget.valueAsNumber;
-                  if (
-                    Number.isInteger(value) &&
-                    value >= 1 &&
-                    value <= totalPages
-                  )
-                    setPage(value);
-                }}
-              />
-            </label>
-            <span className="text-sm tabular-nums text-muted-foreground">
-              {reader("of", { count: totalPages })}
-            </span>
-            <Button
-              type="button"
-              size="icon-sm"
-              variant="outline"
-              aria-label={reader("next")}
-              disabled={page >= totalPages}
-              onClick={() => setPage((current) => current + 1)}
-            >
-              <ChevronRight />
-            </Button>
-          </div>
-        )}
         <DocumentReaderSplit
           preview={
             open && (
@@ -406,8 +354,8 @@ export const DocumentFileTextDialog = ({
           )}
         </DocumentReaderSplit>
 
-        <DialogFooter className="shrink-0 gap-2 sm:flex-wrap sm:justify-between [&>div]:flex-wrap">
-          <div className="flex gap-2">
+        <DialogFooter className="grid shrink-0 grid-cols-1 items-center gap-2 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+          <div className="order-2 flex flex-wrap justify-center gap-2 md:order-1 md:justify-start">
             <Button type="button" variant="outline" onClick={openFile}>
               <ExternalLink />
               {t("open-file")}
@@ -422,8 +370,60 @@ export const DocumentFileTextDialog = ({
               {fileText("download")}
             </Button>
           </div>
+          {isPdf && (
+            <div
+              role="group"
+              aria-label={reader("pages")}
+              className="order-1 flex items-center justify-center gap-2 md:order-2 md:col-start-2"
+            >
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="outline"
+                aria-label={reader("previous")}
+                disabled={page <= 1}
+                onClick={() => setPage((current) => current - 1)}
+              >
+                <ChevronLeft />
+              </Button>
+              <label className="flex items-center gap-2 text-sm">
+                {reader("page")}
+                <Input
+                  size="sm"
+                  type="number"
+                  min={1}
+                  max={totalPages}
+                  value={page}
+                  className="w-16"
+                  aria-label={reader("page")}
+                  onChange={(event) => {
+                    const value = event.currentTarget.valueAsNumber;
+                    if (
+                      Number.isInteger(value) &&
+                      value >= 1 &&
+                      value <= totalPages
+                    )
+                      setPage(value);
+                  }}
+                />
+              </label>
+              <span className="text-sm tabular-nums text-muted-foreground">
+                {reader("of", { count: totalPages })}
+              </span>
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="outline"
+                aria-label={reader("next")}
+                disabled={page >= totalPages}
+                onClick={() => setPage((current) => current + 1)}
+              >
+                <ChevronRight />
+              </Button>
+            </div>
+          )}
           {editing ? (
-            <div className="flex gap-2">
+            <div className="order-3 flex flex-wrap justify-center gap-2 md:col-start-3 md:justify-end">
               <Button
                 type="button"
                 variant="outline"
@@ -444,7 +444,7 @@ export const DocumentFileTextDialog = ({
           ) : (
             canEdit &&
             !loading && (
-              <div className="flex gap-2">
+              <div className="order-3 flex flex-wrap justify-center gap-2 md:col-start-3 md:justify-end">
                 {canRestore && (
                   <Button
                     type="button"
