@@ -3,6 +3,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
+import { pdfAssets } from "./scripts/vitePdfAssets.ts";
 
 // Backend the dev server proxies `/api` to. Override with VITE_PROXY_TARGET.
 const apiTarget = process.env.VITE_PROXY_TARGET || "http://127.0.0.1:8000";
@@ -12,7 +13,7 @@ const usePolling = !!process.env.VITE_USE_POLLING;
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), pdfAssets()],
   server: {
     port: 1420,
     host: true,

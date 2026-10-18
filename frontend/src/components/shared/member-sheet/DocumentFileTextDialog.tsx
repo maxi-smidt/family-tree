@@ -1,18 +1,23 @@
 import {
   type MouseEvent,
+  type ReactElement,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
 import {
   ExternalLink,
+  Download,
+  ChevronLeft,
+  ChevronRight,
   Pencil,
   RotateCcw,
-  ScrollText,
   Sparkles,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { Slot } from "@radix-ui/react-slot";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -34,17 +39,21 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
+import { Input } from "@/components/ui/input";
 import { MarkdownContent } from "@/components/shared/MarkdownContent";
 import { MarkdownEditor } from "@/components/shared/member-sheet/MarkdownEditor";
 import { useDocumentStore } from "@/hooks/useDocumentStore";
-import { openMedia } from "@/hooks/useMediaUrl";
+import { downloadMedia, openMedia } from "@/hooks/useMediaUrl";
 import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import type { DocumentFile, DocumentFileText } from "@/types/document";
 import { canEditArea } from "@/utils/accessLevels";
 import { foldForSearch, SEARCH_WORD } from "@/utils/searchFold";
-import { cn } from "@/lib/utils";
+import { getFileKind } from "@/utils/attachmentUtils";
+import { documentTextPages, replaceDocumentPage } from "@/utils/documentPages";
 import { DocumentFileTranscribeButton } from "./DocumentFileTranscribeButton";
+import { DocumentFilePreview } from "./DocumentFilePreview";
+import { DocumentReaderSplit } from "./DocumentReaderSplit";
 
 const HIGHLIGHT = "document-search";
 
@@ -107,6 +116,12 @@ export const DocumentFileTextDialog = ({
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.member-sheet.documents.text",
   });
+  const { t: reader } = useTranslation(undefined, {
+    keyPrefix: "sheet.member-sheet.documents.reader",
+  });
+  const { t: fileText } = useTranslation(undefined, {
+    keyPrefix: "sheet.member-sheet.documents.file",
+  });
   const loadFileText = useDocumentStore((s) => s.loadFileText);
   const saveFileText = useDocumentStore((s) => s.saveFileText);
   const canEdit = useWorkspaceStore((s) =>
@@ -117,14 +132,59 @@ export const DocumentFileTextDialog = ({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [confirmRestore, setConfirmRestore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageCount, setPageCount] = useState<number | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const isPdf = getFileKind(file.filename ?? "", file.mimeType) === "pdf";
+  const markdown = editing ? draft : (text?.markdown ?? "");
+  const sections = useMemo(() => documentTextPages(markdown), [markdown]);
+  const paginated = isPdf && /<!--\s*page\s+0*[1-9]\d*\s*-->/i.test(markdown);
+  const section = paginated
+    ? sections.find((entry) => entry.page === page)
+    : null;
+  const pageMarkdown = paginated ? (section?.markdown ?? "") : markdown;
+  const totalPages =
+    pageCount ?? Math.max(1, ...sections.map((entry) => entry.page));
+
+  useEffect(() => {
+    setPage(1);
+    setPageCount(null);
+    setEditing(false);
+  }, [open, documentId, file.id]);
+
+  useEffect(() => {
+    if (pageCount !== null) setPage((current) => Math.min(current, pageCount));
+  }, [pageCount]);
+
+  useEffect(() => {
+    if (!open || !highlight?.length || !text || !isPdf) return;
+    const wanted = new Set(highlight);
+    const match = documentTextPages(text.markdown).find((entry) =>
+      Array.from(entry.markdown.matchAll(SEARCH_WORD)).some((word) =>
+        wanted.has(foldForSearch(word[0])),
+      ),
+    );
+    if (match) setPage(Math.min(match.page, pageCount ?? match.page));
+  }, [open, highlight, text, isPdf, pageCount]);
 
   const showing = open && !loading && !editing && text !== null;
   useEffect(() => {
     if (!showing || !highlight?.length || !contentRef.current) return;
-    return highlightWords(contentRef.current, highlight);
-  }, [showing, highlight, text]);
+    const root = contentRef.current;
+    let clear = highlightWords(root, highlight);
+    // Markdown is lazy loaded; apply marks once its rendered text arrives too.
+    const observer = new MutationObserver(() => {
+      clear();
+      clear = highlightWords(root, highlight);
+    });
+    observer.observe(root, { childList: true, subtree: true });
+    return () => {
+      observer.disconnect();
+      clear();
+    };
+  }, [showing, highlight, text, page]);
 
   useEffect(() => {
     if (!open) {
@@ -191,11 +251,18 @@ export const DocumentFileTextDialog = ({
     void openMedia(file.url).catch(() => toast.error(t("error-open")));
   };
 
+  const downloadFile = () => {
+    setDownloading(true);
+    void downloadMedia(file.url, file.filename || t("untitled"))
+      .catch(() => toast.error(fileText("error-download")))
+      .finally(() => setDownloading(false));
+  };
+
   const name = file.filename || t("untitled");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl">
+      <DialogContent className="flex h-[calc(100dvh-1rem)] max-h-[1000px] max-w-[calc(100%-1rem)] flex-col gap-3 overflow-hidden p-3 sm:max-w-7xl sm:p-5">
         <DialogHeader>
           <DialogTitle className="truncate pr-6">
             {t("title", { name })}
@@ -243,7 +310,18 @@ export const DocumentFileTextDialog = ({
           </div>
         )}
 
-        <div className="max-h-[60vh] min-h-24 overflow-y-auto">
+        <DocumentReaderSplit
+          preview={
+            open && (
+              <DocumentFilePreview
+                key={file.id}
+                file={file}
+                page={page}
+                onPageCount={setPageCount}
+              />
+            )
+          }
+        >
           {loading ? (
             <div className="flex justify-center py-8">
               <Spinner className="size-5 text-muted-foreground" />
@@ -251,28 +329,101 @@ export const DocumentFileTextDialog = ({
           ) : editing ? (
             <MarkdownEditor
               id={`document-file-text-${file.id}`}
-              value={draft}
+              value={pageMarkdown}
               placeholder={t("placeholder")}
-              onChange={setDraft}
+              onChange={(value) =>
+                setDraft((current) =>
+                  paginated ? replaceDocumentPage(current, page, value) : value,
+                )
+              }
             />
           ) : text ? (
             <div ref={contentRef}>
-              <MarkdownContent content={text.markdown} />
+              {pageMarkdown.trim() ? (
+                <MarkdownContent content={pageMarkdown} />
+              ) : (
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  {paginated ? reader("empty-page") : t("empty")}
+                </p>
+              )}
             </div>
           ) : (
             <p className="py-6 text-center text-sm text-muted-foreground">
               {t("empty")}
             </p>
           )}
-        </div>
+        </DocumentReaderSplit>
 
-        <DialogFooter className="gap-2 sm:justify-between">
-          <Button type="button" variant="outline" onClick={openFile}>
-            <ExternalLink />
-            {t("open-file")}
-          </Button>
+        <DialogFooter className="grid shrink-0 grid-cols-1 items-center gap-2 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+          <div className="order-2 flex flex-wrap justify-center gap-2 md:order-1 md:justify-start">
+            <Button type="button" variant="outline" onClick={openFile}>
+              <ExternalLink />
+              {t("open-file")}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={downloadFile}
+              disabled={downloading}
+            >
+              {downloading ? <Spinner /> : <Download />}
+              {fileText("download")}
+            </Button>
+          </div>
+          {isPdf && (
+            <div
+              role="group"
+              aria-label={reader("pages")}
+              className="order-1 flex items-center justify-center gap-2 md:order-2 md:col-start-2"
+            >
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="outline"
+                aria-label={reader("previous")}
+                disabled={page <= 1}
+                onClick={() => setPage((current) => current - 1)}
+              >
+                <ChevronLeft />
+              </Button>
+              <label className="flex items-center gap-2 text-sm">
+                {reader("page")}
+                <Input
+                  size="sm"
+                  type="number"
+                  min={1}
+                  max={totalPages}
+                  value={page}
+                  className="w-16"
+                  aria-label={reader("page")}
+                  onChange={(event) => {
+                    const value = event.currentTarget.valueAsNumber;
+                    if (
+                      Number.isInteger(value) &&
+                      value >= 1 &&
+                      value <= totalPages
+                    )
+                      setPage(value);
+                  }}
+                />
+              </label>
+              <span className="text-sm tabular-nums text-muted-foreground">
+                {reader("of", { count: totalPages })}
+              </span>
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="outline"
+                aria-label={reader("next")}
+                disabled={page >= totalPages}
+                onClick={() => setPage((current) => current + 1)}
+              >
+                <ChevronRight />
+              </Button>
+            </div>
+          )}
           {editing ? (
-            <div className="flex gap-2">
+            <div className="order-3 flex flex-wrap justify-center gap-2 md:col-start-3 md:justify-end">
               <Button
                 type="button"
                 variant="outline"
@@ -293,7 +444,7 @@ export const DocumentFileTextDialog = ({
           ) : (
             canEdit &&
             !loading && (
-              <div className="flex gap-2">
+              <div className="order-3 flex flex-wrap justify-center gap-2 md:col-start-3 md:justify-end">
                 {canRestore && (
                   <Button
                     type="button"
@@ -343,28 +494,21 @@ export const DocumentFileTextDialog = ({
   );
 };
 
-/** Icon button that opens a file's text, highlighted when the file has one.
- *  Without a text it is an add button for editors only, shown on hover of
- *  the surrounding `group/file` row (always shown on touch screens). */
-export const DocumentFileTextButton = ({
+/** Open the reader from a file's normal button, including files without text.
+ * Search can open the same reader with its matching words highlighted. */
+export const DocumentFileReaderTrigger = ({
   documentId,
   file,
-  className,
   focusWords,
+  children,
 }: {
   documentId: string;
   file: DocumentFile;
-  className?: string;
+  children: ReactElement;
   /** When set (a new array each time), open the text with these folded
    *  words highlighted, e.g. after picking this file in search. */
   focusWords?: string[] | null;
 }) => {
-  const { t } = useTranslation(undefined, {
-    keyPrefix: "sheet.member-sheet.documents.text",
-  });
-  const canEdit = useWorkspaceStore((s) =>
-    canEditArea(s.selectedTree, "sources"),
-  );
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState<string[] | undefined>();
   useEffect(() => {
@@ -376,33 +520,18 @@ export const DocumentFileTextButton = ({
     setOpen(next);
     if (!next) setHighlight(undefined);
   };
-  if (!file.hasText && !canEdit) return null;
-  const label = file.hasText ? t("open") : t("open-empty");
   // React events bubble through the dialog's portal: keep clicks inside it
   // from reaching clickable rows (the documents list toggles on click).
   const stop = (event: MouseEvent) => event.stopPropagation();
   return (
     <span className="contents" onClick={stop} onDoubleClick={stop}>
-      <DocumentFileTranscribeButton
-        documentId={documentId}
-        file={file}
-        className={className}
-      />
-      <button
-        type="button"
+      <Slot
         onClick={() => setOpen(true)}
-        className={cn(
-          "shrink-0 hover:text-foreground",
-          file.hasText
-            ? "text-primary"
-            : "text-muted-foreground pointer-fine:opacity-0 pointer-fine:group-hover/file:opacity-100 pointer-fine:focus-visible:opacity-100",
-          className,
-        )}
-        title={label}
-        aria-label={label}
+        aria-haspopup="dialog"
+        aria-expanded={open}
       >
-        <ScrollText className="w-4 h-4" />
-      </button>
+        {children}
+      </Slot>
       <DocumentFileTextDialog
         documentId={documentId}
         file={file}

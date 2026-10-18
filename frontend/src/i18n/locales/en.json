@@ -431,7 +431,7 @@
     "unlinked": "Not linked",
     "unknown-event": "Unknown event",
     "unknown-story": "Unknown story",
-    "open-hint": "Double-click to open a document file",
+    "open-hint": "Click to show or hide document details",
     "open-error": "Could not open the document file.",
     "show-details": "Show details",
     "hide-details": "Hide details",
@@ -838,6 +838,8 @@
         },
         "file": {
           "download": "Download",
+          "open-external": "Open in another window",
+          "error-download": "Could not download the file.",
           "error-open": "Could not open the file."
         },
         "linked": {
@@ -891,6 +893,24 @@
           "cancel": "Cancel",
           "save": "Save",
           "error-save": "Could not save the document."
+        },
+        "reader": {
+          "file": "Original file",
+          "text": "Document text",
+          "resize": "Resize file and text panes",
+          "pages": "Document pages",
+          "page": "Page",
+          "of": "of {{count}}",
+          "previous": "Previous page",
+          "next": "Next page",
+          "page-image": "Original page {{page}}",
+          "zoom": "File zoom",
+          "zoom-in": "Zoom in",
+          "zoom-out": "Zoom out",
+          "fit-width": "Fit to width",
+          "empty-page": "No text for this page yet.",
+          "unsupported": "Preview is available for images and PDFs. Use Open file to read this file.",
+          "error": "Could not preview this file. You can still read its text or use Open file."
         },
         "text": {
           "open": "Show the file's text",

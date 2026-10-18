@@ -431,7 +431,7 @@
     "unlinked": "Nicht verknüpft",
     "unknown-event": "Unbekanntes Ereignis",
     "unknown-story": "Unbekannte Geschichte",
-    "open-hint": "Doppelklicken, um eine Dokumentdatei zu öffnen",
+    "open-hint": "Klicken, um Dokumentdetails ein- oder auszublenden",
     "open-error": "Dokumentdatei konnte nicht geöffnet werden.",
     "show-details": "Details anzeigen",
     "hide-details": "Details ausblenden",
@@ -838,6 +838,8 @@
         },
         "file": {
           "download": "Herunterladen",
+          "open-external": "In einem anderen Fenster öffnen",
+          "error-download": "Datei konnte nicht heruntergeladen werden.",
           "error-open": "Datei konnte nicht geöffnet werden."
         },
         "linked": {
@@ -891,6 +893,24 @@
           "cancel": "Abbrechen",
           "save": "Speichern",
           "error-save": "Dokument konnte nicht gespeichert werden."
+        },
+        "reader": {
+          "file": "Originaldatei",
+          "text": "Dokumenttext",
+          "resize": "Datei- und Textbereich vergrößern oder verkleinern",
+          "pages": "Dokumentseiten",
+          "page": "Seite",
+          "of": "von {{count}}",
+          "previous": "Vorherige Seite",
+          "next": "Nächste Seite",
+          "page-image": "Originalseite {{page}}",
+          "zoom": "Dateivergrößerung",
+          "zoom-in": "Vergrößern",
+          "zoom-out": "Verkleinern",
+          "fit-width": "An Breite anpassen",
+          "empty-page": "Für diese Seite gibt es noch keinen Text.",
+          "unsupported": "Die Vorschau ist für Bilder und PDFs verfügbar. Verwende „Datei öffnen“, um diese Datei zu lesen.",
+          "error": "Die Vorschau konnte nicht geladen werden. Du kannst weiterhin den Text lesen oder „Datei öffnen“ verwenden."
         },
         "text": {
           "open": "Text der Datei anzeigen",

@@ -12,7 +12,6 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -33,13 +32,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
 import { DocumentDialog } from "@/components/shared/member-sheet/DocumentDialog";
-import { DocumentFileTextButton } from "@/components/shared/member-sheet/DocumentFileTextDialog";
+import { DocumentFileReaderTrigger } from "@/components/shared/member-sheet/DocumentFileTextDialog";
+import { DocumentFileActions } from "@/components/shared/member-sheet/DocumentFiles";
 import { ListPagination } from "@/components/view/list-view/ListPagination";
 import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { type DocumentFocus, useDocumentStore } from "@/hooks/useDocumentStore";
 import { useDocumentSearch } from "@/hooks/useDocumentSearch";
 import { useEventStore } from "@/hooks/useEventStore";
-import { openMedia } from "@/hooks/useMediaUrl";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
@@ -430,19 +429,6 @@ function DocumentRow({
     .map((id) => membersById.get(id))
     .filter((m): m is Member => !!m);
 
-  const openDocument = () => {
-    const attachment = attachments[0] ?? externalLinks[0];
-    if (attachment) openFile(attachment);
-  };
-
-  const openFile = (file: DocumentFile) => {
-    if (file.kind === "file") {
-      void openMedia(file.url).catch(() => toast.error(t("open-error")));
-    } else {
-      window.open(file.url, "_blank", "noopener,noreferrer");
-    }
-  };
-
   const openMember = (memberId: string) => {
     if (!workspaceId) return;
     setOpenSheet(workspaceId, { memberId, tab: "records", mode: "view" });
@@ -456,7 +442,11 @@ function DocumentRow({
         variant="outline"
         size="sm"
         className="max-w-60"
-        onClick={() => openFile(file)}
+        onClick={
+          file.kind === "link"
+            ? () => window.open(file.url, "_blank", "noopener,noreferrer")
+            : undefined
+        }
       >
         {file.kind === "file" ? <FileText /> : <LinkIcon />}
         <span className="truncate">{file.filename ?? file.url}</span>
@@ -465,12 +455,17 @@ function DocumentRow({
     if (file.kind !== "file") return button;
     return (
       <span key={file.id} className="group/file inline-flex items-center gap-1">
-        {button}
-        <DocumentFileTextButton
+        <DocumentFileReaderTrigger
+          documentId={document.id}
+          file={file}
+          focusWords={fileFocus?.fileId === file.id ? fileFocus.words : null}
+        >
+          {button}
+        </DocumentFileReaderTrigger>
+        <DocumentFileActions
           documentId={document.id}
           file={file}
           className="px-1"
-          focusWords={fileFocus?.fileId === file.id ? fileFocus.words : null}
         />
       </span>
     );
@@ -493,10 +488,6 @@ function DocumentRow({
       onClick={(event) => {
         if (isInteractiveTarget(event)) return;
         setDetailsOpen((open) => !open);
-      }}
-      onDoubleClick={(event) => {
-        if (isInteractiveTarget(event)) return;
-        openDocument();
       }}
       title={t("open-hint")}
     >

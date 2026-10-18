@@ -13,7 +13,9 @@ import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
 import { Spinner } from "@/components/ui/spinner";
 import { downloadMedia, openMedia } from "@/hooks/useMediaUrl";
 import { DocumentFile } from "@/types/document";
-import { DocumentFileTextButton } from "./DocumentFileTextDialog";
+import { DocumentFileReaderTrigger } from "./DocumentFileTextDialog";
+import { DocumentFileTranscribeButton } from "./DocumentFileTranscribeButton";
+import { cn } from "@/lib/utils";
 import {
   formatFileSize,
   getFileKind,
@@ -82,7 +84,58 @@ export const FilePreview = ({
   );
 };
 
-/** Read-only list of a document's files: uploaded files preview + download,
+/** AI and external-window actions shared by workspace and member file lists. */
+export function DocumentFileActions({
+  documentId,
+  file,
+  className,
+}: {
+  documentId: string;
+  file: DocumentFile;
+  className?: string;
+}) {
+  const { t } = useTranslation(undefined, {
+    keyPrefix: "sheet.member-sheet.documents.file",
+  });
+  const [opening, setOpening] = useState(false);
+  return (
+    <span
+      className="contents"
+      onClick={(event) => event.stopPropagation()}
+      onDoubleClick={(event) => event.stopPropagation()}
+    >
+      <DocumentFileTranscribeButton
+        documentId={documentId}
+        file={file}
+        className={className}
+      />
+      <button
+        type="button"
+        className={cn(
+          "shrink-0 text-muted-foreground hover:text-foreground",
+          className,
+        )}
+        title={t("open-external")}
+        aria-label={t("open-external")}
+        disabled={opening}
+        onClick={() => {
+          setOpening(true);
+          void openMedia(file.url)
+            .catch(() => toast.error(t("error-open")))
+            .finally(() => setOpening(false));
+        }}
+      >
+        {opening ? (
+          <Spinner className="size-4" />
+        ) : (
+          <ExternalLink className="size-4" />
+        )}
+      </button>
+    </span>
+  );
+}
+
+/** Read-only list of a document's files: uploaded files open the reader,
  *  external links open in a new tab. */
 export const DocumentFileList = ({
   documentId,
@@ -94,19 +147,12 @@ export const DocumentFileList = ({
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.member-sheet.documents.file",
   });
-  const [openingId, setOpeningId] = useState<string | null>(null);
 
   if (!files.length) return null;
 
-  const open = (f: DocumentFile) => {
-    setOpeningId(f.id);
-    void openMedia(f.url)
-      .catch(() => toast.error(t("error-open")))
-      .finally(() => setOpeningId(null));
-  };
   const download = (f: DocumentFile) => {
     void downloadMedia(f.url, f.filename ?? "file").catch(() =>
-      toast.error(t("error-open")),
+      toast.error(t("error-download")),
     );
   };
 
@@ -130,37 +176,36 @@ export const DocumentFileList = ({
             key={f.id}
             className="group/file flex items-center gap-2 text-sm min-w-0"
           >
-            <button
-              type="button"
-              onClick={() => open(f)}
-              className="flex items-center gap-2 min-w-0 flex-1 hover:underline text-left"
-              title={f.filename ?? ""}
-            >
-              {openingId === f.id ? (
-                <Spinner className="w-4 h-4 text-muted-foreground shrink-0" />
-              ) : isImageAttachment({
+            <DocumentFileReaderTrigger documentId={documentId} file={f}>
+              <button
+                type="button"
+                className="flex items-center gap-2 min-w-0 flex-1 hover:underline text-left"
+                title={f.filename ?? ""}
+              >
+                {isImageAttachment({
                   filename: f.filename ?? "",
                   mimeType: f.mimeType,
                 }) ? (
-                <AuthenticatedImage
-                  src={f.url}
-                  alt={f.filename ?? ""}
-                  className="w-9 h-9 rounded object-cover border shrink-0"
-                />
-              ) : (
-                <FileKindIcon
-                  filename={f.filename ?? ""}
-                  mimeType={f.mimeType}
-                />
-              )}
-              <span className="truncate">{f.filename || f.url}</span>
-            </button>
+                  <AuthenticatedImage
+                    src={f.url}
+                    alt={f.filename ?? ""}
+                    className="w-9 h-9 rounded object-cover border shrink-0"
+                  />
+                ) : (
+                  <FileKindIcon
+                    filename={f.filename ?? ""}
+                    mimeType={f.mimeType}
+                  />
+                )}
+                <span className="truncate">{f.filename || f.url}</span>
+              </button>
+            </DocumentFileReaderTrigger>
             {f.size != null && (
               <span className="text-xs text-muted-foreground shrink-0">
                 {formatFileSize(f.size)}
               </span>
             )}
-            <DocumentFileTextButton documentId={documentId} file={f} />
+            <DocumentFileActions documentId={documentId} file={f} />
             <button
               type="button"
               onClick={() => download(f)}
