@@ -1,4 +1,5 @@
 import type { Page } from "@playwright/test";
+import { readFile } from "node:fs/promises";
 import { test, expect, type ApiClient } from "../fixtures";
 import { API_URL } from "../playwright.config";
 import { CURRENT_SCHEMA_EPOCH, SCHEMA_EPOCH_HEADER } from "../fixtures/api";
@@ -58,7 +59,7 @@ async function seedDocument(page: Page, api: ApiClient, treeId: string) {
     },
   });
   expect(uploaded.ok(), await uploaded.text()).toBeTruthy();
-  const file = (await uploaded.json()) as { id: string };
+  const file = (await uploaded.json()) as { id: string; url: string };
   const textUrl = `${base}/files/${file.id}/text`;
   const saved = await page.request.put(textUrl, {
     headers,
@@ -68,15 +69,21 @@ async function seedDocument(page: Page, api: ApiClient, treeId: string) {
     },
   });
   expect(saved.ok(), await saved.text()).toBeTruthy();
-  return { textUrl, headers };
+  return { textUrl, headers, mediaUrl: file.url };
 }
 
 async function openReader(page: Page, treeName: string) {
+  await page.setViewportSize({ width: 1280, height: 800 });
   await page.reload();
+  const sidebar = page.locator('[data-slot="sidebar"][data-state]');
+  if ((await sidebar.getAttribute("data-state")) === "collapsed") {
+    await page.getByRole("button", { name: "Toggle Sidebar" }).click();
+    await expect(sidebar).toHaveAttribute("data-state", "expanded");
+  }
   await selectTree(page, treeName);
   await openView(page, "Documents");
   await page.getByRole("button", { name: "Show details" }).click();
-  await page.getByRole("button", { name: "Show the file's text" }).click();
+  await page.getByRole("button", { name: "register.pdf", exact: true }).click();
   return page.getByRole("dialog", { name: "Text of register.pdf" });
 }
 
@@ -87,7 +94,11 @@ for (const width of [360, 1280]) {
     seedTree,
   }) => {
     const tree = await seedTree();
-    const { textUrl, headers } = await seedDocument(page, adminApi, tree.id);
+    const { textUrl, headers, mediaUrl } = await seedDocument(
+      page,
+      adminApi,
+      tree.id,
+    );
     const dialog = await openReader(page, tree.name);
     await page.setViewportSize({ width, height: 800 });
     const original = dialog.getByRole("region", { name: "Original file" });
@@ -101,6 +112,14 @@ for (const width of [360, 1280]) {
     await expect(
       dialog.getByRole("button", { name: "Previous page" }),
     ).toBeDisabled();
+    const downloadEvent = page.waitForEvent("download");
+    await dialog.getByRole("button", { name: "Download", exact: true }).click();
+    const download = await downloadEvent;
+    expect(download.suggestedFilename()).toBe("register.pdf");
+    expect(await download.failure()).toBeNull();
+    const downloadedPath = await download.path();
+    expect(downloadedPath).not.toBeNull();
+    expect(await readFile(downloadedPath!)).toEqual(registerPdf());
     await expect
       .poll(() =>
         dialog.evaluate((element) => element.scrollWidth - element.clientWidth),
@@ -181,9 +200,34 @@ for (const width of [360, 1280]) {
     expect(saved.markdown).toContain(
       "<!-- page 2 --># Marriage register\n\nJohann and Maria, 1913",
     );
+    await expect(page.getByText("Text saved", { exact: true })).toBeHidden();
     await page.screenshot({
       path: test.info().outputPath(`reader-${width}.png`),
     });
+    await dialog.getByRole("button", { name: "Close", exact: true }).click();
+    // Use the desktop navigation width again to reach the file row directly.
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const mediaEvent = page.waitForResponse(
+      (response) =>
+        response.request().method() === "GET" &&
+        response.url() === new URL(mediaUrl, API_URL).href,
+    );
+    const popupEvent = page.waitForEvent("popup");
+    await page.getByRole("button", { name: "Open in another window" }).click();
+    const popup = await popupEvent;
+    try {
+      const media = await mediaEvent;
+      expect(media.ok()).toBeTruthy();
+      expect(media.headers()["content-type"]).toContain("application/pdf");
+      expect(Number(media.headers()["content-length"])).toBe(
+        registerPdf().length,
+      );
+      // Native PDF windows expose a placeholder URL in headless Chromium;
+      // verify the requested original file and actual window creation instead.
+      expect(popup.isClosed()).toBe(false);
+    } finally {
+      await popup.close();
+    }
   });
 }
 

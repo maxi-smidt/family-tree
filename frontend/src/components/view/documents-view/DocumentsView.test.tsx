@@ -6,11 +6,17 @@ import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
+import { openMedia } from "@/hooks/useMediaUrl";
 import type { Document } from "@/types/document";
 import { DocumentsView } from "./DocumentsView";
 
 vi.mock("@/components/shared/member-sheet/DocumentDialog", () => ({
   DocumentDialog: () => null,
+}));
+vi.mock("@/hooks/useMediaUrl", () => ({
+  openMedia: vi.fn().mockResolvedValue(undefined),
+  downloadMedia: vi.fn().mockResolvedValue(undefined),
+  useMediaUrl: () => undefined,
 }));
 
 const documents: Document[] = [
@@ -67,6 +73,7 @@ const documents: Document[] = [
 
 describe("DocumentsView", () => {
   beforeEach(() => {
+    vi.mocked(openMedia).mockClear();
     useWorkspaceStore.setState({
       isReady: true,
       selectedTree: { id: "tree-1", role: "owner" } as never,
@@ -156,6 +163,40 @@ describe("DocumentsView", () => {
     ).toBeInTheDocument();
     expect(loadFileText).toHaveBeenCalledWith("linked-document", "file-1");
     expect(useDocumentStore.getState().focus).toBeNull();
+  });
+
+  it("opens file clicks in the reader and uses the adjacent icon for another window", async () => {
+    render(<DocumentsView />);
+    const row = screen
+      .getByText("Birth certificate")
+      .closest('[data-slot="document-row"]') as HTMLElement;
+    fireEvent.click(within(row).getByRole("button", { name: "Show details" }));
+    fireEvent.click(
+      within(row).getByRole("button", { name: "birth-certificate.pdf" }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "Text of birth-certificate.pdf",
+    });
+    expect(openMedia).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+    fireEvent.click(
+      within(row).getByRole("button", { name: "Open in another window" }),
+    );
+    expect(openMedia).toHaveBeenCalledWith("/api/media/file-1");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(
+      within(row).getByRole("button", { name: "Hide details" }),
+    ).toBeInTheDocument();
+  });
+
+  it("does not open any file when a document row is double-clicked", () => {
+    const openWindow = vi.spyOn(window, "open").mockImplementation(() => null);
+    render(<DocumentsView />);
+    fireEvent.doubleClick(screen.getByText("Birth certificate"));
+    expect(openMedia).not.toHaveBeenCalled();
+    expect(openWindow).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    openWindow.mockRestore();
   });
 
   it("starts collapsed, then filters to unlinked documents and opens linked people", () => {

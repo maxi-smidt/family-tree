@@ -1,5 +1,6 @@
 import {
   type MouseEvent,
+  type ReactElement,
   useCallback,
   useEffect,
   useMemo,
@@ -8,14 +9,15 @@ import {
 } from "react";
 import {
   ExternalLink,
+  Download,
   ChevronLeft,
   ChevronRight,
   Pencil,
   RotateCcw,
-  ScrollText,
   Sparkles,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { Slot } from "@radix-ui/react-slot";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -41,13 +43,12 @@ import { Input } from "@/components/ui/input";
 import { MarkdownContent } from "@/components/shared/MarkdownContent";
 import { MarkdownEditor } from "@/components/shared/member-sheet/MarkdownEditor";
 import { useDocumentStore } from "@/hooks/useDocumentStore";
-import { openMedia } from "@/hooks/useMediaUrl";
+import { downloadMedia, openMedia } from "@/hooks/useMediaUrl";
 import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import type { DocumentFile, DocumentFileText } from "@/types/document";
 import { canEditArea } from "@/utils/accessLevels";
 import { foldForSearch, SEARCH_WORD } from "@/utils/searchFold";
-import { cn } from "@/lib/utils";
 import { getFileKind } from "@/utils/attachmentUtils";
 import { documentTextPages, replaceDocumentPage } from "@/utils/documentPages";
 import { DocumentFileTranscribeButton } from "./DocumentFileTranscribeButton";
@@ -118,6 +119,9 @@ export const DocumentFileTextDialog = ({
   const { t: reader } = useTranslation(undefined, {
     keyPrefix: "sheet.member-sheet.documents.reader",
   });
+  const { t: fileText } = useTranslation(undefined, {
+    keyPrefix: "sheet.member-sheet.documents.file",
+  });
   const loadFileText = useDocumentStore((s) => s.loadFileText);
   const saveFileText = useDocumentStore((s) => s.saveFileText);
   const canEdit = useWorkspaceStore((s) =>
@@ -128,6 +132,7 @@ export const DocumentFileTextDialog = ({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [confirmRestore, setConfirmRestore] = useState(false);
   const [page, setPage] = useState(1);
   const [pageCount, setPageCount] = useState<number | null>(null);
@@ -244,6 +249,13 @@ export const DocumentFileTextDialog = ({
 
   const openFile = () => {
     void openMedia(file.url).catch(() => toast.error(t("error-open")));
+  };
+
+  const downloadFile = () => {
+    setDownloading(true);
+    void downloadMedia(file.url, file.filename || t("untitled"))
+      .catch(() => toast.error(fileText("error-download")))
+      .finally(() => setDownloading(false));
   };
 
   const name = file.filename || t("untitled");
@@ -395,10 +407,21 @@ export const DocumentFileTextDialog = ({
         </DocumentReaderSplit>
 
         <DialogFooter className="shrink-0 gap-2 sm:flex-wrap sm:justify-between [&>div]:flex-wrap">
-          <Button type="button" variant="outline" onClick={openFile}>
-            <ExternalLink />
-            {t("open-file")}
-          </Button>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" onClick={openFile}>
+              <ExternalLink />
+              {t("open-file")}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={downloadFile}
+              disabled={downloading}
+            >
+              {downloading ? <Spinner /> : <Download />}
+              {fileText("download")}
+            </Button>
+          </div>
           {editing ? (
             <div className="flex gap-2">
               <Button
@@ -471,28 +494,21 @@ export const DocumentFileTextDialog = ({
   );
 };
 
-/** Icon button that opens a file's text, highlighted when the file has one.
- *  Without a text it is an add button for editors only, shown on hover of
- *  the surrounding `group/file` row (always shown on touch screens). */
-export const DocumentFileTextButton = ({
+/** Open the reader from a file's normal button, including files without text.
+ * Search can open the same reader with its matching words highlighted. */
+export const DocumentFileReaderTrigger = ({
   documentId,
   file,
-  className,
   focusWords,
+  children,
 }: {
   documentId: string;
   file: DocumentFile;
-  className?: string;
+  children: ReactElement;
   /** When set (a new array each time), open the text with these folded
    *  words highlighted, e.g. after picking this file in search. */
   focusWords?: string[] | null;
 }) => {
-  const { t } = useTranslation(undefined, {
-    keyPrefix: "sheet.member-sheet.documents.text",
-  });
-  const canEdit = useWorkspaceStore((s) =>
-    canEditArea(s.selectedTree, "sources"),
-  );
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState<string[] | undefined>();
   useEffect(() => {
@@ -504,33 +520,18 @@ export const DocumentFileTextButton = ({
     setOpen(next);
     if (!next) setHighlight(undefined);
   };
-  if (!file.hasText && !canEdit) return null;
-  const label = file.hasText ? t("open") : t("open-empty");
   // React events bubble through the dialog's portal: keep clicks inside it
   // from reaching clickable rows (the documents list toggles on click).
   const stop = (event: MouseEvent) => event.stopPropagation();
   return (
     <span className="contents" onClick={stop} onDoubleClick={stop}>
-      <DocumentFileTranscribeButton
-        documentId={documentId}
-        file={file}
-        className={className}
-      />
-      <button
-        type="button"
+      <Slot
         onClick={() => setOpen(true)}
-        className={cn(
-          "shrink-0 hover:text-foreground",
-          file.hasText
-            ? "text-primary"
-            : "text-muted-foreground pointer-fine:opacity-0 pointer-fine:group-hover/file:opacity-100 pointer-fine:focus-visible:opacity-100",
-          className,
-        )}
-        title={label}
-        aria-label={label}
+        aria-haspopup="dialog"
+        aria-expanded={open}
       >
-        <ScrollText className="w-4 h-4" />
-      </button>
+        {children}
+      </Slot>
       <DocumentFileTextDialog
         documentId={documentId}
         file={file}

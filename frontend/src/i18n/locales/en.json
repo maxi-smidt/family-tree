@@ -431,7 +431,7 @@
     "unlinked": "Not linked",
     "unknown-event": "Unknown event",
     "unknown-story": "Unknown story",
-    "open-hint": "Double-click to open a document file",
+    "open-hint": "Click to show or hide document details",
     "open-error": "Could not open the document file.",
     "show-details": "Show details",
     "hide-details": "Hide details",
@@ -838,6 +838,8 @@
         },
         "file": {
           "download": "Download",
+          "open-external": "Open in another window",
+          "error-download": "Could not download the file.",
           "error-open": "Could not open the file."
         },
         "linked": {

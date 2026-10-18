@@ -9,9 +9,10 @@ import {
 } from "@/test/utils";
 import { useDocumentStore } from "@/hooks/useDocumentStore";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
+import { downloadMedia } from "@/hooks/useMediaUrl";
 import type { DocumentFile, DocumentFileText } from "@/types/document";
 import {
-  DocumentFileTextButton,
+  DocumentFileReaderTrigger,
   DocumentFileTextDialog,
 } from "./DocumentFileTextDialog";
 
@@ -44,6 +45,11 @@ const TEXT: DocumentFileText = {
 
 const loadFileText = vi.fn();
 const saveFileText = vi.fn();
+
+vi.mock("@/hooks/useMediaUrl", () => ({
+  openMedia: vi.fn().mockResolvedValue(undefined),
+  downloadMedia: vi.fn().mockResolvedValue(undefined),
+}));
 
 // PDF canvas rendering is exercised in Playwright; keep the page coordination
 // and the real editor/save flow here without a browser canvas implementation.
@@ -91,6 +97,15 @@ describe("DocumentFileTextDialog", () => {
     ).toBeInTheDocument();
     expect(loadFileText).toHaveBeenCalledWith("doc-1", "file-1");
     expect(screen.getByText("Written by hand.")).toBeInTheDocument();
+  });
+
+  it("downloads the original file from the reader", async () => {
+    loadFileText.mockResolvedValue(TEXT);
+    renderDialog();
+    fireEvent.click(screen.getByRole("button", { name: "Download" }));
+    await waitFor(() =>
+      expect(downloadMedia).toHaveBeenCalledWith(FILE.url, FILE.filename),
+    );
   });
 
   it("offers a waiting AI version next to an edited text", async () => {
@@ -280,38 +295,45 @@ describe("DocumentFileTextDialog", () => {
   });
 });
 
-describe("DocumentFileTextButton", () => {
+describe("DocumentFileReaderTrigger", () => {
   const viewer = { id: "tree-1", name: "Tree", role: "viewer" as const };
   const owner = { id: "tree-1", name: "Tree", role: "owner" as const };
 
-  it("shows viewers the button only when the file has text", () => {
-    useWorkspaceStore.setState({ selectedTree: viewer });
-    const { rerender } = renderWithProviders(
-      <DocumentFileTextButton documentId="doc-1" file={FILE} />,
-    );
-    expect(
-      screen.getByRole("button", { name: "Show the file's text" }),
-    ).toBeInTheDocument();
-
-    rerender(
-      <DocumentFileTextButton
-        documentId="doc-1"
-        file={{ ...FILE, hasText: false }}
-      />,
-    );
-    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  beforeEach(() => {
+    loadFileText.mockReset().mockResolvedValue(null);
+    useDocumentStore.setState({ loadFileText });
   });
 
-  it("offers editors an add button for files without text", () => {
-    useWorkspaceStore.setState({ selectedTree: owner });
+  it("opens the reader for viewers even when the file has no text", async () => {
+    useWorkspaceStore.setState({ selectedTree: viewer });
     renderWithProviders(
-      <DocumentFileTextButton
+      <DocumentFileReaderTrigger
         documentId="doc-1"
         file={{ ...FILE, hasText: false }}
-      />,
+      >
+        <button type="button">{FILE.filename}</button>
+      </DocumentFileReaderTrigger>,
     );
+    fireEvent.click(screen.getByRole("button", { name: FILE.filename! }));
+    expect(await screen.findByText("No text yet.")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Add the file's text" }),
+      screen.queryByRole("button", { name: "Add text" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("lets editors add text after opening a file without text", async () => {
+    useWorkspaceStore.setState({ selectedTree: owner });
+    renderWithProviders(
+      <DocumentFileReaderTrigger
+        documentId="doc-1"
+        file={{ ...FILE, hasText: false }}
+      >
+        <button type="button">{FILE.filename}</button>
+      </DocumentFileReaderTrigger>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: FILE.filename! }));
+    expect(
+      await screen.findByRole("button", { name: "Add text" }),
     ).toBeInTheDocument();
   });
 });
