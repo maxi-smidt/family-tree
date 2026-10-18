@@ -6,8 +6,10 @@ import {
   DocumentFileText,
   DocumentInput,
   DocumentSavePayload,
+  DocumentSearchResult,
   mapDocumentFileTextFromDB,
   mapDocumentFromDB,
+  mapDocumentSearchResultFromDB,
 } from "@/types/document";
 import { WorkspaceService } from "@/services/WorkspaceService";
 import { activeTreeId, isActiveTree } from "@/hooks/useWorkspaceStore";
@@ -33,9 +35,25 @@ export class DocumentUploadError extends Error {
   }
 }
 
+/** A document to bring into view, e.g. picked from a search result: the
+ *  Documents list expands it and, with a file, opens that file's text with
+ *  the matched words highlighted. */
+export interface DocumentFocus {
+  documentId: string;
+  fileId: string | null;
+  words: string[];
+}
+
 interface DocumentState {
   documents: Document[];
   initialized: boolean;
+  focus: DocumentFocus | null;
+  setFocus: (focus: DocumentFocus | null) => void;
+  /** Search titles, descriptions and file texts on the server (#1122). */
+  searchDocuments: (
+    query: string,
+    limit?: number,
+  ) => Promise<DocumentSearchResult | null>;
   refreshDocuments: (workspaceId?: string) => Promise<void>;
   getDocumentsForMember: (memberId: string) => Document[];
   addDocument: (
@@ -126,6 +144,21 @@ function touchesMedia(ops: DocumentFileOps): boolean {
 export const useDocumentStore = create<DocumentState>((set, get) => ({
   documents: [],
   initialized: false,
+  focus: null,
+
+  setFocus: (focus) => set({ focus }),
+
+  searchDocuments: async (query: string, limit?: number) => {
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return null;
+    const row = await WorkspaceService.searchDocuments(
+      workspaceId,
+      query,
+      limit,
+    );
+    if (!isActiveTree(workspaceId)) return null;
+    return mapDocumentSearchResultFromDB(row);
+  },
 
   refreshDocuments: async (workspaceId = activeTreeId()) => {
     if (!workspaceId) {
@@ -268,5 +301,5 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     return row ? mapDocumentFileTextFromDB(row) : null;
   },
 
-  clear: () => set({ documents: [], initialized: false }),
+  clear: () => set({ documents: [], initialized: false, focus: null }),
 }));
