@@ -902,7 +902,45 @@
           "saved": "Text gespeichert",
           "error-load": "Der Text konnte nicht geladen werden.",
           "error-save": "Der Text konnte nicht gespeichert werden.",
-          "error-open": "Die Datei konnte nicht geöffnet werden."
+          "error-open": "Die Datei konnte nicht geöffnet werden.",
+          "source-ai-model": "Per KI transkribiert ({{model}}).",
+          "transcribing": "Die KI-Transkription läuft. Der Text erscheint hier, sobald er fertig ist.",
+          "machine-differs": "Eine neuere KI-Transkription weicht von diesem Text ab.",
+          "use-machine": "Mit KI-Version bearbeiten"
+        },
+        "ai": {
+          "start": "Mit KI transkribieren",
+          "running": "KI-Transkription läuft…",
+          "failed": "KI-Transkription fehlgeschlagen: {{error}} Klicken, um es erneut zu versuchen.",
+          "started": "Transkription gestartet. Du wirst benachrichtigt, sobald der Text fertig ist.",
+          "done": "Der KI-Text von {{name}} ist fertig.",
+          "failed-toast": "KI-Transkription von {{name}} fehlgeschlagen: {{error}}",
+          "untitled": "der Datei",
+          "confirm": {
+            "title": "Diese Datei an {{provider}} senden?",
+            "body": "{{name}} wird mit deinem eigenen API-Schlüssel an {{provider}} (Modell {{model}}) gesendet, und der Text wird als Transkription der Datei gespeichert.",
+            "body-no-key": "{{name}} wird an {{provider}} (Modell {{model}}) gesendet, und der Text wird als Transkription der Datei gespeichert.",
+            "risk": "Das geschieht auf dein eigenes Risiko. Die Datei verlässt diesen Server, und es gibt keine Garantie, wie der Anbieter die Daten speichert oder verwendet. Der Anbieter kann dir die Anfrage in Rechnung stellen.",
+            "keeps-edits": "Wenn du den aktuellen Text bearbeitet hast, bleibt deine Fassung erhalten und der neue KI-Text wird daneben angeboten.",
+            "cancel": "Abbrechen",
+            "send": "An {{provider}} senden"
+          },
+          "errors": {
+            "interrupted": "Der Vorgang wurde unterbrochen, zum Beispiel durch einen Neustart des Servers.",
+            "timeout": "Der Anbieter hat zu lange nicht geantwortet.",
+            "unreachable": "Der Anbieter war nicht erreichbar.",
+            "provider_error": "Der Anbieter hat einen Fehler gemeldet.",
+            "blocked": "Der Anbieter hat sich geweigert, diese Datei zu lesen.",
+            "empty_result": "Der Anbieter hat keinen Text geliefert.",
+            "file_too_large": "Die Datei ist zu groß zum Senden (höchstens 20 MB).",
+            "file_missing": "Die Datei wurde auf dem Server nicht gefunden.",
+            "unreadable_key": "Dein gespeicherter API-Schlüssel kann nicht mehr gelesen werden. Gib ihn unter Einstellungen → KI erneut ein.",
+            "ai_not_configured": "Richte zuerst KI unter Einstellungen → KI ein.",
+            "quota_exceeded": "Im Arbeitsbereich ist kein Speicher mehr für den Text frei.",
+            "unsupported_file": "Dein KI-Anbieter kann diesen Dateityp nicht lesen.",
+            "transcription_running": "Diese Datei wird bereits transkribiert.",
+            "unknown": "Etwas ist schiefgelaufen."
+          }
         }
       },
       "diseases": {
@@ -2247,6 +2285,51 @@
     },
     "delete-account": {
       "section": "Konto löschen"
+    },
+    "ai": {
+      "section": "KI",
+      "title": "KI-Transkription",
+      "hint": "Verbinde deinen eigenen KI-Anbieter, um Dokumentscans und PDFs in Text umzuwandeln. Dateien werden nur gesendet, wenn du neben einer Datei auf den KI-Button klickst und bestätigst.",
+      "status-on": "KI-Transkription ist eingeschaltet.",
+      "status-off": "KI-Transkription ist aus. Es wird nichts gesendet.",
+      "provider": "Anbieter",
+      "providers": {
+        "gemini": "Google Gemini (empfohlen)",
+        "openai": "OpenAI",
+        "anthropic": "Anthropic Claude",
+        "openai_compatible": "Eigener Endpunkt (OpenAI-kompatibel)"
+      },
+      "provider-hints": {
+        "gemini": "Liest alte Handschriften wie Kurrent gut. Einen Schlüssel erstellst du in Google AI Studio.",
+        "openai": "Einen Schlüssel erstellst du im OpenAI-Plattform-Dashboard.",
+        "anthropic": "Einen Schlüssel erstellst du in der Anthropic Console.",
+        "openai_compatible": "Für Ollama, LM Studio, vLLM, OpenRouter und ähnliche Server. Nur Bilder, keine PDFs. Nur für Admins, weil der Server die eingegebene Adresse aufruft."
+      },
+      "model": "Modell",
+      "model-hint": "Leer lassen für {{model}}.",
+      "base-url": "Endpunkt-URL",
+      "api-key": "API-Schlüssel",
+      "api-key-optional": "API-Schlüssel (optional)",
+      "api-key-keep": "Leer lassen, um den gespeicherten Schlüssel zu behalten",
+      "api-key-saved": "Ein Schlüssel ist gespeichert.",
+      "api-key-saved-hint": "Ein Schlüssel, der auf …{{hint}} endet, ist gespeichert.",
+      "api-key-storage": "Dein Schlüssel wird verschlüsselt auf diesem Server gespeichert und nie wieder angezeigt.",
+      "api-key-unreadable": "Der gespeicherte Schlüssel kann nicht mehr gelesen werden (das Server-Geheimnis hat sich geändert). Gib ihn erneut ein.",
+      "prompt": "Anweisung, die mit jeder Datei gesendet wird",
+      "prompt-reset": "Auf Standard zurücksetzen",
+      "prompt-hint": "Der Standard verlangt eine wortgetreue Transkription in der Originalsprache als Markdown, unleserliche Wörter als [?] markiert.",
+      "privacy": "Dateien, die du transkribierst, werden mit deinem Schlüssel an diesen Anbieter gesendet. Dessen Bedingungen regeln, wie die Daten gespeichert und genutzt werden, und er kann dir Kosten berechnen.",
+      "turn-off": "Ausschalten und Schlüssel löschen",
+      "save": "Speichern",
+      "saved": "KI-Einstellungen gespeichert.",
+      "removed": "KI ausgeschaltet und Schlüssel gelöscht.",
+      "error-load": "Die KI-Einstellungen konnten nicht geladen werden.",
+      "error-save": "Die KI-Einstellungen konnten nicht gespeichert werden.",
+      "errors": {
+        "api_key_required": "Gib einen API-Schlüssel für diesen Anbieter ein.",
+        "invalid_base_url": "Gib eine vollständige http://- oder https://-Endpunkt-URL ein.",
+        "custom_endpoint_admin_only": "Nur Admins können einen eigenen Endpunkt verwenden."
+      }
     }
   },
   "tutorial": {

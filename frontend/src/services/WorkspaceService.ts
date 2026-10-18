@@ -715,6 +715,17 @@ export class WorkspaceService {
     );
   }
 
+  /** Start an AI transcription of a file with the caller's own provider. */
+  static transcribeDocumentFile(
+    workspaceId: string,
+    documentId: string,
+    fileId: string,
+  ) {
+    return api.post<{ status: string }>(
+      `${base(workspaceId)}/documents/${documentId}/files/${fileId}/transcribe`,
+    );
+  }
+
   static setDocumentMembers(
     workspaceId: string,
     documentId: string,

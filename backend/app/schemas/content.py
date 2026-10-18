@@ -286,6 +286,10 @@ class DocumentFileOut(BaseModel):
     # Whether the file has a readable text (#1121); the text itself is only
     # loaded when the file is opened, never as part of a document list.
     has_text: bool = False
+    # The latest AI transcription run (#1123): "pending", "done" or
+    # "failed" (with ``transcription_error``), or null when there was none.
+    transcription_status: str | None = None
+    transcription_error: str | None = None
 
 
 class DocumentFileTextOut(BaseModel):
@@ -295,6 +299,11 @@ class DocumentFileTextOut(BaseModel):
     language: str | None = None
     markdown: str
     source: str
+    # The last AI transcription, unedited; differs from ``markdown`` once a
+    # person has corrected the text, or when a re-run found something new.
+    machine_markdown: str | None = None
+    provider: str | None = None
+    model: str | None = None
     edited_by: str | None = None
     edited_at: str | None = None
     created_at: str

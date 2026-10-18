@@ -122,6 +122,17 @@ class InvitationReceivedData(TypedDict):
     workspace_name: str
 
 
+class DocumentTranscriptionFinishedData(TypedDict):
+    """Sent only to the person who started an AI transcription (#1123)."""
+
+    workspace_id: str
+    document_id: str
+    file_id: str
+    filename: str | None
+    status: str  # "done" | "failed"
+    error: str | None
+
+
 EventPayload = (
     ActivityEntryAddedData
     | WorkspaceContentChangedData
@@ -140,6 +151,7 @@ EventPayload = (
     | SessionInvalidateData
     | FriendRequestReceivedData
     | InvitationReceivedData
+    | DocumentTranscriptionFinishedData
 )
 """Every payload shape ``EventBus``/``publish_workspace_event`` accepts — one
 variant per event-type string published anywhere in the backend."""

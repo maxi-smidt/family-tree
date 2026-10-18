@@ -47,6 +47,7 @@ from app.models import (
     Document,
     DocumentFile,
     DocumentFileText,
+    DocumentFileTranscription,
     DocumentMemberLink,
     DocumentUpload,
     Event,
@@ -83,6 +84,7 @@ from app.models import (
     StoryDocumentLink,
     StoryMemberLink,
     User,
+    UserAiSettings,
     Workspace,
     WorkspaceInvitation,
     WorkspaceMembership,
@@ -130,6 +132,7 @@ MAX_MEDIA_PATH_DEPTH = 32
 # tuple.
 BACKUP_MODELS: tuple[type, ...] = (
     User,
+    UserAiSettings,
     RelationType,
     AppSetting,
     LegalDocumentVersion,
@@ -192,6 +195,10 @@ BACKUP_EXCLUDED_MODELS: tuple[type, ...] = (
     # A per-user activity inbox that is safe to lose: restoring an instance
     # without it just means read/unread badges reset, nothing is orphaned.
     Notification,
+    # Status of the latest AI run per file (#1123). The transcribed text
+    # itself is in document_file_texts; losing this only clears the
+    # "running"/"failed" marks.
+    DocumentFileTranscription,
 )
 
 
@@ -312,6 +319,9 @@ LEGACY_OPTIONAL_TABLES: frozenset[str] = frozenset(
         SavedViewUserState.__tablename__,
         # Document file texts (#1121) were added in v2.2.0.
         DocumentFileText.__tablename__,
+        # Per-user AI settings (#1123) were added in v2.2.0. The sealed API
+        # key only opens with the same SECRET_KEY; otherwise it is re-entered.
+        UserAiSettings.__tablename__,
     }
 )
 

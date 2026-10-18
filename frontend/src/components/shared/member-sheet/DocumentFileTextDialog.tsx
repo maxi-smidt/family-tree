@@ -1,5 +1,5 @@
 import { type MouseEvent, useCallback, useEffect, useState } from "react";
-import { ExternalLink, Pencil, ScrollText } from "lucide-react";
+import { ExternalLink, Pencil, ScrollText, Sparkles } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import type { DocumentFile, DocumentFileText } from "@/types/document";
 import { canEditArea } from "@/utils/accessLevels";
 import { cn } from "@/lib/utils";
+import { DocumentFileTranscribeButton } from "./DocumentFileTranscribeButton";
 
 interface DocumentFileTextDialogProps {
   documentId: string;
@@ -29,8 +30,22 @@ interface DocumentFileTextDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-function sourceKey(text: DocumentFileText): string {
-  return text.source === "ai" ? "source-ai" : "source-manual";
+function sourceLine(
+  t: (key: string, options?: Record<string, unknown>) => string,
+  text: DocumentFileText,
+): string {
+  if (text.source !== "ai") return t("source-manual");
+  return text.model
+    ? t("source-ai-model", { model: text.model })
+    : t("source-ai");
+}
+
+/** A newer AI transcription that differs from the (edited) text shown. */
+function hasNewerMachineText(text: DocumentFileText | null): boolean {
+  return (
+    !!text?.machineMarkdown &&
+    text.machineMarkdown.trim() !== text.markdown.trim()
+  );
 }
 
 /** Read, and with Edit on Documents write, the Markdown text of one document
@@ -76,11 +91,12 @@ export const DocumentFileTextDialog = ({
     return () => {
       cancelled = true;
     };
+    // A finished AI run changes the file's status: load its result.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, documentId, file.id, loadFileText]);
+  }, [open, documentId, file.id, file.transcriptionStatus, loadFileText]);
 
-  const startEditing = () => {
-    setDraft(text?.markdown ?? "");
+  const startEditing = (markdown = text?.markdown ?? "") => {
+    setDraft(markdown);
     setEditing(true);
   };
 
@@ -119,9 +135,36 @@ export const DocumentFileTextDialog = ({
             {t("title", { name })}
           </DialogTitle>
           <DialogDescription>
-            {editing ? t("hint") : text ? t(sourceKey(text)) : t("description")}
+            {editing
+              ? t("hint")
+              : text
+                ? sourceLine(t, text)
+                : t("description")}
           </DialogDescription>
         </DialogHeader>
+
+        {file.transcriptionStatus === "pending" && !editing && (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Spinner className="size-4" />
+            {t("transcribing")}
+          </p>
+        )}
+        {canEdit && !editing && !loading && hasNewerMachineText(text) && (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm">
+            <span className="flex items-center gap-2">
+              <Sparkles className="size-4 shrink-0" />
+              {t("machine-differs")}
+            </span>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => startEditing(text?.machineMarkdown ?? "")}
+            >
+              {t("use-machine")}
+            </Button>
+          </div>
+        )}
 
         <div className="max-h-[60vh] min-h-24 overflow-y-auto">
           {loading ? (
@@ -171,7 +214,7 @@ export const DocumentFileTextDialog = ({
           ) : (
             canEdit &&
             !loading && (
-              <Button type="button" onClick={startEditing}>
+              <Button type="button" onClick={() => startEditing()}>
                 <Pencil />
                 {text ? t("edit") : t("add")}
               </Button>
@@ -209,6 +252,11 @@ export const DocumentFileTextButton = ({
   const stop = (event: MouseEvent) => event.stopPropagation();
   return (
     <span className="contents" onClick={stop} onDoubleClick={stop}>
+      <DocumentFileTranscribeButton
+        documentId={documentId}
+        file={file}
+        className={className}
+      />
       <button
         type="button"
         onClick={() => setOpen(true)}

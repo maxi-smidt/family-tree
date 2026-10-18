@@ -30,6 +30,8 @@ describe("Document type mapping", () => {
         size: 12345,
         createdAt: "2024-01-01T00:00:00Z",
         hasText: true,
+        transcriptionStatus: null,
+        transcriptionError: null,
       });
     });
 
@@ -94,6 +96,8 @@ describe("Document type mapping", () => {
             size: 999,
             createdAt: "2024-01-01T00:00:00Z",
             hasText: false,
+            transcriptionStatus: null,
+            transcriptionError: null,
           },
         ],
         memberIds: ["m1", "m2"],

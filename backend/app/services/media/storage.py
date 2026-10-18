@@ -183,6 +183,12 @@ def _safe_media_path(
     return path
 
 
+def media_file_path(value: str | None, workspace_id: str) -> Path | None:
+    """The stored file behind a workspace's ``/api/media/...`` URL, if present."""
+    path = _safe_media_path(value, expected_tree_id=workspace_id)
+    return path if path is not None and path.is_file() else None
+
+
 def _safe_original_files(path: Path) -> list[Path]:
     """Return only canonical, regular original siblings contained in-tree."""
     originals_dir = (path.parent / "originals").resolve()

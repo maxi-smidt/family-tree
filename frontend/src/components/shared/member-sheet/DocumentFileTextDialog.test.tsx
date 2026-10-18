@@ -17,6 +17,8 @@ const FILE: DocumentFile = {
   size: 100,
   createdAt: "2026-01-01T00:00:00Z",
   hasText: true,
+  transcriptionStatus: null,
+  transcriptionError: null,
 };
 
 const TEXT: DocumentFileText = {
@@ -24,6 +26,9 @@ const TEXT: DocumentFileText = {
   language: null,
   markdown: "# Taufschein\n\nJohann Schmidt",
   source: "manual",
+  machineMarkdown: null,
+  provider: null,
+  model: null,
   editedBy: null,
   editedAt: null,
   updatedAt: "2026-01-01T00:00:00Z",
