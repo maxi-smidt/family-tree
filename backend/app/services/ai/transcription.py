@@ -37,7 +37,7 @@ from app.models import (
 )
 from app.services.activity.activity import record_activity
 from app.services.ai.ai_settings import (
-    effective_prompt,
+    TRANSCRIPTION_PROMPT,
     get_ai_settings,
     is_configured,
     provider_for,
@@ -182,7 +182,7 @@ def _transcribe(db: Session, run: DocumentFileTranscription, file: DocumentFile)
     provider = provider_for(settings)
     run.provider = settings.provider
     run.model = settings.model
-    text = clean_markdown(provider.transcribe(effective_prompt(settings), payload))
+    text = clean_markdown(provider.transcribe(TRANSCRIPTION_PROMPT, payload))
     if not text:
         raise AiProviderError("empty_result")
     return text
@@ -236,14 +236,19 @@ def _store_result(
                 created_at=now,
             )
             db.add(text)
+            text.status = "done"
         elif not text.markdown.strip() or text.markdown == text.machine_markdown:
             # Nobody changed the text since the last machine version.
             text.markdown = markdown
             text.source = "ai"
+            text.status = "done"
+        else:
+            # A person's text is kept; the new version waits next to it
+            # until they take it or keep theirs (any save clears this).
+            text.status = "review"
         text.machine_markdown = markdown
         text.provider = run.provider
         text.model = run.model
-        text.status = "done"
         text.error = None
         text.updated_at = now
         run.status = "done"

@@ -117,7 +117,7 @@ class GeminiProvider(TranscriptionProvider):
 
     id = "gemini"
     label = "Google Gemini"
-    default_model = "gemini-2.5-pro"
+    default_model = "gemini-3.8-flash"
     endpoint = "https://generativelanguage.googleapis.com/v1beta"
 
     def transcribe(self, prompt: str, file: TranscriptionInput) -> str:

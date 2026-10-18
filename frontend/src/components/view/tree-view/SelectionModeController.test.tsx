@@ -8,8 +8,12 @@ let nodesSelectionActive = false;
 let store: ReturnType<typeof useStoreApi<never, never>> | null = null;
 
 function Probe() {
-  multiSelectionActive = useStore((s: ReactFlowState) => s.multiSelectionActive);
-  nodesSelectionActive = useStore((s: ReactFlowState) => s.nodesSelectionActive);
+  multiSelectionActive = useStore(
+    (s: ReactFlowState) => s.multiSelectionActive,
+  );
+  nodesSelectionActive = useStore(
+    (s: ReactFlowState) => s.nodesSelectionActive,
+  );
   store = useStoreApi();
   return null;
 }

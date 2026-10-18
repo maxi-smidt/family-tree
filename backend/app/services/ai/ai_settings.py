@@ -19,7 +19,9 @@ from app.services.ai.providers import (
 
 _KEY_PURPOSE = "ai-api-key"
 
-DEFAULT_PROMPT = (
+# Sent with every file. Deliberately not a setting: one tested instruction
+# for everyone instead of per-person variants.
+TRANSCRIPTION_PROMPT = (
     "Transcribe all text in this document exactly as written, in its original "
     "language. Do not translate, summarize, modernize or correct anything.\n"
     "Return the transcription as meaningful Markdown: keep the document's "
@@ -67,10 +69,6 @@ def is_configured(row: UserAiSettings | None) -> bool:
     return key_is_readable(row)
 
 
-def effective_prompt(row: UserAiSettings) -> str:
-    return row.prompt if row.prompt and row.prompt.strip() else DEFAULT_PROMPT
-
-
 def provider_for(row: UserAiSettings) -> TranscriptionProvider:
     return create_provider(
         row.provider, model=row.model, api_key=read_api_key(row), base_url=row.base_url
@@ -85,7 +83,6 @@ def save_ai_settings(
     model: str,
     base_url: str | None,
     api_key: str | None,
-    prompt: str | None,
 ) -> UserAiSettings:
     """Create or replace *user*'s settings (the caller commits).
 
@@ -125,8 +122,5 @@ def save_ai_settings(
     row.provider = provider
     row.model = model.strip() or cls.default_model
     row.base_url = base_url
-    row.prompt = (
-        prompt if prompt and prompt.strip() and prompt != DEFAULT_PROMPT else None
-    )
     row.updated_at = now
     return row

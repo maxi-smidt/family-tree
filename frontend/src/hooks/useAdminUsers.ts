@@ -15,7 +15,7 @@ export function useAdminUsers() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
-  const run = useCallback(async <T,>(action: () => Promise<T>): Promise<T> => {
+  const run = useCallback(async <T>(action: () => Promise<T>): Promise<T> => {
     setLoading(true);
     setError(null);
     try {
@@ -69,6 +69,7 @@ export function useAdminUsers() {
       }),
     resetPassword: (userId: string, password: string) =>
       run(() => AdminService.resetUserPassword(userId, password)),
-    resetTotp: (userId: string) => run(() => AdminService.resetUserTotp(userId)),
+    resetTotp: (userId: string) =>
+      run(() => AdminService.resetUserTotp(userId)),
   };
 }

@@ -5,6 +5,8 @@ because the frontend reads/writes ``imageData``, ``createdAt``, ``uploadedAt``.
 All other schemas are intentionally snake_case end-to-end.
 """
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.schemas.base import FamilyTreeBaseModel, FamilyTreeOrmBaseModel
@@ -304,6 +306,8 @@ class DocumentFileTextOut(BaseModel):
     machine_markdown: str | None = None
     provider: str | None = None
     model: str | None = None
+    # "review" while a newer AI version waits next to a person's edited text.
+    status: str | None = None
     edited_by: str | None = None
     edited_at: str | None = None
     created_at: str
@@ -315,6 +319,38 @@ class DocumentFileTextSave(BaseModel):
 
     markdown: str = Field(max_length=1_000_000)
     language: str | None = Field(default=None, max_length=16)
+
+
+class DocumentSearchHitOut(BaseModel):
+    """One place a document search matched (#1122): the title, the
+    description, or one file's text."""
+
+    document_id: str
+    document_title: str
+    document_date: str | None = None
+    field: Literal["title", "description", "text"]
+    file_id: str | None = None
+    file_name: str | None = None
+    #: From the text's ``<!-- page N -->`` markers, when it has them.
+    page: int | None = None
+    #: Plain text (Markdown removed) around the match; ``highlights`` are
+    #: ``[start, end)`` character ranges in it.
+    snippet: str
+    highlights: list[tuple[int, int]]
+    #: Separate places in this field that match.
+    match_count: int
+    #: The folded words that matched, for highlighting the full text.
+    matched_words: list[str]
+
+
+class DocumentSearchResultOut(BaseModel):
+    items: list[DocumentSearchHitOut]
+    #: Matches found; a lower bound when ``truncated``.
+    total: int
+    truncated: bool
+    #: True when nothing matched exactly and these are similar spellings.
+    fuzzy: bool
+    terms: list[str]
 
 
 class DocumentLinkCreate(BaseModel):

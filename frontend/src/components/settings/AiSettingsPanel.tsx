@@ -12,7 +12,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
-import { Textarea } from "@/components/ui/textarea";
 import { useAiSettingsStore } from "@/hooks/useAiSettingsStore";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { ApiError } from "@/services/api";
@@ -20,7 +19,8 @@ import type { AiProviderId } from "@/types/ai";
 
 /** The person's own AI provider for transcribing document files: which
  *  service, which model, their API key (stored encrypted on the server and
- *  never shown again) and the instruction sent with each file. */
+ *  never shown again). The instruction sent with each file lives in the
+ *  backend. */
 export function AiSettingsPanel() {
   const { t } = useTranslation(undefined, { keyPrefix: "user-settings.ai" });
   const isAdmin = useAuthStore((s) => s.user?.is_admin ?? false);
@@ -33,7 +33,6 @@ export function AiSettingsPanel() {
   const [model, setModel] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
-  const [prompt, setPrompt] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -46,7 +45,6 @@ export function AiSettingsPanel() {
     setModel(settings.model ?? "");
     setBaseUrl(settings.base_url ?? "");
     setApiKey("");
-    setPrompt(settings.prompt ?? settings.default_prompt);
   }, [settings]);
 
   if (!settings) {
@@ -78,8 +76,6 @@ export function AiSettingsPanel() {
         model: model.trim(),
         base_url: info?.custom_base_url ? baseUrl.trim() : null,
         ...(apiKey.trim() ? { api_key: apiKey.trim() } : {}),
-        prompt:
-          prompt.trim() === settings.default_prompt.trim() ? null : prompt,
       });
       toast.success(t("saved"));
     } catch (err) {
@@ -197,28 +193,6 @@ export function AiSettingsPanel() {
                 : t("api-key-saved")
               : t("api-key-storage")}
         </p>
-      </div>
-
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between gap-2">
-          <FieldLabel htmlFor="ai-prompt">{t("prompt")}</FieldLabel>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            disabled={prompt === settings.default_prompt}
-            onClick={() => setPrompt(settings.default_prompt)}
-          >
-            {t("prompt-reset")}
-          </Button>
-        </div>
-        <Textarea
-          id="ai-prompt"
-          rows={8}
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-        />
-        <p className="text-xs text-muted-foreground">{t("prompt-hint")}</p>
       </div>
 
       <p className="text-xs text-muted-foreground">{t("privacy")}</p>

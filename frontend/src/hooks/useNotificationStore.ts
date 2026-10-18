@@ -50,7 +50,10 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     if (loadingMore || notifications.length >= total) return;
     set({ loadingMore: true });
     try {
-      const page = await NotificationService.list(PAGE_SIZE, notifications.length);
+      const page = await NotificationService.list(
+        PAGE_SIZE,
+        notifications.length,
+      );
       set((state) => {
         const existingIds = new Set(state.notifications.map((n) => n.id));
         const newEntries = page.entries.filter((n) => !existingIds.has(n.id));

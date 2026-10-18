@@ -149,7 +149,9 @@ describe("useGalleryStore — updateGalleryImage", () => {
   it("calls WorkspaceService.updateGalleryImage and setGalleryImageLinks when links change", async () => {
     useWorkspaceStore.setState({ selectedTree: TREE });
     vi.mocked(WorkspaceService.updateGalleryImage).mockResolvedValue(undefined);
-    vi.mocked(WorkspaceService.setGalleryImageLinks).mockResolvedValue(undefined);
+    vi.mocked(WorkspaceService.setGalleryImageLinks).mockResolvedValue(
+      undefined,
+    );
     vi.mocked(WorkspaceService.getGalleryImages).mockResolvedValue([]);
     vi.mocked(WorkspaceService.getGalleryMemberLinks).mockResolvedValue([]);
 

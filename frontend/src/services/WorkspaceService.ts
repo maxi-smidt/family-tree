@@ -39,6 +39,7 @@ import {
   DocumentFileTextDB,
   DocumentInput,
   DocumentSavePayload,
+  DocumentSearchResultDB,
   DocumentUploadDB,
 } from "@/types/document";
 import { GeocodeCandidate, GeocodeDB } from "@/types/geocode";
@@ -689,6 +690,14 @@ export class WorkspaceService {
 
   static removeDocument(workspaceId: string, id: string) {
     return api.del(`${base(workspaceId)}/documents/${id}`);
+  }
+
+  /** Documents whose title, description or file text match `q` (#1122). */
+  static searchDocuments(workspaceId: string, q: string, limit = 20) {
+    return api.get<DocumentSearchResultDB>(
+      `${base(workspaceId)}/documents/search`,
+      { q, limit },
+    );
   }
 
   /** A file's Markdown text, or `null` when it has none yet. */

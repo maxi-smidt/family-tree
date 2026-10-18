@@ -34,11 +34,15 @@ describe("Location", () => {
         showOnMapLabel="Open map"
       />,
     );
-    expect(screen.getByRole("button", { name: "Open map" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Open map" }),
+    ).toBeInTheDocument();
   });
 
   it("renders trailing content after the location", () => {
-    render(<Location location="Vienna" trailing={<span>(1990 – 1995)</span>} />);
+    render(
+      <Location location="Vienna" trailing={<span>(1990 – 1995)</span>} />,
+    );
     expect(screen.getByText("(1990 – 1995)")).toBeInTheDocument();
   });
 });

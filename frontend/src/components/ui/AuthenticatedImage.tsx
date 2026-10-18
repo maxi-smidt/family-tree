@@ -6,7 +6,11 @@ type Props = Omit<ImgHTMLAttributes<HTMLImageElement>, "src"> & {
   fallback?: ReactNode;
 };
 
-export const AuthenticatedImage = ({ src, fallback = null, ...props }: Props) => {
+export const AuthenticatedImage = ({
+  src,
+  fallback = null,
+  ...props
+}: Props) => {
   const resolvedSrc = useMediaUrl(src);
   if (!resolvedSrc) return <>{fallback}</>;
   return <img src={resolvedSrc} {...props} />;

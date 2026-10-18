@@ -83,7 +83,8 @@ export const MergeTreesDialog = ({ isOpen, onClose }: Props) => {
     onClose();
   };
 
-  const workspaceName = (id: string) => workspaces.find((d) => d.id === id)?.name ?? "";
+  const workspaceName = (id: string) =>
+    workspaces.find((d) => d.id === id)?.name ?? "";
 
   const handleDb1Change = (val: string) => {
     setDb1Id(val);

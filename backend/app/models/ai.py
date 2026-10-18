@@ -25,8 +25,6 @@ class UserAiSettings(Base):
     base_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     api_key_sealed: Mapped[str | None] = mapped_column(Text, nullable=True)
     api_key_hint: Mapped[str | None] = mapped_column(String(8), nullable=True)
-    # A custom instruction; null means the built-in default prompt.
-    prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[str] = mapped_column(String(40))
     updated_at: Mapped[str] = mapped_column(String(40))
 

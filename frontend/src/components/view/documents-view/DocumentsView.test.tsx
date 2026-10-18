@@ -93,6 +93,67 @@ describe("DocumentsView", () => {
       refreshStories: vi.fn(),
     });
     useMemberSheetStore.setState({ openSheets: {}, setOpenSheet: vi.fn() });
+    useDocumentStore.setState({
+      focus: null,
+      searchDocuments: vi.fn().mockResolvedValue(null),
+      loadFileText: vi.fn().mockResolvedValue(null),
+    });
+  });
+
+  it("finds documents by their file text and shows where", async () => {
+    useDocumentStore.setState({
+      searchDocuments: vi.fn().mockResolvedValue({
+        hits: [
+          {
+            documentId: "unlinked-document",
+            documentTitle: "Archive index",
+            documentDate: null,
+            field: "text",
+            fileId: "file-9",
+            fileName: "index.png",
+            page: 2,
+            snippet: "… Johann Weber, Bauer",
+            highlights: [[9, 14]],
+            matchCount: 1,
+            matchedWords: ["weber"],
+          },
+        ],
+        total: 1,
+        truncated: false,
+        fuzzy: false,
+      }),
+    });
+    render(<DocumentsView />);
+    fireEvent.change(screen.getByPlaceholderText("Search documents…"), {
+      target: { value: "weber" },
+    });
+    expect(await screen.findByText("In index.png, p. 2:")).toBeInTheDocument();
+    expect(screen.getByText("Archive index")).toBeInTheDocument();
+    expect(screen.queryByText("Birth certificate")).not.toBeInTheDocument();
+  });
+
+  it("opens the file text of a document picked in search", async () => {
+    const loadFileText = vi.fn().mockResolvedValue({
+      fileId: "file-1",
+      language: null,
+      markdown: "Geboren: Ada",
+      source: "manual",
+      editedBy: null,
+      editedAt: null,
+      updatedAt: "2026-01-01T00:00:00Z",
+    });
+    useDocumentStore.setState({
+      loadFileText,
+      focus: {
+        documentId: "linked-document",
+        fileId: "file-1",
+        words: ["ada"],
+      },
+    });
+    render(<DocumentsView />);
+    expect(await screen.findByText("Geboren: Ada")).toBeInTheDocument();
+    expect(loadFileText).toHaveBeenCalledWith("linked-document", "file-1");
+    expect(useDocumentStore.getState().focus).toBeNull();
   });
 
   it("starts collapsed, then filters to unlinked documents and opens linked people", () => {

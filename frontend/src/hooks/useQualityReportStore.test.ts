@@ -67,7 +67,9 @@ describe("useQualityReportStore — refreshReport", () => {
 describe("useQualityReportStore — dismissIssue / restoreIssue", () => {
   it("dismisses an issue then refreshes the report", async () => {
     useWorkspaceStore.setState({ selectedTree: makeTree() });
-    vi.mocked(WorkspaceService.dismissQualityIssue).mockResolvedValue(undefined);
+    vi.mocked(WorkspaceService.dismissQualityIssue).mockResolvedValue(
+      undefined,
+    );
     vi.mocked(WorkspaceService.getQualityReport).mockResolvedValue({
       ...REPORT,
       issues: [{ ...REPORT.issues[0], dismissed: true }],
@@ -86,7 +88,9 @@ describe("useQualityReportStore — dismissIssue / restoreIssue", () => {
 
   it("restores an issue then refreshes the report", async () => {
     useWorkspaceStore.setState({ selectedTree: makeTree() });
-    vi.mocked(WorkspaceService.restoreQualityIssue).mockResolvedValue(undefined);
+    vi.mocked(WorkspaceService.restoreQualityIssue).mockResolvedValue(
+      undefined,
+    );
     vi.mocked(WorkspaceService.getQualityReport).mockResolvedValue(REPORT);
 
     await useQualityReportStore.getState().restoreIssue("issue-1");

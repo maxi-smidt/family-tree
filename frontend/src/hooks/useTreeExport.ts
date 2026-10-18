@@ -57,21 +57,28 @@ export function useTreeExport() {
     const nodes = getNodes();
     if (nodes.length === 0) return;
 
-    const viewport = document.querySelector<HTMLElement>(".react-flow__viewport");
+    const viewport = document.querySelector<HTMLElement>(
+      ".react-flow__viewport",
+    );
     if (!viewport) return;
 
     const bounds = getNodesBounds(nodes);
 
     const rawWidth = bounds.width + EXPORT_PADDING_PX * 2;
     const rawHeight = bounds.height + EXPORT_PADDING_PX * 2;
-    const dimScale = Math.min(1, EXPORT_MAX_DIM / Math.max(rawWidth, rawHeight));
+    const dimScale = Math.min(
+      1,
+      EXPORT_MAX_DIM / Math.max(rawWidth, rawHeight),
+    );
     const imageWidth = Math.round(rawWidth * dimScale);
     const imageHeight = Math.round(rawHeight * dimScale);
 
     const tx = (-bounds.x + EXPORT_PADDING_PX) * dimScale;
     const ty = (-bounds.y + EXPORT_PADDING_PX) * dimScale;
 
-    const backgroundColor = window.getComputedStyle(document.body).backgroundColor;
+    const backgroundColor = window.getComputedStyle(
+      document.body,
+    ).backgroundColor;
 
     // Pre-inline SVG presentation styles — html-to-image clones SVG subtrees
     // with cloneNode(true) but skips style decoration on SVG children, so

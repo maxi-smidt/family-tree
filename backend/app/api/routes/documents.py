@@ -15,6 +15,7 @@ from fastapi import (
     File,
     Form,
     HTTPException,
+    Query,
     UploadFile,
 )
 from sqlalchemy import select
@@ -29,7 +30,10 @@ from app.api.deps import (
     require_domain,
 )
 from app.api.pagination import Pagination, apply_pagination, pagination_params
+from app.core.config import settings
+from app.core.db_timeout import statement_timeout
 from app.core.exceptions import QuotaExceeded
+from app.core.rate_limit import search_rate_limiter
 from app.db.base import utcnow_iso
 from app.db.session import get_db
 from app.models import (
@@ -55,6 +59,8 @@ from app.schemas.content import (
     DocumentLinkCreate,
     DocumentOut,
     DocumentSave,
+    DocumentSearchHitOut,
+    DocumentSearchResultOut,
     DocumentUpdate,
     DocumentUploadOut,
     LinksSet,
@@ -78,6 +84,7 @@ from app.services.documents.document_service import (
     save_document,
 )
 from app.services.documents.file_text import files_with_text
+from app.services.documents.text_search import search_documents
 from app.services.event_bus import publish_workspace_event
 from app.services.media.storage import (
     ChecksumMismatch,
@@ -245,6 +252,58 @@ def list_documents(
     )
     documents = db.scalars(apply_pagination(statement, pagination)).all()
     return _documents_out(db, list(documents))
+
+
+@router.get("/search", response_model=DocumentSearchResultOut)
+def search_documents_route(
+    q: str = Query(..., min_length=1, max_length=200),
+    limit: int = Query(20, ge=1, le=50),
+    tree: Workspace = Depends(get_readable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_authenticated),
+    db: Session = Depends(get_db),
+):
+    """Find documents by title, description and file text (#1122).
+
+    Only documents the caller may read are searched, with the same rule as
+    the list (hidden Documents areas and unreachable sections never appear,
+    not even in ``total``). See ``services.documents.text_search`` for how
+    matching keeps long texts from flooding the results. Rate limited and
+    time-bounded like the member search.
+    """
+    rate_key = f"documents:{tree.id}:{context.principal}"
+    retry_after = search_rate_limiter.retry_after(rate_key)
+    if retry_after is not None:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many search requests. Please try again later.",
+            headers={"Retry-After": str(int(retry_after) + 1)},
+        )
+    search_rate_limiter.record_hit(rate_key)
+
+    with statement_timeout(db, settings.SEARCH_QUERY_TIMEOUT_MS):
+        result = search_documents(db, tree.id, context, q, limit=limit)
+    return DocumentSearchResultOut(
+        items=[
+            DocumentSearchHitOut(
+                document_id=hit.document_id,
+                document_title=hit.document_title,
+                document_date=hit.document_date,
+                field=hit.field,
+                file_id=hit.file_id,
+                file_name=hit.file_name,
+                page=hit.page,
+                snippet=hit.snippet.text,
+                highlights=list(hit.snippet.highlights),
+                match_count=hit.match_count,
+                matched_words=hit.matched_words,
+            )
+            for hit in result.hits
+        ],
+        total=result.total,
+        truncated=result.truncated,
+        fuzzy=result.fuzzy,
+        terms=result.terms,
+    )
 
 
 @router.post("", response_model=DocumentOut, status_code=201)
@@ -781,6 +840,10 @@ def save_file_text(
             text = existing
             text.markdown = markdown
             text.language = payload.language
+            # Saving answers a waiting AI version ("review"), whichever
+            # text the person kept.
+            text.status = None
+            text.source = "ai" if markdown == text.machine_markdown else "manual"
             text.edited_by = user.id
             text.edited_at = now
             text.updated_at = now

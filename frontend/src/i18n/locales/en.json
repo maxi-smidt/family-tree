@@ -447,7 +447,11 @@
     "no-files": "No files yet",
     "subtitle": "{{count}} records · {{people}} people covered",
     "subtitle_one": "{{count}} record · {{people}} people covered",
-    "subtitle_other": "{{count}} records · {{people}} people covered"
+    "subtitle_other": "{{count}} records · {{people}} people covered",
+    "searching-texts": "Searching file texts…",
+    "open-text-hit": "Open the text at this match",
+    "text-hit": "In {{file}}:",
+    "text-hit-page": "In {{file}}, p. {{page}}:"
   },
   "layout": {
     "tree-breadcrumb": {
@@ -519,7 +523,7 @@
       "open": "Search people, places and events",
       "placeholder": "Search people, places, events",
       "title": "Search",
-      "description": "Find a person, place, event, section or saved view in this workspace, switch to another workspace, or jump to a page.",
+      "description": "Find a person, place, event, section, saved view or document (also by the text of its files) in this workspace, switch to another workspace, or jump to a page.",
       "empty": "Nothing found.",
       "people": "People",
       "places": "Places",
@@ -534,7 +538,12 @@
       "role-editor": "Editor",
       "role-viewer": "Viewer",
       "open-view-error": "That saved view could not be opened.",
-      "open-workspace-error": "That workspace could not be opened."
+      "open-workspace-error": "That workspace could not be opened.",
+      "documents": "Documents",
+      "documents-similar": "Documents (similar spellings)",
+      "document-file-page": "{{file}} · p. {{page}}",
+      "document-matches_one": "{{count}} match",
+      "document-matches_other": "{{count}} matches"
     }
   },
   "list-view": {
@@ -905,8 +914,9 @@
           "error-open": "Could not open the file.",
           "source-ai-model": "Transcribed by AI ({{model}}).",
           "transcribing": "AI transcription is running. The text appears here when it is ready.",
-          "machine-differs": "A newer AI transcription differs from this text.",
-          "use-machine": "Edit with AI version"
+          "machine-differs": "A new AI transcription is ready. Your edited text was kept.",
+          "use-machine": "Use AI version",
+          "keep-mine": "Keep mine"
         },
         "ai": {
           "start": "Transcribe with AI",
@@ -940,7 +950,8 @@
             "unsupported_file": "Your AI provider cannot read this type of file.",
             "transcription_running": "This file is already being transcribed.",
             "unknown": "Something went wrong."
-          }
+          },
+          "again": "Transcribe again"
         }
       },
       "diseases": {
@@ -2315,9 +2326,6 @@
       "api-key-saved-hint": "A key ending in …{{hint}} is saved.",
       "api-key-storage": "Your key is stored encrypted on this server and never shown again.",
       "api-key-unreadable": "The saved key can no longer be read (the server's secret changed). Enter it again.",
-      "prompt": "Instruction sent with each file",
-      "prompt-reset": "Reset to default",
-      "prompt-hint": "The default asks for a verbatim transcription in the original language as Markdown, with unreadable words marked [?].",
       "privacy": "Files you transcribe are sent to this provider with your key. Its terms decide how the data is stored and used, and it may bill your account.",
       "turn-off": "Turn off and delete key",
       "save": "Save",

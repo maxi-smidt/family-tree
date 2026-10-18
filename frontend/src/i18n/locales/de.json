@@ -447,7 +447,11 @@
     "no-files": "Noch keine Dateien",
     "subtitle": "{{count}} Dokumente · {{people}} Personen erfasst",
     "subtitle_one": "{{count}} Dokument · {{people}} Personen erfasst",
-    "subtitle_other": "{{count}} Dokumente · {{people}} Personen erfasst"
+    "subtitle_other": "{{count}} Dokumente · {{people}} Personen erfasst",
+    "searching-texts": "Dateitexte werden durchsucht…",
+    "open-text-hit": "Text an dieser Stelle öffnen",
+    "text-hit": "In {{file}}:",
+    "text-hit-page": "In {{file}}, S. {{page}}:"
   },
   "layout": {
     "tree-breadcrumb": {
@@ -519,7 +523,7 @@
       "open": "Personen, Orte und Ereignisse suchen",
       "placeholder": "Personen, Orte, Ereignisse suchen",
       "title": "Suche",
-      "description": "Finde eine Person, einen Ort, ein Ereignis, einen Bereich oder eine gespeicherte Ansicht in diesem Arbeitsbereich, wechsle in einen anderen Arbeitsbereich oder springe zu einer Seite.",
+      "description": "Finde eine Person, einen Ort, ein Ereignis, einen Bereich, eine gespeicherte Ansicht oder ein Dokument (auch über den Text seiner Dateien) in diesem Arbeitsbereich, wechsle in einen anderen Arbeitsbereich oder springe zu einer Seite.",
       "empty": "Nichts gefunden.",
       "people": "Personen",
       "places": "Orte",
@@ -534,7 +538,12 @@
       "role-editor": "Bearbeiter",
       "role-viewer": "Betrachter",
       "open-view-error": "Diese gespeicherte Ansicht konnte nicht geöffnet werden.",
-      "open-workspace-error": "Dieser Arbeitsbereich konnte nicht geöffnet werden."
+      "open-workspace-error": "Dieser Arbeitsbereich konnte nicht geöffnet werden.",
+      "documents": "Dokumente",
+      "documents-similar": "Dokumente (ähnliche Schreibweisen)",
+      "document-file-page": "{{file}} · S. {{page}}",
+      "document-matches_one": "{{count}} Treffer",
+      "document-matches_other": "{{count}} Treffer"
     }
   },
   "list-view": {
@@ -905,8 +914,9 @@
           "error-open": "Die Datei konnte nicht geöffnet werden.",
           "source-ai-model": "Per KI transkribiert ({{model}}).",
           "transcribing": "Die KI-Transkription läuft. Der Text erscheint hier, sobald er fertig ist.",
-          "machine-differs": "Eine neuere KI-Transkription weicht von diesem Text ab.",
-          "use-machine": "Mit KI-Version bearbeiten"
+          "machine-differs": "Eine neue KI-Transkription ist fertig. Dein bearbeiteter Text wurde beibehalten.",
+          "use-machine": "KI-Version verwenden",
+          "keep-mine": "Meinen behalten"
         },
         "ai": {
           "start": "Mit KI transkribieren",
@@ -940,7 +950,8 @@
             "unsupported_file": "Dein KI-Anbieter kann diesen Dateityp nicht lesen.",
             "transcription_running": "Diese Datei wird bereits transkribiert.",
             "unknown": "Etwas ist schiefgelaufen."
-          }
+          },
+          "again": "Erneut transkribieren"
         }
       },
       "diseases": {
@@ -2315,9 +2326,6 @@
       "api-key-saved-hint": "Ein Schlüssel, der auf …{{hint}} endet, ist gespeichert.",
       "api-key-storage": "Dein Schlüssel wird verschlüsselt auf diesem Server gespeichert und nie wieder angezeigt.",
       "api-key-unreadable": "Der gespeicherte Schlüssel kann nicht mehr gelesen werden (das Server-Geheimnis hat sich geändert). Gib ihn erneut ein.",
-      "prompt": "Anweisung, die mit jeder Datei gesendet wird",
-      "prompt-reset": "Auf Standard zurücksetzen",
-      "prompt-hint": "Der Standard verlangt eine wortgetreue Transkription in der Originalsprache als Markdown, unleserliche Wörter als [?] markiert.",
       "privacy": "Dateien, die du transkribierst, werden mit deinem Schlüssel an diesen Anbieter gesendet. Dessen Bedingungen regeln, wie die Daten gespeichert und genutzt werden, und er kann dir Kosten berechnen.",
       "turn-off": "Ausschalten und Schlüssel löschen",
       "save": "Speichern",

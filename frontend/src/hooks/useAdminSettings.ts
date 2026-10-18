@@ -7,7 +7,7 @@ export function useAdminSettings() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
-  const run = useCallback(async <T,>(action: () => Promise<T>): Promise<T> => {
+  const run = useCallback(async <T>(action: () => Promise<T>): Promise<T> => {
     setLoading(true);
     setError(null);
     try {

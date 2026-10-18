@@ -12,6 +12,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import {
   activeAiProvider,
@@ -26,17 +27,21 @@ import { canEditArea } from "@/utils/accessLevels";
 import { transcriptionErrorMessage } from "@/utils/transcriptionErrors";
 import { cn } from "@/lib/utils";
 
-/** Icon button next to a file that sends it to the person's own AI provider
- *  for transcription, after they confirm the data leaves the instance. Shown
- *  to editors only, and only once AI is set up in their settings. */
+/** Sends a file to the person's own AI provider for transcription, after
+ *  they confirm the data leaves the instance. Editors only, and only once AI
+ *  is set up in their settings. As an `icon` next to a file it stays visible
+ *  while the file has no text (or a run is busy or failed); a file with a
+ *  text is transcribed again from its text dialog (`button`). */
 export const DocumentFileTranscribeButton = ({
   documentId,
   file,
   className,
+  variant = "icon",
 }: {
   documentId: string;
   file: DocumentFile;
   className?: string;
+  variant?: "icon" | "button";
 }) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.member-sheet.documents.ai",
@@ -64,6 +69,7 @@ export const DocumentFileTranscribeButton = ({
 
   const pending = file.transcriptionStatus === "pending" || starting;
   const failed = file.transcriptionStatus === "failed";
+  if (variant === "icon" && file.hasText && !pending && !failed) return null;
   const label = pending
     ? t("running")
     : failed
@@ -88,27 +94,37 @@ export const DocumentFileTranscribeButton = ({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setConfirming(true)}
-        disabled={pending}
-        className={cn(
-          "shrink-0 hover:text-foreground disabled:cursor-default",
-          failed
-            ? "text-destructive"
-            : "text-muted-foreground pointer-fine:opacity-0 pointer-fine:group-hover/file:opacity-100 pointer-fine:focus-visible:opacity-100",
-          pending && "opacity-100 pointer-fine:opacity-100",
-          className,
-        )}
-        title={label}
-        aria-label={label}
-      >
-        {pending ? (
-          <Spinner className="w-4 h-4" />
-        ) : (
-          <Sparkles className="w-4 h-4" />
-        )}
-      </button>
+      {variant === "button" ? (
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setConfirming(true)}
+          disabled={pending}
+          title={label}
+        >
+          {pending ? <Spinner /> : <Sparkles />}
+          {pending ? t("running") : file.hasText ? t("again") : t("start")}
+        </Button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setConfirming(true)}
+          disabled={pending}
+          className={cn(
+            "shrink-0 hover:text-foreground disabled:cursor-default",
+            failed ? "text-destructive" : "text-muted-foreground",
+            className,
+          )}
+          title={label}
+          aria-label={label}
+        >
+          {pending ? (
+            <Spinner className="w-4 h-4" />
+          ) : (
+            <Sparkles className="w-4 h-4" />
+          )}
+        </button>
+      )}
       <AlertDialog open={confirming} onOpenChange={setConfirming}>
         <AlertDialogContent>
           <AlertDialogHeader>

@@ -8,7 +8,11 @@ import { Workspace } from "@/types/workspace";
 vi.mock("@/services/WorkspaceService");
 
 const TREE_ID = "tree-storage-test";
-const TREE: Workspace = { id: TREE_ID, name: "Storage Workspace", role: "owner" };
+const TREE: Workspace = {
+  id: TREE_ID,
+  name: "Storage Workspace",
+  role: "owner",
+};
 
 const USAGE: WorkspaceStorageUsageDB = {
   tree_bytes: 1024,
@@ -55,7 +59,9 @@ describe("useStorageStore — refreshStorageUsage", () => {
       tree_quota_bytes: null,
       media_quota_bytes: null,
     };
-    vi.mocked(WorkspaceService.getStorageUsage).mockResolvedValue(unlimitedUsage);
+    vi.mocked(WorkspaceService.getStorageUsage).mockResolvedValue(
+      unlimitedUsage,
+    );
 
     await useStorageStore.getState().refreshStorageUsage(TREE_ID);
 

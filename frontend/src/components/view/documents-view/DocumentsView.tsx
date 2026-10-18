@@ -1,4 +1,4 @@
-import { type MouseEvent, useEffect, useMemo, useState } from "react";
+import { type MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import { canEditArea } from "@/utils/accessLevels";
 import { useTranslation } from "react-i18next";
 import {
@@ -25,6 +25,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { SearchInput } from "@/components/shared/SearchInput";
+import { SearchSnippet } from "@/components/shared/SearchSnippet";
 import { MemberChip } from "@/components/shared/MemberChip";
 import { cn } from "@/lib/utils";
 import type { Member } from "@/types/member";
@@ -35,7 +36,8 @@ import { DocumentDialog } from "@/components/shared/member-sheet/DocumentDialog"
 import { DocumentFileTextButton } from "@/components/shared/member-sheet/DocumentFileTextDialog";
 import { ListPagination } from "@/components/view/list-view/ListPagination";
 import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
-import { useDocumentStore } from "@/hooks/useDocumentStore";
+import { type DocumentFocus, useDocumentStore } from "@/hooks/useDocumentStore";
+import { useDocumentSearch } from "@/hooks/useDocumentSearch";
 import { useEventStore } from "@/hooks/useEventStore";
 import { openMedia } from "@/hooks/useMediaUrl";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
@@ -43,7 +45,11 @@ import { useMemberStore } from "@/hooks/useMemberStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
-import { type Document, type DocumentFile } from "@/types/document";
+import {
+  type Document,
+  type DocumentFile,
+  type DocumentSearchHit,
+} from "@/types/document";
 import { formatDate } from "@/utils/dateUtils";
 
 type LinkFilter = "all" | "unlinked";
@@ -110,6 +116,32 @@ export const DocumentsView = () => {
     setPage(0);
   }, [linkFilter, pageSize, searchTerm]);
 
+  // A document picked elsewhere (the search palette): show the whole list,
+  // go to its page and let its row expand and open the matching text.
+  const pendingFocus = useDocumentStore((s) => s.focus);
+  const setPendingFocus = useDocumentStore((s) => s.setFocus);
+  const [focus, setFocus] = useState<DocumentFocus | null>(null);
+  useEffect(() => {
+    if (!pendingFocus || !initialized) return;
+    setFocus(pendingFocus);
+    setPendingFocus(null);
+    setSearchTerm("");
+    setLinkFilter("all");
+  }, [pendingFocus, initialized, setPendingFocus]);
+
+  // File texts are searched on the server; their hits widen the filter.
+  const { result: textResult, loading: textSearching } = useDocumentSearch(
+    searchTerm,
+    { enabled: documents.length > 0, limit: 50 },
+  );
+  const textHits = useMemo(() => {
+    const byDocument = new Map<string, DocumentSearchHit>();
+    for (const hit of textResult?.hits ?? []) {
+      if (!byDocument.has(hit.documentId)) byDocument.set(hit.documentId, hit);
+    }
+    return byDocument;
+  }, [textResult]);
+
   const membersById = useMemo(
     () => new Map(members.map((member) => [member.id, member])),
     [members],
@@ -129,13 +161,16 @@ export const DocumentsView = () => {
       if (linkFilter === "unlinked" && !isUnlinked(document)) return false;
       if (!normalizedSearch) return true;
 
-      return [
-        document.title,
-        document.description ?? "",
-        ...document.files.map((file) => file.filename ?? file.url),
-      ].some((value) => value.toLocaleLowerCase().includes(normalizedSearch));
+      return (
+        textHits.has(document.id) ||
+        [
+          document.title,
+          document.description ?? "",
+          ...document.files.map((file) => file.filename ?? file.url),
+        ].some((value) => value.toLocaleLowerCase().includes(normalizedSearch))
+      );
     });
-  }, [documents, linkFilter, searchTerm]);
+  }, [documents, linkFilter, searchTerm, textHits]);
 
   const unlinkedCount = useMemo(
     () => documents.filter(isUnlinked).length,
@@ -145,6 +180,14 @@ export const DocumentsView = () => {
     () => new Set(documents.flatMap((d) => d.memberIds)).size,
     [documents],
   );
+
+  useEffect(() => {
+    if (!focus) return;
+    const index = filteredDocuments.findIndex((d) => d.id === focus.documentId);
+    if (index >= 0) setPage(Math.floor(index / pageSize));
+    // Only when a new focus arrives, not on every list change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus]);
 
   const pageCount = Math.ceil(filteredDocuments.length / pageSize);
   const activePage = Math.min(page, Math.max(pageCount - 1, 0));
@@ -247,7 +290,7 @@ export const DocumentsView = () => {
         </Empty>
       ) : filteredDocuments.length === 0 ? (
         <p className="py-8 text-center text-sm text-muted-foreground">
-          {t("no-results")}
+          {textSearching ? t("searching-texts") : t("no-results")}
         </p>
       ) : (
         <>
@@ -261,6 +304,10 @@ export const DocumentsView = () => {
                 eventsById={eventsById}
                 storiesById={storiesById}
                 canNavigateTimeline={canAccessEvents}
+                textHit={
+                  searchTerm.trim() ? textHits.get(document.id) : undefined
+                }
+                focus={focus?.documentId === document.id ? focus : null}
                 onEdit={() => handleEdit(document)}
                 onDelete={() => setDocumentToDelete(document)}
               />
@@ -301,6 +348,10 @@ interface DocumentRowProps {
   eventsById: Map<string, { eventType: string; date: string }>;
   storiesById: Map<string, { title: string }>;
   canNavigateTimeline: boolean;
+  /** Where a file text search matched this document, if it did. */
+  textHit?: DocumentSearchHit;
+  /** Set when this document was picked in search: expand and open it. */
+  focus: DocumentFocus | null;
   onEdit: () => void;
   onDelete: () => void;
 }
@@ -345,6 +396,8 @@ function DocumentRow({
   eventsById,
   storiesById,
   canNavigateTimeline,
+  textHit,
+  focus,
   onEdit,
   onDelete,
 }: DocumentRowProps) {
@@ -353,6 +406,23 @@ function DocumentRow({
   const setOpenSheet = useMemberSheetStore((state) => state.setOpenSheet);
   const navigateTo = useNavigationStore((state) => state.navigateTo);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [fileFocus, setFileFocus] = useState<{
+    fileId: string;
+    words: string[];
+  } | null>(null);
+  const rowRef = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    if (!focus) return;
+    setDetailsOpen(true);
+    rowRef.current?.scrollIntoView?.({ block: "nearest" });
+    if (focus.fileId)
+      setFileFocus({ fileId: focus.fileId, words: focus.words });
+  }, [focus]);
+  const openTextHit = (hit: DocumentSearchHit) => {
+    if (!hit.fileId) return;
+    setDetailsOpen(true);
+    setFileFocus({ fileId: hit.fileId, words: hit.matchedWords });
+  };
   const attachments = document.files.filter((file) => file.kind === "file");
   const externalLinks = document.files.filter((file) => file.kind === "link");
   const detailsLabel = detailsOpen ? t("hide-details") : t("show-details");
@@ -400,6 +470,7 @@ function DocumentRow({
           documentId={document.id}
           file={file}
           className="px-1"
+          focusWords={fileFocus?.fileId === file.id ? fileFocus.words : null}
         />
       </span>
     );
@@ -416,6 +487,7 @@ function DocumentRow({
 
   return (
     <li
+      ref={rowRef}
       data-slot="document-row"
       className="cursor-pointer px-5 py-3 transition-colors hover:bg-muted/40"
       onClick={(event) => {
@@ -436,6 +508,28 @@ function DocumentRow({
             <p className="truncate text-xs text-muted-foreground">
               {meta.length > 0 ? meta.join(" · ") : t("no-files")}
             </p>
+            {textHit?.field === "text" && (
+              <button
+                type="button"
+                className="mt-1 block text-left hover:underline"
+                onClick={() => openTextHit(textHit)}
+                title={t("open-text-hit")}
+              >
+                <span className="text-xs font-medium">
+                  {textHit.page !== null
+                    ? t("text-hit-page", {
+                        file: textHit.fileName ?? "",
+                        page: textHit.page,
+                      })
+                    : t("text-hit", { file: textHit.fileName ?? "" })}
+                </span>{" "}
+                <SearchSnippet
+                  text={textHit.snippet}
+                  highlights={textHit.highlights}
+                  className="line-clamp-2"
+                />
+              </button>
+            )}
           </div>
         </div>
         <div className="flex min-w-0 flex-[1_1_12rem] flex-wrap items-center gap-1.5">

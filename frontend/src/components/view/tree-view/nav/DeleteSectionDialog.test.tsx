@@ -29,7 +29,8 @@ function setStore(overrides: {
 }) {
   useSectionStore.setState({
     getSectionDependents: overrides.getSectionDependents,
-    deleteSection: overrides.deleteSection ?? vi.fn().mockResolvedValue(undefined),
+    deleteSection:
+      overrides.deleteSection ?? vi.fn().mockResolvedValue(undefined),
   });
 }
 
@@ -47,9 +48,7 @@ describe("DeleteSectionDialog", () => {
         }),
     });
 
-    render(
-      <DeleteSectionDialog section={SECTION} onOpenChange={vi.fn()} />,
-    );
+    render(<DeleteSectionDialog section={SECTION} onOpenChange={vi.fn()} />);
 
     // Still loading: no confirm action offered at all.
     expect(
@@ -69,9 +68,7 @@ describe("DeleteSectionDialog", () => {
       getSectionDependents: () => Promise.reject(new Error("network error")),
     });
 
-    render(
-      <DeleteSectionDialog section={SECTION} onOpenChange={vi.fn()} />,
-    );
+    render(<DeleteSectionDialog section={SECTION} onOpenChange={vi.fn()} />);
 
     await waitFor(() =>
       expect(

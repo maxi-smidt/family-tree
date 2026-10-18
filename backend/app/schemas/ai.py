@@ -26,9 +26,6 @@ class AiSettingsOut(BaseModel):
     # True when a key is stored but can no longer be decrypted (the server's
     # SECRET_KEY changed); it has to be entered again.
     api_key_unreadable: bool = False
-    # The custom prompt, or null when the default is used.
-    prompt: str | None = None
-    default_prompt: str
     providers: list[AiProviderInfo]
 
 
@@ -38,7 +35,6 @@ class AiSettingsSave(BaseModel):
     base_url: str | None = Field(default=None, max_length=500)
     # Omitted/null keeps the saved key; an empty string removes it.
     api_key: str | None = Field(default=None, max_length=500)
-    prompt: str | None = Field(default=None, max_length=10_000)
 
 
 class DocumentFileTranscriptionOut(BaseModel):

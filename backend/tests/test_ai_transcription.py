@@ -12,7 +12,7 @@ from app.core import secret_box
 from app.core.config import settings
 from app.models import DocumentFileTranscription, UserAiSettings
 from app.services.ai import providers
-from app.services.ai.ai_settings import DEFAULT_PROMPT
+from app.services.ai.ai_settings import TRANSCRIPTION_PROMPT
 from tests.conftest import API, add_member, auth, make_tree, make_user, share
 
 GEMINI_KEY = "AIzaSy-test-key-0123456789"
@@ -108,11 +108,11 @@ def test_secret_box_binds_the_context():
         secret_box.unseal(sealed, purpose="p", context="user-2")
 
 
-def test_settings_start_empty_with_default_prompt(client, db):
+def test_settings_start_empty(client, db):
     user = make_user(db, "alice")
     body = client.get(SETTINGS_URL, headers=auth(user)).json()
     assert body["configured"] is False
-    assert body["default_prompt"] == DEFAULT_PROMPT
+    assert "prompt" not in body
     assert {p["id"] for p in body["providers"]} == {
         "gemini",
         "openai",
@@ -132,14 +132,12 @@ def test_api_key_is_stored_sealed_and_never_returned(client, db):
     db.refresh(row)
     assert GEMINI_KEY not in row.api_key_sealed
 
-    # Saving again without a key keeps it; a custom prompt is stored.
+    # Saving again without a key keeps it.
     again = client.put(
-        SETTINGS_URL,
-        headers=auth(user),
-        json={"provider": "gemini", "model": "gemini-x", "prompt": "Only text."},
+        SETTINGS_URL, headers=auth(user), json={"provider": "gemini", "model": ""}
     ).json()
     assert again["has_api_key"] is True
-    assert again["prompt"] == "Only text."
+    assert again["model"] == "gemini-3.8-flash"
 
 
 def test_switching_provider_needs_a_new_key(client, db):
@@ -189,7 +187,7 @@ def test_transcribe_fills_the_text(client, db, media_root, provider_calls):
     assert request.headers["x-goog-api-key"] == GEMINI_KEY
     assert "models/gemini-test:generateContent" in str(request.url)
     parts = json.loads(request.content)["contents"][0]["parts"]
-    assert parts[0]["text"] == DEFAULT_PROMPT
+    assert parts[0]["text"] == TRANSCRIPTION_PROMPT
     sent = parts[1]["inline_data"]
     sent_image = Image.open(io.BytesIO(base64.b64decode(sent["data"])))
     assert sent["mime_type"] == "image/jpeg"
@@ -223,6 +221,30 @@ def test_rerun_keeps_a_human_edit(client, db, media_root, provider_calls):
     text = client.get(f"{_file_url(tree, file_id)}/text", headers=auth(user)).json()
     assert text["markdown"] == "# Brief\n\nLieber Johann"
     assert text["machine_markdown"] == "Neu"
+    assert text["status"] == "review"
+
+    # Keeping (or taking) a version answers the waiting one.
+    kept = client.put(
+        f"{_file_url(tree, file_id)}/text",
+        headers=auth(user),
+        json={"markdown": "# Brief\n\nLieber Johann"},
+    ).json()
+    assert kept["status"] is None
+
+
+def test_editing_the_ai_text_is_not_a_new_ai_version(
+    client, db, media_root, provider_calls
+):
+    user, tree = _setup(db, client)
+    file_id = _upload(client, user, tree, _photo_with_exif(), "brief.jpg", "image/jpeg")
+    client.post(f"{_file_url(tree, file_id)}/transcribe", headers=auth(user))
+    edited = client.put(
+        f"{_file_url(tree, file_id)}/text",
+        headers=auth(user),
+        json={"markdown": "# Brief\n\nLieber Johann"},
+    ).json()
+    assert edited["status"] is None
+    assert edited["source"] == "manual"
 
 
 def test_failure_is_recorded_without_the_key(client, db, media_root, provider_calls):

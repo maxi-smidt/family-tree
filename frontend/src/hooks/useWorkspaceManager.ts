@@ -45,10 +45,13 @@ export const useWorkspaceManager = () => {
     [deleteTree],
   );
 
-  const exportDatabase = useCallback(async (tree: Workspace, password?: string) => {
-    const blob = await WorkspaceFileService.exportDatabase(tree.id, password);
-    triggerDownload(blob, `${tree.name || "family-tree"}.treedb`);
-  }, []);
+  const exportDatabase = useCallback(
+    async (tree: Workspace, password?: string) => {
+      const blob = await WorkspaceFileService.exportDatabase(tree.id, password);
+      triggerDownload(blob, `${tree.name || "family-tree"}.treedb`);
+    },
+    [],
+  );
 
   const inspectImport = useCallback(
     async (file: File): Promise<InspectImportResult> =>

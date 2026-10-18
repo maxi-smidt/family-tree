@@ -91,7 +91,9 @@ export const useQualityReportStore = create<QualityReportState>((set, get) => ({
       refreshes.push(useStoryStore.getState().refreshStories(workspaceId));
     }
     if (useGalleryStore.getState().initialized) {
-      refreshes.push(useGalleryStore.getState().refreshGalleryImages(workspaceId));
+      refreshes.push(
+        useGalleryStore.getState().refreshGalleryImages(workspaceId),
+      );
     }
     if (useDocumentStore.getState().initialized) {
       refreshes.push(useDocumentStore.getState().refreshDocuments(workspaceId));

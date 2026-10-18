@@ -29,6 +29,7 @@ const TEXT: DocumentFileText = {
   machineMarkdown: null,
   provider: null,
   model: null,
+  aiVersionWaiting: false,
   editedBy: null,
   editedAt: null,
   updatedAt: "2026-01-01T00:00:00Z",
@@ -65,6 +66,36 @@ describe("DocumentFileTextDialog", () => {
     expect(await screen.findByText("Johann Schmidt")).toBeInTheDocument();
     expect(loadFileText).toHaveBeenCalledWith("doc-1", "file-1");
     expect(screen.getByText("Written by hand.")).toBeInTheDocument();
+  });
+
+  it("offers a waiting AI version next to an edited text", async () => {
+    loadFileText.mockResolvedValue({
+      ...TEXT,
+      machineMarkdown: "Neue Fassung",
+      aiVersionWaiting: true,
+    });
+    saveFileText.mockResolvedValue({ ...TEXT, markdown: "Neue Fassung" });
+    renderDialog();
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Use AI version" }),
+    );
+    await waitFor(() =>
+      expect(saveFileText).toHaveBeenCalledWith(
+        "doc-1",
+        "file-1",
+        "Neue Fassung",
+      ),
+    );
+  });
+
+  it("shows no AI notice for an edited text without a new run", async () => {
+    loadFileText.mockResolvedValue({ ...TEXT, machineMarkdown: "Alt" });
+    renderDialog();
+    expect(await screen.findByText("Johann Schmidt")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Use AI version" }),
+    ).not.toBeInTheDocument();
   });
 
   it("lets an editor correct and save the text", async () => {

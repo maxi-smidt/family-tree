@@ -1,6 +1,9 @@
 import { useMemo } from "react";
 import { Edge } from "@xyflow/react";
-import type { WorkerEdge, WorkerEdgeStyle } from "@/workers/treeProcessor.types";
+import type {
+  WorkerEdge,
+  WorkerEdgeStyle,
+} from "@/workers/treeProcessor.types";
 
 const CONNECTION_STROKE = "hsl(45 93% 47%)";
 const EMPTY_EDGE_KEYS = new Set<string>();
@@ -53,7 +56,8 @@ export const useFlowEdges = (
         style: connectionStyle(baseStyle, isHighlighted, hasConnectionPath),
         animated: isHighlighted,
         hidden:
-          hiddenElementIds.has(rest.source) || hiddenElementIds.has(rest.target),
+          hiddenElementIds.has(rest.source) ||
+          hiddenElementIds.has(rest.target),
       } as Edge;
     });
   }, [baseEdges, highlightedConnectionEdgeKeys, hiddenElementIds]);

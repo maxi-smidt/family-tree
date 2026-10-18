@@ -48,6 +48,7 @@ export interface DocumentFileTextDB {
   machine_markdown?: string | null;
   provider?: string | null;
   model?: string | null;
+  status?: string | null;
   edited_by: string | null;
   edited_at: string | null;
   created_at: string;
@@ -63,6 +64,8 @@ export interface DocumentFileText {
   machineMarkdown: string | null;
   provider: string | null;
   model: string | null;
+  /** A newer AI version waits next to a person's edited text. */
+  aiVersionWaiting: boolean;
   editedBy: string | null;
   editedAt: string | null;
   updatedAt: string;
@@ -167,6 +170,7 @@ export function mapDocumentFileTextFromDB(
     machineMarkdown: row.machine_markdown ?? null,
     provider: row.provider ?? null,
     model: row.model ?? null,
+    aiVersionWaiting: row.status === "review",
     editedBy: row.edited_by,
     editedAt: row.edited_at,
     updatedAt: row.updated_at,
@@ -185,5 +189,79 @@ export function mapDocumentFromDB(row: DocumentDB): Document {
     memberIds: row.member_ids ?? [],
     eventIds: row.event_ids ?? [],
     storyIds: row.story_ids ?? [],
+  };
+}
+
+/** Where a document search matched (#1122). */
+export type DocumentSearchField = "title" | "description" | "text";
+
+export interface DocumentSearchHitDB {
+  document_id: string;
+  document_title: string;
+  document_date: string | null;
+  field: DocumentSearchField;
+  file_id: string | null;
+  file_name: string | null;
+  page: number | null;
+  snippet: string;
+  highlights: [number, number][];
+  match_count: number;
+  matched_words: string[];
+}
+
+export interface DocumentSearchResultDB {
+  items: DocumentSearchHitDB[];
+  total: number;
+  truncated: boolean;
+  fuzzy: boolean;
+  terms: string[];
+}
+
+export interface DocumentSearchHit {
+  documentId: string;
+  documentTitle: string;
+  documentDate: string | null;
+  field: DocumentSearchField;
+  fileId: string | null;
+  fileName: string | null;
+  page: number | null;
+  /** Plain text around the match; `highlights` are `[start, end)` ranges. */
+  snippet: string;
+  highlights: [number, number][];
+  /** Separate places in this field that match. */
+  matchCount: number;
+  /** Folded words that matched, to highlight them in the full text. */
+  matchedWords: string[];
+}
+
+export interface DocumentSearchResult {
+  hits: DocumentSearchHit[];
+  /** A lower bound when `truncated`. */
+  total: number;
+  truncated: boolean;
+  /** Nothing matched exactly; these are similar spellings. */
+  fuzzy: boolean;
+}
+
+export function mapDocumentSearchResultFromDB(
+  row: DocumentSearchResultDB,
+): DocumentSearchResult {
+  return {
+    hits: row.items.map((hit) => ({
+      documentId: hit.document_id,
+      documentTitle: hit.document_title,
+      documentDate: hit.document_date,
+      field: hit.field,
+      fileId: hit.file_id,
+      fileName: hit.file_name,
+      page: hit.page,
+      snippet: hit.snippet,
+      highlights: hit.highlights,
+      matchCount: hit.match_count,
+      matchedWords: hit.matched_words,
+    })),
+    total: row.total,
+    truncated: row.truncated,
+    fuzzy: row.fuzzy,
   };
 }

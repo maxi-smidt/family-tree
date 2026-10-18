@@ -26,9 +26,6 @@ export interface AiSettings {
   api_key_hint: string | null;
   /** A key is stored but the server can no longer decrypt it. */
   api_key_unreadable: boolean;
-  /** The custom prompt, or `null` for the default. */
-  prompt: string | null;
-  default_prompt: string;
   providers: AiProviderInfo[];
 }
 
@@ -38,7 +35,6 @@ export interface AiSettingsSave {
   base_url?: string | null;
   /** Omitted keeps the saved key; `""` removes it. */
   api_key?: string | null;
-  prompt?: string | null;
 }
 
 /** MIME types a provider can read: images always, PDFs if it says so. */

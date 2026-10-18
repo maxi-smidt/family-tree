@@ -47,8 +47,6 @@ function settings(overrides: Partial<AiSettings> = {}): AiSettings {
     has_api_key: true,
     api_key_hint: "abcd",
     api_key_unreadable: false,
-    prompt: null,
-    default_prompt: "Transcribe",
     providers: [GEMINI, CUSTOM],
     ...overrides,
   };
@@ -89,6 +87,13 @@ describe("DocumentFileTranscribeButton", () => {
     await waitFor(() =>
       expect(transcribeFile).toHaveBeenCalledWith("doc-1", "file-1"),
     );
+  });
+
+  it("stays out of the row once the file has a text", () => {
+    renderButton({ ...FILE, hasText: true });
+    expect(
+      screen.queryByRole("button", { name: "Transcribe with AI" }),
+    ).not.toBeInTheDocument();
   });
 
   it("is hidden while AI is not set up", () => {

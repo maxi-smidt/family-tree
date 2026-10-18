@@ -5,7 +5,7 @@ key) and ``document_file_transcriptions`` (the latest AI run per document
 file, with its status) for AI transcription of document files (#1123).
 
 Revision ID: v2_2_0_ai_transcription
-Revises: v2_2_0_document_file_texts
+Revises: v2_2_0_document_text_search
 Create Date: 2026-10-18 15:00:00.000000
 
 """
@@ -17,7 +17,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = "v2_2_0_ai_transcription"
-down_revision: Union[str, None] = "v2_2_0_document_file_texts"
+down_revision: Union[str, None] = "v2_2_0_document_text_search"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -31,7 +31,6 @@ def upgrade() -> None:
         sa.Column("base_url", sa.String(length=500), nullable=True),
         sa.Column("api_key_sealed", sa.Text(), nullable=True),
         sa.Column("api_key_hint", sa.String(length=8), nullable=True),
-        sa.Column("prompt", sa.Text(), nullable=True),
         sa.Column("created_at", sa.String(length=40), nullable=False),
         sa.Column("updated_at", sa.String(length=40), nullable=False),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),

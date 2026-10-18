@@ -8,7 +8,6 @@ from app.db.session import get_db
 from app.models import User, UserAiSettings
 from app.schemas.ai import AiProviderInfo, AiSettingsOut, AiSettingsSave
 from app.services.ai.ai_settings import (
-    DEFAULT_PROMPT,
     get_ai_settings,
     is_configured,
     key_is_readable,
@@ -33,7 +32,7 @@ def _out(row: UserAiSettings | None) -> AiSettingsOut:
         for cls in PROVIDERS.values()
     ]
     if row is None:
-        return AiSettingsOut(default_prompt=DEFAULT_PROMPT, providers=providers)
+        return AiSettingsOut(providers=providers)
     has_key = row.api_key_sealed is not None
     return AiSettingsOut(
         configured=is_configured(row),
@@ -43,8 +42,6 @@ def _out(row: UserAiSettings | None) -> AiSettingsOut:
         has_api_key=has_key,
         api_key_hint=row.api_key_hint,
         api_key_unreadable=has_key and not key_is_readable(row),
-        prompt=row.prompt,
-        default_prompt=DEFAULT_PROMPT,
         providers=providers,
     )
 
@@ -68,7 +65,6 @@ def put_settings(
             model=payload.model,
             base_url=payload.base_url,
             api_key=payload.api_key,
-            prompt=payload.prompt,
         )
     db.refresh(row)
     return _out(row)

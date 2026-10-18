@@ -54,7 +54,6 @@ export function ListPagination({
         <Button
           variant="outline"
           size="icon-sm"
-
           disabled={page === 0}
           onClick={() => onPageChange(page - 1)}
           aria-label={t("pagination.prev")}
@@ -64,7 +63,6 @@ export function ListPagination({
         <Button
           variant="outline"
           size="icon-sm"
-
           disabled={to >= total}
           onClick={() => onPageChange(page + 1)}
           aria-label={t("pagination.next")}
