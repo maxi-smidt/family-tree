@@ -1,4 +1,10 @@
-import { type MouseEvent, useCallback, useEffect, useState } from "react";
+import {
+  type MouseEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { ExternalLink, Pencil, ScrollText } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -20,13 +26,46 @@ import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import type { DocumentFile, DocumentFileText } from "@/types/document";
 import { canEditArea } from "@/utils/accessLevels";
+import { foldForSearch, SEARCH_WORD } from "@/utils/searchFold";
 import { cn } from "@/lib/utils";
+
+const HIGHLIGHT = "document-search";
+
+/** Mark every word of `root` whose folded form is in `words` with the CSS
+ *  Custom Highlight API (no DOM changes, so React's tree stays untouched)
+ *  and scroll the first one into view. Browsers without the API just skip
+ *  the marks. Returns a cleanup. */
+function highlightWords(root: HTMLElement, words: string[]): () => void {
+  const highlights = (globalThis.CSS as { highlights?: HighlightRegistry })
+    ?.highlights;
+  if (!highlights || typeof Highlight === "undefined" || words.length === 0)
+    return () => {};
+  const wanted = new Set(words);
+  const ranges: Range[] = [];
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const value = node.nodeValue ?? "";
+    for (const match of value.matchAll(SEARCH_WORD)) {
+      if (!wanted.has(foldForSearch(match[0]))) continue;
+      const range = document.createRange();
+      range.setStart(node, match.index);
+      range.setEnd(node, match.index + match[0].length);
+      ranges.push(range);
+    }
+  }
+  if (ranges.length === 0) return () => {};
+  highlights.set(HIGHLIGHT, new Highlight(...ranges));
+  ranges[0].startContainer.parentElement?.scrollIntoView({ block: "center" });
+  return () => highlights.delete(HIGHLIGHT);
+}
 
 interface DocumentFileTextDialogProps {
   documentId: string;
   file: DocumentFile;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Folded words to highlight, e.g. the matches of a document search. */
+  highlight?: string[];
 }
 
 function sourceKey(text: DocumentFileText): string {
@@ -40,6 +79,7 @@ export const DocumentFileTextDialog = ({
   file,
   open,
   onOpenChange,
+  highlight,
 }: DocumentFileTextDialogProps) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.member-sheet.documents.text",
@@ -54,6 +94,13 @@ export const DocumentFileTextDialog = ({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  const showing = open && !loading && !editing && text !== null;
+  useEffect(() => {
+    if (!showing || !highlight?.length || !contentRef.current) return;
+    return highlightWords(contentRef.current, highlight);
+  }, [showing, highlight, text]);
 
   useEffect(() => {
     if (!open) {
@@ -136,7 +183,9 @@ export const DocumentFileTextDialog = ({
               onChange={setDraft}
             />
           ) : text ? (
-            <MarkdownContent content={text.markdown} />
+            <div ref={contentRef}>
+              <MarkdownContent content={text.markdown} />
+            </div>
           ) : (
             <p className="py-6 text-center text-sm text-muted-foreground">
               {t("empty")}
@@ -190,10 +239,14 @@ export const DocumentFileTextButton = ({
   documentId,
   file,
   className,
+  focusWords,
 }: {
   documentId: string;
   file: DocumentFile;
   className?: string;
+  /** When set (a new array each time), open the text with these folded
+   *  words highlighted, e.g. after picking this file in search. */
+  focusWords?: string[] | null;
 }) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.member-sheet.documents.text",
@@ -202,6 +255,16 @@ export const DocumentFileTextButton = ({
     canEditArea(s.selectedTree, "sources"),
   );
   const [open, setOpen] = useState(false);
+  const [highlight, setHighlight] = useState<string[] | undefined>();
+  useEffect(() => {
+    if (!focusWords) return;
+    setHighlight(focusWords);
+    setOpen(true);
+  }, [focusWords]);
+  const changeOpen = (next: boolean) => {
+    setOpen(next);
+    if (!next) setHighlight(undefined);
+  };
   if (!file.hasText && !canEdit) return null;
   const label = file.hasText ? t("open") : t("open-empty");
   // React events bubble through the dialog's portal: keep clicks inside it
@@ -228,7 +291,8 @@ export const DocumentFileTextButton = ({
         documentId={documentId}
         file={file}
         open={open}
-        onOpenChange={setOpen}
+        onOpenChange={changeOpen}
+        highlight={highlight}
       />
     </span>
   );

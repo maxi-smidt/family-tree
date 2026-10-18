@@ -6,6 +6,9 @@ import { useSavedViewStore } from "@/hooks/useSavedViewStore";
 import { useWorkspaceNavStore } from "@/hooks/useWorkspaceNavStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
+import { useDocumentStore } from "@/hooks/useDocumentStore";
+import { useActiveViewStore } from "@/hooks/useActiveViewStore";
+import type { DocumentSearchResult } from "@/types/document";
 import type { Workspace } from "@/types/workspace";
 import type { SectionDB } from "@/types/section";
 import type { SavedViewDB } from "@/types/savedView";
@@ -43,6 +46,27 @@ const VIEW: SavedViewDB = {
   positions: [],
 };
 
+const DOCUMENT_RESULT: DocumentSearchResult = {
+  hits: [
+    {
+      documentId: "doc-1",
+      documentTitle: "Taufbuch Graz",
+      documentDate: null,
+      field: "text",
+      fileId: "file-1",
+      fileName: "scan.png",
+      page: 3,
+      snippet: "Pate war Johann Weber aus Graz",
+      highlights: [[16, 21]],
+      matchCount: 2,
+      matchedWords: ["weber"],
+    },
+  ],
+  total: 1,
+  truncated: false,
+  fuzzy: false,
+};
+
 const openPalette = (query: string) => {
   render(<GlobalSearch />);
   fireEvent.click(screen.getByRole("button"));
@@ -70,6 +94,29 @@ describe("GlobalSearch", () => {
     });
     useWorkspaceNavStore.getState().clear();
     useNavigationStore.setState({ pendingView: null });
+    useDocumentStore.setState({
+      focus: null,
+      searchDocuments: vi.fn().mockResolvedValue(null),
+    });
+  });
+
+  it("searches document texts and opens the matching file", async () => {
+    const searchDocuments = vi.fn().mockResolvedValue(DOCUMENT_RESULT);
+    useDocumentStore.setState({ searchDocuments });
+    openPalette("weber");
+    expect(await screen.findByText("Taufbuch Graz")).toBeInTheDocument();
+    expect(searchDocuments).toHaveBeenCalledWith("weber", 6);
+    expect(screen.getByText("Weber").tagName).toBe("MARK");
+    expect(screen.getByText("scan.png · p. 3")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Taufbuch Graz"));
+    expect(useDocumentStore.getState().focus).toEqual({
+      documentId: "doc-1",
+      fileId: "file-1",
+      words: ["weber"],
+    });
+    expect(useActiveViewStore.getState().mediaSection).toBe("documents");
+    expect(useActiveViewStore.getState().activeView).toBe("media-view");
   });
 
   it("lists matching sections, saved views and other workspaces", () => {

@@ -447,7 +447,11 @@
     "no-files": "Noch keine Dateien",
     "subtitle": "{{count}} Dokumente · {{people}} Personen erfasst",
     "subtitle_one": "{{count}} Dokument · {{people}} Personen erfasst",
-    "subtitle_other": "{{count}} Dokumente · {{people}} Personen erfasst"
+    "subtitle_other": "{{count}} Dokumente · {{people}} Personen erfasst",
+    "searching-texts": "Dateitexte werden durchsucht…",
+    "open-text-hit": "Text an dieser Stelle öffnen",
+    "text-hit": "In {{file}}:",
+    "text-hit-page": "In {{file}}, S. {{page}}:"
   },
   "layout": {
     "tree-breadcrumb": {
@@ -519,7 +523,7 @@
       "open": "Personen, Orte und Ereignisse suchen",
       "placeholder": "Personen, Orte, Ereignisse suchen",
       "title": "Suche",
-      "description": "Finde eine Person, einen Ort, ein Ereignis, einen Bereich oder eine gespeicherte Ansicht in diesem Arbeitsbereich, wechsle in einen anderen Arbeitsbereich oder springe zu einer Seite.",
+      "description": "Finde eine Person, einen Ort, ein Ereignis, einen Bereich, eine gespeicherte Ansicht oder ein Dokument (auch über den Text seiner Dateien) in diesem Arbeitsbereich, wechsle in einen anderen Arbeitsbereich oder springe zu einer Seite.",
       "empty": "Nichts gefunden.",
       "people": "Personen",
       "places": "Orte",
@@ -534,7 +538,12 @@
       "role-editor": "Bearbeiter",
       "role-viewer": "Betrachter",
       "open-view-error": "Diese gespeicherte Ansicht konnte nicht geöffnet werden.",
-      "open-workspace-error": "Dieser Arbeitsbereich konnte nicht geöffnet werden."
+      "open-workspace-error": "Dieser Arbeitsbereich konnte nicht geöffnet werden.",
+      "documents": "Dokumente",
+      "documents-similar": "Dokumente (ähnliche Schreibweisen)",
+      "document-file-page": "{{file}} · S. {{page}}",
+      "document-matches_one": "{{count}} Treffer",
+      "document-matches_other": "{{count}} Treffer"
     }
   },
   "list-view": {

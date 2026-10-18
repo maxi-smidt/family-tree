@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import {
   Bookmark,
   CalendarDays,
+  FileText,
   FolderTree,
   MapPin,
   Search,
@@ -25,9 +26,13 @@ import {
 } from "@/components/ui/dialog";
 import { WorkspaceMonogram } from "@/components/shared/WorkspaceMonogram";
 import { MemberAvatar } from "@/components/shared/MemberAvatar";
+import { SearchSnippet } from "@/components/shared/SearchSnippet";
 import { shortLifeSpan } from "@/components/shared/MemberChip";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useEventStore } from "@/hooks/useEventStore";
+import { useActiveViewStore } from "@/hooks/useActiveViewStore";
+import { useDocumentSearch } from "@/hooks/useDocumentSearch";
+import { useDocumentStore } from "@/hooks/useDocumentStore";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
@@ -39,6 +44,8 @@ import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { useUnsavedChangesStore } from "@/hooks/useUnsavedChangesStore";
 import { useVisibleViews } from "@/hooks/useVisibleViews";
 import type { Workspace } from "@/types/workspace";
+import type { DocumentSearchHit } from "@/types/document";
+import { MEDIA_VIEW } from "@/lib/tabs";
 import { getEventTypeLabel } from "@/types/eventTypes";
 import { memberMatchesSearch } from "@/utils/memberUtils";
 import { formatDate } from "@/utils/dateUtils";
@@ -50,6 +57,7 @@ const MAX_EVENTS = 5;
 const MAX_SECTIONS = 5;
 const MAX_SAVED_VIEWS = 5;
 const MAX_WORKSPACES = 5;
+const MAX_DOCUMENTS = 6;
 
 const isMac =
   typeof navigator !== "undefined" &&
@@ -57,10 +65,12 @@ const isMac =
 
 /**
  * The header's search: one palette (⌘K / Ctrl K) for people, places, events,
- * sections and saved views in the open workspace, the other workspaces the
+ * sections, saved views and documents (title, description and file text,
+ * searched on the server) in the open workspace, the other workspaces the
  * user can open, plus every view to jump to. Picking a person opens their
  * panel; a place opens the map on it; an event opens the timeline; a section
- * or saved view opens it on the tree; a workspace switches to it.
+ * or saved view opens it on the tree; a document opens it in Documents (at
+ * the matching file's text); a workspace switches to it.
  */
 export function GlobalSearch({ className }: { className?: string }) {
   const { t, i18n } = useTranslation(undefined, {
@@ -81,7 +91,16 @@ export function GlobalSearch({ className }: { className?: string }) {
   const workspaces = useWorkspaceStore((s) => s.workspaces);
   const selectTree = useWorkspaceStore((s) => s.selectTree);
   const guardNavigate = useUnsavedChangesStore((s) => s.guardNavigate);
-  const treeVisible = useVisibleViews().visible.includes("tree-view");
+  const { visible: visibleViews, documentsAvailable } = useVisibleViews();
+  const treeVisible = visibleViews.includes("tree-view");
+  const setActiveView = useActiveViewStore((s) => s.setActiveView);
+  const setMediaSection = useActiveViewStore((s) => s.setMediaSection);
+  const setDocumentFocus = useDocumentStore((s) => s.setFocus);
+  const { result: documentResult } = useDocumentSearch(query, {
+    enabled: open && documentsAvailable,
+    limit: MAX_DOCUMENTS,
+  });
+  const documentHits = documentResult?.hits ?? [];
 
   const sections = useSectionStore((s) => s.sections);
   const sectionsInitialized = useSectionStore((s) => s.initialized);
@@ -247,6 +266,19 @@ export function GlobalSearch({ className }: { className?: string }) {
     });
   };
 
+  const openDocument = (hit: DocumentSearchHit) => {
+    guardNavigate(() => {
+      setOpen(false);
+      setDocumentFocus({
+        documentId: hit.documentId,
+        fileId: hit.fileId,
+        words: hit.matchedWords,
+      });
+      setMediaSection("documents");
+      setActiveView(MEDIA_VIEW);
+    });
+  };
+
   const openWorkspace = (workspace: Workspace) => {
     guardNavigate(() => {
       setOpen(false);
@@ -357,6 +389,57 @@ export function GlobalSearch({ className }: { className?: string }) {
                       <span className="text-xs text-muted-foreground tabular-nums">
                         {formatDate(e.date)}
                       </span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
+              {documentHits.length > 0 && (
+                <CommandGroup
+                  heading={
+                    documentResult?.fuzzy
+                      ? t("documents-similar")
+                      : t("documents")
+                  }
+                >
+                  {documentHits.map((hit) => (
+                    <CommandItem
+                      key={`${hit.documentId}-${hit.field}-${hit.fileId ?? ""}`}
+                      value={`document-${hit.documentId}-${hit.fileId ?? hit.field}`}
+                      onSelect={() => openDocument(hit)}
+                      className="items-start"
+                    >
+                      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary-soft text-primary">
+                        <FileText className="size-4" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-baseline gap-1.5">
+                          <span className="truncate font-medium">
+                            {hit.documentTitle}
+                          </span>
+                          {hit.fileName && (
+                            <span className="truncate text-xs text-muted-foreground">
+                              {hit.page !== null
+                                ? t("document-file-page", {
+                                    file: hit.fileName,
+                                    page: hit.page,
+                                  })
+                                : hit.fileName}
+                            </span>
+                          )}
+                        </span>
+                        {hit.field !== "title" && (
+                          <SearchSnippet
+                            text={hit.snippet}
+                            highlights={hit.highlights}
+                            className="line-clamp-2"
+                          />
+                        )}
+                      </span>
+                      {hit.matchCount > 1 && (
+                        <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                          {t("document-matches", { count: hit.matchCount })}
+                        </span>
+                      )}
                     </CommandItem>
                   ))}
                 </CommandGroup>

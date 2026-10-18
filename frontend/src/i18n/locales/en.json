@@ -447,7 +447,11 @@
     "no-files": "No files yet",
     "subtitle": "{{count}} records · {{people}} people covered",
     "subtitle_one": "{{count}} record · {{people}} people covered",
-    "subtitle_other": "{{count}} records · {{people}} people covered"
+    "subtitle_other": "{{count}} records · {{people}} people covered",
+    "searching-texts": "Searching file texts…",
+    "open-text-hit": "Open the text at this match",
+    "text-hit": "In {{file}}:",
+    "text-hit-page": "In {{file}}, p. {{page}}:"
   },
   "layout": {
     "tree-breadcrumb": {
@@ -519,7 +523,7 @@
       "open": "Search people, places and events",
       "placeholder": "Search people, places, events",
       "title": "Search",
-      "description": "Find a person, place, event, section or saved view in this workspace, switch to another workspace, or jump to a page.",
+      "description": "Find a person, place, event, section, saved view or document (also by the text of its files) in this workspace, switch to another workspace, or jump to a page.",
       "empty": "Nothing found.",
       "people": "People",
       "places": "Places",
@@ -534,7 +538,12 @@
       "role-editor": "Editor",
       "role-viewer": "Viewer",
       "open-view-error": "That saved view could not be opened.",
-      "open-workspace-error": "That workspace could not be opened."
+      "open-workspace-error": "That workspace could not be opened.",
+      "documents": "Documents",
+      "documents-similar": "Documents (similar spellings)",
+      "document-file-page": "{{file}} · p. {{page}}",
+      "document-matches_one": "{{count}} match",
+      "document-matches_other": "{{count}} matches"
     }
   },
   "list-view": {
