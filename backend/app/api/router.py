@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from app.api.routes import (
     activity,
     admin_audit,
+    ai_settings,
     auth,
     backups,
     content_scopes,
@@ -51,6 +52,7 @@ api_router.include_router(admin_audit.router)
 api_router.include_router(oauth.router)
 api_router.include_router(users.router)
 api_router.include_router(preferences.router)
+api_router.include_router(ai_settings.router)
 api_router.include_router(settings.router)
 api_router.include_router(friends.router)
 api_router.include_router(relation_types.router)

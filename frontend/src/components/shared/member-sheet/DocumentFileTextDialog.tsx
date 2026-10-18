@@ -5,9 +5,25 @@ import {
   useRef,
   useState,
 } from "react";
-import { ExternalLink, Pencil, ScrollText } from "lucide-react";
+import {
+  ExternalLink,
+  Pencil,
+  RotateCcw,
+  ScrollText,
+  Sparkles,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -28,6 +44,7 @@ import type { DocumentFile, DocumentFileText } from "@/types/document";
 import { canEditArea } from "@/utils/accessLevels";
 import { foldForSearch, SEARCH_WORD } from "@/utils/searchFold";
 import { cn } from "@/lib/utils";
+import { DocumentFileTranscribeButton } from "./DocumentFileTranscribeButton";
 
 const HIGHLIGHT = "document-search";
 
@@ -68,8 +85,14 @@ interface DocumentFileTextDialogProps {
   highlight?: string[];
 }
 
-function sourceKey(text: DocumentFileText): string {
-  return text.source === "ai" ? "source-ai" : "source-manual";
+function sourceLine(
+  t: (key: string, options?: Record<string, unknown>) => string,
+  text: DocumentFileText,
+): string {
+  if (text.source !== "ai") return t("source-manual");
+  return text.model
+    ? t("source-ai-model", { model: text.model })
+    : t("source-ai");
 }
 
 /** Read, and with Edit on Documents write, the Markdown text of one document
@@ -94,6 +117,7 @@ export const DocumentFileTextDialog = ({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
+  const [confirmRestore, setConfirmRestore] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
   const showing = open && !loading && !editing && text !== null;
@@ -123,8 +147,9 @@ export const DocumentFileTextDialog = ({
     return () => {
       cancelled = true;
     };
+    // A finished AI run changes the file's status: load its result.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, documentId, file.id, loadFileText]);
+  }, [open, documentId, file.id, file.transcriptionStatus, loadFileText]);
 
   const startEditing = () => {
     setDraft(text?.markdown ?? "");
@@ -133,24 +158,34 @@ export const DocumentFileTextDialog = ({
 
   const isDirty = editing && draft !== (text?.markdown ?? "");
 
-  const save = useCallback(async (): Promise<boolean> => {
-    setSaving(true);
-    try {
-      const saved = await saveFileText(documentId, file.id, draft);
-      setText(saved);
-      setEditing(false);
-      toast.success(t("saved"));
-      return true;
-    } catch {
-      toast.error(t("error-save"));
-      return false;
-    } finally {
-      setSaving(false);
-    }
+  const save = useCallback(
+    async (markdown: string = draft): Promise<boolean> => {
+      setSaving(true);
+      try {
+        const saved = await saveFileText(documentId, file.id, markdown);
+        setText(saved);
+        setEditing(false);
+        toast.success(t("saved"));
+        return true;
+      } catch {
+        toast.error(t("error-save"));
+        return false;
+      } finally {
+        setSaving(false);
+      }
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [documentId, file.id, draft, saveFileText]);
+    [documentId, file.id, draft, saveFileText],
+  );
 
   useUnsavedGuard(`document-file-text-${file.id}`, isDirty, save);
+
+  // The last AI version is kept next to an edited text; offer it back
+  // (the review banner covers a version that is still waiting).
+  const canRestore =
+    !!text?.machineMarkdown &&
+    text.machineMarkdown !== text.markdown &&
+    !text.aiVersionWaiting;
 
   const openFile = () => {
     void openMedia(file.url).catch(() => toast.error(t("error-open")));
@@ -166,9 +201,47 @@ export const DocumentFileTextDialog = ({
             {t("title", { name })}
           </DialogTitle>
           <DialogDescription>
-            {editing ? t("hint") : text ? t(sourceKey(text)) : t("description")}
+            {editing
+              ? t("hint")
+              : text
+                ? sourceLine(t, text)
+                : t("description")}
           </DialogDescription>
         </DialogHeader>
+
+        {file.transcriptionStatus === "pending" && !editing && (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Spinner className="size-4" />
+            {t("transcribing")}
+          </p>
+        )}
+        {canEdit && !editing && !loading && text?.aiVersionWaiting && (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm">
+            <span className="flex items-center gap-2">
+              <Sparkles className="size-4 shrink-0" />
+              {t("machine-differs")}
+            </span>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={saving}
+                onClick={() => void save(text.markdown)}
+              >
+                {t("keep-mine")}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={saving}
+                onClick={() => void save(text.machineMarkdown ?? text.markdown)}
+              >
+                {t("use-machine")}
+              </Button>
+            </div>
+          </div>
+        )}
 
         <div className="max-h-[60vh] min-h-24 overflow-y-auto">
           {loading ? (
@@ -220,14 +293,52 @@ export const DocumentFileTextDialog = ({
           ) : (
             canEdit &&
             !loading && (
-              <Button type="button" onClick={startEditing}>
-                <Pencil />
-                {text ? t("edit") : t("add")}
-              </Button>
+              <div className="flex gap-2">
+                {canRestore && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={saving}
+                    onClick={() => setConfirmRestore(true)}
+                  >
+                    <RotateCcw />
+                    {t("restore-ai")}
+                  </Button>
+                )}
+                <DocumentFileTranscribeButton
+                  documentId={documentId}
+                  file={file}
+                  variant="button"
+                />
+                <Button type="button" onClick={startEditing}>
+                  <Pencil />
+                  {text ? t("edit") : t("add")}
+                </Button>
+              </div>
             )
           )}
         </DialogFooter>
       </DialogContent>
+      <AlertDialog open={confirmRestore} onOpenChange={setConfirmRestore}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("restore-ai-confirm.title")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("restore-ai-confirm.description")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() =>
+                void save(text?.machineMarkdown ?? text?.markdown ?? "")
+              }
+            >
+              {t("restore-ai")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 };
@@ -272,6 +383,11 @@ export const DocumentFileTextButton = ({
   const stop = (event: MouseEvent) => event.stopPropagation();
   return (
     <span className="contents" onClick={stop} onDoubleClick={stop}>
+      <DocumentFileTranscribeButton
+        documentId={documentId}
+        file={file}
+        className={className}
+      />
       <button
         type="button"
         onClick={() => setOpen(true)}

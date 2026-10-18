@@ -27,6 +27,7 @@ import { usePresenceStore } from "@/hooks/usePresenceStore";
 import { isActiveTree, useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { PresenceUserDB } from "@/types/presence";
 import { NotificationDB } from "@/types/notification";
+import { transcriptionErrorMessage } from "@/utils/transcriptionErrors";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 
@@ -86,7 +87,10 @@ async function connect(): Promise<void> {
 
   const onTreeListChanged = () => void reload();
 
-  eventSource.addEventListener("workspace.ownership_changed", onTreeListChanged);
+  eventSource.addEventListener(
+    "workspace.ownership_changed",
+    onTreeListChanged,
+  );
   eventSource.addEventListener("workspace.access_changed", onTreeListChanged);
   eventSource.addEventListener("workspace.deleted", onTreeListChanged);
 
@@ -110,7 +114,9 @@ async function connect(): Promise<void> {
   });
 
   eventSource.addEventListener("activity.entry_added", (e) => {
-    const data = JSON.parse((e as MessageEvent).data) as { workspace_id: string };
+    const data = JSON.parse((e as MessageEvent).data) as {
+      workspace_id: string;
+    };
     if (!isActiveTree(data.workspace_id)) return;
     void useActivityStore.getState().refreshActivity(data.workspace_id);
   });
@@ -137,6 +143,34 @@ async function connect(): Promise<void> {
     domainRefreshers[data.domain]?.(data.workspace_id);
   });
 
+  // An AI transcription this person started finished (#1123). Everyone
+  // else's list refreshes through workspace.content_changed.
+  eventSource.addEventListener("document.transcription_finished", (e) => {
+    const data = JSON.parse((e as MessageEvent).data) as {
+      workspace_id: string;
+      filename: string | null;
+      status: string;
+      error: string | null;
+    };
+    if (isActiveTree(data.workspace_id)) {
+      void useDocumentStore.getState().refreshDocuments(data.workspace_id);
+    }
+    const name =
+      data.filename || i18n.t("sheet.member-sheet.documents.ai.untitled");
+    if (data.status === "done") {
+      toast.success(i18n.t("sheet.member-sheet.documents.ai.done", { name }));
+    } else {
+      const t = (key: string) =>
+        i18n.t(`sheet.member-sheet.documents.ai.${key}`);
+      toast.error(
+        i18n.t("sheet.member-sheet.documents.ai.failed-toast", {
+          name,
+          error: transcriptionErrorMessage(t, data.error),
+        }),
+      );
+    }
+  });
+
   eventSource.addEventListener("friend.request_received", (e) => {
     const data = JSON.parse((e as MessageEvent).data) as {
       requester_id: string;
@@ -155,7 +189,9 @@ async function connect(): Promise<void> {
     };
     void useWorkspaceStore.getState().loadTrees();
     toast.info(
-      i18n.t("dialog.share-tree.invitation-received", { name: data.workspace_name }),
+      i18n.t("dialog.share-tree.invitation-received", {
+        name: data.workspace_name,
+      }),
     );
   });
 

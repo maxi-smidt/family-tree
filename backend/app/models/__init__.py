@@ -6,6 +6,7 @@ so that table creation / migrations see the full schema.
 
 from app.models.activity import ActivityLog
 from app.models.admin_audit import AdminAuditLog
+from app.models.ai import DocumentFileTranscription, UserAiSettings
 from app.models.backup import BackupRecord, RestoreMarker
 from app.models.content import (
     Document,
@@ -63,6 +64,7 @@ __all__ = [
     "AdminAuditLog",
     "BackgroundJob",
     "User",
+    "UserAiSettings",
     "Workspace",
     "WorkspaceMembership",
     "WorkspaceInvitation",
@@ -83,6 +85,7 @@ __all__ = [
     "Document",
     "DocumentFile",
     "DocumentFileText",
+    "DocumentFileTranscription",
     "DocumentMemberLink",
     "DocumentUpload",
     "EventDocumentLink",

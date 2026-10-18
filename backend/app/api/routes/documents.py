@@ -5,10 +5,12 @@ Formerly the "Sources / Citations / Evidence" genealogy model; simplified into
 a single reusable content type now called "Documents".
 """
 
+from collections.abc import Iterable
 from uuid import uuid4
 
 from fastapi import (
     APIRouter,
+    BackgroundTasks,
     Depends,
     File,
     Form,
@@ -39,6 +41,7 @@ from app.models import (
     Document,
     DocumentFile,
     DocumentFileText,
+    DocumentFileTranscription,
     DocumentMemberLink,
     DocumentUpload,
     EventDocumentLink,
@@ -46,6 +49,7 @@ from app.models import (
     Workspace,
 )
 from app.models.user import User
+from app.schemas.ai import DocumentFileTranscriptionOut
 from app.schemas.content import (
     DocumentCreate,
     DocumentFileOut,
@@ -65,6 +69,12 @@ from app.services.activity.activity import (
     document_delete_snapshot,
     document_file_delete_snapshot,
     record_activity,
+)
+from app.services.ai.transcription import (
+    run_state,
+    run_transcription,
+    start_transcription,
+    transcription_states,
 )
 from app.services.documents.content_links import replace_member_links
 from app.services.documents.document_service import (
@@ -141,17 +151,29 @@ def _linked_ids(db: Session, link_model, id_column, document_id: str) -> list[st
     )
 
 
-def _file_out(file: DocumentFile, with_text: set[str]) -> DocumentFileOut:
-    return DocumentFileOut.model_validate(file).model_copy(
-        update={"has_text": file.id in with_text}
-    )
+_FileStates = tuple[set[str], dict[str, DocumentFileTranscription]]
+
+
+def _file_states(db: Session, file_ids: Iterable[str]) -> _FileStates:
+    """Which files have a text, and each file's latest AI run, in two queries."""
+    ids = list(file_ids)
+    return files_with_text(db, ids), transcription_states(db, ids)
+
+
+def _file_out(file: DocumentFile, states: _FileStates) -> DocumentFileOut:
+    with_text, runs = states
+    update: dict[str, object] = {"has_text": file.id in with_text}
+    run = runs.get(file.id)
+    if run is not None:
+        update["transcription_status"], update["transcription_error"] = run_state(run)
+    return DocumentFileOut.model_validate(file).model_copy(update=update)
 
 
 def _document_out(db: Session, document: Document) -> DocumentOut:
-    with_text = files_with_text(db, (f.id for f in document.files))
+    states = _file_states(db, (f.id for f in document.files))
     return DocumentOut.model_validate(document).model_copy(
         update={
-            "files": [_file_out(f, with_text) for f in document.files],
+            "files": [_file_out(f, states) for f in document.files],
             "member_ids": _linked_ids(
                 db, DocumentMemberLink, DocumentMemberLink.member_id, document.id
             ),
@@ -194,12 +216,12 @@ def _documents_out(db: Session, documents: list[Document]) -> list[DocumentOut]:
     story_map: dict[str, list[str]] = {}
     for did, sid in story_rows:
         story_map.setdefault(did, []).append(sid)
-    with_text = files_with_text(db, (f.id for d in documents for f in d.files))
+    states = _file_states(db, (f.id for d in documents for f in d.files))
 
     return [
         DocumentOut.model_validate(d).model_copy(
             update={
-                "files": [_file_out(f, with_text) for f in d.files],
+                "files": [_file_out(f, states) for f in d.files],
                 "member_ids": member_map.get(d.id, []),
                 "event_ids": event_map.get(d.id, []),
                 "story_ids": story_map.get(d.id, []),
@@ -699,7 +721,7 @@ def rename_file(
             )
         )
     db.refresh(file)
-    return _file_out(file, files_with_text(db, [file.id]))
+    return _file_out(file, _file_states(db, [file.id]))
 
 
 @router.delete("/{document_id}/files/{file_id}", status_code=204)
@@ -818,6 +840,10 @@ def save_file_text(
             text = existing
             text.markdown = markdown
             text.language = payload.language
+            # Saving answers a waiting AI version ("review"), whichever
+            # text the person kept.
+            text.status = None
+            text.source = "ai" if markdown == text.machine_markdown else "manual"
             text.edited_by = user.id
             text.edited_at = now
             text.updated_at = now
@@ -846,3 +872,33 @@ def save_file_text(
     if text is not None:
         db.refresh(text)
     return text
+
+
+# --- AI transcription (#1123) -----------------------------------------------
+
+
+@router.post(
+    "/{document_id}/files/{file_id}/transcribe",
+    response_model=DocumentFileTranscriptionOut,
+    status_code=202,
+)
+def transcribe_file(
+    document_id: str,
+    file_id: str,
+    background_tasks: BackgroundTasks,
+    tree: Workspace = Depends(get_writable_workspace),
+    user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
+    db: Session = Depends(get_db),
+):
+    """Send the file to the caller's own AI provider and fill its text.
+
+    Runs in the background; the caller gets a
+    ``document.transcription_finished`` event when it is done. Only ever
+    started by this explicit request, never on upload.
+    """
+    document = _get_document(db, tree, document_id, context)
+    file = _get_file(db, document, file_id)
+    run = start_transcription(db, tree, file, user)
+    background_tasks.add_task(run_transcription, file.id)
+    return run

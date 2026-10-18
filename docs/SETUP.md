@@ -109,3 +109,20 @@ To enable single sign-on, register an OAuth2/OpenID Connect provider in Authenti
 with redirect URI `${FRONTEND_URL}/api/auth/oauth/authentik/callback`, then set
 `AUTHENTIK_CLIENT_ID`, `AUTHENTIK_CLIENT_SECRET`, and `AUTHENTIK_DISCOVERY_URL`
 in your environment. The "Sign in with Authentik" button appears automatically.
+
+## AI transcription (optional)
+
+Document scans and PDFs can be turned into Markdown text by an AI model
+(#1123). Nothing needs to be configured on the server: each person connects
+their **own** provider under **Settings → AI** (Google Gemini, OpenAI,
+Anthropic Claude, or, for admins only, a custom OpenAI-compatible endpoint
+such as Ollama or LM Studio). Files are only sent when someone clicks the AI
+button next to a file and confirms that it leaves the server.
+
+- API keys are stored encrypted (AES-GCM, key derived from `SECRET_KEY`) and
+  are never returned by the API. Changing `SECRET_KEY` makes saved keys
+  unreadable; people are asked to enter them again.
+- The custom endpoint is admin-only because the server calls whatever address
+  is entered.
+- Runs happen in the backend process. A run cut off by a restart shows as
+  interrupted after 15 minutes and can be started again.
