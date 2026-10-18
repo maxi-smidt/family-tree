@@ -143,11 +143,12 @@ export const MemberFamily = ({
 
   if (layout === "rows") {
     return (
-      <section aria-labelledby="member-family-heading" className="mb-5">
-        <h3
-          id="member-family-heading"
-          className="mb-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase"
-        >
+      <section
+        data-member-family
+        aria-labelledby="member-family-heading"
+        className="mb-5"
+      >
+        <h3 id="member-family-heading" className="mb-3 text-sm font-semibold">
           {t("family")}
         </h3>
         <ul className="overflow-hidden rounded-2xl border bg-card">
@@ -165,14 +166,11 @@ export const MemberFamily = ({
                 >
                   <button
                     type="button"
-                    className="flex min-h-15 w-full items-center gap-3 py-2 pr-2 pl-3.5 text-left transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
+                    disabled={!onOpenMember}
+                    className="flex min-h-17 w-full items-center gap-3 px-4 py-3 text-left transition-colors enabled:cursor-pointer enabled:hover:bg-accent focus-visible:bg-accent focus-visible:outline-none disabled:opacity-100"
                     onClick={() => onOpenMember?.(person.id)}
                   >
-                    <MemberAvatar
-                      member={person}
-                      size="sm"
-                      className="size-9"
-                    />
+                    <MemberAvatar member={person} size="md" />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-semibold">
                         {name}
@@ -181,10 +179,12 @@ export const MemberFamily = ({
                         {detail}
                       </span>
                     </span>
-                    <ChevronRight
-                      aria-hidden="true"
-                      className="size-4.5 shrink-0 text-muted-foreground"
-                    />
+                    {onOpenMember && (
+                      <ChevronRight
+                        aria-hidden="true"
+                        className="size-4.5 shrink-0 text-muted-foreground"
+                      />
+                    )}
                   </button>
                 </li>
               );
@@ -196,7 +196,11 @@ export const MemberFamily = ({
   }
 
   return (
-    <section aria-labelledby="member-family-heading" className="mb-5">
+    <section
+      data-member-family
+      aria-labelledby="member-family-heading"
+      className="mb-5"
+    >
       <h3
         id="member-family-heading"
         className="mb-2.5 text-xs font-semibold tracking-wider text-muted-foreground uppercase"
