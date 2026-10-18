@@ -27,6 +27,7 @@ from app.models.activity import ActivityLog
 from app.models.content import (
     Document,
     DocumentFile,
+    DocumentFileText,
     DocumentMemberLink,
     Event,
     EventDocumentLink,
@@ -216,6 +217,11 @@ def document_delete_snapshot(
     story_links = db.scalars(
         select(StoryDocumentLink).where(StoryDocumentLink.document_id == document.id)
     ).all()
+    file_texts = db.scalars(
+        select(DocumentFileText).where(
+            DocumentFileText.document_file_id.in_([f.id for f in files])
+        )
+    ).all()
     snapshot: DocumentSnapshot = {
         "version": SNAPSHOT_VERSION,
         "document": row_to_dict(document),
@@ -225,6 +231,7 @@ def document_delete_snapshot(
         "event_links": [row_to_dict(r) for r in event_links],
         "story_links": [row_to_dict(r) for r in story_links],
         "trashed_media": [f.url for f in files if f.kind == "file"],
+        "file_texts": [row_to_dict(t) for t in file_texts],
     }
     return {"snapshot": snapshot}
 
@@ -251,18 +258,23 @@ def disease_delete_snapshot(
 
 
 def document_file_delete_snapshot(
-    file: DocumentFile, trashed_url: str | None = None
+    file: DocumentFile,
+    trashed_url: str | None = None,
+    text: DocumentFileText | None = None,
 ) -> DeleteSnapshot[DocumentFileSnapshot]:
     """Pre-image of a standalone document-file delete.
 
     ``trashed_url`` is the file's media URL when it was moved to trash
     (``kind == "file"``); link-kind attachments have no backing file.
+    ``text`` is the file's text row, if it has one.
     """
     snapshot: DocumentFileSnapshot = {
         "version": SNAPSHOT_VERSION,
         "document_file": row_to_dict(file),
         "trashed_media": [trashed_url] if trashed_url else [],
     }
+    if text is not None:
+        snapshot["document_file_text"] = row_to_dict(text)
     return {"snapshot": snapshot}
 
 

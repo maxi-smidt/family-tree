@@ -377,3 +377,81 @@ it("keeps the captured origin when the selected section changes during an upload
   );
   useMemberStore.getState().clear();
 });
+
+describe("useDocumentStore — file text", () => {
+  const TEXT_DB = {
+    document_file_id: "f1",
+    language: "de",
+    markdown: "Lieber Hans,",
+    source: "manual" as const,
+    edited_by: "u1",
+    edited_at: "2024-01-02T00:00:00Z",
+    created_at: "2024-01-02T00:00:00Z",
+    updated_at: "2024-01-02T00:00:00Z",
+  };
+  const WITH_FILE: DocumentDB = {
+    ...DOC_DB,
+    files: [
+      {
+        id: "f1",
+        kind: "file",
+        filename: "letter.png",
+        url: "/api/media/tree-doc/letter.png",
+        mime_type: "image/png",
+        size: 10,
+        created_at: "2024-01-01T00:00:00Z",
+        has_text: false,
+      },
+    ],
+  };
+
+  it("loads a file's text on demand", async () => {
+    useWorkspaceStore.setState({ selectedTree: TREE });
+    vi.mocked(WorkspaceService.getDocumentFileText).mockResolvedValue(TEXT_DB);
+
+    const text = await useDocumentStore.getState().loadFileText("d1", "f1");
+
+    expect(WorkspaceService.getDocumentFileText).toHaveBeenCalledWith(
+      TREE_ID,
+      "d1",
+      "f1",
+    );
+    expect(text?.markdown).toBe("Lieber Hans,");
+    expect(text?.fileId).toBe("f1");
+  });
+
+  it("returns null when the file has no text", async () => {
+    useWorkspaceStore.setState({ selectedTree: TREE });
+    vi.mocked(WorkspaceService.getDocumentFileText).mockResolvedValue(null);
+
+    expect(await useDocumentStore.getState().loadFileText("d1", "f1")).toBe(
+      null,
+    );
+  });
+
+  it("saving flips the file's has-text flag without refetching", async () => {
+    useWorkspaceStore.setState({ selectedTree: TREE });
+    vi.mocked(WorkspaceService.getDocuments).mockResolvedValue([WITH_FILE]);
+    await useDocumentStore.getState().refreshDocuments();
+    vi.mocked(WorkspaceService.saveDocumentFileText).mockResolvedValue(TEXT_DB);
+
+    await useDocumentStore.getState().saveFileText("d1", "f1", "Lieber Hans,");
+
+    expect(WorkspaceService.saveDocumentFileText).toHaveBeenCalledWith(
+      TREE_ID,
+      "d1",
+      "f1",
+      "Lieber Hans,",
+    );
+    expect(WorkspaceService.getDocuments).toHaveBeenCalledTimes(1);
+    expect(useDocumentStore.getState().documents[0].files[0].hasText).toBe(
+      true,
+    );
+
+    vi.mocked(WorkspaceService.saveDocumentFileText).mockResolvedValue(null);
+    await useDocumentStore.getState().saveFileText("d1", "f1", "");
+    expect(useDocumentStore.getState().documents[0].files[0].hasText).toBe(
+      false,
+    );
+  });
+});

@@ -86,12 +86,15 @@ class DocumentSnapshot(TypedDict):
     story_links: list[RowSnapshot]
     trashed_media: list[str]
     content_scopes: NotRequired[ContentScopes]
+    # Absent from snapshots taken before file texts existed (#1121).
+    file_texts: NotRequired[list[RowSnapshot]]
 
 
 class DocumentFileSnapshot(TypedDict):
     version: int
     document_file: RowSnapshot
     trashed_media: list[str]
+    document_file_text: NotRequired[RowSnapshot]
 
 
 # ---------------------------------------------------------------------------

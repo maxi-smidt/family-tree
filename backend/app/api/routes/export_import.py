@@ -38,6 +38,7 @@ from app.db.session import get_db
 from app.models import (
     Document,
     DocumentFile,
+    DocumentFileText,
     DocumentMemberLink,
     Event,
     EventDocumentLink,
@@ -76,7 +77,7 @@ from app.services.interchange.bundles.bundle_types import (
     BundleMemberRow,
     BundleRelationRow,
     TreeBundle,
-    TreeBundleV5,
+    TreeBundleV6,
 )
 from app.services.interchange.bundles.tree_bundle_import import do_import
 from app.services.interchange.gedcom import gedcom
@@ -121,7 +122,7 @@ def export_tree(
         if f.get("kind") == "file":
             f["url"] = media_url_to_data_url(f.get("url"))
 
-    bundle: TreeBundleV5 = {
+    bundle: TreeBundleV6 = {
         "version": BUNDLE_VERSION,
         "app_version": settings.APP_VERSION,
         "exported_at": utcnow_iso(),
@@ -146,6 +147,7 @@ def export_tree(
         "story_links": _link_rows(db, StoryMemberLink, Story, tree.id),
         "documents": _rows(db, Document, tree.id),
         "document_files": document_files,
+        "document_file_texts": _rows(db, DocumentFileText, tree.id),
         "document_member_links": _document_link_rows(db, DocumentMemberLink, tree.id),
         "event_document_links": _document_link_rows(db, EventDocumentLink, tree.id),
         "story_document_links": _document_link_rows(db, StoryDocumentLink, tree.id),

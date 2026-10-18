@@ -23,6 +23,7 @@ from app.models import (
     ContentType,
     Document,
     DocumentFile,
+    DocumentFileText,
     DocumentMemberLink,
     Event,
     EventDocumentLink,
@@ -478,7 +479,7 @@ def copy_stories(db: Session, ctx: MergeContext) -> None:
 
 
 def copy_documents(db: Session, ctx: MergeContext) -> None:
-    """Copy documents, their files, and member/event/story links.
+    """Copy documents, their files and file texts, and member/event/story links.
 
     Documents are reusable, tree-scoped content. Copy each source tree's
     documents (with their files) into the new tree and repoint the merged
@@ -504,6 +505,7 @@ def copy_documents(db: Session, ctx: MergeContext) -> None:
             )
     db.flush()  # documents before their files/links
 
+    file_map: dict[str, str] = {}
     for t in ctx.sources:
         for f in db.scalars(
             select(DocumentFile)
@@ -516,9 +518,11 @@ def copy_documents(db: Session, ctx: MergeContext) -> None:
             new_url = f.url
             if f.kind == "file":
                 new_url = copy_media_to_workspace(f.url, ctx.new_tree_id) or f.url
+            new_file_id = str(uuid4())
+            file_map[f.id] = new_file_id
             db.add(
                 DocumentFile(
-                    id=str(uuid4()),
+                    id=new_file_id,
                     workspace_id=ctx.new_tree_id,
                     document_id=new_doc_id,
                     kind=f.kind,
@@ -527,6 +531,33 @@ def copy_documents(db: Session, ctx: MergeContext) -> None:
                     mime_type=f.mime_type,
                     size=f.size,
                     created_at=f.created_at,
+                )
+            )
+    db.flush()  # files before their texts
+
+    for t in ctx.sources:
+        for text in db.scalars(
+            select(DocumentFileText).where(DocumentFileText.workspace_id == t.id)
+        ):
+            new_file_id = file_map.get(text.document_file_id)
+            if new_file_id is None:
+                continue
+            db.add(
+                DocumentFileText(
+                    document_file_id=new_file_id,
+                    workspace_id=ctx.new_tree_id,
+                    language=text.language,
+                    markdown=text.markdown,
+                    machine_markdown=text.machine_markdown,
+                    source=text.source,
+                    provider=text.provider,
+                    model=text.model,
+                    status=text.status,
+                    error=text.error,
+                    edited_by=text.edited_by,
+                    edited_at=text.edited_at,
+                    created_at=text.created_at,
+                    updated_at=text.updated_at,
                 )
             )
 

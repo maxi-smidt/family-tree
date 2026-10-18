@@ -13,6 +13,7 @@ import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
 import { Spinner } from "@/components/ui/spinner";
 import { downloadMedia, openMedia } from "@/hooks/useMediaUrl";
 import { DocumentFile } from "@/types/document";
+import { DocumentFileTextButton } from "./DocumentFileTextDialog";
 import {
   formatFileSize,
   getFileKind,
@@ -83,7 +84,13 @@ export const FilePreview = ({
 
 /** Read-only list of a document's files: uploaded files preview + download,
  *  external links open in a new tab. */
-export const DocumentFileList = ({ files }: { files: DocumentFile[] }) => {
+export const DocumentFileList = ({
+  documentId,
+  files,
+}: {
+  documentId: string;
+  files: DocumentFile[];
+}) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.member-sheet.documents.file",
   });
@@ -150,6 +157,7 @@ export const DocumentFileList = ({ files }: { files: DocumentFile[] }) => {
                 {formatFileSize(f.size)}
               </span>
             )}
+            <DocumentFileTextButton documentId={documentId} file={f} />
             <button
               type="button"
               onClick={() => download(f)}

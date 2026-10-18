@@ -257,6 +257,23 @@ class BundleDocumentFileRow(TypedDict, total=False):
     created_at: str | None
 
 
+class BundleDocumentFileTextRow(TypedDict, total=False):
+    document_file_id: str
+    workspace_id: str
+    language: str | None
+    markdown: str
+    machine_markdown: str | None
+    source: str
+    provider: str | None
+    model: str | None
+    status: str | None
+    error: str | None
+    edited_by: str | None
+    edited_at: str | None
+    created_at: str | None
+    updated_at: str | None
+
+
 class BundleDocumentMemberLinkRow(TypedDict, total=False):
     document_id: str
     member_id: str
@@ -378,7 +395,7 @@ class TreeBundleV4(TypedDict, total=False):
 
 
 class TreeBundleV5(TypedDict, total=False):
-    """Current bundle shape produced by ``export_tree``.
+    """Bundle shape of v2.0 to v2.1.
 
     Adds sections, their explicit membership/layout overlay, and saved views —
     the workspace concepts introduced by #982/#986 that a v4 bundle predates.
@@ -415,5 +432,14 @@ class TreeBundleV5(TypedDict, total=False):
     saved_view_positions: list[BundleSavedViewPositionRow]
 
 
-TreeBundle = TreeBundleV2 | TreeBundleV3 | TreeBundleV4 | TreeBundleV5
+class TreeBundleV6(TreeBundleV5, total=False):
+    """Current bundle shape produced by ``export_tree``.
+
+    Adds the Markdown text of document files (#1121).
+    """
+
+    document_file_texts: list[BundleDocumentFileTextRow]
+
+
+TreeBundle = TreeBundleV2 | TreeBundleV3 | TreeBundleV4 | TreeBundleV5 | TreeBundleV6
 """Any bundle version that ``migrate_bundle`` knows how to read."""

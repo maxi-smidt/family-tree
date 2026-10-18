@@ -10,6 +10,7 @@ from app.models.backup import BackupRecord, RestoreMarker
 from app.models.content import (
     Document,
     DocumentFile,
+    DocumentFileText,
     DocumentMemberLink,
     DocumentUpload,
     Event,
@@ -81,6 +82,7 @@ __all__ = [
     "GeocodeCache",
     "Document",
     "DocumentFile",
+    "DocumentFileText",
     "DocumentMemberLink",
     "DocumentUpload",
     "EventDocumentLink",

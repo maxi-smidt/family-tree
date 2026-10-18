@@ -7,7 +7,15 @@ a single reusable content type now called "Documents".
 
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    UploadFile,
+)
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
@@ -27,6 +35,7 @@ from app.models import (
     ContentType,
     Document,
     DocumentFile,
+    DocumentFileText,
     DocumentMemberLink,
     DocumentUpload,
     EventDocumentLink,
@@ -37,6 +46,8 @@ from app.models.user import User
 from app.schemas.content import (
     DocumentCreate,
     DocumentFileOut,
+    DocumentFileTextOut,
+    DocumentFileTextSave,
     DocumentFileUpdate,
     DocumentLinkCreate,
     DocumentOut,
@@ -57,6 +68,7 @@ from app.services.documents.document_service import (
     prune_stale_uploads,
     save_document,
 )
+from app.services.documents.file_text import extract_pdf_texts, files_with_text
 from app.services.event_bus import publish_workspace_event
 from app.services.media.storage import (
     ChecksumMismatch,
@@ -91,6 +103,25 @@ def _get_document(
     return document
 
 
+def _get_readable_document(
+    db: Session, tree: Workspace, document_id: str, context: WorkspaceAccessContext
+) -> Document:
+    """Load a document for a *read*, with the same visibility rule as the
+    list: a document the caller can't see is a 404, not a 403."""
+    statement = select(Document).where(
+        Document.id == document_id, Document.workspace_id == tree.id
+    )
+    content_filter = context.content_filter(
+        ContentType.DOCUMENT, Document.id, domain=DOMAIN
+    )
+    if content_filter is not None:
+        statement = statement.where(content_filter)
+    document = db.scalar(statement)
+    if document is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return document
+
+
 def _get_file(db: Session, document: Document, file_id: str) -> DocumentFile:
     file = db.get(DocumentFile, file_id)
     if file is None or file.document_id != document.id:
@@ -104,9 +135,17 @@ def _linked_ids(db: Session, link_model, id_column, document_id: str) -> list[st
     )
 
 
+def _file_out(file: DocumentFile, with_text: set[str]) -> DocumentFileOut:
+    return DocumentFileOut.model_validate(file).model_copy(
+        update={"has_text": file.id in with_text}
+    )
+
+
 def _document_out(db: Session, document: Document) -> DocumentOut:
+    with_text = files_with_text(db, (f.id for f in document.files))
     return DocumentOut.model_validate(document).model_copy(
         update={
+            "files": [_file_out(f, with_text) for f in document.files],
             "member_ids": _linked_ids(
                 db, DocumentMemberLink, DocumentMemberLink.member_id, document.id
             ),
@@ -149,10 +188,12 @@ def _documents_out(db: Session, documents: list[Document]) -> list[DocumentOut]:
     story_map: dict[str, list[str]] = {}
     for did, sid in story_rows:
         story_map.setdefault(did, []).append(sid)
+    with_text = files_with_text(db, (f.id for d in documents for f in d.files))
 
     return [
         DocumentOut.model_validate(d).model_copy(
             update={
+                "files": [_file_out(f, with_text) for f in d.files],
                 "member_ids": member_map.get(d.id, []),
                 "event_ids": event_map.get(d.id, []),
                 "story_ids": story_map.get(d.id, []),
@@ -286,6 +327,7 @@ def update_document(
 def save_document_route(
     document_id: str,
     payload: DocumentSave,
+    background_tasks: BackgroundTasks,
     tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
     context: WorkspaceAccessContext = Depends(get_workspace_access_write),
@@ -307,6 +349,11 @@ def save_document_route(
         document_id=document_id,
         payload=payload,
     )
+    # An attached upload keeps its id as the new file's id.
+    if payload.attached_upload_ids:
+        background_tasks.add_task(
+            extract_pdf_texts, tree.id, list(payload.attached_upload_ids)
+        )
     return _document_out(db, document)
 
 
@@ -474,6 +521,7 @@ async def stage_upload(
 @router.post("/{document_id}/files", response_model=DocumentFileOut, status_code=201)
 async def add_file(
     document_id: str,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     filename: str = Form(...),
     checksum: str | None = Form(default=None),
@@ -538,6 +586,7 @@ async def add_file(
         delete_media(url)
         raise
     db.refresh(file)
+    background_tasks.add_task(extract_pdf_texts, tree.id, [file.id])
     return file
 
 
@@ -600,7 +649,7 @@ def rename_file(
             )
         )
     db.refresh(file)
-    return file
+    return _file_out(file, files_with_text(db, [file.id]))
 
 
 @router.delete("/{document_id}/files/{file_id}", status_code=204)
@@ -627,7 +676,9 @@ def delete_file(
             target_type="document_file",
             target_id=file.id,
             target_label=file.filename,
-            details=document_file_delete_snapshot(file, url),
+            details=document_file_delete_snapshot(
+                file, url, db.get(DocumentFileText, file.id)
+            ),
         )
         db.delete(file)
         if url is not None:
@@ -645,3 +696,103 @@ def delete_file(
                 {"workspace_id": tree.id, "domain": "document"},
             )
         )
+
+
+# --- File text (#1121) -------------------------------------------------------
+
+
+@router.get(
+    "/{document_id}/files/{file_id}/text",
+    response_model=DocumentFileTextOut | None,
+)
+def get_file_text(
+    document_id: str,
+    file_id: str,
+    tree: Workspace = Depends(get_readable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_authenticated),
+    db: Session = Depends(get_db),
+):
+    """The file's Markdown text, or ``null`` when it has none yet."""
+    document = _get_readable_document(db, tree, document_id, context)
+    file = _get_file(db, document, file_id)
+    return db.get(DocumentFileText, file.id)
+
+
+@router.put(
+    "/{document_id}/files/{file_id}/text",
+    response_model=DocumentFileTextOut | None,
+)
+def save_file_text(
+    document_id: str,
+    file_id: str,
+    payload: DocumentFileTextSave,
+    tree: Workspace = Depends(get_writable_workspace),
+    user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
+    db: Session = Depends(get_db),
+):
+    """Replace the file's text with a person's version; an empty text removes it.
+
+    ``machine_markdown`` is left alone, so the machine's original (the PDF
+    text layer, later AI) stays available next to the corrected text.
+    """
+    document = _get_document(db, tree, document_id, context)
+    file = _get_file(db, document, file_id)
+    if file.kind != "file":
+        raise HTTPException(status_code=400, detail="Links have no text")
+    markdown = payload.markdown if payload.markdown.strip() else ""
+    existing = db.get(DocumentFileText, file.id)
+    if not markdown and existing is None:
+        return None
+    previous = len(existing.markdown.encode()) if existing is not None else 0
+    check_workspace_quota(db, tree, max(0, len(markdown.encode()) - previous))
+    now = utcnow_iso()
+    with UnitOfWork(db) as uow:
+        if not markdown:
+            db.delete(existing)
+            text = None
+        elif existing is None:
+            text = DocumentFileText(
+                document_file_id=file.id,
+                workspace_id=tree.id,
+                language=payload.language,
+                markdown=markdown,
+                source="manual",
+                edited_by=user.id,
+                edited_at=now,
+                created_at=now,
+                updated_at=now,
+            )
+            db.add(text)
+        else:
+            text = existing
+            text.markdown = markdown
+            text.language = payload.language
+            text.edited_by = user.id
+            text.edited_at = now
+            text.updated_at = now
+        record_activity(
+            db,
+            workspace_id=tree.id,
+            actor=user,
+            action="update",
+            target_type="document",
+            target_id=document.id,
+            target_label=document.title,
+        )
+        uow.after_commit(
+            lambda: publish_workspace_event(
+                db, tree, "activity.entry_added", {"workspace_id": tree.id}
+            )
+        )
+        uow.after_commit(
+            lambda: publish_workspace_event(
+                db,
+                tree,
+                "workspace.content_changed",
+                {"workspace_id": tree.id, "domain": "document"},
+            )
+        )
+    if text is not None:
+        db.refresh(text)
+    return text

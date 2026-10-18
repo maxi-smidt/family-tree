@@ -20,6 +20,7 @@ from app.db.session import SessionLocal
 from app.models import (
     Document,
     DocumentFile,
+    DocumentFileText,
     DocumentMemberLink,
     Event,
     EventDocumentLink,
@@ -46,7 +47,7 @@ from app.models import (
 )
 from app.services.activity.activity import record_activity
 from app.services.event_bus import publish_workspace_event
-from app.services.interchange.bundles.bundle_types import TreeBundleV5
+from app.services.interchange.bundles.bundle_types import TreeBundleV6
 from app.services.interchange.gedcom.genealogy_date import sort_key as _sort_key
 from app.services.media.storage import (
     delete_workspace_media,
@@ -164,7 +165,7 @@ def _import_doc_links(db, links, model, parent_key, parent_map, document_map):
 
 def do_import(
     progress_cb: ProgressCallback,
-    bundle: TreeBundleV5,
+    bundle: TreeBundleV6,
     name: str | None,
     user_id: str,
 ) -> str:
@@ -360,6 +361,7 @@ def do_import(
             db.add(Document(workspace_id=tree.id, **data))
         db.flush()  # documents before their files/links
 
+        file_map: dict[str, str] = {}
         for row in bundle.get("document_files", []):
             document_id = document_map.get(row.get("document_id"))
             if document_id is None:
@@ -377,9 +379,12 @@ def do_import(
                     )
                 except ValueError:
                     continue
+            file_id = str(uuid4())
+            if row.get("id"):
+                file_map[row["id"]] = file_id
             db.add(
                 DocumentFile(
-                    id=str(uuid4()),
+                    id=file_id,
                     workspace_id=tree.id,
                     document_id=document_id,
                     kind=row.get("kind", "link"),
@@ -388,6 +393,32 @@ def do_import(
                     mime_type=file_mime,
                     size=file_size,
                     created_at=row.get("created_at") or utcnow_iso(),
+                )
+            )
+        db.flush()  # files before their texts
+        for row in bundle.get("document_file_texts", []):
+            file_id = file_map.get(row.get("document_file_id"))
+            markdown = row.get("markdown")
+            if file_id is None or not markdown:
+                continue
+            now = utcnow_iso()
+            db.add(
+                DocumentFileText(
+                    document_file_id=file_id,
+                    workspace_id=tree.id,
+                    language=row.get("language"),
+                    markdown=markdown,
+                    machine_markdown=row.get("machine_markdown"),
+                    source=row.get("source") or "manual",
+                    provider=row.get("provider"),
+                    model=row.get("model"),
+                    status=row.get("status"),
+                    error=row.get("error"),
+                    # The editor's account belongs to the exporting instance.
+                    edited_by=None,
+                    edited_at=row.get("edited_at"),
+                    created_at=row.get("created_at") or now,
+                    updated_at=row.get("updated_at") or now,
                 )
             )
         progress_cb(87)

@@ -46,6 +46,7 @@ from app.models import (
     ContentScope,
     Document,
     DocumentFile,
+    DocumentFileText,
     DocumentMemberLink,
     DocumentUpload,
     Event,
@@ -162,6 +163,7 @@ BACKUP_MODELS: tuple[type, ...] = (
     StoryMemberLink,
     Document,
     DocumentFile,
+    DocumentFileText,
     DocumentMemberLink,
     DocumentUpload,
     EventDocumentLink,
@@ -308,6 +310,8 @@ LEGACY_OPTIONAL_TABLES: frozenset[str] = frozenset(
         SavedViewSection.__tablename__,
         SavedViewPosition.__tablename__,
         SavedViewUserState.__tablename__,
+        # Document file texts (#1121) were added in v2.2.0.
+        DocumentFileText.__tablename__,
     }
 )
 

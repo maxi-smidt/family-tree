@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from app.models.content import (
     Document,
     DocumentFile,
+    DocumentFileText,
     DocumentMemberLink,
     Event,
     EventDocumentLink,
@@ -424,6 +425,18 @@ def restore_document(
         count += 1
     if count:
         result.restored["files"] = count
+        db.flush()  # files before their texts
+
+    count = 0
+    for text_data in snapshot.get("file_texts", []):
+        if db.get(DocumentFile, text_data["document_file_id"]) is None:
+            continue
+        if db.get(DocumentFileText, text_data["document_file_id"]) is not None:
+            continue
+        db.add(DocumentFileText(**text_data))
+        count += 1
+    if count:
+        result.restored["file_texts"] = count
 
     count = 0
     for link in snapshot.get("member_links", []):
@@ -478,6 +491,10 @@ def restore_document_file(
     if _in_tree(db, Document, file_data["document_id"], tree.id) is None:
         raise UndoConflict(f"document {file_data['document_id']} no longer exists")
     db.add(DocumentFile(**file_data))
+    text_data = snapshot.get("document_file_text")
+    if text_data is not None:
+        db.flush()  # the file before its text
+        db.add(DocumentFileText(**text_data))
     return RestoreResult(
         main_id=file_id,
         restored={"document_file": file_id},

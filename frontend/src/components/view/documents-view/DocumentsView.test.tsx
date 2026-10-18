@@ -30,6 +30,7 @@ const documents: Document[] = [
         mimeType: "application/pdf",
         size: 123,
         createdAt: "2026-01-01T00:00:00Z",
+        hasText: false,
       },
       {
         id: "link-1",
@@ -39,6 +40,7 @@ const documents: Document[] = [
         mimeType: null,
         size: null,
         createdAt: "2026-01-01T00:00:00Z",
+        hasText: false,
       },
     ],
     memberIds: ["member-1"],

@@ -53,7 +53,7 @@ export const LinkedDocumentList = ({
                 <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                 <span className="truncate">{doc.title}</span>
               </div>
-              <DocumentFileList files={doc.files} />
+              <DocumentFileList documentId={doc.id} files={doc.files} />
             </div>
           ))}
         </div>

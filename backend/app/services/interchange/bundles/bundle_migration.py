@@ -16,7 +16,7 @@ from app.services.interchange.bundles.bundle_types import (
     TreeBundle,
     TreeBundleV2,
     TreeBundleV3,
-    TreeBundleV5,
+    TreeBundleV6,
 )
 
 # Bundle schema version. Bump this **and** add a ``migrate_bundle`` step whenever
@@ -32,7 +32,8 @@ from app.services.interchange.bundles.bundle_types import (
 #                 saved_views / saved_view_sections / saved_view_positions
 #                 (#1016) — a bundle never carries identity links or the
 #                 legacy member bridge fields, see export_import.export_tree.
-BUNDLE_VERSION = 5
+#   v6 (v2.2+):   document_file_texts (Markdown text per document file, #1121)
+BUNDLE_VERSION = 6
 
 
 def _fold_source_description(source: dict, citation_lines: list[str]) -> str | None:
@@ -167,7 +168,7 @@ def _migrate_v2_to_v3(bundle: TreeBundleV2) -> TreeBundleV3:
     return migrated
 
 
-def migrate_bundle(bundle: TreeBundle) -> TreeBundleV5:
+def migrate_bundle(bundle: TreeBundle) -> TreeBundleV6:
     """Bring an older bundle up to BUNDLE_VERSION.
 
     Add a migration step here and bump BUNDLE_VERSION when the bundle schema
@@ -205,10 +206,16 @@ def migrate_bundle(bundle: TreeBundle) -> TreeBundleV5:
         migrated["saved_view_positions"] = bundle.get("saved_view_positions", [])
         migrated["version"] = 5
         bundle = migrated
+    if bundle.get("version", 1) < 6:
+        # v5 → v6: document files had no text yet.
+        migrated = dict(bundle)
+        migrated["document_file_texts"] = bundle.get("document_file_texts", [])
+        migrated["version"] = 6
+        bundle = migrated
     return bundle
 
 
-def validate_and_migrate(bundle: TreeBundle) -> TreeBundleV5:
+def validate_and_migrate(bundle: TreeBundle) -> TreeBundleV6:
     version = bundle.get("version", 1)
     if version > BUNDLE_VERSION:
         raise InvalidInputError(

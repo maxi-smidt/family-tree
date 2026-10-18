@@ -12,6 +12,7 @@ export interface DocumentFileDB {
   mime_type: string | null;
   size: number | null;
   created_at: string;
+  has_text?: boolean;
 }
 
 export interface DocumentFile {
@@ -22,6 +23,33 @@ export interface DocumentFile {
   mimeType: string | null;
   size: number | null;
   createdAt: string;
+  /** Whether the file has a readable text; the text loads on demand. */
+  hasText: boolean;
+}
+
+/** Where a file's text came from. */
+export type DocumentFileTextSource = "manual" | "pdf_text" | "ai";
+
+/** The Markdown text of one uploaded file, in the file's own language. */
+export interface DocumentFileTextDB {
+  document_file_id: string;
+  language: string | null;
+  markdown: string;
+  source: DocumentFileTextSource;
+  edited_by: string | null;
+  edited_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DocumentFileText {
+  fileId: string;
+  language: string | null;
+  markdown: string;
+  source: DocumentFileTextSource;
+  editedBy: string | null;
+  editedAt: string | null;
+  updatedAt: string;
 }
 
 export interface DocumentDB {
@@ -106,6 +134,21 @@ export function mapDocumentFileFromDB(row: DocumentFileDB): DocumentFile {
     mimeType: row.mime_type,
     size: row.size,
     createdAt: row.created_at,
+    hasText: row.has_text ?? false,
+  };
+}
+
+export function mapDocumentFileTextFromDB(
+  row: DocumentFileTextDB,
+): DocumentFileText {
+  return {
+    fileId: row.document_file_id,
+    language: row.language,
+    markdown: row.markdown,
+    source: row.source,
+    editedBy: row.edited_by,
+    editedAt: row.edited_at,
+    updatedAt: row.updated_at,
   };
 }
 

@@ -103,6 +103,7 @@ EXPECTED_BUNDLE_KEYS = {
         "saved_view_positions",
     },
 }
+EXPECTED_BUNDLE_KEYS[6] = EXPECTED_BUNDLE_KEYS[5] | {"document_file_texts"}
 
 
 def test_native_export_import_preserves_member_name_details(client, db):
