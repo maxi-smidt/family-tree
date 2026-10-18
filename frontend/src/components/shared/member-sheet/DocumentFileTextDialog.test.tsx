@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, renderWithProviders, screen, waitFor } from "@/test/utils";
+import {
+  fireEvent,
+  renderWithProviders,
+  screen,
+  waitFor,
+  within,
+} from "@/test/utils";
 import { useDocumentStore } from "@/hooks/useDocumentStore";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import type { DocumentFile, DocumentFileText } from "@/types/document";
@@ -17,6 +23,8 @@ const FILE: DocumentFile = {
   size: 100,
   createdAt: "2026-01-01T00:00:00Z",
   hasText: true,
+  transcriptionStatus: null,
+  transcriptionError: null,
 };
 
 const TEXT: DocumentFileText = {
@@ -24,6 +32,10 @@ const TEXT: DocumentFileText = {
   language: null,
   markdown: "# Taufschein\n\nJohann Schmidt",
   source: "manual",
+  machineMarkdown: null,
+  provider: null,
+  model: null,
+  aiVersionWaiting: false,
   editedBy: null,
   editedAt: null,
   updatedAt: "2026-01-01T00:00:00Z",
@@ -60,6 +72,78 @@ describe("DocumentFileTextDialog", () => {
     expect(await screen.findByText("Johann Schmidt")).toBeInTheDocument();
     expect(loadFileText).toHaveBeenCalledWith("doc-1", "file-1");
     expect(screen.getByText("Written by hand.")).toBeInTheDocument();
+  });
+
+  it("offers a waiting AI version next to an edited text", async () => {
+    loadFileText.mockResolvedValue({
+      ...TEXT,
+      machineMarkdown: "Neue Fassung",
+      aiVersionWaiting: true,
+    });
+    saveFileText.mockResolvedValue({ ...TEXT, markdown: "Neue Fassung" });
+    renderDialog();
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Use AI version" }),
+    );
+    await waitFor(() =>
+      expect(saveFileText).toHaveBeenCalledWith(
+        "doc-1",
+        "file-1",
+        "Neue Fassung",
+      ),
+    );
+  });
+
+  it("shows no AI notice for an edited text without a new run", async () => {
+    loadFileText.mockResolvedValue({ ...TEXT, machineMarkdown: "Alt" });
+    renderDialog();
+    expect(await screen.findByText("Johann Schmidt")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Use AI version" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("restores the stored AI version after confirmation", async () => {
+    loadFileText.mockResolvedValue({ ...TEXT, machineMarkdown: "KI-Text" });
+    saveFileText.mockResolvedValue({
+      ...TEXT,
+      markdown: "KI-Text",
+      source: "ai",
+      machineMarkdown: "KI-Text",
+    });
+    renderDialog();
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Restore AI version" }),
+    );
+    expect(saveFileText).not.toHaveBeenCalled();
+    const confirm = await screen.findByRole("alertdialog");
+    fireEvent.click(
+      within(confirm).getByRole("button", { name: "Restore AI version" }),
+    );
+
+    await waitFor(() =>
+      expect(saveFileText).toHaveBeenCalledWith("doc-1", "file-1", "KI-Text"),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: "Restore AI version" }),
+      ).not.toBeInTheDocument(),
+    );
+  });
+
+  it("offers no restore when the text is the AI version", async () => {
+    loadFileText.mockResolvedValue({
+      ...TEXT,
+      source: "ai",
+      machineMarkdown: TEXT.markdown,
+    });
+    renderDialog();
+    expect(await screen.findByText("Johann Schmidt")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Restore AI version" }),
+    ).not.toBeInTheDocument();
   });
 
   it("lets an editor correct and save the text", async () => {

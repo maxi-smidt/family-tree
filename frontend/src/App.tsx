@@ -15,6 +15,7 @@ import {
 } from "@/hooks/useWorkspaceStore";
 import { resetTutorialStoreForSession } from "@/hooks/useTutorialStore";
 import { resetNotificationStoreForSession } from "@/hooks/useNotificationStore";
+import { useAiSettingsStore } from "@/hooks/useAiSettingsStore";
 import { startRealtime, stopRealtime } from "@/services/realtime";
 import { useAdminViewStore } from "@/hooks/useAdminViewStore";
 import { useUserSettingsViewStore } from "@/hooks/useUserSettingsViewStore";
@@ -59,6 +60,7 @@ export const App = () => {
       resetTreeStoreForSession();
       resetTutorialStoreForSession();
       resetNotificationStoreForSession();
+      useAiSettingsStore.getState().clear();
       stopRealtime();
       return;
     }
@@ -70,6 +72,7 @@ export const App = () => {
     resetTreeStoreForSession();
     resetTutorialStoreForSession();
     resetNotificationStoreForSession();
+    useAiSettingsStore.getState().clear();
     void (async () => {
       try {
         // Accept a pending invite (from an #invite= link) before loading workspaces

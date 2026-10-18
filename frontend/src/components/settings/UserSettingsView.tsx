@@ -5,6 +5,7 @@ import {
   HardDrive,
   LayoutDashboard,
   ShieldCheck,
+  Sparkles,
   Trash2,
   UserRound,
 } from "lucide-react";
@@ -20,6 +21,7 @@ import {
 import { FieldLabel } from "@/components/ui/field";
 import { SessionExpiryBanner } from "@/components/layout/SessionExpiryBanner";
 import { TabSettingsPanel } from "@/components/settings/TabSettingsPanel";
+import { AiSettingsPanel } from "@/components/settings/AiSettingsPanel";
 import { TwoFactorPanel } from "@/components/settings/TwoFactorPanel";
 import { DeleteAccountPanel } from "@/components/settings/DeleteAccountPanel";
 import { ProfileSettingsPanel } from "@/components/settings/ProfileSettingsPanel";
@@ -116,6 +118,13 @@ export const UserSettingsView = () => {
               <LayoutDashboard className="h-4 w-4 mr-2" />
               {t("tabs.section")}
             </TabsTrigger>
+            <TabsTrigger
+              value="ai"
+              className="justify-start data-[state=active]:bg-muted"
+            >
+              <Sparkles className="h-4 w-4 mr-2" />
+              {t("ai.section")}
+            </TabsTrigger>
             {isLocal && (
               <TabsTrigger
                 value="two-factor"
@@ -178,6 +187,10 @@ export const UserSettingsView = () => {
 
           <TabsContent value="tabs" className="mt-0">
             <TabSettingsPanel />
+          </TabsContent>
+
+          <TabsContent value="ai" className="mt-0">
+            <AiSettingsPanel />
           </TabsContent>
 
           <TabsContent value="two-factor" className="mt-0">

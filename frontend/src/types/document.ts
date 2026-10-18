@@ -13,6 +13,8 @@ export interface DocumentFileDB {
   size: number | null;
   created_at: string;
   has_text?: boolean;
+  transcription_status?: DocumentFileTranscriptionStatus | null;
+  transcription_error?: string | null;
 }
 
 export interface DocumentFile {
@@ -25,7 +27,14 @@ export interface DocumentFile {
   createdAt: string;
   /** Whether the file has a readable text; the text loads on demand. */
   hasText: boolean;
+  /** The latest AI transcription run, if there was one. */
+  transcriptionStatus: DocumentFileTranscriptionStatus | null;
+  /** Why the latest run failed: an error code, optionally ": " and details. */
+  transcriptionError: string | null;
 }
+
+/** State of a file's latest AI transcription run. */
+export type DocumentFileTranscriptionStatus = "pending" | "done" | "failed";
 
 /** Where a file's text came from. */
 export type DocumentFileTextSource = "manual" | "ai";
@@ -36,6 +45,10 @@ export interface DocumentFileTextDB {
   language: string | null;
   markdown: string;
   source: DocumentFileTextSource;
+  machine_markdown?: string | null;
+  provider?: string | null;
+  model?: string | null;
+  status?: string | null;
   edited_by: string | null;
   edited_at: string | null;
   created_at: string;
@@ -47,6 +60,12 @@ export interface DocumentFileText {
   language: string | null;
   markdown: string;
   source: DocumentFileTextSource;
+  /** The last AI transcription, unedited. */
+  machineMarkdown: string | null;
+  provider: string | null;
+  model: string | null;
+  /** A newer AI version waits next to a person's edited text. */
+  aiVersionWaiting: boolean;
   editedBy: string | null;
   editedAt: string | null;
   updatedAt: string;
@@ -135,6 +154,8 @@ export function mapDocumentFileFromDB(row: DocumentFileDB): DocumentFile {
     size: row.size,
     createdAt: row.created_at,
     hasText: row.has_text ?? false,
+    transcriptionStatus: row.transcription_status ?? null,
+    transcriptionError: row.transcription_error ?? null,
   };
 }
 
@@ -146,6 +167,10 @@ export function mapDocumentFileTextFromDB(
     language: row.language,
     markdown: row.markdown,
     source: row.source,
+    machineMarkdown: row.machine_markdown ?? null,
+    provider: row.provider ?? null,
+    model: row.model ?? null,
+    aiVersionWaiting: row.status === "review",
     editedBy: row.edited_by,
     editedAt: row.edited_at,
     updatedAt: row.updated_at,

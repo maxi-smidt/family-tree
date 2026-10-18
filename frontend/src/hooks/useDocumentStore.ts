@@ -2,6 +2,7 @@ import { contentOriginArgs } from "@/hooks/contentOrigin";
 import { create } from "zustand";
 import {
   Document,
+  DocumentFile,
   DocumentFileOps,
   DocumentFileText,
   DocumentInput,
@@ -81,6 +82,8 @@ interface DocumentState {
     fileId: string,
     markdown: string,
   ) => Promise<DocumentFileText | null>;
+  /** Start an AI transcription; the result arrives as an SSE event. */
+  transcribeFile: (documentId: string, fileId: string) => Promise<void>;
   clear: () => void;
 }
 
@@ -139,6 +142,26 @@ async function stageAndBuildPayload(
 /** Whether a save changes on-disk media, so callers can refresh storage usage. */
 function touchesMedia(ops: DocumentFileOps): boolean {
   return ops.addedFiles.length > 0 || ops.removedIds.length > 0;
+}
+
+function patchFile(
+  documents: Document[],
+  documentId: string,
+  fileId: string,
+  patch: Partial<DocumentFile>,
+): { documents: Document[] } {
+  return {
+    documents: documents.map((d) =>
+      d.id === documentId
+        ? {
+            ...d,
+            files: d.files.map((f) =>
+              f.id === fileId ? { ...f, ...patch } : f,
+            ),
+          }
+        : d,
+    ),
+  };
 }
 
 export const useDocumentStore = create<DocumentState>((set, get) => ({
@@ -284,21 +307,29 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       markdown,
     );
     // Only the file's "has text" flag changes in the list.
-    const hasText = row !== null;
-    set((state) => ({
-      documents: state.documents.map((d) =>
-        d.id === documentId
-          ? {
-              ...d,
-              files: d.files.map((f) =>
-                f.id === fileId ? { ...f, hasText } : f,
-              ),
-            }
-          : d,
-      ),
-    }));
+    set((state) =>
+      patchFile(state.documents, documentId, fileId, {
+        hasText: row !== null,
+      }),
+    );
     invalidateActivityView();
     return row ? mapDocumentFileTextFromDB(row) : null;
+  },
+
+  transcribeFile: async (documentId: string, fileId: string) => {
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return;
+    await WorkspaceService.transcribeDocumentFile(
+      workspaceId,
+      documentId,
+      fileId,
+    );
+    set((state) =>
+      patchFile(state.documents, documentId, fileId, {
+        transcriptionStatus: "pending",
+        transcriptionError: null,
+      }),
+    );
   },
 
   clear: () => set({ documents: [], initialized: false, focus: null }),

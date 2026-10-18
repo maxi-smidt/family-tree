@@ -31,6 +31,8 @@ const documents: Document[] = [
         size: 123,
         createdAt: "2026-01-01T00:00:00Z",
         hasText: false,
+        transcriptionStatus: null,
+        transcriptionError: null,
       },
       {
         id: "link-1",
@@ -41,6 +43,8 @@ const documents: Document[] = [
         size: null,
         createdAt: "2026-01-01T00:00:00Z",
         hasText: false,
+        transcriptionStatus: null,
+        transcriptionError: null,
       },
     ],
     memberIds: ["member-1"],

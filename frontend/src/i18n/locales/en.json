@@ -911,7 +911,52 @@
           "saved": "Text saved",
           "error-load": "Could not load the text.",
           "error-save": "Could not save the text.",
-          "error-open": "Could not open the file."
+          "error-open": "Could not open the file.",
+          "source-ai-model": "Transcribed by AI ({{model}}).",
+          "transcribing": "AI transcription is running. The text appears here when it is ready.",
+          "machine-differs": "A new AI transcription is ready. Your edited text was kept.",
+          "use-machine": "Use AI version",
+          "keep-mine": "Keep mine",
+          "restore-ai": "Restore AI version",
+          "restore-ai-confirm": {
+            "title": "Restore the AI version?",
+            "description": "Your edited text is replaced by the last AI transcription."
+          }
+        },
+        "ai": {
+          "start": "Transcribe with AI",
+          "running": "AI transcription is running…",
+          "failed": "AI transcription failed: {{error}} Click to try again.",
+          "started": "Transcription started. You will be notified when the text is ready.",
+          "done": "The AI text of {{name}} is ready.",
+          "failed-toast": "AI transcription of {{name}} failed: {{error}}",
+          "untitled": "the file",
+          "confirm": {
+            "title": "Send this file to {{provider}}?",
+            "body": "{{name}} will be sent to {{provider}} (model {{model}}) with your own API key, and its text is saved as the file's transcription.",
+            "body-no-key": "{{name}} will be sent to {{provider}} (model {{model}}), and its text is saved as the file's transcription.",
+            "risk": "You do this at your own risk. The file leaves this server, and there is no guarantee how the provider stores or uses the data. The provider may charge your account for the request.",
+            "keeps-edits": "If you have edited the current text, your version is kept and the new AI text is offered next to it.",
+            "cancel": "Cancel",
+            "send": "Send to {{provider}}"
+          },
+          "errors": {
+            "interrupted": "The run was interrupted, for example by a server restart.",
+            "timeout": "The provider took too long to answer.",
+            "unreachable": "The provider could not be reached.",
+            "provider_error": "The provider returned an error.",
+            "blocked": "The provider refused to read this file.",
+            "empty_result": "The provider returned no text.",
+            "file_too_large": "The file is too large to send (20 MB at most).",
+            "file_missing": "The file could not be found on the server.",
+            "unreadable_key": "Your saved API key can no longer be read. Enter it again in Settings → AI.",
+            "ai_not_configured": "Set up AI in Settings → AI first.",
+            "quota_exceeded": "The workspace has no storage left for the text.",
+            "unsupported_file": "Your AI provider cannot read this type of file.",
+            "transcription_running": "This file is already being transcribed.",
+            "unknown": "Something went wrong."
+          },
+          "again": "Transcribe again"
         }
       },
       "diseases": {
@@ -2256,6 +2301,48 @@
     },
     "delete-account": {
       "section": "Delete account"
+    },
+    "ai": {
+      "section": "AI",
+      "title": "AI transcription",
+      "hint": "Connect your own AI provider to turn document scans and PDFs into text. Files are only sent when you click the AI button next to a file and confirm.",
+      "status-on": "AI transcription is on.",
+      "status-off": "AI transcription is off. Nothing is sent anywhere.",
+      "provider": "Provider",
+      "providers": {
+        "gemini": "Google Gemini (recommended)",
+        "openai": "OpenAI",
+        "anthropic": "Anthropic Claude",
+        "openai_compatible": "Custom endpoint (OpenAI-compatible)"
+      },
+      "provider-hints": {
+        "gemini": "Reads old handwriting such as Kurrent well. Create a key in Google AI Studio.",
+        "openai": "Create a key in the OpenAI platform dashboard.",
+        "anthropic": "Create a key in the Anthropic Console.",
+        "openai_compatible": "For Ollama, LM Studio, vLLM, OpenRouter and similar servers. Images only, no PDFs. Admins only, because the server calls the address you enter."
+      },
+      "model": "Model",
+      "model-hint": "Leave empty for {{model}}.",
+      "base-url": "Endpoint URL",
+      "api-key": "API key",
+      "api-key-optional": "API key (optional)",
+      "api-key-keep": "Leave empty to keep the saved key",
+      "api-key-saved": "A key is saved.",
+      "api-key-saved-hint": "A key ending in …{{hint}} is saved.",
+      "api-key-storage": "Your key is stored encrypted on this server and never shown again.",
+      "api-key-unreadable": "The saved key can no longer be read (the server's secret changed). Enter it again.",
+      "privacy": "Files you transcribe are sent to this provider with your key. Its terms decide how the data is stored and used, and it may bill your account.",
+      "turn-off": "Turn off and delete key",
+      "save": "Save",
+      "saved": "AI settings saved.",
+      "removed": "AI turned off and key deleted.",
+      "error-load": "Could not load the AI settings.",
+      "error-save": "Could not save the AI settings.",
+      "errors": {
+        "api_key_required": "Enter an API key for this provider.",
+        "invalid_base_url": "Enter a full http:// or https:// endpoint URL.",
+        "custom_endpoint_admin_only": "Only admins can use a custom endpoint."
+      }
     }
   },
   "tutorial": {
