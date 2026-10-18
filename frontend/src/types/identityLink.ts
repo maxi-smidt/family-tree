@@ -1,14 +1,8 @@
 export type IdentityLinkStatus =
-  | "proposed"
-  | "verified"
-  | "rejected"
-  | "expired"
-  | "revoked";
+  "proposed" | "verified" | "rejected" | "expired" | "revoked";
 
 export type IdentityLinkVerificationBasis =
-  | "mutual_consent"
-  | "same_owner"
-  | "legacy_dual_write_access";
+  "mutual_consent" | "same_owner" | "legacy_dual_write_access";
 
 export interface IdentityLinkEndpoint {
   workspace_id: string;
@@ -36,11 +30,7 @@ export interface IdentityLink {
 }
 
 export type IdentityLinkClaimStatus =
-  | "pending"
-  | "completed"
-  | "declined"
-  | "cancelled"
-  | "expired";
+  "pending" | "completed" | "declined" | "cancelled" | "expired";
 
 /** The opaque claim/invitation half of the proposal flow: the proposer names
  *  only their own member and a friend, who later picks their own member. */

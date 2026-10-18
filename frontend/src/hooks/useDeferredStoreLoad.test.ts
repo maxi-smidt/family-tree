@@ -4,11 +4,7 @@ import { useDeferredStoreLoad } from "./useDeferredStoreLoad";
 import { useWorkspaceStore } from "./useWorkspaceStore";
 import { Workspace } from "@/types/workspace";
 
-const TREE: Workspace = {
-  id: "tree-123",
-  name: "Test Workspace",
-  role: "owner",
-};
+const TREE: Workspace = { id: "tree-123", name: "Test Workspace", role: "owner" };
 
 beforeEach(() => {
   vi.clearAllMocks();

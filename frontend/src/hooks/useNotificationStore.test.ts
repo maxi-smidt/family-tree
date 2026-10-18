@@ -20,12 +20,7 @@ const N1: NotificationDB = {
 const N2: NotificationDB = {
   id: "n2",
   type: "tree_shared",
-  payload: {
-    workspace_id: "t1",
-    workspace_name: "Workspace",
-    role: "viewer",
-    actor_username: "bob",
-  },
+  payload: { workspace_id: "t1", workspace_name: "Workspace", role: "viewer", actor_username: "bob" },
   created_at: "2026-07-19T10:00:00Z",
   read_at: "2026-07-19T11:00:00Z",
 };
@@ -66,11 +61,7 @@ describe("useNotificationStore — load", () => {
 
 describe("useNotificationStore — loadMore", () => {
   it("appends the next page, paging by the current list length", async () => {
-    useNotificationStore.setState({
-      notifications: [N1],
-      unreadCount: 1,
-      total: 2,
-    });
+    useNotificationStore.setState({ notifications: [N1], unreadCount: 1, total: 2 });
     vi.mocked(NotificationService.list).mockResolvedValue({
       entries: [N2],
       total: 2,
@@ -86,11 +77,7 @@ describe("useNotificationStore — loadMore", () => {
   });
 
   it("dedupes entries already present (e.g. an SSE arrival mid-page)", async () => {
-    useNotificationStore.setState({
-      notifications: [N1],
-      unreadCount: 1,
-      total: 2,
-    });
+    useNotificationStore.setState({ notifications: [N1], unreadCount: 1, total: 2 });
     vi.mocked(NotificationService.list).mockResolvedValue({
       entries: [N1, N2],
       total: 2,
@@ -103,11 +90,7 @@ describe("useNotificationStore — loadMore", () => {
   });
 
   it("does nothing once every notification is already loaded", async () => {
-    useNotificationStore.setState({
-      notifications: [N1, N2],
-      unreadCount: 0,
-      total: 2,
-    });
+    useNotificationStore.setState({ notifications: [N1, N2], unreadCount: 0, total: 2 });
 
     await useNotificationStore.getState().loadMore();
 
@@ -118,11 +101,7 @@ describe("useNotificationStore — loadMore", () => {
     // Simulates a notification.created SSE event landing while the
     // loadMore request (issued before it) is still in flight: the response
     // reflects the pre-event world and must not undo the event's bump.
-    useNotificationStore.setState({
-      notifications: [N1],
-      unreadCount: 1,
-      total: 2,
-    });
+    useNotificationStore.setState({ notifications: [N1], unreadCount: 1, total: 2 });
     vi.mocked(NotificationService.list).mockResolvedValue({
       entries: [N2],
       total: 2, // stale — an event already bumped the live total to 3
@@ -147,11 +126,7 @@ describe("useNotificationStore — loadMore", () => {
 
 describe("useNotificationStore — addFromEvent", () => {
   it("prepends a new notification, increments unreadCount and total", () => {
-    useNotificationStore.setState({
-      notifications: [N2],
-      unreadCount: 0,
-      total: 1,
-    });
+    useNotificationStore.setState({ notifications: [N2], unreadCount: 0, total: 1 });
 
     useNotificationStore.getState().addFromEvent(N1);
 

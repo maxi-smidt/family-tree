@@ -79,11 +79,7 @@ L.Icon.Default.mergeOptions({
 });
 
 type LocationType =
-  | "event"
-  | "birthplace"
-  | "hometown"
-  | "cemetery"
-  | "places-lived";
+  "event" | "birthplace" | "hometown" | "cemetery" | "places-lived";
 
 const LOCATION_COLORS: Record<LocationType, string> = {
   event: "var(--color-map-event)",

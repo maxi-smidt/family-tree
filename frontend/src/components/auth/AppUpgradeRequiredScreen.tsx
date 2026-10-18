@@ -23,7 +23,10 @@ export const AppUpgradeRequiredScreen = () => {
           <CardDescription>{t("description")}</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button className="w-full" onClick={() => window.location.reload()}>
+          <Button
+            className="w-full"
+            onClick={() => window.location.reload()}
+          >
             {t("reload")}
           </Button>
         </CardContent>

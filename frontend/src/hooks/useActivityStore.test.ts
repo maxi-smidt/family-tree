@@ -288,28 +288,21 @@ describe("useActivityStore", () => {
 
     it("calls the service with the active tree and entry id, then refreshes", async () => {
       vi.mocked(WorkspaceService.undoActivity).mockResolvedValue(report);
-      vi.mocked(WorkspaceService.getActivity).mockResolvedValue(
-        page(["a1"], 1),
-      );
+      vi.mocked(WorkspaceService.getActivity).mockResolvedValue(page(["a1"], 1));
 
       const result = await useActivityStore.getState().undo("entry-1");
 
-      expect(WorkspaceService.undoActivity).toHaveBeenCalledWith(
-        "tree-1",
-        "entry-1",
-      );
+      expect(WorkspaceService.undoActivity).toHaveBeenCalledWith("tree-1", "entry-1");
       expect(WorkspaceService.getActivity).toHaveBeenCalled();
       expect(result).toEqual(report);
     });
 
     it("propagates a rejection so the caller can report it", async () => {
-      vi.mocked(WorkspaceService.undoActivity).mockRejectedValue(
-        new Error("conflict"),
-      );
+      vi.mocked(WorkspaceService.undoActivity).mockRejectedValue(new Error("conflict"));
 
-      await expect(useActivityStore.getState().undo("entry-1")).rejects.toThrow(
-        "conflict",
-      );
+      await expect(
+        useActivityStore.getState().undo("entry-1"),
+      ).rejects.toThrow("conflict");
     });
   });
 });

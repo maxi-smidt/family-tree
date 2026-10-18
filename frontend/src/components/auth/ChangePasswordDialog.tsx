@@ -27,9 +27,7 @@ export const ChangePasswordDialog = ({ isOpen, onClose }: Props) => {
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
   const changePassword = useAuthStore((s) => s.changePassword);
-  const isSaving = useAuthStore(
-    (s) => s.accountOperation === "changing-password",
-  );
+  const isSaving = useAuthStore((s) => s.accountOperation === "changing-password");
 
   const resetFields = () => {
     setCurrent("");

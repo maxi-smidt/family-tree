@@ -10,11 +10,7 @@ import {
 export const ON_THIS_DAY_WINDOW_DAYS = 7;
 
 export type OnThisDayItemKind =
-  | "birthday"
-  | "would-turn"
-  | "death-anniversary"
-  | "event"
-  | "story";
+  "birthday" | "would-turn" | "death-anniversary" | "event" | "story";
 
 export interface OnThisDayItem {
   id: string;

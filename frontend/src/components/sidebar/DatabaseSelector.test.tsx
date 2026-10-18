@@ -26,16 +26,8 @@ vi.mock("@/hooks/useUnsavedChangesStore", () => ({
   ) => selector({ guardNavigate: (action) => action() }),
 }));
 
-const OWNED_TREE: Workspace = {
-  id: "tree-1",
-  name: "My Workspace",
-  role: "owner",
-};
-const SHARED_TREE: Workspace = {
-  id: "tree-2",
-  name: "Shared Workspace",
-  role: "editor",
-};
+const OWNED_TREE: Workspace = { id: "tree-1", name: "My Workspace", role: "owner" };
+const SHARED_TREE: Workspace = { id: "tree-2", name: "Shared Workspace", role: "editor" };
 
 const renderOpen = () => {
   render(<DatabaseSelector />);

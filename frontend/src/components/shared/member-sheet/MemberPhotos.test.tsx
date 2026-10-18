@@ -48,9 +48,7 @@ const IMAGE: GalleryImageDB = {
   uploadedAt: "2024-01-01T00:00:00Z",
 };
 
-type AddGalleryImage = ReturnType<
-  typeof useGalleryStore.getState
->["addGalleryImage"];
+type AddGalleryImage = ReturnType<typeof useGalleryStore.getState>["addGalleryImage"];
 
 describe("MemberPhotos", () => {
   let addGalleryImage: AddGalleryImage;

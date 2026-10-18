@@ -27,7 +27,9 @@ describe("useFlowEdges", () => {
 
   it("hides edges whose endpoint is in the hidden set (collapsed descendant)", () => {
     const hidden = new Set(["c", "u1"]);
-    const { result } = renderHook(() => useFlowEdges(edges, undefined, hidden));
+    const { result } = renderHook(() =>
+      useFlowEdges(edges, undefined, hidden),
+    );
     const byId = new Map(result.current.map((e) => [e.id, e]));
     // a→b stays visible; both endpoints are visible.
     expect(byId.get("a-b")?.hidden).toBe(false);

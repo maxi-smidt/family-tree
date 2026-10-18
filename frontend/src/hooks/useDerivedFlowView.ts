@@ -1,10 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Member, RelationType, RelationTypeDB } from "@/types/member";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
-import {
-  treeProcessorClient,
-  DeriveResult,
-} from "@/workers/treeProcessorClient";
+import { treeProcessorClient, DeriveResult } from "@/workers/treeProcessorClient";
 import type {
   WorkerUnionInfo,
   WorkerEdge,
@@ -30,16 +27,10 @@ const INITIAL_STATE: DerivedFlowView = {
 /** Build a stable RelationStyleMap from the registry types that have at least
  *  one non-null style field. We use a JSON-stringified signature as the dep
  *  to avoid reference-equality churn causing an infinite re-derive loop. */
-function buildRelationStyleMap(
-  relationTypes: RelationTypeDB[],
-): RelationStyleMap {
+function buildRelationStyleMap(relationTypes: RelationTypeDB[]): RelationStyleMap {
   const map: RelationStyleMap = {};
   for (const rt of relationTypes) {
-    if (
-      rt.color != null ||
-      rt.stroke_width != null ||
-      rt.stroke_dasharray != null
-    ) {
+    if (rt.color != null || rt.stroke_width != null || rt.stroke_dasharray != null) {
       map[rt.id] = {
         color: rt.color ?? null,
         strokeWidth: rt.stroke_width ?? null,

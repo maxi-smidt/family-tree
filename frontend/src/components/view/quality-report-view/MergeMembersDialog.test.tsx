@@ -148,9 +148,7 @@ describe("MergeMembersDialog", () => {
   });
 
   it("swaps keep/remove when the swap control is used", async () => {
-    vi.mocked(WorkspaceService.getMemberMergePreview).mockResolvedValue(
-      preview({}),
-    );
+    vi.mocked(WorkspaceService.getMemberMergePreview).mockResolvedValue(preview({}));
 
     render(
       <MergeMembersDialog
@@ -277,9 +275,7 @@ describe("MergeMembersDialog", () => {
   });
 
   it("shows a picker when more than two members share the finding", async () => {
-    vi.mocked(WorkspaceService.getMemberMergePreview).mockResolvedValue(
-      preview({}),
-    );
+    vi.mocked(WorkspaceService.getMemberMergePreview).mockResolvedValue(preview({}));
     useMemberStore.setState((s) => ({
       members: [...s.members, makeAppMember({ id: "c1" })],
     }));

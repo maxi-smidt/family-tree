@@ -73,10 +73,7 @@ export const ReloginDialog = () => {
             </Button>
           </div>
         ) : (
-          <form
-            onSubmit={(e) => void handleSubmit(e)}
-            className="space-y-4 py-2"
-          >
+          <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4 py-2">
             <div className="space-y-2">
               <FieldLabel htmlFor="relogin-username">
                 {user?.username ?? ""}
@@ -110,7 +107,11 @@ export const ReloginDialog = () => {
               >
                 {t("relogin-cancel")}
               </Button>
-              <Button type="submit" size="sm" disabled={loading || !password}>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={loading || !password}
+              >
                 {t("relogin-submit")}
               </Button>
             </DialogFooter>

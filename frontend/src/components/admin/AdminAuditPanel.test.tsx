@@ -5,10 +5,7 @@ import { AdminAuditPanel } from "./AdminAuditPanel";
 
 vi.mock("@/services/AdminService");
 
-function makeEntry(
-  id: string,
-  over: Partial<AdminAuditEntry> = {},
-): AdminAuditEntry {
+function makeEntry(id: string, over: Partial<AdminAuditEntry> = {}): AdminAuditEntry {
   return {
     id,
     actor_id: "u1",

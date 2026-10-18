@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  Activity,
-  isUndoableDelete,
-  mapActivityFromDB,
-  ActivityDB,
-} from "./activity";
+import { Activity, isUndoableDelete, mapActivityFromDB, ActivityDB } from "./activity";
 
 const baseRow: ActivityDB = {
   id: "a1",

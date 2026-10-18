@@ -25,11 +25,7 @@ describe("ContinuationControls", () => {
     renderWithProviders(
       <ContinuationControls
         continuations={[
-          {
-            section_id: "sec-1",
-            section_name: "North America",
-            remaining_count: 42,
-          },
+          { section_id: "sec-1", section_name: "North America", remaining_count: 42 },
         ]}
         atBudget={false}
         canExpandGeneration={false}
@@ -49,9 +45,7 @@ describe("ContinuationControls", () => {
     const onReset = vi.fn();
     renderWithProviders(
       <ContinuationControls
-        continuations={[
-          { section_id: null, section_name: null, remaining_count: 5 },
-        ]}
+        continuations={[{ section_id: null, section_name: null, remaining_count: 5 }]}
         atBudget={true}
         canExpandGeneration={true}
         onExpandGeneration={vi.fn()}
@@ -80,9 +74,7 @@ describe("ContinuationControls", () => {
       { reactFlow: true },
     );
 
-    fireEvent.click(
-      screen.getByRole("button", { name: /expand next generation/i }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: /expand next generation/i }));
     expect(onExpandGeneration).toHaveBeenCalledTimes(1);
   });
 });

@@ -55,10 +55,7 @@ export const useGeocodeStore = create<GeocodeState>((set, get) => ({
 
     set((state) => ({ pendingCount: state.pendingCount + 1 }));
     try {
-      const rows = await WorkspaceService.geocodeLocations(
-        workspaceId,
-        unknown,
-      );
+      const rows = await WorkspaceService.geocodeLocations(workspaceId, unknown);
       if (!isActiveTree(workspaceId)) return;
 
       set((state) => {

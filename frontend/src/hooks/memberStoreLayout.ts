@@ -8,14 +8,10 @@ export function applyCollapsedState(
   members: Member[],
   updates: CollapseUpdate[],
 ): Member[] {
-  const byId = new Map(
-    updates.map((update) => [update.id, update.isCollapsed]),
-  );
+  const byId = new Map(updates.map((update) => [update.id, update.isCollapsed]));
   return members.map((member) => {
     const collapsed = byId.get(member.id);
-    return collapsed === undefined
-      ? member
-      : { ...member, isCollapsed: collapsed };
+    return collapsed === undefined ? member : { ...member, isCollapsed: collapsed };
   });
 }
 
@@ -26,9 +22,7 @@ export function applyPositionState(
   const byId = new Map(positions.map((position) => [position.id, position]));
   return members.map((member) => {
     const position = byId.get(member.id);
-    return position
-      ? { ...member, position: { x: position.x, y: position.y } }
-      : member;
+    return position ? { ...member, position: { x: position.x, y: position.y } } : member;
   });
 }
 
@@ -38,9 +32,7 @@ export function captureCollapsedState(
 ): CollapseUpdate[] {
   return updates.flatMap((update) => {
     const existing = members.find((member) => member.id === update.id);
-    return existing
-      ? [{ id: update.id, isCollapsed: existing.isCollapsed }]
-      : [];
+    return existing ? [{ id: update.id, isCollapsed: existing.isCollapsed }] : [];
   });
 }
 

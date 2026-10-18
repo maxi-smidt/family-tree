@@ -138,9 +138,7 @@ function mockSubStoresForGedcomTree() {
     })),
   );
   // persistPositions calls updateMemberPositions
-  vi.mocked(WorkspaceService.updateMemberPositions).mockResolvedValue(
-    undefined,
-  );
+  vi.mocked(WorkspaceService.updateMemberPositions).mockResolvedValue(undefined);
 }
 
 beforeEach(() => {

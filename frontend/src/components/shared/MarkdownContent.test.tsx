@@ -19,9 +19,7 @@ describe("MarkdownContent", () => {
 
   it("strips script tags (XSS protection)", async () => {
     render(
-      <MarkdownContent
-        content={'<script>alert("xss")</script>\n\nsafe text'}
-      />,
+      <MarkdownContent content={'<script>alert("xss")</script>\n\nsafe text'} />,
     );
     // Wait for the renderer before asserting the sanitized DOM.
     await screen.findByText(/safe text/);

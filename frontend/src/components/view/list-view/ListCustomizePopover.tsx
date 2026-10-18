@@ -65,6 +65,7 @@ export function ListCustomizePopover() {
                   <Button
                     variant="ghost"
                     size="icon-sm"
+
                     disabled={isFirst}
                     onClick={() => moveColumn(id, "up")}
                     aria-label={t("move-up")}
@@ -74,6 +75,7 @@ export function ListCustomizePopover() {
                   <Button
                     variant="ghost"
                     size="icon-sm"
+
                     disabled={isLast}
                     onClick={() => moveColumn(id, "down")}
                     aria-label={t("move-down")}
