@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useEffect } from "react";
 import {
+  act,
   fireEvent,
   renderWithProviders,
   screen,
@@ -101,6 +102,56 @@ describe("DocumentFileTextDialog", () => {
     ).toBeInTheDocument();
     expect(loadFileText).toHaveBeenCalledWith("doc-1", "file-1");
     expect(screen.getByText("Written by hand.")).toBeInTheDocument();
+  });
+
+  it("clears the running banner and reloads an open preview on completion", async () => {
+    useDocumentStore.setState({
+      documents: [
+        {
+          id: "doc-1",
+          title: "Certificate",
+          description: null,
+          documentDate: null,
+          createdAt: FILE.createdAt,
+          updatedAt: FILE.createdAt,
+          files: [{ ...FILE, transcriptionStatus: "pending" }],
+          memberIds: [],
+          eventIds: [],
+          storyIds: [],
+        },
+      ],
+    });
+    loadFileText.mockResolvedValueOnce(TEXT).mockResolvedValueOnce({
+      ...TEXT,
+      source: "ai",
+      markdown: "Completed AI transcript",
+    });
+    function Reader() {
+      const file = useDocumentStore((s) => s.documents[0].files[0]);
+      return (
+        <DocumentFileTextDialog
+          documentId="doc-1"
+          file={file}
+          open
+          onOpenChange={() => {}}
+        />
+      );
+    }
+    renderWithProviders(<Reader />);
+    expect(await screen.findByText("Johann Schmidt")).toBeInTheDocument();
+    expect(screen.getByText(/AI transcription is running/)).toBeInTheDocument();
+
+    act(() => {
+      useDocumentStore
+        .getState()
+        .onTranscriptionFinished("tree-1", "doc-1", FILE.id, "done", null);
+    });
+
+    expect(
+      await screen.findByText("Completed AI transcript"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/AI transcription is running/)).toBeNull();
+    expect(loadFileText).toHaveBeenCalledTimes(2);
   });
 
   it("downloads the original file from the reader", async () => {

@@ -3,6 +3,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { mapDocumentFromDB } from "@/types/document";
 
 // ---------------------------------------------------------------------------
 // Fake EventSource
@@ -64,6 +65,7 @@ vi.mock("@/hooks/useWorkspaceStore", () => {
       // Test-only handle to mutate the fake selection between events.
       __state: state,
     },
+    activeTreeId: () => state.selectedTree?.id,
     isActiveTree: vi.fn(() => true),
   };
 });
@@ -262,7 +264,32 @@ describe("realtime", () => {
       const { useDocumentStore } = await import("@/hooks/useDocumentStore");
       const refresh = vi
         .spyOn(useDocumentStore.getState(), "refreshDocuments")
-        .mockResolvedValue(undefined);
+        .mockReturnValue(new Promise(() => {}));
+      useDocumentStore.setState({
+        documents: [
+          mapDocumentFromDB({
+            id: "d1",
+            title: "Letter",
+            description: null,
+            document_date: null,
+            created_at: "2026-01-01T00:00:00Z",
+            updated_at: "2026-01-01T00:00:00Z",
+            files: [
+              {
+                id: "f1",
+                kind: "file",
+                filename: "letter.png",
+                url: "/letter.png",
+                mime_type: "image/png",
+                size: 10,
+                created_at: "2026-01-01T00:00:00Z",
+                has_text: false,
+                transcription_status: "pending",
+              },
+            ],
+          }),
+        ],
+      });
       const { toast } = await import("sonner");
       const { startRealtime, stopRealtime } = await import("./realtime");
       startRealtime();
@@ -278,6 +305,12 @@ describe("realtime", () => {
       });
 
       expect(refresh).toHaveBeenCalledWith("t1");
+      // Completion must reach the UI even while the list request is stalled.
+      expect(useDocumentStore.getState().documents[0].files[0]).toMatchObject({
+        transcriptionStatus: status,
+        hasText: status === "done",
+        transcriptionError: status === "failed" ? "empty_result" : null,
+      });
       const notification = status === "done" ? toast.success : toast.error;
       expect(notification).toHaveBeenCalledWith(
         expect.stringContaining("letter.png"),
