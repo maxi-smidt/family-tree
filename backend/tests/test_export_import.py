@@ -104,6 +104,7 @@ EXPECTED_BUNDLE_KEYS = {
     },
 }
 EXPECTED_BUNDLE_KEYS[6] = EXPECTED_BUNDLE_KEYS[5] | {"document_file_texts"}
+EXPECTED_BUNDLE_KEYS[7] = EXPECTED_BUNDLE_KEYS[6] | {"member_field_citations"}
 
 
 def test_native_export_import_preserves_member_name_details(client, db):

@@ -67,6 +67,7 @@ from app.models import (
     LegalDocumentVersion,
     Member,
     MemberDisease,
+    MemberFieldCitation,
     MemberTask,
     MemberTaskLink,
     Notification,
@@ -170,6 +171,7 @@ BACKUP_MODELS: tuple[type, ...] = (
     DocumentMemberLink,
     DocumentUpload,
     EventDocumentLink,
+    MemberFieldCitation,
     StoryDocumentLink,
     ActivityLog,
     AdminAuditLog,
@@ -319,6 +321,8 @@ LEGACY_OPTIONAL_TABLES: frozenset[str] = frozenset(
         SavedViewUserState.__tablename__,
         # Document file texts (#1121) were added in v2.2.0.
         DocumentFileText.__tablename__,
+        # Evidence for person fields was added in v2.2.0.
+        MemberFieldCitation.__tablename__,
         # Per-user AI settings (#1123) were added in v2.2.0. The sealed API
         # key only opens with the same SECRET_KEY; otherwise it is re-entered.
         UserAiSettings.__tablename__,

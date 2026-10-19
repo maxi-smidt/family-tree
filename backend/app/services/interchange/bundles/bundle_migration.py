@@ -16,7 +16,7 @@ from app.services.interchange.bundles.bundle_types import (
     TreeBundle,
     TreeBundleV2,
     TreeBundleV3,
-    TreeBundleV6,
+    TreeBundleV7,
 )
 
 # Bundle schema version. Bump this **and** add a ``migrate_bundle`` step whenever
@@ -33,7 +33,9 @@ from app.services.interchange.bundles.bundle_types import (
 #                 (#1016) — a bundle never carries identity links or the
 #                 legacy member bridge fields, see export_import.export_tree.
 #   v6 (v2.2+):   document_file_texts (Markdown text per document file, #1121)
-BUNDLE_VERSION = 6
+#   v7 (v2.2+):   member_field_citations (documents cited as evidence for
+#                 person fields)
+BUNDLE_VERSION = 7
 
 
 def _fold_source_description(source: dict, citation_lines: list[str]) -> str | None:
@@ -168,7 +170,7 @@ def _migrate_v2_to_v3(bundle: TreeBundleV2) -> TreeBundleV3:
     return migrated
 
 
-def migrate_bundle(bundle: TreeBundle) -> TreeBundleV6:
+def migrate_bundle(bundle: TreeBundle) -> TreeBundleV7:
     """Bring an older bundle up to BUNDLE_VERSION.
 
     Add a migration step here and bump BUNDLE_VERSION when the bundle schema
@@ -212,10 +214,16 @@ def migrate_bundle(bundle: TreeBundle) -> TreeBundleV6:
         migrated["document_file_texts"] = bundle.get("document_file_texts", [])
         migrated["version"] = 6
         bundle = migrated
+    if bundle.get("version", 1) < 7:
+        # v6 → v7: no evidence was cited for person fields yet.
+        migrated = dict(bundle)
+        migrated["member_field_citations"] = bundle.get("member_field_citations", [])
+        migrated["version"] = 7
+        bundle = migrated
     return bundle
 
 
-def validate_and_migrate(bundle: TreeBundle) -> TreeBundleV6:
+def validate_and_migrate(bundle: TreeBundle) -> TreeBundleV7:
     version = bundle.get("version", 1)
     if version > BUNDLE_VERSION:
         raise InvalidInputError(

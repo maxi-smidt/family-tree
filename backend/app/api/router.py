@@ -8,6 +8,7 @@ from app.api.routes import (
     ai_settings,
     auth,
     backups,
+    citations,
     content_scopes,
     documents,
     events,
@@ -82,6 +83,7 @@ api_router.include_router(geocode.router)
 api_router.include_router(stories.router)
 api_router.include_router(tasks.router)
 api_router.include_router(documents.router)
+api_router.include_router(citations.router)
 api_router.include_router(activity.router)
 api_router.include_router(presence.router)
 api_router.include_router(quality.router)

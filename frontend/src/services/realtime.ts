@@ -18,6 +18,7 @@ import { useFriendStore } from "@/hooks/useFriendStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useDocumentStore } from "@/hooks/useDocumentStore";
+import { useCitationStore } from "@/hooks/useCitationStore";
 import { useNotificationStore } from "@/hooks/useNotificationStore";
 import { useStorageStore } from "@/hooks/useStorageStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
@@ -39,6 +40,14 @@ let connecting = false;
 let generation = 0;
 
 /** Open the SSE connection (idempotent if already open). */
+/** Citations load only where they are shown (and only when Documents is
+ *  visible), so a change refreshes them only once something has loaded them. */
+function refreshLoadedCitations(workspaceId: string): void {
+  const store = useCitationStore.getState();
+  if (store.initialized)
+    void store.refreshCitations(workspaceId).catch(() => {});
+}
+
 export function startRealtime(): void {
   stopped = false;
   if (source !== null || connecting) return;
@@ -122,11 +131,19 @@ async function connect(): Promise<void> {
   });
 
   const domainRefreshers: Record<string, (workspaceId: string) => void> = {
-    member: (id) => void useMemberStore.getState().refreshMembers(id),
+    member: (id) => {
+      void useMemberStore.getState().refreshMembers(id);
+      refreshLoadedCitations(id);
+    },
     event: (id) => void useEventStore.getState().refreshEvents(id),
     story: (id) => void useStoryStore.getState().refreshStories(id),
     task: refreshTaskStore,
-    document: (id) => void useDocumentStore.getState().refreshDocuments(id),
+    document: (id) => {
+      void useDocumentStore.getState().refreshDocuments(id);
+      // A deleted or edited document changes its citations and their quotes.
+      refreshLoadedCitations(id);
+    },
+    citation: refreshLoadedCitations,
     gallery: (id) => void useGalleryStore.getState().refreshGalleryImages(id),
     section: (id) => void useSectionStore.getState().refreshSections(id),
   };

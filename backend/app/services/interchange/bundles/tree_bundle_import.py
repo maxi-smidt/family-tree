@@ -30,6 +30,7 @@ from app.models import (
     GalleryUnknownFace,
     Member,
     MemberDisease,
+    MemberFieldCitation,
     MemberTask,
     MemberTaskLink,
     Relation,
@@ -46,8 +47,9 @@ from app.models import (
     Workspace,
 )
 from app.services.activity.activity import record_activity
+from app.services.documents.citations import CITABLE_FIELDS
 from app.services.event_bus import publish_workspace_event
-from app.services.interchange.bundles.bundle_types import TreeBundleV6
+from app.services.interchange.bundles.bundle_types import TreeBundleV7
 from app.services.interchange.gedcom.genealogy_date import sort_key as _sort_key
 from app.services.media.storage import (
     delete_workspace_media,
@@ -163,9 +165,44 @@ def _import_doc_links(db, links, model, parent_key, parent_map, document_map):
             )
 
 
+def _import_citations(db, workspace_id, rows, member_map, document_map, file_map):
+    """Evidence for person fields, re-pointed at the imported people, documents
+    and files. A row naming an unknown field or a missing person/document is
+    dropped; a missing file only narrows it back to the whole document."""
+    now = utcnow_iso()
+    for row in rows:
+        member_id = member_map.get(row.get("member_id"))
+        document_id = document_map.get(row.get("document_id"))
+        if member_id is None or document_id is None:
+            continue
+        if row.get("field") not in CITABLE_FIELDS:
+            continue
+        file_id = file_map.get(row.get("document_file_id"))
+        quote = row.get("quote") if file_id is not None else None
+        db.add(
+            MemberFieldCitation(
+                id=str(uuid4()),
+                workspace_id=workspace_id,
+                member_id=member_id,
+                field=row["field"],
+                document_id=document_id,
+                document_file_id=file_id,
+                page=row.get("page"),
+                quote=quote,
+                quote_prefix=row.get("quote_prefix") if quote else None,
+                quote_suffix=row.get("quote_suffix") if quote else None,
+                note=row.get("note"),
+                # The author's account belongs to the exporting instance.
+                created_by=None,
+                created_at=row.get("created_at") or now,
+                updated_at=row.get("updated_at") or now,
+            )
+        )
+
+
 def do_import(
     progress_cb: ProgressCallback,
-    bundle: TreeBundleV6,
+    bundle: TreeBundleV7,
     name: str | None,
     user_id: str,
 ) -> str:
@@ -446,6 +483,14 @@ def do_import(
             "story_id",
             story_map,
             document_map,
+        )
+        _import_citations(
+            db,
+            tree.id,
+            bundle.get("member_field_citations", []),
+            member_map,
+            document_map,
+            file_map,
         )
 
         # Saved views always re-parent to the importing user (see export_tree's

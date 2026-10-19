@@ -144,10 +144,11 @@ test("import inspect — returns bundle metadata without committing", async ({
   expect(preview).toMatchObject({
     password_required: false,
     name: "E2E-Inspect-Src",
-    // v2.2 ships bundle version 6 — document_file_texts join the export
-    // (#1121), one increment over v2.0's 5 (see BUNDLE_VERSION in
+    // v2.2 ships bundle version 7 — document_file_texts (#1121) and
+    // member_field_citations join the export, two increments over v2.0's 5
+    // (see BUNDLE_VERSION in
     // backend/app/services/interchange/bundles/bundle_migration.py).
-    bundle_version: 6,
+    bundle_version: 7,
   });
 });
 

@@ -12,6 +12,7 @@ import {
   Download,
   ChevronLeft,
   ChevronRight,
+  FileCheck,
   Pencil,
   RotateCcw,
   Sparkles,
@@ -48,12 +49,29 @@ import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import type { DocumentFile, DocumentFileText } from "@/types/document";
 import { canEditArea } from "@/utils/accessLevels";
+import { cn } from "@/lib/utils";
 import { foldForSearch, SEARCH_WORD } from "@/utils/searchFold";
 import { getFileKind } from "@/utils/attachmentUtils";
 import { documentTextPages, replaceDocumentPage } from "@/utils/documentPages";
 import { DocumentFileTranscribeButton } from "./DocumentFileTranscribeButton";
 import { DocumentFilePreview } from "./DocumentFilePreview";
 import { DocumentReaderSplit } from "./DocumentReaderSplit";
+import { useCitationStore, useLoadCitations } from "@/hooks/useCitationStore";
+import { useMemberStore } from "@/hooks/useMemberStore";
+import type { MemberFieldCitation } from "@/types/citation";
+import {
+  findQuoteRange,
+  markRanges,
+  selectionQuote,
+} from "@/utils/quoteAnchor";
+import {
+  CitationDialog,
+  type CitationDraft,
+} from "@/components/shared/evidence/CitationDialog";
+import { useCanEditEvidence } from "@/components/shared/evidence/useCanEditEvidence";
+
+const CITATION_HIGHLIGHT = "document-citation";
+const CITATION_FOCUS_HIGHLIGHT = "document-citation-focus";
 
 const HIGHLIGHT = "document-search";
 
@@ -92,6 +110,8 @@ interface DocumentFileTextDialogProps {
   onOpenChange: (open: boolean) => void;
   /** Folded words to highlight, e.g. the matches of a document search. */
   highlight?: string[];
+  /** Open on this citation: its page shown and its quote marked. */
+  focusCitationId?: string | null;
 }
 
 function sourceLine(
@@ -112,6 +132,7 @@ export const DocumentFileTextDialog = ({
   open,
   onOpenChange,
   highlight,
+  focusCitationId,
 }: DocumentFileTextDialogProps) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.member-sheet.documents.text",
@@ -137,6 +158,25 @@ export const DocumentFileTextDialog = ({
   const [page, setPage] = useState(1);
   const [pageCount, setPageCount] = useState<number | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const { t: evidence } = useTranslation(undefined, {
+    keyPrefix: "sheet.evidence",
+  });
+  useLoadCitations(open);
+  const allCitations = useCitationStore((s) => s.citations);
+  const members = useMemberStore((s) => s.members);
+  const canCite = useCanEditEvidence();
+  const fileCitations = useMemo(
+    () => allCitations.filter((c) => c.fileId === file.id),
+    [allCitations, file.id],
+  );
+  const [focusedId, setFocusedId] = useState<string | null>(null);
+  const [selection, setSelection] = useState<{
+    draft: CitationDraft;
+    top: number;
+    left: number;
+  } | null>(null);
+  const [citing, setCiting] = useState<CitationDraft | null>(null);
   const isPdf = getFileKind(file.filename ?? "", file.mimeType) === "pdf";
   const markdown = editing ? draft : (text?.markdown ?? "");
   const sections = useMemo(() => documentTextPages(markdown), [markdown]);
@@ -152,7 +192,25 @@ export const DocumentFileTextDialog = ({
     setPage(1);
     setPageCount(null);
     setEditing(false);
-  }, [open, documentId, file.id]);
+    setSelection(null);
+    setFocusedId(open ? (focusCitationId ?? null) : null);
+  }, [open, documentId, file.id, focusCitationId]);
+
+  const focused = fileCitations.find((c) => c.id === focusedId) ?? null;
+  // Show the focused citation's page: the one it names, else the page its
+  // quote is on.
+  useEffect(() => {
+    if (!focused || !text || !isPdf) return;
+    let target = focused.page;
+    if (!target && focused.quote) {
+      const needle = focused.quote.toLowerCase();
+      target =
+        documentTextPages(text.markdown).find((entry) =>
+          entry.markdown.toLowerCase().includes(needle),
+        )?.page ?? null;
+    }
+    if (target) setPage(Math.min(target, pageCount ?? target));
+  }, [focused, text, isPdf, pageCount]);
 
   useEffect(() => {
     if (pageCount !== null) setPage((current) => Math.min(current, pageCount));
@@ -185,6 +243,91 @@ export const DocumentFileTextDialog = ({
       clear();
     };
   }, [showing, highlight, text, page]);
+
+  // Mark every quote cited from this file; the focused one stands out.
+  const quoted = useMemo(
+    () => fileCitations.filter((c) => c.quote),
+    [fileCitations],
+  );
+  useEffect(() => {
+    if (!showing || quoted.length === 0 || !contentRef.current) return;
+    const root = contentRef.current;
+    const mark = () => {
+      const others: Range[] = [];
+      let focusRange: Range | null = null;
+      for (const citation of quoted) {
+        const range = findQuoteRange(root, {
+          quote: citation.quote ?? "",
+          prefix: citation.quotePrefix,
+          suffix: citation.quoteSuffix,
+        });
+        if (!range) continue;
+        if (citation.id === focusedId) focusRange = range;
+        else others.push(range);
+      }
+      const clearOthers = markRanges(CITATION_HIGHLIGHT, others);
+      const clearFocus = markRanges(
+        CITATION_FOCUS_HIGHLIGHT,
+        focusRange ? [focusRange] : [],
+      );
+      return { clear: () => (clearOthers(), clearFocus()), focusRange };
+    };
+    let current = mark();
+    let scrolled = false;
+    const scroll = () => {
+      if (scrolled || !current.focusRange) return;
+      scrolled = true;
+      current.focusRange.startContainer.parentElement?.scrollIntoView({
+        block: "center",
+      });
+    };
+    scroll();
+    const observer = new MutationObserver(() => {
+      current.clear();
+      current = mark();
+      scroll();
+    });
+    observer.observe(root, { childList: true, subtree: true });
+    return () => {
+      observer.disconnect();
+      current.clear();
+    };
+  }, [showing, quoted, focusedId, text, page]);
+
+  // A selection in the text can be cited as evidence.
+  const pickSelection = () => {
+    const root = contentRef.current;
+    const box = dialogRef.current;
+    const current = window.getSelection();
+    if (!canCite || !root || !box || !current || current.rangeCount === 0) {
+      setSelection(null);
+      return;
+    }
+    const range = current.getRangeAt(0);
+    const picked = selectionQuote(root, range);
+    if (!picked) {
+      setSelection(null);
+      return;
+    }
+    // jsdom and some older engines have no Range geometry.
+    const rect =
+      typeof range.getBoundingClientRect === "function"
+        ? range.getBoundingClientRect()
+        : root.getBoundingClientRect();
+    const frame = box.getBoundingClientRect();
+    setSelection({
+      draft: {
+        documentId,
+        fileId: file.id,
+        page: paginated ? page : null,
+        quote: picked.quote,
+        quotePrefix: picked.prefix,
+        quoteSuffix: picked.suffix,
+      },
+      top: rect.bottom - frame.top + 6,
+      left: Math.max(8, Math.min(rect.left - frame.left, frame.width - 200)),
+    });
+  };
 
   useEffect(() => {
     if (!open) {
@@ -262,7 +405,10 @@ export const DocumentFileTextDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[calc(100dvh-1rem)] max-h-[1000px] max-w-[calc(100%-1rem)] flex-col gap-3 overflow-hidden p-3 sm:max-w-7xl sm:p-5">
+      <DialogContent
+        ref={dialogRef}
+        className="flex h-[calc(100dvh-1rem)] max-h-[1000px] max-w-[calc(100%-1rem)] flex-col gap-3 overflow-hidden p-3 sm:max-w-7xl sm:p-5"
+      >
         <DialogHeader>
           <DialogTitle className="truncate pr-6">
             {t("title", { name })}
@@ -338,7 +484,14 @@ export const DocumentFileTextDialog = ({
               }
             />
           ) : text ? (
-            <div ref={contentRef}>
+            <div
+              ref={contentRef}
+              onMouseUp={pickSelection}
+              onTouchEnd={pickSelection}
+              onKeyUp={(event) => {
+                if (event.shiftKey) pickSelection();
+              }}
+            >
               {pageMarkdown.trim() ? (
                 <MarkdownContent content={pageMarkdown} />
               ) : (
@@ -353,6 +506,33 @@ export const DocumentFileTextDialog = ({
             </p>
           )}
         </DocumentReaderSplit>
+
+        {selection && !editing && (
+          <Button
+            type="button"
+            size="sm"
+            className="absolute z-10 shadow-md"
+            style={{ top: selection.top, left: selection.left }}
+            // Keep the text selected while the button takes the click.
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => {
+              setCiting(selection.draft);
+              setSelection(null);
+            }}
+          >
+            <FileCheck />
+            {evidence("use-as-evidence")}
+          </Button>
+        )}
+
+        {fileCitations.length > 0 && !editing && (
+          <CitedInFile
+            citations={fileCitations}
+            members={members}
+            focusedId={focusedId}
+            onFocus={setFocusedId}
+          />
+        )}
 
         <DialogFooter className="grid shrink-0 grid-cols-1 items-center gap-2 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
           <div className="order-2 flex flex-wrap justify-center gap-2 md:order-1 md:justify-start">
@@ -470,6 +650,20 @@ export const DocumentFileTextDialog = ({
           )}
         </DialogFooter>
       </DialogContent>
+      {citing && (
+        <CitationDialog
+          open
+          onOpenChange={(next) => {
+            if (!next) setCiting(null);
+          }}
+          draft={citing}
+          suggestedMemberIds={
+            useDocumentStore
+              .getState()
+              .documents.find((d) => d.id === documentId)?.memberIds ?? []
+          }
+        />
+      )}
       <AlertDialog open={confirmRestore} onOpenChange={setConfirmRestore}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -491,6 +685,57 @@ export const DocumentFileTextDialog = ({
         </AlertDialogContent>
       </AlertDialog>
     </Dialog>
+  );
+};
+
+/** "Cited in this file": who and which fields this file is evidence for.
+ *  Picking one marks its quote and shows its page. */
+const CitedInFile = ({
+  citations,
+  members,
+  focusedId,
+  onFocus,
+}: {
+  citations: MemberFieldCitation[];
+  members: { id: string; firstName: string; lastName: string }[];
+  focusedId: string | null;
+  onFocus: (id: string) => void;
+}) => {
+  const { t: evidence } = useTranslation(undefined, {
+    keyPrefix: "sheet.evidence",
+  });
+  return (
+    <div className="flex shrink-0 flex-wrap items-center gap-1.5 text-xs">
+      <span className="text-muted-foreground">{evidence("cited-in-file")}</span>
+      {citations.map((citation) => {
+        const member = members.find((m) => m.id === citation.memberId);
+        const name = member
+          ? `${member.firstName} ${member.lastName}`
+          : evidence("unknown-person");
+        const focused = citation.id === focusedId;
+        return (
+          <button
+            key={citation.id}
+            type="button"
+            aria-pressed={focused}
+            className={cn(
+              "rounded-full bg-primary-soft px-2.5 py-1 text-primary transition-colors hover:bg-primary-soft/70",
+              focused && "ring-2 ring-primary",
+              citation.quoteFound === false &&
+                "bg-warning-soft text-warning hover:bg-warning-soft/70",
+            )}
+            title={
+              citation.quoteFound === false
+                ? evidence("quote-not-found")
+                : undefined
+            }
+            onClick={() => onFocus(citation.id)}
+          >
+            {name} · {evidence(`field-lower.${citation.field}`)}
+          </button>
+        );
+      })}
+    </div>
   );
 };
 

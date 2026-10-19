@@ -1,5 +1,6 @@
 """Shared offset pagination + filtering for activity-log endpoints."""
 
+import json
 from collections.abc import Mapping, Sequence
 
 from sqlalchemy import func, or_, select
@@ -14,17 +15,26 @@ from app.schemas.activity import ActivityOut, ActivityPageOut
 # activity rows.
 ACTIVITY_TARGET_TYPES_BY_DOMAIN: dict[str, set[str]] = {
     "tasks": {"task"},
+    "sources": {"document", "document_file"},
+}
+
+# Undo snapshots of other targets can carry a restricted domain's rows (a
+# deleted person's citations quote documents). The snapshot keeps them for
+# undo; responses drop them for people who may not see that domain.
+SNAPSHOT_KEYS_BY_DOMAIN: dict[str, set[str]] = {
+    "sources": {"citations", "citation_ids", "document_links"},
 }
 
 
-def hidden_activity_target_types(
+def hidden_activity_domains(
     db: Session, user: User, workspace_ids: Sequence[str]
 ) -> dict[str, set[str]]:
-    """Return activity target types the user is not allowed to see per tree.
+    """Return the areas the user may not see, per tree.
 
-    Activity entries contain user-provided labels, so merely hiding the source
-    route is not enough: a restricted shared member could otherwise infer the
-    protected content from the audit trail. Owners and admins are unrestricted.
+    Activity entries contain user-provided labels and undo snapshots, so
+    merely hiding the source route is not enough: a restricted shared member
+    could otherwise read the protected content from the audit trail. Owners
+    and admins are unrestricted.
     """
     if user.is_admin or not workspace_ids:
         return {}
@@ -35,14 +45,38 @@ def hidden_activity_target_types(
             WorkspaceMembership.workspace_id.in_(workspace_ids),
         )
     ).all()
-    hidden: dict[str, set[str]] = {}
-    for membership in memberships:
-        target_types: set[str] = set()
-        for domain in membership.restrictions or []:
-            target_types.update(ACTIVITY_TARGET_TYPES_BY_DOMAIN.get(domain, set()))
-        if target_types:
-            hidden[membership.workspace_id] = target_types
-    return hidden
+    return {
+        membership.workspace_id: set(membership.restrictions)
+        for membership in memberships
+        if membership.restrictions
+    }
+
+
+def _by_domain(
+    hidden_domains: Mapping[str, set[str]], mapping: Mapping[str, set[str]]
+) -> dict[str, set[str]]:
+    result: dict[str, set[str]] = {}
+    for workspace_id, domains in hidden_domains.items():
+        values = set().union(*(mapping.get(domain, set()) for domain in domains))
+        if values:
+            result[workspace_id] = values
+    return result
+
+
+def _redact_snapshot(details: str | None, keys: set[str]) -> str | None:
+    """Drop ``keys`` from an entry's undo snapshot, if it has them."""
+    if not details or not keys:
+        return details
+    try:
+        parsed = json.loads(details)
+    except ValueError:
+        return details
+    snapshot = parsed.get("snapshot") if isinstance(parsed, dict) else None
+    if not isinstance(snapshot, dict) or not keys & snapshot.keys():
+        return details
+    for key in keys:
+        snapshot.pop(key, None)
+    return json.dumps(parsed)
 
 
 def activity_page(
@@ -54,7 +88,7 @@ def activity_page(
     actor: str | None = None,
     action: str | None = None,
     target_type: str | None = None,
-    hidden_target_types: Mapping[str, set[str]] | None = None,
+    hidden_domains: Mapping[str, set[str]] | None = None,
 ) -> ActivityPageOut:
     """Return one offset-based page of newest-first activity for ``workspace_ids``.
 
@@ -62,8 +96,11 @@ def activity_page(
     set; ``actors`` lists the distinct actor usernames across the (unfiltered)
     workspaces so a filter dropdown stays complete regardless of the current page.
     """
+    hidden_domains = hidden_domains or {}
+    hidden_keys = _by_domain(hidden_domains, SNAPSHOT_KEYS_BY_DOMAIN)
     base_filters = [ActivityLog.workspace_id.in_(workspace_ids)]
-    for workspace_id, hidden_types in (hidden_target_types or {}).items():
+    hidden_target_types = _by_domain(hidden_domains, ACTIVITY_TARGET_TYPES_BY_DOMAIN)
+    for workspace_id, hidden_types in hidden_target_types.items():
         if hidden_types:
             base_filters.append(
                 or_(
@@ -101,7 +138,16 @@ def activity_page(
     ).all()
 
     return ActivityPageOut(
-        entries=[ActivityOut.model_validate(row) for row in rows],
+        entries=[
+            ActivityOut.model_validate(row).model_copy(
+                update={
+                    "details": _redact_snapshot(
+                        row.details, hidden_keys.get(row.workspace_id, set())
+                    )
+                }
+            )
+            for row in rows
+        ],
         total=total,
         actors=list(actors),
     )

@@ -32,6 +32,7 @@ from app.models import (
     GalleryMemberLink,
     GalleryUnknownFace,
     MemberDisease,
+    MemberFieldCitation,
     MemberTask,
     MemberTaskLink,
     Relation,
@@ -558,6 +559,43 @@ def copy_documents(db: Session, ctx: MergeContext) -> None:
                     edited_at=text.edited_at,
                     created_at=text.created_at,
                     updated_at=text.updated_at,
+                )
+            )
+
+    # Evidence for person fields. Two source people merged into one keep
+    # both people's citations; an identical citation is kept once.
+    seen_citation: set[tuple] = set()
+    for t in ctx.sources:
+        for c in db.scalars(
+            select(MemberFieldCitation)
+            .where(MemberFieldCitation.workspace_id == t.id)
+            .order_by(MemberFieldCitation.created_at, MemberFieldCitation.id)
+        ):
+            mid = ctx.member_map.get(c.member_id)
+            nd = ctx.document_map.get(c.document_id)
+            if not mid or not nd:
+                continue
+            nf = file_map.get(c.document_file_id) if c.document_file_id else None
+            key = (mid, c.field, nd, nf, c.quote, c.page)
+            if key in seen_citation:
+                continue
+            seen_citation.add(key)
+            db.add(
+                MemberFieldCitation(
+                    id=str(uuid4()),
+                    workspace_id=ctx.new_tree_id,
+                    member_id=mid,
+                    field=c.field,
+                    document_id=nd,
+                    document_file_id=nf,
+                    page=c.page,
+                    quote=c.quote,
+                    quote_prefix=c.quote_prefix,
+                    quote_suffix=c.quote_suffix,
+                    note=c.note,
+                    created_by=c.created_by,
+                    created_at=c.created_at,
+                    updated_at=c.updated_at,
                 )
             )
 

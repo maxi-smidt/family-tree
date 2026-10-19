@@ -25,6 +25,7 @@ from app.models.content import (
     EventMemberLink,
     GalleryImage,
     GalleryMemberLink,
+    MemberFieldCitation,
     MemberTask,
     MemberTaskLink,
     Story,
@@ -214,7 +215,39 @@ def restore_member(
         table="document_links",
         parent_label="document",
     )
+    _restore_citations(db, tree, result, snapshot.get("citations", []))
     return result
+
+
+def _restore_citations(
+    db: Session, tree: Workspace, result: RestoreResult, rows: list[RowSnapshot]
+) -> None:
+    """Re-add citations whose person and document both still exist.
+
+    A cited file that is gone since is dropped from the citation (it stays
+    on the document), the same as deleting the file would have done.
+    """
+    count = 0
+    for row in rows:
+        if db.get(MemberFieldCitation, row["id"]) is not None:
+            result.add_skip("citations", "citation already exists", str(row["id"]))
+            continue
+        if _in_tree(db, Member, row["member_id"], tree.id) is None:
+            result.add_skip("citations", f"member {row['member_id']} no longer exists")
+            continue
+        if _in_tree(db, Document, row["document_id"], tree.id) is None:
+            result.add_skip(
+                "citations", f"document {row['document_id']} no longer exists"
+            )
+            continue
+        data = dict(row)
+        file_id = data.get("document_file_id")
+        if file_id is not None and db.get(DocumentFile, file_id) is None:
+            data["document_file_id"] = None
+        db.add(MemberFieldCitation(**data))
+        count += 1
+    if count:
+        result.restored["citations"] = count
 
 
 def _restore_member_links(
@@ -478,6 +511,8 @@ def restore_document(
         count += 1
     if count:
         result.restored["story_links"] = count
+    db.flush()  # the document and its files before citations of them
+    _restore_citations(db, tree, result, snapshot.get("citations", []))
     return result
 
 
@@ -495,6 +530,17 @@ def restore_document_file(
     if text_data is not None:
         db.flush()  # the file before its text
         db.add(DocumentFileText(**text_data))
+    citation_ids = snapshot.get("citation_ids", [])
+    if citation_ids:
+        db.flush()  # the file before citations point at it again
+        for citation_id in citation_ids:
+            citation = db.get(MemberFieldCitation, citation_id)
+            if (
+                citation is not None
+                and citation.document_id == file_data["document_id"]
+                and citation.document_file_id is None
+            ):
+                citation.document_file_id = file_id
     return RestoreResult(
         main_id=file_id,
         restored={"document_file": file_id},

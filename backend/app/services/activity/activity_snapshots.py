@@ -40,6 +40,8 @@ class MemberSnapshot(TypedDict):
     gallery_links: list[RowSnapshot]
     document_links: list[RowSnapshot]
     content_scopes: NotRequired[ContentScopes]
+    # Evidence cited for the member's fields; absent from older snapshots.
+    citations: NotRequired[list[RowSnapshot]]
 
 
 class RelationSnapshot(TypedDict):
@@ -88,6 +90,8 @@ class DocumentSnapshot(TypedDict):
     content_scopes: NotRequired[ContentScopes]
     # Absent from snapshots taken before file texts existed (#1121).
     file_texts: NotRequired[list[RowSnapshot]]
+    # Citations of this document as evidence; absent from older snapshots.
+    citations: NotRequired[list[RowSnapshot]]
 
 
 class DocumentFileSnapshot(TypedDict):
@@ -95,6 +99,9 @@ class DocumentFileSnapshot(TypedDict):
     document_file: RowSnapshot
     trashed_media: list[str]
     document_file_text: NotRequired[RowSnapshot]
+    # Citations that pointed at this file; deleting it only cleared their
+    # file, so undo points them back at it.
+    citation_ids: NotRequired[list[str]]
 
 
 # ---------------------------------------------------------------------------

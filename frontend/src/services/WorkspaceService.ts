@@ -42,6 +42,13 @@ import {
   DocumentSearchResultDB,
   DocumentUploadDB,
 } from "@/types/document";
+import {
+  CitationAnchor,
+  CitationInput,
+  EvidenceCoverageDB,
+  MemberFieldCitationDB,
+  mapCitationAnchorToDB,
+} from "@/types/citation";
 import { GeocodeCandidate, GeocodeDB } from "@/types/geocode";
 import { ActivityPageDB, ActivityUndoDB } from "@/types/activity";
 import { QualityReport } from "@/types/quality";
@@ -690,6 +697,42 @@ export class WorkspaceService {
 
   static removeDocument(workspaceId: string, id: string) {
     return api.del(`${base(workspaceId)}/documents/${id}`);
+  }
+
+  // --- Evidence for person fields -----------------------------------------
+  static getCitations(workspaceId: string) {
+    return api.get<MemberFieldCitationDB[]>(`${base(workspaceId)}/citations`);
+  }
+
+  /** Evidence coverage of the visible people's key facts (Data quality). */
+  static getEvidenceCoverage(workspaceId: string) {
+    return api.get<EvidenceCoverageDB>(
+      `${base(workspaceId)}/citations/coverage`,
+    );
+  }
+
+  static addCitation(workspaceId: string, input: CitationInput) {
+    return api.post<MemberFieldCitationDB>(`${base(workspaceId)}/citations`, {
+      member_id: input.memberId,
+      field: input.field,
+      document_id: input.documentId,
+      ...mapCitationAnchorToDB(input),
+    });
+  }
+
+  static updateCitation(
+    workspaceId: string,
+    id: string,
+    anchor: CitationAnchor,
+  ) {
+    return api.patch<MemberFieldCitationDB>(
+      `${base(workspaceId)}/citations/${id}`,
+      mapCitationAnchorToDB(anchor),
+    );
+  }
+
+  static removeCitation(workspaceId: string, id: string) {
+    return api.del(`${base(workspaceId)}/citations/${id}`);
   }
 
   /** Documents whose title, description or file text match `q` (#1122). */

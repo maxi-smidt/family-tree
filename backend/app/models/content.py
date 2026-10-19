@@ -270,6 +270,52 @@ class DocumentFileText(Base):
     updated_at: Mapped[str] = mapped_column(String(40))
 
 
+class MemberFieldCitation(Base):
+    """A document cited as evidence for one field of a person.
+
+    Points at a whole :class:`Document`, or one of its files, optionally with
+    the quoted words from that file's text and a page. The quote is stored as
+    text (plus a few words around it) rather than as an offset or line
+    number, so it can still be found after the text is edited or transcribed
+    again. Removing the cited file keeps the citation on the document
+    (``document_file_id`` goes NULL); removing the person or the document
+    removes it. ``field`` is one of
+    ``app.services.documents.citations.CITABLE_FIELDS``.
+    """
+
+    __tablename__ = "member_field_citations"
+    __table_args__ = (
+        Index("ix_member_field_citations_member_id_field", "member_id", "field"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    member_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("members.id", ondelete="CASCADE")
+    )
+    field: Mapped[str] = mapped_column(String(32))
+    document_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("documents.id", ondelete="CASCADE"), index=True
+    )
+    document_file_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("document_files.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    page: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    quote: Mapped[str | None] = mapped_column(Text, nullable=True)
+    quote_prefix: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    quote_suffix: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # A plain id (no FK), like DocumentFileText.edited_by.
+    created_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    created_at: Mapped[str] = mapped_column(String(40))
+    updated_at: Mapped[str] = mapped_column(String(40))
+
+
 class DocumentUpload(Base):
     """A streamed file staged for attachment to a document but not yet committed.
 
