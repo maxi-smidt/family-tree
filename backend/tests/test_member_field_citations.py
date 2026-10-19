@@ -217,6 +217,45 @@ def test_hidden_documents_area_hides_citations(client, db, media_root):
     assert client.get(_url(tree), headers=auth(guest)).status_code == 404
 
 
+def test_activity_hides_citations_from_a_hidden_documents_area(
+    client, db, media_root
+):
+    user, tree, file_id = _setup(client, db)
+    _cite(client, user, tree, file_id, note="secret note")
+    guest = make_user(db, "guest")
+    db.add(
+        WorkspaceMembership(
+            workspace_id=tree.id,
+            user_id=guest.id,
+            role="viewer",
+            restrictions=["sources"],
+        )
+    )
+    db.commit()
+    deleted = client.delete(f"{API}/workspaces/{tree.id}/members/m1", headers=auth(user))
+    assert deleted.status_code == 204, deleted.text
+
+    def activity(who):
+        response = client.get(f"{API}/workspaces/{tree.id}/activity", headers=auth(who))
+        assert response.status_code == 200, response.text
+        return response.json()["entries"]
+
+    guest_entries = activity(guest)
+    assert {e["target_type"] for e in guest_entries} == {"member"}
+    member_entry = next(e for e in guest_entries if e["action"] == "delete")
+    assert "Johann" in member_entry["details"]
+    assert "zwölften" not in member_entry["details"]
+    assert "secret note" not in member_entry["details"]
+    assert all("Taufbuch" not in (e["details"] or "") for e in guest_entries)
+
+    owner_delete = next(
+        e
+        for e in activity(user)
+        if e["action"] == "delete" and e["target_type"] == "member"
+    )
+    assert "secret note" in owner_delete["details"]
+
+
 def test_section_share_sees_only_citations_it_can_reach(client, db, media_root):
     user, tree, file_id = _setup(client, db)
     add_member(db, tree, "m2", first_name="Josef")
@@ -417,6 +456,30 @@ def test_plain_text_ignores_markdown_and_spacing():
         "johann georg weber"
     )
     assert plain_text("[Linz](https://example.com) | Hofgasse") == "linz hofgasse"
+    # Marks render as nothing, so punctuation stays next to the word.
+    assert plain_text("**Johann**, Sohn des _Josef_.") == "johann, sohn des josef."
+    assert plain_text("Linz|Wels") == "linz wels"
+
+
+def test_quote_next_to_emphasis_is_found(client, db, media_root):
+    user, tree, file_id = _setup(client, db)
+    client.put(
+        f"{API}/workspaces/{tree.id}/documents/doc-1/files/{file_id}/text",
+        headers=auth(user),
+        json={"markdown": "Taufe von **Johann**, Sohn des Josef"},
+    )
+    # The quote as selected in the rendered text.
+    created = _cite(
+        client,
+        user,
+        tree,
+        file_id,
+        quote="Johann, Sohn des Josef",
+        quote_prefix="Taufe von ",
+        quote_suffix="",
+    )
+    assert created.status_code == 201, created.text
+    assert created.json()["quote_found"] is True
 
 
 def test_coverage_counts_filled_facts_and_lost_quotes(client, db, media_root):

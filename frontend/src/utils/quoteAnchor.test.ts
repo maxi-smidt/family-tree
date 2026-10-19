@@ -16,6 +16,13 @@ describe("plainQuoteText", () => {
       ),
     ).toBe("taufbuch ist am zwölften märz achtzehn");
   });
+
+  it("keeps punctuation next to emphasised words, as rendered", () => {
+    expect(plainQuoteText("**Johann**, Sohn des _Josef_.")).toBe(
+      "johann, sohn des josef.",
+    );
+    expect(plainQuoteText("Linz|Wels")).toBe("linz wels");
+  });
 });
 
 describe("findQuoteRange", () => {

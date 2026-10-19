@@ -28,7 +28,10 @@ CITABLE_FIELDS: tuple[str, ...] = (
     "birthplace",
 )
 
-_MARKERS = re.compile(r"[*_`~#>|\\]")
+# Emphasis, heading, quote and escape marks render as nothing, so removing
+# them keeps "**Johann**, Sohn" as "johann, sohn". Table pipes separate cells.
+_MARKERS = re.compile(r"[*_`~#>\\]")
+_CELL = re.compile(r"\|")
 _SPACE = re.compile(r"\s+")
 
 
@@ -116,7 +119,8 @@ def plain_text(text: str) -> str:
     text = _drop_comments(text)
     text = _unwrap_links(text)
     text = _drop_tags(text)
-    text = _MARKERS.sub(" ", text)
+    text = _MARKERS.sub("", text)
+    text = _CELL.sub(" ", text)
     return _SPACE.sub(" ", text).strip().casefold()
 
 

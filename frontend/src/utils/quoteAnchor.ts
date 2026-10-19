@@ -9,8 +9,11 @@
 const COMMENT = /<!--[\s\S]*?-->/g;
 const LINK = /!?\[([^\]]*)\]\([^)]*\)/g;
 const TAG = /<[^>]+>/g;
-const MARKERS = /[*_`~#>|\\]/g;
-const MARKER_CHAR = /[*_`~#>|\\]/;
+// Emphasis, heading, quote and escape marks render as nothing, so dropping
+// them keeps "**Johann**, Sohn" as "johann, sohn". Table pipes separate cells.
+const MARKERS = /[*_`~#>\\]/g;
+const MARKER_CHAR = /[*_`~#>\\]/;
+const CELL = /\|/g;
 const SPACE = /\s+/g;
 
 /** Text reduced to the words a reader sees, for comparing quotes. */
@@ -19,7 +22,8 @@ export function plainQuoteText(text: string): string {
     .replace(COMMENT, " ")
     .replace(LINK, "$1")
     .replace(TAG, " ")
-    .replace(MARKERS, " ")
+    .replace(MARKERS, "")
+    .replace(CELL, " ")
     .replace(SPACE, " ")
     .trim()
     .toLowerCase();
@@ -67,7 +71,8 @@ function indexText(root: HTMLElement): TextIndex {
     const value = textNode.nodeValue ?? "";
     for (let i = 0; i < value.length; i++) {
       const char = value[i];
-      if (/\s/.test(char) || MARKER_CHAR.test(char)) {
+      if (MARKER_CHAR.test(char)) continue;
+      if (/\s/.test(char) || char === "|") {
         pendingSpace = true;
         continue;
       }

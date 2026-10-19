@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.activity_query import activity_page, hidden_activity_target_types
+from app.api.activity_query import activity_page, hidden_activity_domains
 from app.api.deps import (
     get_current_user,
     get_readable_workspace,
@@ -60,7 +60,7 @@ def list_activity(
         actor=actor,
         action=action,
         target_type=target_type,
-        hidden_target_types=hidden_activity_target_types(db, user, [tree.id]),
+        hidden_domains=hidden_activity_domains(db, user, [tree.id]),
     )
 
 

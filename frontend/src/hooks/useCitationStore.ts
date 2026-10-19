@@ -88,7 +88,13 @@ export const useCitationStore = create<CitationState>((set, get) => ({
     const row = await WorkspaceService.addCitation(workspaceId, input);
     if (!isActiveTree(workspaceId)) return null;
     const citation = mapCitationFromDB(row);
-    set((state) => ({ citations: [...state.citations, citation] }));
+    // A realtime refresh may have brought the new row in already.
+    set((state) => ({
+      citations: [
+        ...state.citations.filter((c) => c.id !== citation.id),
+        citation,
+      ],
+    }));
     invalidateActivityView();
     return citation;
   },

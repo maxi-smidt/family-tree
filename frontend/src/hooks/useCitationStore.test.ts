@@ -66,6 +66,28 @@ describe("useCitationStore", () => {
     expect(useCitationStore.getState().citations).toEqual([]);
   });
 
+  it("keeps one entry when a realtime refresh brought the new citation first", async () => {
+    vi.mocked(WorkspaceService.getCitations).mockResolvedValue([ROW]);
+    vi.mocked(WorkspaceService.addCitation).mockImplementation(async () => {
+      await useCitationStore.getState().refreshCitations();
+      return ROW;
+    });
+
+    await useCitationStore.getState().addCitation({
+      memberId: "m1",
+      field: "date_of_birth",
+      documentId: "d1",
+      fileId: null,
+      page: null,
+      quote: null,
+      quotePrefix: null,
+      quoteSuffix: null,
+      note: null,
+    });
+
+    expect(useCitationStore.getState().citations).toHaveLength(1);
+  });
+
   it("adds, updates and removes a citation", async () => {
     vi.mocked(WorkspaceService.addCitation).mockResolvedValue(ROW);
     vi.mocked(WorkspaceService.updateCitation).mockResolvedValue({
