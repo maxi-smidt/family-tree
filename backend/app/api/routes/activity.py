@@ -1,9 +1,9 @@
-"""Activity / audit log endpoints — list recent changes for a tree, and undo
-a single logged delete (issue #762)."""
+"""Activity endpoints — list or clear workspace history, and undo logged deletes."""
 
 import json
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import delete
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -62,6 +62,24 @@ def list_activity(
         target_type=target_type,
         hidden_domains=hidden_activity_domains(db, user, [tree.id]),
     )
+
+
+@router.delete("/activity", status_code=204)
+def clear_activity(
+    tree: Workspace = Depends(get_writable_workspace),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> None:
+    """Permanently clear this workspace's history, including undo snapshots."""
+    if tree.owner_id != user.id and not user.is_admin:
+        raise HTTPException(status_code=403, detail="Only the owner can clear activity")
+    with UnitOfWork(db) as uow:
+        db.execute(delete(ActivityLog).where(ActivityLog.workspace_id == tree.id))
+        uow.after_commit(
+            lambda: publish_workspace_event(
+                db, tree, "activity.cleared", {"workspace_id": tree.id}
+            )
+        )
 
 
 @router.post(

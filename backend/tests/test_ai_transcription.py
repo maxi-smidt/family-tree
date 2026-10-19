@@ -3,14 +3,16 @@
 import base64
 import io
 import json
+from unittest.mock import patch
 
 import httpx
 import pytest
 from PIL import Image
+from sqlalchemy import select
 
 from app.core import secret_box
 from app.core.config import settings
-from app.models import DocumentFileTranscription, UserAiSettings
+from app.models import ActivityLog, DocumentFileTranscription, UserAiSettings
 from app.services.ai import providers
 from app.services.ai.ai_settings import TRANSCRIPTION_PROMPT
 from tests.conftest import API, add_member, auth, make_tree, make_user, share
@@ -348,3 +350,71 @@ def test_openai_compatible_adapter_uses_the_custom_endpoint(provider_calls):
     assert str(provider_calls[0].url) == "http://ollama/v1/chat/completions"
     assert "authorization" not in provider_calls[0].headers
     assert providers.OpenAICompatibleProvider.supports_pdf is False
+
+
+@pytest.mark.parametrize("success", [True, False])
+def test_ai_request_is_logged_before_provider_call_and_on_retry(
+    client, db, media_root, provider_calls, monkeypatch, success
+):
+    user, tree = _setup(db, client)
+    file_id = _upload(client, user, tree, _photo_with_exif(), "brief.jpg", "image/jpeg")
+    if not success:
+        provider_calls.reply = httpx.Response(503)
+
+    original = providers.GeminiProvider.transcribe
+    seen = []
+
+    def transcribe(provider, prompt, payload):
+        rows = db.scalars(
+            select(ActivityLog).where(
+                ActivityLog.workspace_id == tree.id,
+                ActivityLog.action == "send_to_ai",
+            )
+        ).all()
+        seen.append(len(rows))
+        return original(provider, prompt, payload)
+
+    monkeypatch.setattr(providers.GeminiProvider, "transcribe", transcribe)
+    with patch("app.services.ai.transcription.publish_workspace_event") as publish:
+        for _ in range(2):
+            started = client.post(
+                f"{_file_url(tree, file_id)}/transcribe", headers=auth(user)
+            )
+            assert started.status_code == 202
+    assert seen == [1, 2]
+    entries = client.get(
+        f"{API}/workspaces/{tree.id}/activity",
+        headers=auth(user),
+        params={"action": "send_to_ai"},
+    ).json()["entries"]
+    assert len(entries) == 2
+    for entry in entries:
+        assert entry["actor_id"] == user.id
+        assert entry["target_type"] == "document_file"
+        assert entry["target_id"] == file_id
+        assert entry["target_label"] == "brief.jpg"
+        assert json.loads(entry["details"]) == {
+            "provider": "gemini",
+            "model": "gemini-test",
+        }
+        assert GEMINI_KEY not in json.dumps(entry)
+    assert any(call.args[2] == "activity.entry_added" for call in publish.call_args_list)
+
+
+def test_rejected_ai_request_is_not_logged(client, db, media_root, provider_calls):
+    user, tree = _setup(db, client, configure=False)
+    file_id = _upload(client, user, tree, _photo_with_exif(), "brief.jpg", "image/jpeg")
+    assert (
+        client.post(
+            f"{_file_url(tree, file_id)}/transcribe", headers=auth(user)
+        ).status_code
+        == 400
+    )
+    assert (
+        client.get(
+            f"{API}/workspaces/{tree.id}/activity",
+            headers=auth(user),
+            params={"action": "send_to_ai"},
+        ).json()["total"]
+        == 0
+    )

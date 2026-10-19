@@ -128,6 +128,21 @@ def start_transcription(
         run.updated_at = now
         if existing is None:
             db.add(run)
+        record_activity(
+            db,
+            workspace_id=tree.id,
+            actor=user,
+            action="send_to_ai",
+            target_type="document_file",
+            target_id=file.id,
+            target_label=file.filename,
+            details={"provider": run.provider, "model": run.model},
+        )
+        uow.after_commit(
+            lambda: publish_workspace_event(
+                db, tree, "activity.entry_added", {"workspace_id": tree.id}
+            )
+        )
         uow.after_commit(lambda: _publish_changed(db, tree))
     db.refresh(run)
     return run

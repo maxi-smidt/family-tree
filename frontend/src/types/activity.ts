@@ -3,7 +3,7 @@ export interface Activity {
   workspaceId: string;
   actorId: string | null;
   actorUsername: string | null;
-  action: string; // "create" | "update" | "delete"
+  action: string; // "create" | "update" | "delete" | "send_to_ai"
   targetType: string; // "member" | "relation" | "event" | "story" | "task" | "gallery_image" | "document" | "disease" | "tree" | "share" | "import" | "merge"
   targetId: string | null;
   targetLabel: string | null;
@@ -47,7 +47,8 @@ export interface ActivityUndoDB {
  * version knows how to restore — the only entries eligible for undo. */
 export function isUndoableDelete(activity: Activity): boolean {
   if (activity.action !== "delete" || !activity.details) return false;
-  const snapshot = activity.details.snapshot as { version?: number } | undefined;
+  const snapshot = activity.details.snapshot as
+    { version?: number } | undefined;
   return !!snapshot && snapshot.version === 1;
 }
 

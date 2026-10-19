@@ -130,6 +130,14 @@ async function connect(): Promise<void> {
     void useActivityStore.getState().refreshActivity(data.workspace_id);
   });
 
+  eventSource.addEventListener("activity.cleared", (e) => {
+    const data = JSON.parse((e as MessageEvent).data) as {
+      workspace_id: string;
+    };
+    if (!isActiveTree(data.workspace_id)) return;
+    void useActivityStore.getState().setPage(0, data.workspace_id);
+  });
+
   const domainRefreshers: Record<string, (workspaceId: string) => void> = {
     member: (id) => {
       void useMemberStore.getState().refreshMembers(id);

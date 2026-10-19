@@ -20,7 +20,7 @@ class ActivityLog(Base):
     # Snapshot of the username at the time of the action — survives user deletion.
     actor_username: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
-    # "create" | "update" | "delete"
+    # "create" | "update" | "delete" | "send_to_ai"
     action: Mapped[str] = mapped_column(String(20))
     # "member" | "relation" | "event" | "story" | "gallery_image" | "disease" |
     # "tree" | "share" | "import" | "merge"

@@ -288,21 +288,71 @@ describe("useActivityStore", () => {
 
     it("calls the service with the active tree and entry id, then refreshes", async () => {
       vi.mocked(WorkspaceService.undoActivity).mockResolvedValue(report);
-      vi.mocked(WorkspaceService.getActivity).mockResolvedValue(page(["a1"], 1));
+      vi.mocked(WorkspaceService.getActivity).mockResolvedValue(
+        page(["a1"], 1),
+      );
 
       const result = await useActivityStore.getState().undo("entry-1");
 
-      expect(WorkspaceService.undoActivity).toHaveBeenCalledWith("tree-1", "entry-1");
+      expect(WorkspaceService.undoActivity).toHaveBeenCalledWith(
+        "tree-1",
+        "entry-1",
+      );
       expect(WorkspaceService.getActivity).toHaveBeenCalled();
       expect(result).toEqual(report);
     });
 
     it("propagates a rejection so the caller can report it", async () => {
-      vi.mocked(WorkspaceService.undoActivity).mockRejectedValue(new Error("conflict"));
+      vi.mocked(WorkspaceService.undoActivity).mockRejectedValue(
+        new Error("conflict"),
+      );
 
-      await expect(
-        useActivityStore.getState().undo("entry-1"),
-      ).rejects.toThrow("conflict");
+      await expect(useActivityStore.getState().undo("entry-1")).rejects.toThrow(
+        "conflict",
+      );
     });
+  });
+});
+
+describe("clearing activity history", () => {
+  it("resets pagination and filters and ignores loads started before the clear", async () => {
+    const oldLoad = deferred();
+    vi.mocked(WorkspaceService.clearActivity).mockResolvedValue(undefined);
+    vi.mocked(WorkspaceService.getActivity)
+      .mockReturnValueOnce(oldLoad.promise)
+      .mockResolvedValueOnce(page([], 0, []));
+    useActivityStore.setState({ filterAction: "delete", pageSize: 50 });
+    const load = useActivityStore.getState().setPage(3);
+    await useActivityStore.getState().clearActivities();
+    oldLoad.resolve(page(["stale"], 200));
+    await load;
+    expect(WorkspaceService.clearActivity).toHaveBeenCalledWith("tree-1");
+    expect(useActivityStore.getState()).toMatchObject({
+      activities: [],
+      actors: [],
+      total: 0,
+      page: 0,
+      pageSize: 50,
+      filterAction: "",
+      filterActor: "",
+      filterTargetType: "",
+      initialized: true,
+    });
+  });
+
+  it("keeps history when the delete request fails", async () => {
+    vi.mocked(WorkspaceService.getActivity).mockResolvedValue(
+      page(["kept"], 1),
+    );
+    await useActivityStore.getState().refreshActivity();
+    vi.mocked(WorkspaceService.clearActivity).mockRejectedValue(
+      new Error("forbidden"),
+    );
+    await expect(useActivityStore.getState().clearActivities()).rejects.toThrow(
+      "forbidden",
+    );
+    expect(useActivityStore.getState().activities).toMatchObject([
+      { id: "kept" },
+    ]);
   });
 });

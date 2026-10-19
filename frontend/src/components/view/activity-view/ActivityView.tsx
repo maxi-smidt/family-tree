@@ -51,6 +51,7 @@ import {
   Link2,
   Share2,
   Stethoscope,
+  Trash2,
   Undo2,
   Upload,
   UserRound,
@@ -70,6 +71,7 @@ const ACTION_KEY: Record<string, string> = {
   create: "action-create",
   update: "action-update",
   delete: "action-delete",
+  send_to_ai: "action-send-to-ai",
 };
 
 const TARGET_KEY: Record<string, string> = {
@@ -339,7 +341,7 @@ function dayLabel(iso: string, t: (k: string) => string): string {
   }).format(date);
 }
 
-const ALL_ACTIONS = ["create", "update", "delete"] as const;
+const ALL_ACTIONS = ["create", "update", "delete", "send_to_ai"] as const;
 const ALL_TARGET_TYPES = [
   "member",
   "relation",
@@ -347,6 +349,7 @@ const ALL_TARGET_TYPES = [
   "story",
   "gallery_image",
   "document",
+  "document_file",
   "disease",
   "tree",
   "share",
@@ -371,11 +374,31 @@ export const ActivityView = () => {
     setPageSize,
     refreshActivity,
     retry,
+    clearActivities,
     initialized,
     loading,
     error,
   } = useActivityStore();
   useDeferredStoreLoad(initialized, refreshActivity);
+  const selectedTree = useWorkspaceStore((s) => s.selectedTree);
+  const isOwner = selectedTree?.role === "owner";
+  const [clearWorkspaceId, setClearWorkspaceId] = useState<string | null>(null);
+  const clearOpen = isOwner && clearWorkspaceId === selectedTree?.id;
+  const [clearing, setClearing] = useState(false);
+
+  const handleClear = async () => {
+    if (!clearWorkspaceId) return;
+    setClearing(true);
+    try {
+      await clearActivities(clearWorkspaceId);
+      toast.success(t("clear-success"));
+      setClearWorkspaceId(null);
+    } catch {
+      toast.error(t("clear-error"));
+    } finally {
+      setClearing(false);
+    }
+  };
 
   const hasActiveFilters = !!(filterActor || filterAction || filterTargetType);
 
@@ -393,6 +416,18 @@ export const ActivityView = () => {
     <ViewLayout
       title={t("title")}
       subtitle={t("subtitle")}
+      action={
+        isOwner ? (
+          <Button
+            variant="outline"
+            disabled={clearing}
+            onClick={() => setClearWorkspaceId(selectedTree.id)}
+          >
+            <Trash2 />
+            {t("clear")}
+          </Button>
+        ) : undefined
+      }
       toolbar={
         <div className="flex flex-wrap items-center gap-2">
           <ToggleGroup
@@ -400,6 +435,7 @@ export const ActivityView = () => {
             variant="chip"
             size="sm"
             spacing={2}
+            className="flex-wrap"
             value={filterAction || "all"}
             onValueChange={(v) =>
               v && void setFilter("filterAction", v === "all" ? "" : v)
@@ -477,6 +513,34 @@ export const ActivityView = () => {
       }
       contentClassName="flex min-h-0 flex-col overflow-hidden"
     >
+      <AlertDialog
+        open={clearOpen}
+        onOpenChange={(open) => !open && !clearing && setClearWorkspaceId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("clear-confirm-title")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("clear-confirm-body")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={clearing}>
+              {t("undo-cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={clearing}
+              onClick={(event) => {
+                event.preventDefault();
+                void handleClear();
+              }}
+            >
+              {t("clear")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <div className="flex min-h-0 flex-1 flex-col overflow-auto">
         {error && activities.length === 0 ? (
           <Empty className="flex-1">
