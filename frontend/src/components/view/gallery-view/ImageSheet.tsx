@@ -19,6 +19,9 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { PartialDatePicker } from "@/components/ui/partial-date-picker";
 import { useTranslation } from "react-i18next";
 import { MemberPicker } from "@/components/shared/member-sheet/MemberPicker";
+import { MemberChip } from "@/components/shared/MemberChip";
+import { cn } from "@/lib/utils";
+import "./image-sheet.css";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import {
@@ -129,7 +132,7 @@ export const ImageSheet = ({
 
   const memberLinks = formData.memberLinks ?? image.memberLinks;
   const editingTag = memberLinks.find(
-    (link) => link.memberId === editingMemberId && hasFaceRegion(link),
+    (link) => link.memberId === editingMemberId,
   );
   const unlinkedMembers = useMemo(
     () =>
@@ -408,23 +411,27 @@ export const ImageSheet = ({
 
   const linkedMembers = useMemo(
     () =>
-      memberLinks.map((link) => ({ link, name: memberName(link.memberId) })),
+      memberLinks.map((link) => ({
+        link,
+        name: memberName(link.memberId),
+        member: members.find((candidate) => candidate.id === link.memberId),
+      })),
     [memberLinks, members], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="w-full sm:max-w-[80vw] flex flex-col p-4">
-        <SheetHeader>
+      <SheetContent className="image-editor w-full sm:max-w-[92vw] xl:max-w-[85vw] flex flex-col p-4 md:p-6">
+        <SheetHeader className="shrink-0 p-0 pr-6 pb-2">
           <SheetTitle>{t("title")}</SheetTitle>
         </SheetHeader>
-        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-8 overflow-hidden min-h-0">
-          <div className="flex items-center justify-center min-h-0 overflow-hidden">
+        <div className="image-editor-body">
+          <div className="image-editor-preview flex min-w-0 items-center justify-center rounded-xl bg-muted/40 p-3">
             <div className="relative inline-flex max-h-full max-w-full">
               <AuthenticatedImage
                 src={image.imageData}
                 alt={image.title || t("image-alt")}
-                className="block max-h-full max-w-full object-contain rounded-md"
+                className="image-editor-image block max-w-full rounded-md"
               />
               <div
                 className={
@@ -531,48 +538,66 @@ export const ImageSheet = ({
             </div>
           </div>
           <fieldset
-            className="flex flex-col min-h-0 min-w-0"
+            className="image-editor-form flex min-w-0 flex-col"
             disabled={isSaving || faceOperationPending}
           >
-            <FieldGroup className="gap-4 flex-1 overflow-y-auto px-1">
-              <Field>
-                <FieldLabel>{t("title-field")}</FieldLabel>
-                <Input
-                  placeholder={t("title-placeholder")}
-                  value={formData.title || ""}
-                  disabled={!canWrite}
-                  onChange={(event) =>
-                    setFormData({ ...formData, title: event.target.value })
-                  }
-                />
-              </Field>
-              <Field>
-                <FieldLabel>{t("description-field")}</FieldLabel>
-                <Textarea
-                  placeholder={t("description-placeholder")}
-                  value={formData.description || ""}
-                  disabled={!canWrite}
-                  onChange={(event) =>
-                    setFormData({
-                      ...formData,
-                      description: event.target.value,
-                    })
-                  }
-                />
-              </Field>
-              <Field>
-                <FieldLabel>{t("date-field")}</FieldLabel>
-                <PartialDatePicker
-                  value={formData.createdAt}
-                  onChange={(value) =>
-                    setFormData({ ...formData, createdAt: value })
-                  }
-                  disabled={!canWrite}
-                />
-              </Field>
-              <Field>
-                <div className="flex items-center justify-between gap-2">
-                  <FieldLabel>{t("members-field")}</FieldLabel>
+            <FieldGroup className="image-editor-fields gap-4 px-1">
+              <div className="grid shrink-0 gap-4">
+                <Field>
+                  <FieldLabel htmlFor="image-editor-title">
+                    {t("title-field")}
+                  </FieldLabel>
+                  <Input
+                    id="image-editor-title"
+                    placeholder={t("title-placeholder")}
+                    value={formData.title || ""}
+                    disabled={!canWrite}
+                    onChange={(event) =>
+                      setFormData({ ...formData, title: event.target.value })
+                    }
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="image-editor-description">
+                    {t("description-field")}
+                  </FieldLabel>
+                  <Textarea
+                    id="image-editor-description"
+                    rows={2}
+                    className="max-h-32 resize-none overflow-y-auto"
+                    placeholder={t("description-placeholder")}
+                    value={formData.description || ""}
+                    disabled={!canWrite}
+                    onChange={(event) =>
+                      setFormData({
+                        ...formData,
+                        description: event.target.value,
+                      })
+                    }
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel>{t("date-field")}</FieldLabel>
+                  <PartialDatePicker
+                    value={formData.createdAt}
+                    onChange={(value) =>
+                      setFormData({ ...formData, createdAt: value })
+                    }
+                    disabled={!canWrite}
+                  />
+                </Field>
+              </div>
+              <Field className="image-editor-people gap-3">
+                <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
+                  <h3
+                    id="image-editor-people-heading"
+                    className="flex items-center gap-2 text-sm font-medium"
+                  >
+                    {t("members-field")}{" "}
+                    <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground tabular-nums">
+                      {linkedMembers.length + unknownFaces.length}
+                    </span>
+                  </h3>
                   {canWrite && (
                     <Button
                       type="button"
@@ -585,61 +610,83 @@ export const ImageSheet = ({
                     </Button>
                   )}
                 </div>
-                <div className="space-y-1 rounded-md border p-2">
+                <div
+                  role="region"
+                  aria-labelledby="image-editor-people-heading"
+                  tabIndex={0}
+                  className="image-editor-people-list space-y-1 rounded-xl border p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
                   {linkedMembers.length === 0 && unknownFaces.length === 0 ? (
                     <p className="px-1 py-1 text-sm text-muted-foreground">
                       {t("members-empty")}
                     </p>
                   ) : (
                     <>
-                      {linkedMembers.map(({ link, name }) => (
+                      {linkedMembers.map(({ link, name, member }) => (
                         <div
                           key={link.memberId}
-                          className={
-                            hoveredMemberId === link.memberId
-                              ? "flex items-center gap-2 rounded-sm bg-primary/10 px-1 py-1"
-                              : "flex items-center gap-2 rounded-sm px-1 py-1"
-                          }
+                          className={cn(
+                            "grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 rounded-lg px-1.5 py-1.5 transition-colors",
+                            (hoveredMemberId === link.memberId ||
+                              editingMemberId === link.memberId) &&
+                              "bg-primary-soft",
+                          )}
                           onMouseEnter={() => setHoveredMemberId(link.memberId)}
                           onMouseLeave={() => setHoveredMemberId(null)}
+                          onFocus={() => setHoveredMemberId(link.memberId)}
+                          onBlur={(event) => {
+                            if (
+                              !event.currentTarget.contains(event.relatedTarget)
+                            )
+                              setHoveredMemberId(null);
+                          }}
                         >
-                          <button
-                            type="button"
-                            className="min-w-0 flex-1 truncate text-left text-sm hover:underline"
-                            disabled={
-                              isSaving ||
-                              faceOperationPending ||
-                              !members.some(
-                                (member) => member.id === link.memberId,
-                              )
-                            }
-                            title={
-                              hasChanges
-                                ? t("save-and-open-member", { name })
-                                : undefined
-                            }
-                            onClick={() => void handleOpenMember(link.memberId)}
-                          >
-                            {name}
-                          </button>
-                          <span className="text-xs text-muted-foreground">
+                          <div className="min-w-0">
+                            {member ? (
+                              <MemberChip
+                                member={member}
+                                fullName
+                                className="pr-1 [&>span:last-child]:whitespace-nowrap"
+                                onOpen={handleOpenMember}
+                                title={
+                                  hasChanges
+                                    ? t("save-and-open-member", { name })
+                                    : undefined
+                                }
+                              />
+                            ) : (
+                              <span className="text-sm text-muted-foreground">
+                                {name}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-right text-xs whitespace-nowrap text-muted-foreground">
                             {hasFaceRegion(link)
                               ? t("face-tag")
                               : t("whole-image-link")}
                           </span>
                           {canWrite && (
-                            <>
-                              {hasFaceRegion(link) && (
-                                <Button
-                                  type="button"
-                                  size="icon-xs"
-                                  variant="ghost"
-                                  aria-label={t("edit-face-tag", { name })}
-                                  onClick={() => handleEditTag(link.memberId)}
-                                >
-                                  <Pencil />
-                                </Button>
-                              )}
+                            <div className="ml-auto flex shrink-0 items-center gap-1">
+                              <Button
+                                type="button"
+                                size="icon-xs"
+                                variant="ghost"
+                                aria-label={t(
+                                  hasFaceRegion(link)
+                                    ? "edit-face-tag"
+                                    : "add-face-tag",
+                                  { name },
+                                )}
+                                title={t(
+                                  hasFaceRegion(link)
+                                    ? "edit-face-tag"
+                                    : "add-face-tag",
+                                  { name },
+                                )}
+                                onClick={() => handleEditTag(link.memberId)}
+                              >
+                                <Pencil />
+                              </Button>
                               <Button
                                 type="button"
                                 size="icon-xs"
@@ -649,59 +696,49 @@ export const ImageSheet = ({
                               >
                                 <Trash2 />
                               </Button>
-                            </>
+                            </div>
                           )}
                         </div>
                       ))}
                       {unknownFaces.map((face) => (
                         <div
                           key={face.id}
-                          className={
-                            hoveredFaceId === face.id
-                              ? "flex items-center gap-2 rounded-sm bg-amber-500/10 px-1 py-1"
-                              : "flex items-center gap-2 rounded-sm px-1 py-1"
-                          }
+                          className={cn(
+                            "grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 rounded-lg px-1.5 py-1.5",
+                            hoveredFaceId === face.id && "bg-amber-500/10",
+                          )}
                           onMouseEnter={() => setHoveredFaceId(face.id)}
                           onMouseLeave={() => setHoveredFaceId(null)}
                         >
-                          <span className="min-w-0 flex-1 truncate text-left text-sm italic text-muted-foreground">
-                            {t("unknown-person")}
+                          <span className="inline-flex h-8 min-w-0 max-w-full items-center gap-1.5 justify-self-start rounded-full border bg-card px-1 py-0 text-[13px]">
+                            <span className="grid size-6 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground">
+                              <UserRoundSearch className="size-3.5" />
+                            </span>
+                            <span className="truncate font-medium">
+                              {t("unknown-person")}
+                            </span>
                           </span>
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-right text-xs whitespace-nowrap text-muted-foreground">
                             {t("face-tag")}
                           </span>
                           {canWrite && (
-                            <>
-                              {resolvingFaceId === face.id ? (
-                                <>
-                                  <div className="w-36">
-                                    <MemberPicker
-                                      members={faceCandidates}
-                                      value={null}
-                                      onChange={(memberId) =>
-                                        handleResolveFace(face.id, memberId)
-                                      }
-                                      autoOpen
-                                      placeholder={t("resolve-placeholder")}
-                                      noResultsText={t("members-no-results")}
-                                      size="sm"
-                                    />
-                                  </div>
-                                </>
-                              ) : (
-                                <Button
-                                  type="button"
-                                  size="icon-xs"
-                                  variant="ghost"
-                                  aria-label={t("resolve-unknown-face")}
-                                  disabled={faceOperationPending || isSaving}
-                                  onClick={() => {
-                                    setResolvingFaceId(face.id);
-                                  }}
-                                >
-                                  <UserRoundSearch />
-                                </Button>
-                              )}
+                            <div className="flex shrink-0 items-center gap-1">
+                              <Button
+                                type="button"
+                                size="icon-xs"
+                                variant="ghost"
+                                aria-label={t("resolve-unknown-face")}
+                                disabled={faceOperationPending || isSaving}
+                                onClick={() =>
+                                  setResolvingFaceId(
+                                    resolvingFaceId === face.id
+                                      ? null
+                                      : face.id,
+                                  )
+                                }
+                              >
+                                <UserRoundSearch />
+                              </Button>
                               <Button
                                 type="button"
                                 size="icon-xs"
@@ -720,7 +757,22 @@ export const ImageSheet = ({
                               >
                                 <Trash2 />
                               </Button>
-                            </>
+                            </div>
+                          )}
+                          {canWrite && resolvingFaceId === face.id && (
+                            <div className="col-span-full min-w-0">
+                              <MemberPicker
+                                members={faceCandidates}
+                                value={null}
+                                onChange={(memberId) =>
+                                  handleResolveFace(face.id, memberId)
+                                }
+                                autoOpen
+                                placeholder={t("resolve-placeholder")}
+                                noResultsText={t("members-no-results")}
+                                size="sm"
+                              />
+                            </div>
                           )}
                         </div>
                       ))}
@@ -728,7 +780,7 @@ export const ImageSheet = ({
                   )}
                 </div>
                 {canWrite && !tagMode && (
-                  <div className="flex items-end gap-2">
+                  <div className="flex shrink-0 items-end gap-2">
                     <div className="min-w-0 flex-1">
                       <MemberPicker
                         members={unlinkedMembers}
@@ -743,15 +795,20 @@ export const ImageSheet = ({
                 )}
               </Field>
               {tagMode && canWrite && (
-                <Field className="rounded-md border border-dashed p-3">
+                <Field className="shrink-0 rounded-xl border border-dashed p-3">
                   <FieldLabel>{t("face-tags-title")}</FieldLabel>
                   <p className="text-sm text-muted-foreground">
                     {editingFaceId
                       ? t("unknown-face-replace-hint")
                       : editingTag
-                        ? t("face-tags-replace-hint", {
-                            name: memberName(editingTag.memberId),
-                          })
+                        ? t(
+                            hasFaceRegion(editingTag)
+                              ? "face-tags-replace-hint"
+                              : "face-tags-add-hint",
+                            {
+                              name: memberName(editingTag.memberId),
+                            },
+                          )
                         : draftRegion
                           ? t("face-tags-assign-hint")
                           : t("face-tags-draw-hint")}
@@ -843,7 +900,7 @@ export const ImageSheet = ({
               )}
             </FieldGroup>
             {canWrite && (
-              <div className="flex justify-end gap-2 mt-4 shrink-0">
+              <div className="mt-4 flex shrink-0 justify-end gap-2 border-t pt-4">
                 <Button
                   onClick={handleSave}
                   disabled={isSaving || faceOperationPending}
