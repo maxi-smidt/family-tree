@@ -105,7 +105,7 @@ self-registration from the admin dialog. The headline deploy-time settings:
 | --------------- | ---------------------------------------------------- | -------------- |
 | `UI_PORT`       | Host port the web UI is served on                    | `8080`         |
 | `APP_DATA_PATH` | Host path for application data (exports, logs)       | `./appdata`    |
-| `DATA_PATH`     | Host path for the real data (member photos, gallery) | `./data`       |
+| `DATA_PATH`     | Host path for user data (media and workspace audits) | `./data`       |
 | `APP_IMAGE_TAG` | Published app image tag for frontend + backend       | `latest`       |
 | `SECRET_KEY`    | Secret for signing tokens (**required**)             | —              |
 | `POSTGRES_*`    | Connection to your PostgreSQL (host **required**)    | see example    |
@@ -115,6 +115,36 @@ See [.env.example](./.env.example) for the full list (database credentials,
 initial admin, self-registration, and Authentik OIDC settings).
 See [docs/HARDCODED_VALUES.md](./docs/HARDCODED_VALUES.md) for the runtime,
 deploy-time, and code-invariant settings inventory.
+
+### Workspace audit files
+
+Workspace audit files are **off by default**. Enable **Write workspace audit
+files** under **Administration → Settings**, then save. Changes apply to new
+activity without restarting the backend. Turning this off stops new file
+writes; database activity and existing files are preserved.
+
+While enabled, new activity entries are also appended to
+`DATA_PATH/logs/<workspace-id>/activity.jsonl`, alongside `DATA_PATH/media/`.
+The logs directory is created automatically inside the existing data directory;
+no separate path or Docker volume is needed.
+
+Each UTF-8 JSON line has the same fields as an activity API entry, including its
+id, UTC timestamp, actor, action, target and details. Only committed entries are
+written; rollbacks are discarded. Writes are batched per transaction/workspace
+and protected by a file lock across workers on a local filesystem. Small appends
+use the OS write cache, without forcing an HDD sync for each entry.
+
+These files keep all new history and grow over time. Clearing activity in the UI
+or deleting a workspace does not erase its files. Existing history is not
+backfilled, and restoring a backup does not replay old activity into them. Files
+can contain the same personal data and undo snapshots as the database; they are
+not served through the media API. Instance backups include database activity but
+do not include these separate audit files.
+
+The database remains the source of truth. File errors are reported in
+`backend.log` without failing an already committed change. A crash between the
+database commit and file append, or a power loss before the OS flushes its cache,
+can leave a gap in the file mirror.
 
 ## Architecture
 

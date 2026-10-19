@@ -2156,6 +2156,8 @@
     "default-language": "Standardsprache",
     "self-registration": "Selbstregistrierung erlauben",
     "self-registration-hint": "Jeder kann ein eigenes Konto erstellen.",
+    "workspace-audit-files": "Audit-Dateien für Arbeitsbereiche schreiben",
+    "workspace-audit-files-hint": "Neue Aktivitäten der Arbeitsbereiche in Dateien speichern. Der gesamte geschriebene Verlauf bleibt erhalten; beim Ausschalten werden keine neuen Einträge geschrieben und bestehende Dateien bleiben unverändert.",
     "deletion-grace-period": "Löschfrist (Tage)",
     "deletion-grace-period-hint": "Wie lange ein zum Löschen vorgemerktes Konto wiederherstellbar bleibt, bevor es und alle seine Daten endgültig gelöscht werden.",
     "upload-limits": "Upload-Limits",

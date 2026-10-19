@@ -207,6 +207,10 @@ class Settings(BaseSettings):
     def media_root(self) -> Path:
         return self.DATA_PATH / "media"
 
+    @property
+    def workspace_log_root(self) -> Path:
+        return self.DATA_PATH / "logs"
+
 
 @lru_cache
 def get_settings() -> Settings:

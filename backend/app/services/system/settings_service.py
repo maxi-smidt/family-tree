@@ -58,6 +58,7 @@ def legal_body_setting_key(document_type: str, locale: str) -> str:
 
 DEFAULTS: dict[str, str] = {
     "allow_self_registration": "true" if settings.ALLOW_SELF_REGISTRATION else "false",
+    "workspace_audit_files_enabled": "false",
     "instance_name": settings.APP_NAME,
     "default_language": "en",
     "deletion_grace_period_days": "7",
@@ -313,6 +314,9 @@ def get_settings_out(db: Session) -> SettingsOut:
     media_limits = get_media_limits(db)
     return SettingsOut(
         allow_self_registration=get_bool_setting(db, "allow_self_registration", False),
+        workspace_audit_files_enabled=get_bool_setting(
+            db, "workspace_audit_files_enabled", False
+        ),
         instance_name=get_setting(db, "instance_name", settings.APP_NAME),
         default_language=get_setting(db, "default_language", "en"),
         deletion_grace_period_days=get_int_setting(
@@ -365,6 +369,12 @@ def update_settings(
         )
     if payload.instance_name is not None:
         set_setting(db, "instance_name", payload.instance_name)
+    if payload.workspace_audit_files_enabled is not None:
+        set_setting(
+            db,
+            "workspace_audit_files_enabled",
+            "true" if payload.workspace_audit_files_enabled else "false",
+        )
     if payload.default_language is not None:
         set_setting(db, "default_language", payload.default_language)
     if payload.deletion_grace_period_days is not None:

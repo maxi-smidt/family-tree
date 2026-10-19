@@ -28,6 +28,7 @@ class MediaLimits(BaseModel):
 
 class SettingsOut(BaseModel):
     allow_self_registration: bool
+    workspace_audit_files_enabled: bool = False
     instance_name: str
     default_language: str
     deletion_grace_period_days: int
@@ -55,6 +56,7 @@ class SettingsOut(BaseModel):
 
 class SettingsUpdate(BaseModel):
     allow_self_registration: bool | None = None
+    workspace_audit_files_enabled: bool | None = None
     instance_name: str | None = None
     default_language: str | None = None
     deletion_grace_period_days: int | None = Field(default=None, ge=0)
