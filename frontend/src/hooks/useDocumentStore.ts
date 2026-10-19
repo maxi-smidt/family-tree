@@ -164,6 +164,8 @@ function patchFile(
   };
 }
 
+let refreshVersion = 0;
+
 export const useDocumentStore = create<DocumentState>((set, get) => ({
   documents: [],
   initialized: false,
@@ -184,6 +186,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   },
 
   refreshDocuments: async (workspaceId = activeTreeId()) => {
+    const version = ++refreshVersion;
     if (!workspaceId) {
       set({ documents: [] });
       return;
@@ -191,7 +194,9 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
 
     const rows = await WorkspaceService.getDocuments(workspaceId);
 
-    if (!isActiveTree(workspaceId)) return; // tree switched/disconnected mid-flight
+    // Starting and finishing a transcription both refresh the list. A slower
+    // response from the start must not replace the completed state.
+    if (version !== refreshVersion || !isActiveTree(workspaceId)) return;
 
     set({ documents: rows.map(mapDocumentFromDB), initialized: true });
   },
@@ -319,18 +324,47 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   transcribeFile: async (documentId: string, fileId: string) => {
     const workspaceId = activeTreeId();
     if (!workspaceId) return;
-    await WorkspaceService.transcribeDocumentFile(
-      workspaceId,
-      documentId,
-      fileId,
-    );
+    const previousFile = get()
+      .documents.find((d) => d.id === documentId)
+      ?.files.find((f) => f.id === fileId);
+    // The completion event can arrive before the POST resolves. Set pending
+    // now so the request's acknowledgement cannot overwrite that result.
+    ++refreshVersion;
     set((state) =>
       patchFile(state.documents, documentId, fileId, {
         transcriptionStatus: "pending",
         transcriptionError: null,
       }),
     );
+    const pendingFile = get()
+      .documents.find((d) => d.id === documentId)
+      ?.files.find((f) => f.id === fileId);
+    try {
+      await WorkspaceService.transcribeDocumentFile(
+        workspaceId,
+        documentId,
+        fileId,
+      );
+    } catch (error) {
+      if (isActiveTree(workspaceId)) {
+        set((state) => {
+          const currentFile = state.documents
+            .find((d) => d.id === documentId)
+            ?.files.find((f) => f.id === fileId);
+          // Restore only our optimistic state, never a newer SSE update.
+          if (!pendingFile || currentFile !== pendingFile) return state;
+          return patchFile(state.documents, documentId, fileId, {
+            transcriptionStatus: previousFile?.transcriptionStatus ?? null,
+            transcriptionError: previousFile?.transcriptionError ?? null,
+          });
+        });
+      }
+      throw error;
+    }
   },
 
-  clear: () => set({ documents: [], initialized: false, focus: null }),
+  clear: () => {
+    ++refreshVersion;
+    set({ documents: [], initialized: false, focus: null });
+  },
 }));

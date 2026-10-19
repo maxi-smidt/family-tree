@@ -3,7 +3,7 @@ import { DocumentUploadError, useDocumentStore } from "./useDocumentStore";
 import { useWorkspaceStore } from "./useWorkspaceStore";
 import { WorkspaceService } from "@/services/WorkspaceService";
 import { useMemberStore } from "@/hooks/useMemberStore";
-import { DocumentDB } from "@/types/document";
+import { DocumentDB, mapDocumentFromDB } from "@/types/document";
 import { Workspace } from "@/types/workspace";
 
 vi.mock("@/services/WorkspaceService");
@@ -453,5 +453,154 @@ describe("useDocumentStore — file text", () => {
     expect(useDocumentStore.getState().documents[0].files[0].hasText).toBe(
       false,
     );
+  });
+});
+
+describe("useDocumentStore — transcription state", () => {
+  const file = {
+    id: "f1",
+    kind: "file" as const,
+    filename: "letter.png",
+    url: "/api/media/tree-doc/letter.png",
+    mime_type: "image/png",
+    size: 10,
+    created_at: "2024-01-01T00:00:00Z",
+    has_text: false,
+    transcription_status: null,
+    transcription_error: null,
+  };
+  const document: DocumentDB = { ...DOC_DB, files: [file] };
+  const completed: DocumentDB = {
+    ...document,
+    files: [{ ...file, has_text: true, transcription_status: "done" }],
+  };
+
+  beforeEach(() => {
+    useDocumentStore.getState().clear();
+    useWorkspaceStore.setState({ selectedTree: TREE });
+    useDocumentStore.setState({
+      documents: [mapDocumentFromDB(document)],
+      initialized: true,
+    });
+  });
+
+  it.each(["done", "failed"] as const)(
+    "keeps the %s event state when completion arrives before the start request resolves",
+    async (status) => {
+      let acknowledge!: (response: { status: string }) => void;
+      vi.mocked(WorkspaceService.transcribeDocumentFile).mockReturnValue(
+        new Promise<{ status: string }>((resolve) => {
+          acknowledge = resolve;
+        }),
+      );
+
+      const request = useDocumentStore.getState().transcribeFile("d1", "f1");
+      expect(
+        useDocumentStore.getState().documents[0].files[0].transcriptionStatus,
+      ).toBe("pending");
+
+      vi.mocked(WorkspaceService.getDocuments).mockResolvedValue([
+        {
+          ...document,
+          files: [
+            {
+              ...file,
+              has_text: status === "done",
+              transcription_status: status,
+              transcription_error:
+                status === "failed" ? "provider_error" : null,
+            },
+          ],
+        },
+      ]);
+      await useDocumentStore.getState().refreshDocuments();
+      acknowledge({ status: "pending" });
+      await request;
+
+      expect(useDocumentStore.getState().documents[0].files[0]).toMatchObject({
+        transcriptionStatus: status,
+        hasText: status === "done",
+      });
+    },
+  );
+
+  it("discards an older pending list response after a completed refresh", async () => {
+    let resolvePending!: (rows: DocumentDB[]) => void;
+    vi.mocked(WorkspaceService.getDocuments)
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolvePending = resolve;
+        }),
+      )
+      .mockResolvedValueOnce([completed]);
+
+    const older = useDocumentStore.getState().refreshDocuments();
+    await useDocumentStore.getState().refreshDocuments();
+    resolvePending([
+      {
+        ...document,
+        files: [{ ...file, transcription_status: "pending" }],
+      },
+    ]);
+    await older;
+
+    expect(useDocumentStore.getState().documents[0].files[0]).toMatchObject({
+      transcriptionStatus: "done",
+      hasText: true,
+    });
+  });
+
+  it("restores the previous status when starting the transcription fails", async () => {
+    useDocumentStore.setState({ documents: [mapDocumentFromDB(completed)] });
+    vi.mocked(WorkspaceService.transcribeDocumentFile).mockRejectedValueOnce(
+      new Error("network error"),
+    );
+
+    await expect(
+      useDocumentStore.getState().transcribeFile("d1", "f1"),
+    ).rejects.toThrow("network error");
+
+    expect(useDocumentStore.getState().documents[0].files[0]).toMatchObject({
+      transcriptionStatus: "done",
+      hasText: true,
+    });
+  });
+
+  it("does not restore old state over a completion when the request fails", async () => {
+    let reject!: (error: Error) => void;
+    vi.mocked(WorkspaceService.transcribeDocumentFile).mockReturnValueOnce(
+      new Promise((_resolve, rejectRequest) => {
+        reject = rejectRequest;
+      }),
+    );
+    const request = useDocumentStore.getState().transcribeFile("d1", "f1");
+    vi.mocked(WorkspaceService.getDocuments).mockResolvedValueOnce([completed]);
+    await useDocumentStore.getState().refreshDocuments();
+    reject(new Error("connection lost"));
+    await expect(request).rejects.toThrow("connection lost");
+
+    expect(
+      useDocumentStore.getState().documents[0].files[0].transcriptionStatus,
+    ).toBe("done");
+  });
+
+  it("does not restore a failed request's status into another workspace", async () => {
+    let reject!: (error: Error) => void;
+    vi.mocked(WorkspaceService.transcribeDocumentFile).mockReturnValueOnce(
+      new Promise((_resolve, rejectRequest) => {
+        reject = rejectRequest;
+      }),
+    );
+    const request = useDocumentStore.getState().transcribeFile("d1", "f1");
+    useWorkspaceStore.setState({
+      selectedTree: { ...TREE, id: "other-tree" },
+    });
+    useDocumentStore.setState({ documents: [mapDocumentFromDB(completed)] });
+    reject(new Error("connection lost"));
+    await expect(request).rejects.toThrow("connection lost");
+
+    expect(
+      useDocumentStore.getState().documents[0].files[0].transcriptionStatus,
+    ).toBe("done");
   });
 });

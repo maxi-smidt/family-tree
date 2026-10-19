@@ -1,5 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, renderWithProviders, screen, waitFor } from "@/test/utils";
+import { toast } from "sonner";
+import {
+  act,
+  fireEvent,
+  renderWithProviders,
+  screen,
+  waitFor,
+} from "@/test/utils";
 import { useAiSettingsStore } from "@/hooks/useAiSettingsStore";
 import { useDocumentStore } from "@/hooks/useDocumentStore";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
@@ -129,5 +136,45 @@ describe("DocumentFileTranscribeButton", () => {
     expect(
       screen.getByRole("button", { name: "AI transcription is running…" }),
     ).toBeDisabled();
+  });
+
+  it("clears the spinner when text arrives before the start request resolves", async () => {
+    const startedToast = vi.spyOn(toast, "info");
+    let acknowledge!: () => void;
+    transcribeFile.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        acknowledge = resolve;
+      }),
+    );
+    const { rerender } = renderButton();
+    fireEvent.click(screen.getByRole("button", { name: "Transcribe with AI" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Send to Google Gemini" }),
+    );
+    rerender(
+      <DocumentFileTranscribeButton
+        documentId="doc-1"
+        file={{ ...FILE, transcriptionStatus: "pending" }}
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: "AI transcription is running…" }),
+    ).toBeDisabled();
+
+    rerender(
+      <DocumentFileTranscribeButton
+        documentId="doc-1"
+        file={{ ...FILE, hasText: true, transcriptionStatus: "done" }}
+      />,
+    );
+    expect(
+      screen.queryByRole("button", { name: "AI transcription is running…" }),
+    ).not.toBeInTheDocument();
+    await act(async () => acknowledge());
+    expect(
+      screen.queryByRole("button", { name: "AI transcription is running…" }),
+    ).not.toBeInTheDocument();
+    expect(startedToast).not.toHaveBeenCalled();
+    startedToast.mockRestore();
   });
 });

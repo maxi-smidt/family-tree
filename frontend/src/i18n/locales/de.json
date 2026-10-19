@@ -418,6 +418,7 @@
     "search-placeholder": "Dokumente suchen…",
     "filter-all": "Alle",
     "filter-unlinked": "Nicht verknüpft",
+    "filter-without-transcription": "Ohne Transkription",
     "empty-title": "Noch keine Dokumente",
     "empty-description": "Füge ein Dokument hinzu, um das Archiv dieses Arbeitsbereichs aufzubauen.",
     "no-results": "Keine Dokumente entsprechen diesen Filtern.",

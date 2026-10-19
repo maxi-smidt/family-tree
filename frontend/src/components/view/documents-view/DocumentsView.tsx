@@ -53,7 +53,7 @@ import {
 } from "@/types/document";
 import { formatDate } from "@/utils/dateUtils";
 
-type LinkFilter = "all" | "unlinked";
+type DocumentFilter = "all" | "unlinked" | "without-transcription";
 
 function DocumentsSkeleton() {
   return (
@@ -79,6 +79,9 @@ const isUnlinked = (document: Document) =>
   document.eventIds.length === 0 &&
   document.storyIds.length === 0;
 
+const hasNoTranscription = (document: Document) =>
+  !document.files.some((file) => file.hasText);
+
 export const DocumentsView = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "documents-view" });
   const { documents, initialized, refreshDocuments, removeDocument } =
@@ -100,7 +103,7 @@ export const DocumentsView = () => {
   const canAccessEvents = !restrictions.includes("events");
   const canAccessStories = !restrictions.includes("stories");
   const [searchTerm, setSearchTerm] = useState("");
-  const [linkFilter, setLinkFilter] = useState<LinkFilter>("all");
+  const [documentFilter, setDocumentFilter] = useState<DocumentFilter>("all");
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(25);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -116,7 +119,7 @@ export const DocumentsView = () => {
 
   useEffect(() => {
     setPage(0);
-  }, [linkFilter, pageSize, searchTerm]);
+  }, [documentFilter, pageSize, searchTerm]);
 
   // A document picked elsewhere (the search palette): show the whole list,
   // go to its page and let its row expand and open the matching text.
@@ -128,7 +131,7 @@ export const DocumentsView = () => {
     setFocus(pendingFocus);
     setPendingFocus(null);
     setSearchTerm("");
-    setLinkFilter("all");
+    setDocumentFilter("all");
   }, [pendingFocus, initialized, setPendingFocus]);
 
   // File texts are searched on the server; their hits widen the filter.
@@ -160,7 +163,12 @@ export const DocumentsView = () => {
   const filteredDocuments = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLocaleLowerCase();
     return documents.filter((document) => {
-      if (linkFilter === "unlinked" && !isUnlinked(document)) return false;
+      if (documentFilter === "unlinked" && !isUnlinked(document)) return false;
+      if (
+        documentFilter === "without-transcription" &&
+        !hasNoTranscription(document)
+      )
+        return false;
       if (!normalizedSearch) return true;
 
       return (
@@ -172,10 +180,14 @@ export const DocumentsView = () => {
         ].some((value) => value.toLocaleLowerCase().includes(normalizedSearch))
       );
     });
-  }, [documents, linkFilter, searchTerm, textHits]);
+  }, [documents, documentFilter, searchTerm, textHits]);
 
   const unlinkedCount = useMemo(
     () => documents.filter(isUnlinked).length,
+    [documents],
+  );
+  const withoutTranscriptionCount = useMemo(
+    () => documents.filter(hasNoTranscription).length,
     [documents],
   );
   const peopleCovered = useMemo(
@@ -237,12 +249,13 @@ export const DocumentsView = () => {
           <div className="flex flex-wrap items-center gap-2">
             <ToggleGroup
               type="single"
+              className="flex-wrap"
               variant="chip"
               size="sm"
               spacing={2}
-              value={linkFilter}
+              value={documentFilter}
               onValueChange={(value) =>
-                value && setLinkFilter(value as LinkFilter)
+                value && setDocumentFilter(value as DocumentFilter)
               }
               aria-label={t("filter-label")}
             >
@@ -255,6 +268,12 @@ export const DocumentsView = () => {
               <ToggleGroupItem value="unlinked">
                 {t("filter-unlinked")}
                 <span className="tabular-nums opacity-60">{unlinkedCount}</span>
+              </ToggleGroupItem>
+              <ToggleGroupItem value="without-transcription">
+                {t("filter-without-transcription")}
+                <span className="tabular-nums opacity-60">
+                  {withoutTranscriptionCount}
+                </span>
               </ToggleGroupItem>
             </ToggleGroup>
             <div className="hidden flex-1 sm:block" />

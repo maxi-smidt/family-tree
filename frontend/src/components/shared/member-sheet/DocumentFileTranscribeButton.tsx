@@ -53,7 +53,6 @@ export const DocumentFileTranscribeButton = ({
   const loadSettings = useAiSettingsStore((s) => s.load);
   const transcribeFile = useDocumentStore((s) => s.transcribeFile);
   const [confirming, setConfirming] = useState(false);
-  const [starting, setStarting] = useState(false);
 
   useEffect(() => {
     if (canEdit) void loadSettings().catch(() => undefined);
@@ -67,7 +66,7 @@ export const DocumentFileTranscribeButton = ({
   )
     return null;
 
-  const pending = file.transcriptionStatus === "pending" || starting;
+  const pending = file.transcriptionStatus === "pending";
   const failed = file.transcriptionStatus === "failed";
   if (variant === "icon" && file.hasText && !pending && !failed) return null;
   const label = pending
@@ -80,15 +79,16 @@ export const DocumentFileTranscribeButton = ({
 
   const start = async () => {
     setConfirming(false);
-    setStarting(true);
     try {
       await transcribeFile(documentId, file.id);
-      toast.info(t("started"));
+      const status = useDocumentStore
+        .getState()
+        .documents.find((document) => document.id === documentId)
+        ?.files.find((current) => current.id === file.id)?.transcriptionStatus;
+      if (status === "pending") toast.info(t("started"));
     } catch (err) {
       const code = err instanceof ApiError ? err.message : null;
       toast.error(transcriptionErrorMessage(t, code));
-    } finally {
-      setStarting(false);
     }
   };
 
