@@ -20,26 +20,6 @@ runs as a self-hosted web application.
 - Multi-language support (English, German)
 - Optional AI integration for document transcription
 
-### Markdown math
-
-Document text and other Markdown previews support inline LaTeX such as
-`$E = mc^2$` and display math rendered with KaTeX. Put each `$$` delimiter on its
-own line for multiline formulas, including transcription arrays:
-
-```markdown
-$$
-\begin{array}{l}
-\text{8} \\
-\hline \text{Geb. - Verz.}\text{Verw.-Abg.} \\
-\text{41?}
-\end{array}
-$$
-```
-
-Fenced `math` code blocks also render as display math. Ordinary code blocks keep
-math syntax literal. LaTeX commands that require trust, such as HTML insertion,
-links, and external images, are disabled.
-
 ### Local Development / Building from source
 
 ```bash
