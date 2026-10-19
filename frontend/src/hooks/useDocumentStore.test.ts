@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DocumentUploadError, useDocumentStore } from "./useDocumentStore";
 import { useWorkspaceStore } from "./useWorkspaceStore";
 import { WorkspaceService } from "@/services/WorkspaceService";
@@ -476,12 +476,155 @@ describe("useDocumentStore — transcription state", () => {
   };
 
   beforeEach(() => {
+    vi.useFakeTimers();
     useDocumentStore.getState().clear();
     useWorkspaceStore.setState({ selectedTree: TREE });
     useDocumentStore.setState({
       documents: [mapDocumentFromDB(document)],
       initialized: true,
     });
+  });
+
+  afterEach(() => {
+    useDocumentStore.getState().clear();
+    vi.useRealTimers();
+  });
+
+  it.each(["done", "failed"] as const)(
+    "applies the %s event immediately and ignores a stale pending response",
+    async (status) => {
+      let resolvePending!: (rows: DocumentDB[]) => void;
+      vi.mocked(WorkspaceService.getDocuments).mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolvePending = resolve;
+        }),
+      );
+      const request = useDocumentStore.getState().refreshDocuments();
+      useDocumentStore
+        .getState()
+        .onTranscriptionFinished(
+          TREE_ID,
+          "d1",
+          "f1",
+          status,
+          status === "failed" ? "empty_result" : null,
+        );
+
+      expect(useDocumentStore.getState().documents[0].files[0]).toMatchObject({
+        transcriptionStatus: status,
+        hasText: status === "done",
+        transcriptionError: status === "failed" ? "empty_result" : null,
+      });
+      resolvePending([
+        { ...document, files: [{ ...file, transcription_status: "pending" }] },
+      ]);
+      await request;
+      expect(
+        useDocumentStore.getState().documents[0].files[0].transcriptionStatus,
+      ).toBe(status);
+    },
+  );
+
+  it.each(["done", "failed"] as const)(
+    "detects %s without a completion event and stops polling",
+    async (status) => {
+      vi.mocked(WorkspaceService.transcribeDocumentFile).mockResolvedValueOnce({
+        status: "pending",
+      });
+      vi.mocked(WorkspaceService.getDocuments).mockResolvedValueOnce([
+        {
+          ...document,
+          files: [
+            {
+              ...file,
+              has_text: status === "done",
+              transcription_status: status,
+              transcription_error: status === "failed" ? "timeout" : null,
+            },
+          ],
+        },
+      ]);
+      await useDocumentStore.getState().transcribeFile("d1", "f1");
+      expect(WorkspaceService.getDocuments).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(useDocumentStore.getState().documents[0].files[0]).toMatchObject({
+        transcriptionStatus: status,
+        hasText: status === "done",
+        transcriptionError: status === "failed" ? "timeout" : null,
+      });
+      await vi.advanceTimersByTimeAsync(15000);
+      expect(WorkspaceService.getDocuments).toHaveBeenCalledExactlyOnceWith(
+        TREE_ID,
+      );
+    },
+  );
+
+  it("polls an existing pending run and retries after a network failure", async () => {
+    const pending: DocumentDB = {
+      ...document,
+      files: [{ ...file, transcription_status: "pending" }],
+    };
+    vi.mocked(WorkspaceService.getDocuments)
+      .mockResolvedValueOnce([pending])
+      .mockRejectedValueOnce(new Error("connection lost"))
+      .mockResolvedValueOnce([completed]);
+
+    await useDocumentStore.getState().refreshDocuments();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(
+      useDocumentStore.getState().documents[0].files[0].transcriptionStatus,
+    ).toBe("pending");
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(
+      useDocumentStore.getState().documents[0].files[0].transcriptionStatus,
+    ).toBe("done");
+    expect(WorkspaceService.getDocuments).toHaveBeenCalledTimes(3);
+  });
+
+  it("keeps polling a rerun while its previous transcript is still readable", async () => {
+    useDocumentStore.setState({ documents: [mapDocumentFromDB(completed)] });
+    vi.mocked(WorkspaceService.transcribeDocumentFile).mockResolvedValueOnce({
+      status: "pending",
+    });
+    vi.mocked(WorkspaceService.getDocuments)
+      .mockResolvedValueOnce([
+        {
+          ...completed,
+          files: [{ ...completed.files![0], transcription_status: "pending" }],
+        },
+      ])
+      .mockResolvedValueOnce([completed]);
+
+    await useDocumentStore.getState().transcribeFile("d1", "f1");
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(useDocumentStore.getState().documents[0].files[0]).toMatchObject({
+      hasText: true,
+      transcriptionStatus: "pending",
+    });
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(
+      useDocumentStore.getState().documents[0].files[0].transcriptionStatus,
+    ).toBe("done");
+  });
+
+  it("stops polling when the workspace is cleared", async () => {
+    vi.mocked(WorkspaceService.transcribeDocumentFile).mockResolvedValueOnce({
+      status: "pending",
+    });
+    await useDocumentStore.getState().transcribeFile("d1", "f1");
+    useDocumentStore.getState().clear();
+    await vi.advanceTimersByTimeAsync(15000);
+    expect(WorkspaceService.getDocuments).not.toHaveBeenCalled();
+  });
+
+  it("ignores a completion event from another workspace", () => {
+    useDocumentStore
+      .getState()
+      .onTranscriptionFinished("other-tree", "d1", "f1", "done", null);
+    expect(
+      useDocumentStore.getState().documents[0].files[0].transcriptionStatus,
+    ).toBeNull();
   });
 
   it.each(["done", "failed"] as const)(

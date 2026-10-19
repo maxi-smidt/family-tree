@@ -5,6 +5,7 @@ import {
   DocumentFile,
   DocumentFileOps,
   DocumentFileText,
+  DocumentFileTranscriptionStatus,
   DocumentInput,
   DocumentSavePayload,
   DocumentSearchResult,
@@ -84,6 +85,13 @@ interface DocumentState {
   ) => Promise<DocumentFileText | null>;
   /** Start an AI transcription; the result arrives as an SSE event. */
   transcribeFile: (documentId: string, fileId: string) => Promise<void>;
+  onTranscriptionFinished: (
+    workspaceId: string,
+    documentId: string,
+    fileId: string,
+    status: Exclude<DocumentFileTranscriptionStatus, "pending">,
+    error: string | null,
+  ) => void;
   clear: () => void;
 }
 
@@ -165,6 +173,36 @@ function patchFile(
 }
 
 let refreshVersion = 0;
+let transcriptionPollTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** SSE is best effort. Reconcile pending runs even if their completion event
+ * was lost, including runs that were already pending when the tree opened. */
+function syncTranscriptionPolling(): void {
+  const workspaceId = activeTreeId();
+  const pending = useDocumentStore
+    .getState()
+    .documents.some((d) =>
+      d.files.some((f) => f.transcriptionStatus === "pending"),
+    );
+  if (!workspaceId || !pending) {
+    clearTimeout(transcriptionPollTimer);
+    transcriptionPollTimer = undefined;
+    return;
+  }
+  if (transcriptionPollTimer !== undefined) return;
+  const timer = setTimeout(async () => {
+    try {
+      if (isActiveTree(workspaceId))
+        await useDocumentStore.getState().refreshDocuments(workspaceId);
+    } catch {
+      // A transient network error must not leave a run spinning forever.
+    } finally {
+      if (transcriptionPollTimer === timer) transcriptionPollTimer = undefined;
+      syncTranscriptionPolling();
+    }
+  }, 5000);
+  transcriptionPollTimer = timer;
+}
 
 export const useDocumentStore = create<DocumentState>((set, get) => ({
   documents: [],
@@ -189,6 +227,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     const version = ++refreshVersion;
     if (!workspaceId) {
       set({ documents: [] });
+      syncTranscriptionPolling();
       return;
     }
 
@@ -199,6 +238,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     if (version !== refreshVersion || !isActiveTree(workspaceId)) return;
 
     set({ documents: rows.map(mapDocumentFromDB), initialized: true });
+    syncTranscriptionPolling();
   },
 
   getDocumentsForMember: (memberId: string) => {
@@ -345,6 +385,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
         documentId,
         fileId,
       );
+      if (isActiveTree(workspaceId)) syncTranscriptionPolling();
     } catch (error) {
       if (isActiveTree(workspaceId)) {
         set((state) => {
@@ -363,8 +404,25 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     }
   },
 
+  onTranscriptionFinished: (workspaceId, documentId, fileId, status, error) => {
+    if (!isActiveTree(workspaceId)) return;
+    // The event already carries the final state. Apply it immediately and
+    // invalidate list requests that could still contain the pending state.
+    ++refreshVersion;
+    set((state) =>
+      patchFile(state.documents, documentId, fileId, {
+        transcriptionStatus: status,
+        transcriptionError: error,
+        ...(status === "done" ? { hasText: true } : {}),
+      }),
+    );
+    syncTranscriptionPolling();
+  },
+
   clear: () => {
     ++refreshVersion;
+    clearTimeout(transcriptionPollTimer);
+    transcriptionPollTimer = undefined;
     set({ documents: [], initialized: false, focus: null });
   },
 }));

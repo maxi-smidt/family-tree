@@ -173,12 +173,22 @@ async function connect(): Promise<void> {
   eventSource.addEventListener("document.transcription_finished", (e) => {
     const data = JSON.parse((e as MessageEvent).data) as {
       workspace_id: string;
+      document_id: string;
+      file_id: string;
       filename: string | null;
-      status: string;
+      status: "done" | "failed";
       error: string | null;
     };
     if (isActiveTree(data.workspace_id)) {
-      void useDocumentStore.getState().refreshDocuments(data.workspace_id);
+      const store = useDocumentStore.getState();
+      store.onTranscriptionFinished(
+        data.workspace_id,
+        data.document_id,
+        data.file_id,
+        data.status,
+        data.error,
+      );
+      void store.refreshDocuments(data.workspace_id).catch(() => {});
     }
     const name =
       data.filename || i18n.t("sheet.member-sheet.documents.ai.untitled");
