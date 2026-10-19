@@ -20,20 +20,13 @@ import { PartialDatePicker } from "@/components/ui/partial-date-picker";
 import { useTranslation } from "react-i18next";
 import { MemberPicker } from "@/components/shared/member-sheet/MemberPicker";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
+import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  Check,
-  Pencil,
-  Plus,
-  Tag,
-  Trash2,
-  UserRoundSearch,
-  X,
-} from "lucide-react";
+import { Pencil, Tag, Trash2, UserRoundSearch, X } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -114,28 +107,24 @@ export const ImageSheet = ({
   const [formData, setFormData] = useState<Partial<GalleryImage>>(image);
   const [tagMode, setTagMode] = useState(false);
   const [draftRegion, setDraftRegion] = useState<FaceRegion | null>(null);
-  const [draftMemberId, setDraftMemberId] = useState<string | null>(null);
-  const [newMemberId, setNewMemberId] = useState<string | null>(null);
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [editingFaceId, setEditingFaceId] = useState<string | null>(null);
   const [hoveredMemberId, setHoveredMemberId] = useState<string | null>(null);
   const [hoveredFaceId, setHoveredFaceId] = useState<string | null>(null);
   const [resolvingFaceId, setResolvingFaceId] = useState<string | null>(null);
-  const [resolveMemberId, setResolveMemberId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [faceOperationPending, setFaceOperationPending] = useState(false);
   const drawingStart = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     setFormData(image);
     setTagMode(initialTagMode);
     setDraftRegion(null);
-    setDraftMemberId(null);
-    setNewMemberId(null);
     setEditingMemberId(null);
     setEditingFaceId(null);
     setHoveredMemberId(null);
     setHoveredFaceId(null);
     setResolvingFaceId(null);
-    setResolveMemberId(null);
   }, [image, initialTagMode]);
 
   const memberLinks = formData.memberLinks ?? image.memberLinks;
@@ -149,6 +138,17 @@ export const ImageSheet = ({
       ),
     [memberLinks, members],
   );
+  const faceCandidates = members.filter(
+    (member) =>
+      !memberLinks.some(
+        (link) => link.memberId === member.id && hasFaceRegion(link),
+      ),
+  );
+  const hasChanges =
+    formData.title !== image.title ||
+    formData.description !== image.description ||
+    formData.createdAt !== image.createdAt ||
+    JSON.stringify(memberLinks) !== JSON.stringify(image.memberLinks);
 
   const memberName = (memberId: string) => {
     const member = members.find((candidate) => candidate.id === memberId);
@@ -163,13 +163,35 @@ export const ImageSheet = ({
     }));
   };
 
-  const handleSave = () => {
-    updateGalleryImage(image.id, formData)
-      .then(() => {
-        toast.success(t("toast-success"));
-        onClose();
-      })
-      .catch(() => toast.error(t("toast-error")));
+  const saveChanges = async () => {
+    setIsSaving(true);
+    try {
+      await updateGalleryImage(image.id, formData);
+      toast.success(t("toast-success"));
+      return true;
+    } catch {
+      toast.error(t("toast-error"));
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (await saveChanges()) onClose();
+  };
+
+  const handleOpenMember = async (memberId: string) => {
+    if (!selectedTree || isSaving || faceOperationPending) return;
+    // Opening a profile switches views. Keep any links/metadata edited in
+    // this sheet before leaving, and stay here if that save fails.
+    if (canWrite && hasChanges && !(await saveChanges())) return;
+    onClose();
+    useMemberSheetStore.getState().setOpenSheet(selectedTree.id, {
+      memberId,
+      tab: "identity",
+      mode: "view",
+    });
   };
 
   const handleDelete = () => {
@@ -190,7 +212,14 @@ export const ImageSheet = ({
   };
 
   const handleTagPointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    if (!tagMode || !canWrite || event.button !== 0) return;
+    if (
+      !tagMode ||
+      !canWrite ||
+      isSaving ||
+      faceOperationPending ||
+      event.button !== 0
+    )
+      return;
     const point = updatePoint(event);
     drawingStart.current = point;
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -217,11 +246,14 @@ export const ImageSheet = ({
 
     if (editingFaceId) {
       const faceId = editingFaceId;
-      updateUnknownFace(faceId, region).catch(() =>
-        toast.error(t("unknown-face-update-error")),
-      );
-      setEditingFaceId(null);
-      setDraftRegion(null);
+      setFaceOperationPending(true);
+      updateUnknownFace(faceId, region)
+        .then(() => {
+          setEditingFaceId(null);
+          setDraftRegion(null);
+        })
+        .catch(() => toast.error(t("unknown-face-update-error")))
+        .finally(() => setFaceOperationPending(false));
       return;
     }
 
@@ -237,42 +269,40 @@ export const ImageSheet = ({
     }
 
     setDraftRegion(region);
-    setDraftMemberId(null);
   };
 
-  const handleAddFaceTag = () => {
-    if (!draftRegion || !draftMemberId) return;
+  const handleAddFaceTag = (memberId: string | null) => {
+    if (!draftRegion || !memberId || faceOperationPending || isSaving) return;
     setMemberLinks([
-      ...memberLinks.filter((link) => link.memberId !== draftMemberId),
-      { memberId: draftMemberId, ...draftRegion },
+      ...memberLinks.filter((link) => link.memberId !== memberId),
+      { memberId, ...draftRegion },
     ]);
-    setHoveredMemberId(draftMemberId);
+    setHoveredMemberId(memberId);
     setDraftRegion(null);
-    setDraftMemberId(null);
   };
 
-  const handleAddWholeImageLink = () => {
-    if (!newMemberId) {
+  const handleAddWholeImageLink = (memberId: string | null) => {
+    if (!memberId) {
       return;
     }
-    if (memberLinks.some((link) => link.memberId === newMemberId)) {
+    if (memberLinks.some((link) => link.memberId === memberId)) {
       toast.info(
-        t("toast-member-already-linked", { name: memberName(newMemberId) }),
+        t("toast-member-already-linked", { name: memberName(memberId) }),
       );
       return;
     }
     setMemberLinks([
       ...memberLinks,
-      { memberId: newMemberId, x: null, y: null, w: null, h: null },
+      { memberId, x: null, y: null, w: null, h: null },
     ]);
-    setNewMemberId(null);
   };
 
   const handleEditTag = (memberId: string) => {
+    if (faceOperationPending || isSaving) return;
     setTagMode(true);
     setEditingMemberId(memberId);
+    setEditingFaceId(null);
     setDraftRegion(null);
-    setDraftMemberId(null);
   };
 
   const handleReassignTag = (memberId: string | null) => {
@@ -297,7 +327,6 @@ export const ImageSheet = ({
     setTagMode((enabled) => {
       if (enabled) {
         setDraftRegion(null);
-        setDraftMemberId(null);
         setEditingMemberId(null);
         setEditingFaceId(null);
       }
@@ -305,49 +334,57 @@ export const ImageSheet = ({
     });
   };
 
-  const handleMarkUnknown = () => {
-    if (!draftRegion) return;
+  const handleMarkUnknown = async () => {
+    if (!draftRegion || faceOperationPending || isSaving) return;
     const title = t("unknown-face-task-title", {
       // Prefer the possibly-edited (unsaved) title over the prop snapshot so
       // the task references what the user currently sees.
       title: formData.title || image.title || t("image-alt"),
     });
-    addUnknownFace(image.id, draftRegion, {
-      title,
-      notes: t("unknown-face-task-notes"),
-    })
-      .then(() => toast.success(t("unknown-face-add-success")))
-      .catch(() => toast.error(t("unknown-face-add-error")));
-    setDraftRegion(null);
+    setFaceOperationPending(true);
+    try {
+      await addUnknownFace(image.id, draftRegion, {
+        title,
+        notes: t("unknown-face-task-notes"),
+      });
+      toast.success(t("unknown-face-add-success"));
+      setDraftRegion(null);
+    } catch {
+      toast.error(t("unknown-face-add-error"));
+    } finally {
+      setFaceOperationPending(false);
+    }
   };
 
   const handleEditFace = (faceId: string) => {
+    if (faceOperationPending || isSaving) return;
     setTagMode(true);
     setEditingFaceId(faceId);
     setEditingMemberId(null);
     setDraftRegion(null);
-    setDraftMemberId(null);
   };
 
   const handleDeleteFace = (faceId: string) => {
+    setFaceOperationPending(true);
     removeUnknownFace(faceId)
       .then(() => toast.success(t("unknown-face-delete-success")))
-      .catch(() => toast.error(t("unknown-face-delete-error")));
+      .catch(() => toast.error(t("unknown-face-delete-error")))
+      .finally(() => setFaceOperationPending(false));
     if (editingFaceId === faceId) setEditingFaceId(null);
     if (hoveredFaceId === faceId) setHoveredFaceId(null);
     if (resolvingFaceId === faceId) {
       setResolvingFaceId(null);
-      setResolveMemberId(null);
     }
   };
 
-  const handleResolveFace = (faceId: string) => {
-    if (!resolveMemberId) return;
-    const memberId = resolveMemberId;
+  const handleResolveFace = (faceId: string, memberId: string | null) => {
+    if (!memberId || faceOperationPending || isSaving) return;
+    setFaceOperationPending(true);
     const face = unknownFaces.find((candidate) => candidate.id === faceId);
     resolveUnknownFace(faceId, memberId)
       .then(() => {
         toast.success(t("unknown-face-resolve-success"));
+        setResolvingFaceId(null);
         // Save full-replaces the image's member links from formData, so the
         // link the backend just created must be mirrored into the local
         // snapshot or a later Save would silently delete it again.
@@ -365,9 +402,8 @@ export const ImageSheet = ({
           };
         });
       })
-      .catch(() => toast.error(t("unknown-face-resolve-error")));
-    setResolvingFaceId(null);
-    setResolveMemberId(null);
+      .catch(() => toast.error(t("unknown-face-resolve-error")))
+      .finally(() => setFaceOperationPending(false));
   };
 
   const linkedMembers = useMemo(
@@ -399,6 +435,10 @@ export const ImageSheet = ({
                 onPointerDown={handleTagPointerDown}
                 onPointerMove={handleTagPointerMove}
                 onPointerUp={handleTagPointerUp}
+                onPointerCancel={() => {
+                  drawingStart.current = null;
+                  setDraftRegion(null);
+                }}
               >
                 {memberLinks.filter(hasFaceRegion).map((link) => {
                   const isHighlighted =
@@ -409,6 +449,13 @@ export const ImageSheet = ({
                       <TooltipTrigger asChild>
                         <button
                           type="button"
+                          disabled={
+                            isSaving ||
+                            faceOperationPending ||
+                            !members.some(
+                              (member) => member.id === link.memberId,
+                            )
+                          }
                           aria-label={t("face-tag-aria", {
                             name: memberName(link.memberId),
                           })}
@@ -427,7 +474,9 @@ export const ImageSheet = ({
                           onMouseEnter={() => setHoveredMemberId(link.memberId)}
                           onMouseLeave={() => setHoveredMemberId(null)}
                           onClick={() =>
-                            canWrite && handleEditTag(link.memberId)
+                            tagMode && canWrite
+                              ? handleEditTag(link.memberId)
+                              : void handleOpenMember(link.memberId)
                           }
                         />
                       </TooltipTrigger>
@@ -481,7 +530,10 @@ export const ImageSheet = ({
               </div>
             </div>
           </div>
-          <div className="flex flex-col min-h-0">
+          <fieldset
+            className="flex flex-col min-h-0 min-w-0"
+            disabled={isSaving || faceOperationPending}
+          >
             <FieldGroup className="gap-4 flex-1 overflow-y-auto px-1">
               <Field>
                 <FieldLabel>{t("title-field")}</FieldLabel>
@@ -554,11 +606,19 @@ export const ImageSheet = ({
                           <button
                             type="button"
                             className="min-w-0 flex-1 truncate text-left text-sm hover:underline"
-                            onClick={() =>
-                              hasFaceRegion(link) &&
-                              canWrite &&
-                              handleEditTag(link.memberId)
+                            disabled={
+                              isSaving ||
+                              faceOperationPending ||
+                              !members.some(
+                                (member) => member.id === link.memberId,
+                              )
                             }
+                            title={
+                              hasChanges
+                                ? t("save-and-open-member", { name })
+                                : undefined
+                            }
+                            onClick={() => void handleOpenMember(link.memberId)}
                           >
                             {name}
                           </button>
@@ -616,24 +676,17 @@ export const ImageSheet = ({
                                 <>
                                   <div className="w-36">
                                     <MemberPicker
-                                      members={unlinkedMembers}
-                                      value={resolveMemberId}
-                                      onChange={setResolveMemberId}
+                                      members={faceCandidates}
+                                      value={null}
+                                      onChange={(memberId) =>
+                                        handleResolveFace(face.id, memberId)
+                                      }
+                                      autoOpen
                                       placeholder={t("resolve-placeholder")}
                                       noResultsText={t("members-no-results")}
                                       size="sm"
                                     />
                                   </div>
-                                  <Button
-                                    type="button"
-                                    size="icon-xs"
-                                    variant="ghost"
-                                    disabled={!resolveMemberId}
-                                    aria-label={t("confirm-resolve")}
-                                    onClick={() => handleResolveFace(face.id)}
-                                  >
-                                    <Check />
-                                  </Button>
                                 </>
                               ) : (
                                 <Button
@@ -641,9 +694,9 @@ export const ImageSheet = ({
                                   size="icon-xs"
                                   variant="ghost"
                                   aria-label={t("resolve-unknown-face")}
+                                  disabled={faceOperationPending || isSaving}
                                   onClick={() => {
                                     setResolvingFaceId(face.id);
-                                    setResolveMemberId(null);
                                   }}
                                 >
                                   <UserRoundSearch />
@@ -679,23 +732,13 @@ export const ImageSheet = ({
                     <div className="min-w-0 flex-1">
                       <MemberPicker
                         members={unlinkedMembers}
-                        value={newMemberId}
-                        onChange={setNewMemberId}
+                        value={null}
+                        onChange={handleAddWholeImageLink}
                         placeholder={t("members-placeholder")}
                         noResultsText={t("members-no-results")}
                         size="default"
                       />
                     </div>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="outline"
-                      disabled={!newMemberId}
-                      aria-label={t("add-member")}
-                      onClick={handleAddWholeImageLink}
-                    >
-                      <Plus />
-                    </Button>
                   </div>
                 )}
               </Field>
@@ -725,7 +768,15 @@ export const ImageSheet = ({
                   ) : editingTag ? (
                     <>
                       <MemberPicker
-                        members={members}
+                        members={members.filter(
+                          (member) =>
+                            member.id === editingTag.memberId ||
+                            !memberLinks.some(
+                              (link) =>
+                                link.memberId === member.id &&
+                                hasFaceRegion(link),
+                            ),
+                        )}
                         value={editingTag.memberId}
                         onChange={handleReassignTag}
                         placeholder={t("members-placeholder")}
@@ -742,14 +793,16 @@ export const ImageSheet = ({
                       </Button>
                     </>
                   ) : (
-                    draftRegion && (
+                    draftRegion &&
+                    !drawingStart.current && (
                       <div className="flex flex-col gap-2">
                         <div className="flex items-end gap-2">
                           <div className="min-w-0 flex-1">
                             <MemberPicker
-                              members={members}
-                              value={draftMemberId}
-                              onChange={setDraftMemberId}
+                              members={faceCandidates}
+                              value={null}
+                              onChange={handleAddFaceTag}
+                              autoOpen
                               placeholder={t("face-tags-member-placeholder")}
                               noResultsText={t("members-no-results")}
                               size="default"
@@ -757,10 +810,10 @@ export const ImageSheet = ({
                           </div>
                           <Button
                             type="button"
-                            disabled={!draftMemberId}
-                            onClick={handleAddFaceTag}
+                            variant="ghost"
+                            onClick={() => setDraftRegion(null)}
                           >
-                            {t("add-face-tag")}
+                            {t("cancel-tag-edit")}
                           </Button>
                         </div>
                         {researchTasksEnabled && (
@@ -770,6 +823,7 @@ export const ImageSheet = ({
                               variant="outline"
                               size="sm"
                               onClick={handleMarkUnknown}
+                              disabled={faceOperationPending}
                             >
                               <UserRoundSearch />
                               {t("mark-unknown-person")}
@@ -782,12 +836,20 @@ export const ImageSheet = ({
                       </div>
                     )
                   )}
+                  <p className="text-xs text-muted-foreground">
+                    {t("face-tags-save-hint")}
+                  </p>
                 </Field>
               )}
             </FieldGroup>
             {canWrite && (
               <div className="flex justify-end gap-2 mt-4 shrink-0">
-                <Button onClick={handleSave}>{t("save")}</Button>
+                <Button
+                  onClick={handleSave}
+                  disabled={isSaving || faceOperationPending}
+                >
+                  {t("save")}
+                </Button>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button variant="destructive">{t("delete")}</Button>
@@ -816,7 +878,7 @@ export const ImageSheet = ({
                 </AlertDialog>
               </div>
             )}
-          </div>
+          </fieldset>
         </div>
       </SheetContent>
     </Sheet>

@@ -1,16 +1,9 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import type { GalleryImage } from "@/types/gallery";
 import { GalleryView } from "./GalleryView";
-
-vi.mock("@tanstack/react-virtual", () => ({
-  useVirtualizer: ({ count }: { count: number }) => ({
-    getVirtualItems: () =>
-      Array.from({ length: count }, (_, index) => ({ index })),
-  }),
-}));
 
 const galleryImages: GalleryImage[] = [
   {
@@ -43,7 +36,7 @@ describe("GalleryView search", () => {
     useGalleryStore.setState({ galleryImages, initialized: true });
   });
 
-  it("renders only matching images without requesting an out-of-range virtual item", () => {
+  it("renders only matching images", () => {
     render(<GalleryView />);
 
     fireEvent.change(screen.getByPlaceholderText("Search photos…"), {
@@ -56,6 +49,100 @@ describe("GalleryView search", () => {
     expect(
       screen.queryByRole("button", { name: "Other photo" }),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("GalleryView loading", () => {
+  const images = Array.from({ length: 145 }, (_, index) => ({
+    ...galleryImages[0],
+    id: `image-${index}`,
+    imageData: "data:image/png;base64,abc",
+    title: `Photo ${index.toString().padStart(3, "0")}`,
+    uploadedAt: new Date(2024, 0, index + 1).toISOString(),
+  }));
+
+  beforeEach(() => {
+    useWorkspaceStore.setState({ isReady: true });
+    useGalleryStore.setState({ galleryImages: images, initialized: true });
+  });
+
+  it("renders a larger first batch and can reach every photo without an observer", () => {
+    render(<GalleryView />);
+    expect(screen.getAllByRole("button", { name: /^Photo / })).toHaveLength(60);
+    fireEvent.click(screen.getByRole("button", { name: "Load more" }));
+    expect(screen.getAllByRole("button", { name: /^Photo / })).toHaveLength(
+      120,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Show all photos" }));
+    expect(screen.getAllByRole("button", { name: /^Photo / })).toHaveLength(
+      145,
+    );
+    expect(
+      screen.getByRole("button", { name: "Photo 000" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Showing 145 of 145 photos",
+    );
+    expect(
+      screen.queryByRole("button", { name: "Load more" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("loads another batch when the grid footer approaches the scroll viewport", () => {
+    const callbacks: IntersectionObserverCallback[] = [];
+    const disconnect = vi.fn();
+    vi.stubGlobal(
+      "IntersectionObserver",
+      class {
+        constructor(callback: IntersectionObserverCallback) {
+          callbacks.push(callback);
+        }
+        observe = vi.fn();
+        disconnect = disconnect;
+      },
+    );
+    try {
+      const { unmount } = render(<GalleryView />);
+      act(() =>
+        callbacks[0](
+          [{ isIntersecting: true } as IntersectionObserverEntry],
+          {} as IntersectionObserver,
+        ),
+      );
+      expect(screen.getAllByRole("button", { name: /^Photo / })).toHaveLength(
+        120,
+      );
+      expect(disconnect).toHaveBeenCalled();
+      act(() =>
+        callbacks[callbacks.length - 1](
+          [{ isIntersecting: true } as IntersectionObserverEntry],
+          {} as IntersectionObserver,
+        ),
+      );
+      expect(screen.getAllByRole("button", { name: /^Photo / })).toHaveLength(
+        145,
+      );
+      unmount();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("searches the entire gallery and resets batches after clearing a search or changing order", () => {
+    render(<GalleryView />);
+    const search = screen.getByPlaceholderText("Search photos…");
+    fireEvent.change(search, { target: { value: "Photo 000" } });
+    expect(
+      screen.getByRole("button", { name: "Photo 000" }),
+    ).toBeInTheDocument();
+    fireEvent.change(search, { target: { value: "" } });
+    expect(screen.getAllByRole("button", { name: /^Photo / })).toHaveLength(60);
+    fireEvent.click(screen.getByRole("button", { name: "Show all photos" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sort descending" }));
+    expect(screen.getAllByRole("button", { name: /^Photo / })).toHaveLength(60);
+    expect(
+      screen.getByRole("button", { name: "Photo 000" }),
+    ).toBeInTheDocument();
   });
 });
 

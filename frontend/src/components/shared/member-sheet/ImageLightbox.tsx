@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { GalleryImage, GalleryMemberLink } from "@/types/gallery";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useTranslation } from "react-i18next";
+import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 
 type Props = {
   images: GalleryImage[];
@@ -28,6 +30,7 @@ export const ImageLightbox = ({ images, startIndex, onClose }: Props) => {
     keyPrefix: "gallery-view.image-lightbox",
   });
   const { members } = useMemberStore();
+  const workspaceId = useWorkspaceStore((state) => state.selectedTree?.id);
   const [currentIndex, setCurrentIndex] = useState(startIndex);
 
   useEffect(() => {
@@ -55,9 +58,15 @@ export const ImageLightbox = ({ images, startIndex, onClose }: Props) => {
       ? `${member.firstName} ${member.lastName}`.trim()
       : t("unknown-member");
   };
-  const linkedPeople = currentImage.memberLinks
-    .map((link) => memberName(link.memberId))
-    .concat(currentImage.unknownFaces.length > 0 ? [t("unknown-person")] : []);
+  const openMember = (memberId: string) => {
+    if (!workspaceId) return;
+    onClose();
+    useMemberSheetStore.getState().setOpenSheet(workspaceId, {
+      memberId,
+      tab: "identity",
+      mode: "view",
+    });
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm">
@@ -130,10 +139,32 @@ export const ImageLightbox = ({ images, startIndex, onClose }: Props) => {
             {currentImage.title}
           </p>
         )}
-        {linkedPeople.length > 0 && (
+        {(currentImage.memberLinks.length > 0 ||
+          currentImage.unknownFaces.length > 0) && (
           <p className="mt-2 text-center text-sm text-white/80">
             <span className="font-medium">{t("linked-people")}:</span>{" "}
-            {linkedPeople.join(", ")}
+            {currentImage.memberLinks.map((link, index) => (
+              <span key={link.memberId}>
+                {index > 0 && ", "}
+                <button
+                  type="button"
+                  className="underline underline-offset-2 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2"
+                  disabled={
+                    !workspaceId ||
+                    !members.some((member) => member.id === link.memberId)
+                  }
+                  onClick={() => openMember(link.memberId)}
+                >
+                  {memberName(link.memberId)}
+                </button>
+              </span>
+            ))}
+            {currentImage.unknownFaces.length > 0 && (
+              <span>
+                {currentImage.memberLinks.length > 0 && ", "}
+                {t("unknown-person")}
+              </span>
+            )}
           </p>
         )}
         <p className="text-white/60 text-sm mt-2">

@@ -1,6 +1,13 @@
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { ImageCard } from "@/components/view/gallery-view/ImageCard";
-import { ChangeEvent, DragEvent, useMemo, useRef, useState } from "react";
+import {
+  ChangeEvent,
+  DragEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { ImageSheet } from "@/components/view/gallery-view/ImageSheet";
 import { GalleryImage } from "@/types/gallery";
 import { Button } from "@/components/ui/button";
@@ -31,7 +38,6 @@ import {
 } from "@/components/ui/select";
 import { useTranslation } from "react-i18next";
 import { comparePartialDates } from "@/utils/dateUtils";
-import { useVirtualizer } from "@tanstack/react-virtual";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
@@ -43,6 +49,7 @@ type SortKey = "createdAt" | "uploadedAt" | "title";
 type SortDirection = "asc" | "desc";
 
 const SKELETON_CARDS = 8;
+const PAGE_SIZE = 60;
 const GRID =
   "grid grid-cols-2 gap-x-5 gap-y-6 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5";
 
@@ -76,8 +83,10 @@ export const GalleryView = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [show, setShow] = useState<"all" | "unlinked">("all");
   const [isDragOver, setIsDragOver] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   const parentRef = useRef<HTMLDivElement>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
@@ -171,15 +180,31 @@ export const GalleryView = () => {
     });
   }, [galleryImages, sortKey, sortDirection, searchTerm, show]);
 
-  const rowVirtualizer = useVirtualizer({
-    // The virtualized indexes address the filtered list, not the complete
-    // gallery. Otherwise a search result can be shorter than this count and
-    // yield an undefined image at render time.
-    count: filteredAndSortedImages.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 150,
-    overscan: 5,
-  });
+  const hasMore = visibleCount < filteredAndSortedImages.length;
+
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+    if (parentRef.current) parentRef.current.scrollTop = 0;
+  }, [searchTerm, show, sortKey, sortDirection]);
+
+  useEffect(() => {
+    const sentinel = loadMoreRef.current;
+    if (!hasMore || !sentinel || typeof IntersectionObserver === "undefined")
+      return;
+    // Observe the actual grid footer. Every appended batch adds real scroll
+    // space; manual controls remain available without observer support.
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          observer.disconnect();
+          setVisibleCount((count) => count + PAGE_SIZE);
+        }
+      },
+      { root: parentRef.current, rootMargin: "400px" },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, visibleCount, filteredAndSortedImages.length, isReady]);
 
   const toggleSortDirection = () => {
     setSortDirection(sortDirection === "asc" ? "desc" : "asc");
@@ -249,6 +274,15 @@ export const GalleryView = () => {
               onClear={() => setSearchTerm("")}
             />
             <div className="hidden flex-1 sm:block" />
+            {hasMore && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setVisibleCount(filteredAndSortedImages.length)}
+              >
+                {t("show-all")}
+              </Button>
+            )}
             <Select
               value={sortKey}
               onValueChange={(value) => setSortKey(value as SortKey)}
@@ -341,16 +375,13 @@ export const GalleryView = () => {
               </Alert>
             )}
             <div className={GRID}>
-              {rowVirtualizer.getVirtualItems().map((virtualItem) => {
-                const image = filteredAndSortedImages[virtualItem.index];
-                return (
-                  <ImageCard
-                    key={image.id}
-                    image={image}
-                    onClick={() => setSelectedImage(image)}
-                  />
-                );
-              })}
+              {filteredAndSortedImages.slice(0, visibleCount).map((image) => (
+                <ImageCard
+                  key={image.id}
+                  image={image}
+                  onClick={() => setSelectedImage(image)}
+                />
+              ))}
               <button
                 type="button"
                 onClick={handleUploadImage}
@@ -360,6 +391,32 @@ export const GalleryView = () => {
                 {t("drop-photos")}
               </button>
             </div>
+            {filteredAndSortedImages.length > 0 && (
+              <div
+                ref={loadMoreRef}
+                className="flex flex-wrap items-center justify-center gap-3 pt-6"
+              >
+                <p role="status" className="text-sm text-muted-foreground">
+                  {t("showing-photos", {
+                    shown: Math.min(
+                      visibleCount,
+                      filteredAndSortedImages.length,
+                    ),
+                    total: filteredAndSortedImages.length,
+                  })}
+                </p>
+                {hasMore && (
+                  <Button
+                    variant="outline"
+                    onClick={() =>
+                      setVisibleCount((count) => count + PAGE_SIZE)
+                    }
+                  >
+                    {t("load-more")}
+                  </Button>
+                )}
+              </div>
+            )}
             {filteredAndSortedImages.length === 0 && (
               <p className="py-8 text-center text-sm text-muted-foreground">
                 {t("no-matches")}
