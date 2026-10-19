@@ -22,7 +22,8 @@ from tests.conftest import API, auth, make_tree, make_user
 
 
 @pytest.fixture(autouse=True)
-def enable_workspace_audit_files(db):
+def enable_workspace_audit_files(db, tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path / "data")
     set_setting(db, "workspace_audit_files_enabled", "true")
     db.commit()
 
@@ -282,7 +283,7 @@ def test_rejects_unsafe_workspace_paths(workspace_id):
 
 def test_rejects_workspace_symlink_outside_root(tmp_path):
     root = settings.workspace_log_root
-    root.mkdir()
+    root.mkdir(parents=True)
     outside = tmp_path / "outside"
     outside.mkdir()
     (root / "workspace").symlink_to(outside, target_is_directory=True)
@@ -301,20 +302,14 @@ def test_rejects_file_symlink(tmp_path):
     assert not outside.exists()
 
 
-def test_default_and_custom_log_roots(tmp_path):
-    for value in (None, "", "   "):
-        config = Settings(_env_file=None, DATA_PATH=tmp_path, WORKSPACE_LOG_PATH=value)
-        assert config.workspace_log_root == tmp_path / "logs"
-        assert config.workspace_log_root.parent == config.media_root.parent
-    override = tmp_path / "separate-disk"
-    config = Settings(
-        _env_file=None, DATA_PATH=tmp_path, WORKSPACE_LOG_PATH=str(override)
-    )
-    assert config.workspace_log_root == override
+def test_log_root_follows_data_path(tmp_path):
+    config = Settings(_env_file=None, DATA_PATH=tmp_path)
+    assert config.workspace_log_root == tmp_path / "logs"
+    assert config.workspace_log_root.parent == config.media_root.parent
 
 
-def _append_in_process(root: str, worker: int) -> None:
-    settings.WORKSPACE_LOG_PATH = Path(root)
+def _append_in_process(data_path: str, worker: int) -> None:
+    settings.DATA_PATH = Path(data_path)
     # Larger than a Python file buffer: interleaving would break JSON parsing.
     for batch in range(10):
         append_activity(
@@ -328,7 +323,7 @@ def test_concurrent_processes_keep_complete_lines():
         max_workers=3, mp_context=multiprocessing.get_context("spawn")
     ) as pool:
         futures = [
-            pool.submit(_append_in_process, str(settings.workspace_log_root), worker)
+            pool.submit(_append_in_process, str(settings.DATA_PATH), worker)
             for worker in range(3)
         ]
         for future in futures:

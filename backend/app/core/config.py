@@ -102,8 +102,6 @@ class Settings(BaseSettings):
     # to absolute /data and /appdata via the compose environment.
     DATA_PATH: Path = Path("./.data")
     APP_DATA_PATH: Path = Path("./.appdata")
-    # Optional audit-file root; defaults to logs/ beside media/ in DATA_PATH.
-    WORKSPACE_LOG_PATH: Path | None = None
 
     # --- CORS / frontend ---------------------------------------------------
     # Comma separated list of allowed origins for the browser SPA. NoDecode
@@ -177,11 +175,6 @@ class Settings(BaseSettings):
     # Username/group that should be granted admin when provisioned via Authentik.
     AUTHENTIK_ADMIN_GROUP: str = "family-tree-admins"
 
-    @field_validator("WORKSPACE_LOG_PATH", mode="before")
-    @classmethod
-    def _optional_workspace_log_path(cls, value: object) -> object:
-        return None if isinstance(value, str) and not value.strip() else value
-
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def _split_origins(cls, value: object) -> object:
@@ -216,7 +209,7 @@ class Settings(BaseSettings):
 
     @property
     def workspace_log_root(self) -> Path:
-        return self.WORKSPACE_LOG_PATH or self.DATA_PATH / "logs"
+        return self.DATA_PATH / "logs"
 
 
 @lru_cache

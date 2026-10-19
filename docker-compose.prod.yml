@@ -10,7 +10,6 @@
 #   UI_PORT        host port the web UI is served on
 #   APP_DATA_PATH  host path for application data (backend appdata: exports, logs)
 #   DATA_PATH      host path for the "real" data (member photos, gallery media)
-#   WORKSPACE_LOG_PATH optional host path for workspace audit files (DATA_PATH/logs)
 #   APP_IMAGE_TAG  app image tag for both frontend and backend
 #   POSTGRES_*     where to reach your PostgreSQL instance
 #   REDIS_URL      optional external Redis (leave unset to run without Redis)
@@ -36,7 +35,6 @@ services:
       DB_POOL_RECYCLE: ${DB_POOL_RECYCLE:-1800}
       DATA_PATH: /data
       APP_DATA_PATH: /appdata
-      WORKSPACE_LOG_PATH: ${WORKSPACE_LOG_PATH:+/workspace-logs}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:${UI_PORT:-8080}}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:${UI_PORT:-8080}}
       ALLOW_SELF_REGISTRATION: ${ALLOW_SELF_REGISTRATION:-false}
@@ -55,9 +53,6 @@ services:
     volumes:
       - ${DATA_PATH:-./data}:/data
       - ${APP_DATA_PATH:-./appdata}/backend:/appdata
-      # Without an override, reuse the existing data directory; the backend
-      # creates /data/logs itself, avoiding a root-owned nested bind mount.
-      - ${WORKSPACE_LOG_PATH:-${DATA_PATH:-./data}}:/workspace-logs
     healthcheck:
       test:
         [

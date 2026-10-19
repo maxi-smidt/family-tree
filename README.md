@@ -101,16 +101,15 @@ Deploy-time configuration lives in the `.env` file. Administrators can change
 runtime settings such as upload limits, backups, deletion grace periods, and
 self-registration from the admin dialog. The headline deploy-time settings:
 
-| Variable             | Description                                          | Default          |
-| -------------------- | ---------------------------------------------------- | ---------------- |
-| `UI_PORT`            | Host port the web UI is served on                    | `8080`           |
-| `APP_DATA_PATH`      | Host path for application data (exports, logs)       | `./appdata`      |
-| `DATA_PATH`          | Host path for the real data (member photos, gallery) | `./data`         |
-| `WORKSPACE_LOG_PATH` | Host path for workspace audit files                  | `DATA_PATH/logs` |
-| `APP_IMAGE_TAG`      | Published app image tag for frontend + backend       | `latest`         |
-| `SECRET_KEY`         | Secret for signing tokens (**required**)             | —                |
-| `POSTGRES_*`         | Connection to your PostgreSQL (host **required**)    | see example      |
-| `FRONTEND_URL`       | Public URL of the UI (OAuth redirects, CORS)         | `localhost:UI`   |
+| Variable        | Description                                          | Default        |
+| --------------- | ---------------------------------------------------- | -------------- |
+| `UI_PORT`       | Host port the web UI is served on                    | `8080`         |
+| `APP_DATA_PATH` | Host path for application data (exports, logs)       | `./appdata`    |
+| `DATA_PATH`     | Host path for user data (media and workspace audits) | `./data`       |
+| `APP_IMAGE_TAG` | Published app image tag for frontend + backend       | `latest`       |
+| `SECRET_KEY`    | Secret for signing tokens (**required**)             | —              |
+| `POSTGRES_*`    | Connection to your PostgreSQL (host **required**)    | see example    |
+| `FRONTEND_URL`  | Public URL of the UI (OAuth redirects, CORS)         | `localhost:UI` |
 
 See [.env.example](./.env.example) for the full list (database credentials,
 initial admin, self-registration, and Authentik OIDC settings).
@@ -126,10 +125,8 @@ writes; database activity and existing files are preserved.
 
 While enabled, new activity entries are also appended to
 `DATA_PATH/logs/<workspace-id>/activity.jsonl`, alongside `DATA_PATH/media/`.
-Set `WORKSPACE_LOG_PATH` in `.env` to put the audit root on a different disk or
-directory. For a custom Docker path, create the host audit directory before
-starting the stack and make it writable by the backend's UID/GID 1000, as with
-the data directories. The default logs directory is created automatically.
+The logs directory is created automatically inside the existing data directory;
+no separate path or Docker volume is needed.
 
 Each UTF-8 JSON line has the same fields as an activity API entry, including its
 id, UTC timestamp, actor, action, target and details. Only committed entries are
