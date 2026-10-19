@@ -292,6 +292,7 @@
   },
   "gallery-view": {
     "view": {
+      "edit-image": "Edit {{title}}",
       "title": "Gallery",
       "search-placeholder": "Search photos…",
       "select-date-uploaded": "Date Uploaded",
@@ -345,6 +346,7 @@
       "no-matches": "No photos match."
     },
     "image-sheet": {
+      "close-editor": "Close editor",
       "save-and-open-member": "Save changes and open {{name}}",
       "face-tags-save-hint": "Choose a person to add their tag. Save when you have finished tagging.",
       "toast-success": "Image details saved",
@@ -405,6 +407,7 @@
       "face-tags-add-hint": "Draw a rectangle around {{name}}'s face, or choose another member below."
     },
     "image-lightbox": {
+      "edit": "Edit photo",
       "image-alt": "Gallery image",
       "close": "Close image",
       "previous": "Previous image",

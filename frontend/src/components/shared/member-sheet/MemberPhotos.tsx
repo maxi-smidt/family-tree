@@ -11,6 +11,7 @@ import { getQuotaBucket, quotaToastKey } from "@/lib/quotaError";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { getBaseName } from "@/utils/attachmentUtils";
+import { ImageLightbox } from "./ImageLightbox";
 import { ImageSheet } from "@/components/view/gallery-view/ImageSheet";
 
 type Props = {
@@ -21,6 +22,7 @@ export const MemberPhotos = ({ member }: Props) => {
   const { t } = useTranslation(undefined, { keyPrefix: "sheet.edit-mode" });
   const { galleryImages, addGalleryImage } = useGalleryStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [viewingImageId, setViewingImageId] = useState<string | null>(null);
   const [faceTagQueue, setFaceTagQueue] = useState<GalleryImage[]>([]);
 
   const linkedImages = galleryImages.filter((img) =>
@@ -104,18 +106,35 @@ export const MemberPhotos = ({ member }: Props) => {
         {linkedImages.length > 0 ? (
           <div className="grid grid-cols-3 gap-2 mt-1">
             {linkedImages.map((image) => (
-              <AuthenticatedImage
+              <button
                 key={image.id}
-                src={image.imageData}
-                alt={image.title || ""}
-                className="w-full h-20 object-cover rounded-md"
-              />
+                type="button"
+                aria-label={image.title || t("photos-field")}
+                className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={() => setViewingImageId(image.id)}
+              >
+                <AuthenticatedImage
+                  src={image.imageData}
+                  alt={image.title || ""}
+                  className="w-full h-20 object-cover rounded-md"
+                />
+              </button>
             ))}
           </div>
         ) : (
           <p className="text-xs text-muted-foreground">{t("photos-empty")}</p>
         )}
       </RecordSectionCard>
+      {viewingImageId &&
+        linkedImages.some((image) => image.id === viewingImageId) && (
+          <ImageLightbox
+            images={linkedImages}
+            startIndex={linkedImages.findIndex(
+              (image) => image.id === viewingImageId,
+            )}
+            onClose={() => setViewingImageId(null)}
+          />
+        )}
       {faceTagQueue[0] && (
         <ImageSheet
           isOpen

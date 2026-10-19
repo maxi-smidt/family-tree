@@ -292,6 +292,7 @@
   },
   "gallery-view": {
     "view": {
+      "edit-image": "{{title}} bearbeiten",
       "title": "Galerie",
       "search-placeholder": "Fotos suchen…",
       "select-date-uploaded": "Datum Hochgeladen",
@@ -345,6 +346,7 @@
       "no-matches": "Keine passenden Fotos."
     },
     "image-sheet": {
+      "close-editor": "Bearbeitung schließen",
       "save-and-open-member": "Änderungen speichern und {{name}} öffnen",
       "face-tags-save-hint": "Wähle eine Person aus, um ihre Markierung hinzuzufügen. Speichere, wenn du mit dem Markieren fertig bist.",
       "toast-success": "Details gespeichert",
@@ -405,6 +407,7 @@
       "face-tags-add-hint": "Zeichne ein Rechteck um das Gesicht von {{name}} oder wähle unten eine andere Person aus."
     },
     "image-lightbox": {
+      "edit": "Foto bearbeiten",
       "image-alt": "Galeriebild",
       "close": "Bild schließen",
       "previous": "Vorheriges Bild",
