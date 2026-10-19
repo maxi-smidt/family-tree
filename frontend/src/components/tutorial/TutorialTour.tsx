@@ -7,6 +7,7 @@ import { useTutorialStore } from "@/hooks/useTutorialStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
+import { useSidebar } from "@/components/ui/sidebar";
 
 const CREATE_TREE_SELECTOR = '[data-tutorial="create-tree"]';
 const CREATE_DIALOG_SELECTOR = '[data-tutorial="create-dialog"]';
@@ -103,6 +104,7 @@ export const TutorialTour = () => {
   const finish = useTutorialStore((s) => s.finish);
   const navigateTo = useNavigationStore((s) => s.navigateTo);
   const setSidebarOpen = useFamilyTreeSettings((s) => s.setSidebarOpen);
+  const { openMobile, setOpenMobile } = useSidebar();
 
   useEffect(() => {
     if (!isRunning) return;
@@ -110,7 +112,12 @@ export const TutorialTour = () => {
     const hadTreeOnStart =
       useWorkspaceStore.getState().selectedTree !== undefined;
     const sidebarOpenOnStart = useFamilyTreeSettings.getState().sidebarOpen;
+    const mobileSidebarOpenOnStart = openMobile;
     const tabsSelector = currentTabsSelector();
+    const isMobile = tabsSelector === MOBILE_TABS_SELECTOR;
+    // The phone sheet has its own state; changing the desktop setting cannot
+    // mount its contents, so waiting for the sidebar would otherwise hang.
+    const setTutorialSidebarOpen = isMobile ? setOpenMobile : setSidebarOpen;
 
     let transitionPending = false;
     let restoredSidebar = false;
@@ -173,10 +180,12 @@ export const TutorialTour = () => {
       if (restoredSidebar) return;
       restoredSidebar = true;
       setSidebarOpen(sidebarOpenOnStart);
+      setOpenMobile(mobileSidebarOpenOnStart);
     };
 
     navigateTo("tree-view");
     setSidebarOpen(false);
+    setOpenMobile(false);
 
     // Create-tree flow (new users only). Creating a tree is irreversible, so
     // the dialog step is forward-only; everything after it is fully reversible.
@@ -274,14 +283,15 @@ export const TutorialTour = () => {
             go(
               d,
               "next",
-              () => setSidebarOpen(true),
+              () => setTutorialSidebarOpen(true),
               () => waitForElement(SIDEBAR_SELECTOR),
             );
           },
         },
       },
 
-      // Sidebar overview. Back closes the sidebar again.
+      // Sidebar overview. On phones, close the sheet before spotlighting the
+      // bottom tabs; on desktop the view navigation stays inside the sidebar.
       {
         element: SIDEBAR_SELECTOR,
         popover: {
@@ -293,8 +303,18 @@ export const TutorialTour = () => {
             go(
               d,
               "previous",
-              () => setSidebarOpen(false),
+              () => setTutorialSidebarOpen(false),
               () => waitForElement(ADD_MEMBER_SELECTOR),
+            );
+          },
+          onNextClick: (_, __, { driver: d }) => {
+            go(
+              d,
+              "next",
+              () => {
+                if (isMobile) setOpenMobile(false);
+              },
+              () => waitForElement(tabsSelector),
             );
           },
         },
@@ -313,7 +333,7 @@ export const TutorialTour = () => {
             go(
               d,
               "previous",
-              () => setSidebarOpen(true),
+              () => setTutorialSidebarOpen(true),
               () => waitForElement(SIDEBAR_SELECTOR),
             );
           },
