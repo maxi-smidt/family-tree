@@ -53,8 +53,23 @@ export const MemberPicker = ({
 }: Props) => {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
   const [portalContainer, setPortalContainer] = useState<HTMLElement>();
   const triggerContainerRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) {
+      setSearch("");
+      return;
+    }
+    // cmdk filters and reorders items before the next frame. Reset afterwards
+    // so a previous scroll position cannot hide the highest-ranked results.
+    const frame = requestAnimationFrame(() => {
+      if (listRef.current) listRef.current.scrollTop = 0;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [open, search]);
 
   useEffect(() => {
     if (autoOpen) {
@@ -132,8 +147,12 @@ export const MemberPicker = ({
           portalContainer={portalContainer}
         >
           <Command>
-            <CommandInput placeholder={t("common.search-people")} />
-            <CommandList className="max-h-64 overflow-y-auto">
+            <CommandInput
+              placeholder={t("common.search-people")}
+              value={search}
+              onValueChange={setSearch}
+            />
+            <CommandList ref={listRef} className="max-h-64 overflow-y-auto">
               <CommandEmpty className="py-4 text-sm">
                 {noResultsText}
               </CommandEmpty>
