@@ -1,6 +1,7 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
+import { useMemberStore } from "@/hooks/useMemberStore";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import type { GalleryImage } from "@/types/gallery";
 import { GalleryView } from "./GalleryView";
@@ -32,7 +33,10 @@ const galleryImages: GalleryImage[] = [
 
 describe("GalleryView search", () => {
   beforeEach(() => {
-    useWorkspaceStore.setState({ isReady: true });
+    useWorkspaceStore.setState({
+      isReady: true,
+      selectedTree: { id: "tree-1", name: "Workspace", role: "owner" },
+    });
     useGalleryStore.setState({ galleryImages, initialized: true });
   });
 
@@ -52,6 +56,94 @@ describe("GalleryView search", () => {
   });
 });
 
+describe("GalleryView image modes", () => {
+  beforeEach(() => {
+    useWorkspaceStore.setState({
+      isReady: true,
+      selectedTree: { id: "tree-1", name: "Workspace", role: "owner" },
+    });
+    useMemberStore.setState({ members: [] });
+    useGalleryStore.setState({
+      galleryImages: galleryImages.map((image) => ({
+        ...image,
+        description: "Photo description",
+        unknownFaces: [
+          {
+            id: "face-1",
+            galleryImageId: image.id,
+            x: 0.2,
+            y: 0.3,
+            w: 0.2,
+            h: 0.2,
+            taskId: "task-1",
+            createdAt: "2024-01-01",
+          },
+        ],
+      })),
+      initialized: true,
+    });
+  });
+
+  it("opens the shared viewer at the clicked image and navigates the gallery order", () => {
+    render(<GalleryView />);
+    fireEvent.click(screen.getByRole("button", { name: "Matching photo" }));
+    const viewer = screen.getByRole("dialog");
+    expect(
+      within(viewer).getByRole("heading", { name: "Matching photo" }),
+    ).toBeVisible();
+    expect(within(viewer).getByText("Photo description")).toBeVisible();
+    expect(within(viewer).getByLabelText("Unknown person")).toHaveClass(
+      "opacity-0",
+    );
+    expect(
+      screen.queryByPlaceholderText("Enter title"),
+    ).not.toBeInTheDocument();
+    fireEvent.click(within(viewer).getByRole("button", { name: "Next image" }));
+    expect(
+      within(viewer).getByRole("heading", { name: "Other photo" }),
+    ).toBeVisible();
+  });
+
+  it("opens editing directly from the pencil with all face outlines visible", () => {
+    render(<GalleryView />);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Edit Matching photo" }),
+    );
+    const editor = screen.getByRole("dialog");
+    expect(within(editor).getByRole("button", { name: "Save" })).toBeVisible();
+    expect(within(editor).getByLabelText("Unknown person")).not.toHaveClass(
+      "opacity-0",
+    );
+    expect(
+      screen.queryByRole("button", { name: "Next image" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps navigation within the gallery filter", () => {
+    render(<GalleryView />);
+    fireEvent.change(screen.getByPlaceholderText("Search photos…"), {
+      target: { value: "matching" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Matching photo" }));
+    expect(
+      screen.queryByRole("button", { name: "Next image" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("1 / 1")).toBeVisible();
+  });
+
+  it("offers viewing without an edit pencil to read-only users", () => {
+    useWorkspaceStore.setState({
+      selectedTree: { id: "tree-1", name: "Workspace", role: "viewer" },
+    });
+    render(<GalleryView />);
+    expect(
+      screen.queryByRole("button", { name: /^Edit / }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Matching photo" }));
+    expect(screen.getByRole("dialog")).toBeVisible();
+  });
+});
+
 describe("GalleryView loading", () => {
   const images = Array.from({ length: 145 }, (_, index) => ({
     ...galleryImages[0],
@@ -62,7 +154,10 @@ describe("GalleryView loading", () => {
   }));
 
   beforeEach(() => {
-    useWorkspaceStore.setState({ isReady: true });
+    useWorkspaceStore.setState({
+      isReady: true,
+      selectedTree: { id: "tree-1", name: "Workspace", role: "owner" },
+    });
     useGalleryStore.setState({ galleryImages: images, initialized: true });
   });
 
@@ -173,7 +268,10 @@ describe("GalleryView sort by date taken", () => {
   ];
 
   beforeEach(() => {
-    useWorkspaceStore.setState({ isReady: true });
+    useWorkspaceStore.setState({
+      isReady: true,
+      selectedTree: { id: "tree-1", name: "Workspace", role: "owner" },
+    });
     useGalleryStore.setState({
       galleryImages: imagesWithMissingDate,
       initialized: true,
@@ -186,7 +284,9 @@ describe("GalleryView sort by date taken", () => {
     fireEvent.click(screen.getByRole("combobox"));
     fireEvent.click(screen.getByRole("option", { name: "Date Taken" }));
 
-    const cards = screen.getAllByRole("button", { name: /photo$/ });
+    const cards = screen.getAllByRole("button", {
+      name: /^(Dated|Undated) photo$/,
+    });
     // Default sort direction is descending (newest first); comparePartialDates
     // treats a missing date as "earliest", so the undated photo sorts last
     // instead of producing a NaN-driven, undefined order.
