@@ -2156,6 +2156,8 @@
     "default-language": "Default language",
     "self-registration": "Allow self-registration",
     "self-registration-hint": "Let anyone create their own account.",
+    "workspace-audit-files": "Write workspace audit files",
+    "workspace-audit-files-hint": "Save new workspace activity to files. All written history is kept; switching this off stops new writes and leaves existing files intact.",
     "deletion-grace-period": "Deletion grace period (days)",
     "deletion-grace-period-hint": "How long a scheduled account stays recoverable before it and all of its data are permanently deleted.",
     "upload-limits": "Upload limits",

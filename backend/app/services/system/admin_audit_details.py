@@ -159,6 +159,7 @@ class SettingsChanges(TypedDict, total=False):
     """
 
     allow_self_registration: SettingsChange
+    workspace_audit_files_enabled: SettingsChange
     instance_name: SettingsChange
     default_language: SettingsChange
     deletion_grace_period_days: SettingsChange

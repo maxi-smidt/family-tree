@@ -752,6 +752,30 @@ export const AdminView = () => {
                       }
                     />
                   </div>
+                  <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
+                    <div>
+                      <FieldLabel htmlFor="workspace-audit-files">
+                        {t("workspace-audit-files")}
+                      </FieldLabel>
+                      <p
+                        id="workspace-audit-files-hint"
+                        className="text-xs text-muted-foreground"
+                      >
+                        {t("workspace-audit-files-hint")}
+                      </p>
+                    </div>
+                    <Switch
+                      id="workspace-audit-files"
+                      aria-describedby="workspace-audit-files-hint"
+                      checked={settings.workspace_audit_files_enabled}
+                      onCheckedChange={(v) =>
+                        setSettings({
+                          ...settings,
+                          workspace_audit_files_enabled: v,
+                        })
+                      }
+                    />
+                  </div>
                   <div className="flex justify-end">
                     <Button onClick={saveSettings}>{t("save-settings")}</Button>
                   </div>

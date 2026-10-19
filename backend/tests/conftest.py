@@ -84,6 +84,12 @@ def db(session_factory) -> Session:
 
 
 @pytest.fixture(autouse=True)
+def isolate_workspace_audit_files(tmp_path, monkeypatch):
+    """Never write test activity into the developer's configured data directory."""
+    monkeypatch.setattr(settings, "WORKSPACE_LOG_PATH", tmp_path / "workspace-logs")
+
+
+@pytest.fixture(autouse=True)
 def patch_background_session(session_factory, monkeypatch):
     """Background tasks create their own SessionLocal; redirect to the test DB."""
     import app.api.routes.workspace_jobs as _tree_jobs_routes

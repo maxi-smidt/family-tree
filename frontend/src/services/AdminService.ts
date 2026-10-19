@@ -4,6 +4,7 @@ import { RelationTypeDB } from "@/types/member";
 
 export interface AdminSettings {
   allow_self_registration: boolean;
+  workspace_audit_files_enabled: boolean;
   instance_name: string;
   default_language: string;
   deletion_grace_period_days: number;
