@@ -400,7 +400,9 @@
       "resolve-unknown-face": "Diese Person identifizieren",
       "resolve-placeholder": "Die hier gezeigte Person auswählen",
       "redraw-unknown-face": "Markierung neu zeichnen",
-      "delete-unknown-face": "Markierung löschen"
+      "delete-unknown-face": "Markierung löschen",
+      "add-face-tag": "Gesichtsmarkierung für {{name}} hinzufügen",
+      "face-tags-add-hint": "Zeichne ein Rechteck um das Gesicht von {{name}} oder wähle unten eine andere Person aus."
     },
     "image-lightbox": {
       "image-alt": "Galeriebild",

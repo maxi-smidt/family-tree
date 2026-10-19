@@ -132,7 +132,7 @@ export const ImageSheet = ({
 
   const memberLinks = formData.memberLinks ?? image.memberLinks;
   const editingTag = memberLinks.find(
-    (link) => link.memberId === editingMemberId && hasFaceRegion(link),
+    (link) => link.memberId === editingMemberId,
   );
   const unlinkedMembers = useMemo(
     () =>
@@ -626,7 +626,7 @@ export const ImageSheet = ({
                         <div
                           key={link.memberId}
                           className={cn(
-                            "flex flex-wrap items-center gap-2 rounded-lg p-1.5 transition-colors",
+                            "grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 rounded-lg px-1.5 py-1.5 transition-colors",
                             (hoveredMemberId === link.memberId ||
                               editingMemberId === link.memberId) &&
                               "bg-primary-soft",
@@ -641,11 +641,12 @@ export const ImageSheet = ({
                               setHoveredMemberId(null);
                           }}
                         >
-                          <div className="min-w-0 flex-1 basis-40 space-y-1.5">
+                          <div className="min-w-0">
                             {member ? (
                               <MemberChip
                                 member={member}
                                 fullName
+                                className="pr-1 [&>span:last-child]:whitespace-nowrap"
                                 onOpen={handleOpenMember}
                                 title={
                                   hasChanges
@@ -658,25 +659,34 @@ export const ImageSheet = ({
                                 {name}
                               </span>
                             )}
-                            <span className="block pl-1 text-xs text-muted-foreground">
-                              {hasFaceRegion(link)
-                                ? t("face-tag")
-                                : t("whole-image-link")}
-                            </span>
                           </div>
+                          <span className="text-right text-xs whitespace-nowrap text-muted-foreground">
+                            {hasFaceRegion(link)
+                              ? t("face-tag")
+                              : t("whole-image-link")}
+                          </span>
                           {canWrite && (
                             <div className="ml-auto flex shrink-0 items-center gap-1">
-                              {hasFaceRegion(link) && (
-                                <Button
-                                  type="button"
-                                  size="icon-xs"
-                                  variant="ghost"
-                                  aria-label={t("edit-face-tag", { name })}
-                                  onClick={() => handleEditTag(link.memberId)}
-                                >
-                                  <Pencil />
-                                </Button>
-                              )}
+                              <Button
+                                type="button"
+                                size="icon-xs"
+                                variant="ghost"
+                                aria-label={t(
+                                  hasFaceRegion(link)
+                                    ? "edit-face-tag"
+                                    : "add-face-tag",
+                                  { name },
+                                )}
+                                title={t(
+                                  hasFaceRegion(link)
+                                    ? "edit-face-tag"
+                                    : "add-face-tag",
+                                  { name },
+                                )}
+                                onClick={() => handleEditTag(link.memberId)}
+                              >
+                                <Pencil />
+                              </Button>
                               <Button
                                 type="button"
                                 size="icon-xs"
@@ -693,59 +703,42 @@ export const ImageSheet = ({
                       {unknownFaces.map((face) => (
                         <div
                           key={face.id}
-                          className={
-                            hoveredFaceId === face.id
-                              ? "flex flex-wrap items-center gap-2 rounded-lg bg-amber-500/10 p-1.5"
-                              : "flex flex-wrap items-center gap-2 rounded-lg p-1.5"
-                          }
+                          className={cn(
+                            "grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 rounded-lg px-1.5 py-1.5",
+                            hoveredFaceId === face.id && "bg-amber-500/10",
+                          )}
                           onMouseEnter={() => setHoveredFaceId(face.id)}
                           onMouseLeave={() => setHoveredFaceId(null)}
                         >
-                          <div className="min-w-0 flex-1 basis-40 space-y-1.5">
-                            <span className="inline-flex h-8 max-w-full items-center gap-1.5 rounded-full border bg-card py-0 pr-3 pl-1 text-[13px]">
-                              <span className="grid size-6 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground">
-                                <UserRoundSearch className="size-3.5" />
-                              </span>
-                              <span className="truncate font-medium">
-                                {t("unknown-person")}
-                              </span>
+                          <span className="inline-flex h-8 min-w-0 max-w-full items-center gap-1.5 justify-self-start rounded-full border bg-card px-1 py-0 text-[13px]">
+                            <span className="grid size-6 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground">
+                              <UserRoundSearch className="size-3.5" />
                             </span>
-                            <span className="block pl-1 text-xs text-muted-foreground">
-                              {t("face-tag")}
+                            <span className="truncate font-medium">
+                              {t("unknown-person")}
                             </span>
-                          </div>
+                          </span>
+                          <span className="text-right text-xs whitespace-nowrap text-muted-foreground">
+                            {t("face-tag")}
+                          </span>
                           {canWrite && (
-                            <>
-                              {resolvingFaceId === face.id ? (
-                                <>
-                                  <div className="w-36">
-                                    <MemberPicker
-                                      members={faceCandidates}
-                                      value={null}
-                                      onChange={(memberId) =>
-                                        handleResolveFace(face.id, memberId)
-                                      }
-                                      autoOpen
-                                      placeholder={t("resolve-placeholder")}
-                                      noResultsText={t("members-no-results")}
-                                      size="sm"
-                                    />
-                                  </div>
-                                </>
-                              ) : (
-                                <Button
-                                  type="button"
-                                  size="icon-xs"
-                                  variant="ghost"
-                                  aria-label={t("resolve-unknown-face")}
-                                  disabled={faceOperationPending || isSaving}
-                                  onClick={() => {
-                                    setResolvingFaceId(face.id);
-                                  }}
-                                >
-                                  <UserRoundSearch />
-                                </Button>
-                              )}
+                            <div className="flex shrink-0 items-center gap-1">
+                              <Button
+                                type="button"
+                                size="icon-xs"
+                                variant="ghost"
+                                aria-label={t("resolve-unknown-face")}
+                                disabled={faceOperationPending || isSaving}
+                                onClick={() =>
+                                  setResolvingFaceId(
+                                    resolvingFaceId === face.id
+                                      ? null
+                                      : face.id,
+                                  )
+                                }
+                              >
+                                <UserRoundSearch />
+                              </Button>
                               <Button
                                 type="button"
                                 size="icon-xs"
@@ -764,7 +757,22 @@ export const ImageSheet = ({
                               >
                                 <Trash2 />
                               </Button>
-                            </>
+                            </div>
+                          )}
+                          {canWrite && resolvingFaceId === face.id && (
+                            <div className="col-span-full min-w-0">
+                              <MemberPicker
+                                members={faceCandidates}
+                                value={null}
+                                onChange={(memberId) =>
+                                  handleResolveFace(face.id, memberId)
+                                }
+                                autoOpen
+                                placeholder={t("resolve-placeholder")}
+                                noResultsText={t("members-no-results")}
+                                size="sm"
+                              />
+                            </div>
                           )}
                         </div>
                       ))}
@@ -793,9 +801,14 @@ export const ImageSheet = ({
                     {editingFaceId
                       ? t("unknown-face-replace-hint")
                       : editingTag
-                        ? t("face-tags-replace-hint", {
-                            name: memberName(editingTag.memberId),
-                          })
+                        ? t(
+                            hasFaceRegion(editingTag)
+                              ? "face-tags-replace-hint"
+                              : "face-tags-add-hint",
+                            {
+                              name: memberName(editingTag.memberId),
+                            },
+                          )
                         : draftRegion
                           ? t("face-tags-assign-hint")
                           : t("face-tags-draw-hint")}

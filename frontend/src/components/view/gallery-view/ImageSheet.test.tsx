@@ -114,6 +114,91 @@ describe("ImageSheet", () => {
     ).toContainElement(chip);
   });
 
+  it.each([
+    {
+      label: "a whole-image link",
+      action: "Add face tag for Ada Lovelace",
+      region: { x: null, y: null, w: null, h: null },
+    },
+    {
+      label: "an existing face tag",
+      action: "Edit face tag for Ada Lovelace",
+      region: { x: 0.2, y: 0.2, w: 0.2, h: 0.2 },
+    },
+  ])(
+    "lets the row pencil draw a face region for $label without reselecting the person",
+    async ({ action, region }) => {
+      render(
+        <ImageSheet
+          isOpen
+          onClose={vi.fn()}
+          image={{
+            ...IMAGE,
+            memberLinks: [{ memberId: MEMBER.id, ...region }],
+          }}
+        />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: action }));
+      const overlay = document.querySelector(".cursor-crosshair") as Element;
+      fireEvent.pointerDown(overlay, { clientX: 10, clientY: 20, button: 0 });
+      fireEvent.pointerMove(overlay, { clientX: 50, clientY: 60 });
+      fireEvent.pointerUp(overlay, { clientX: 50, clientY: 60 });
+      expect(
+        screen.getByLabelText("Face tag for Ada Lovelace"),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole("option")).not.toBeInTheDocument();
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      });
+      expect(
+        useGalleryStore.getState().updateGalleryImage,
+      ).toHaveBeenCalledWith(
+        IMAGE.id,
+        expect.objectContaining({
+          memberLinks: [
+            {
+              memberId: MEMBER.id,
+              x: 0.1,
+              y: 0.2,
+              w: expect.closeTo(0.4),
+              h: expect.closeTo(0.4),
+            },
+          ],
+        }),
+      );
+    },
+  );
+
+  it("lets the row pencil reassign a whole-image link to another person", async () => {
+    render(<ImageSheet isOpen onClose={vi.fn()} image={IMAGE} />);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Add face tag for Ada Lovelace" }),
+    );
+    fireEvent.click(screen.getByRole("combobox"));
+    await act(async () => {
+      fireEvent.click(
+        await screen.findByRole("option", { name: /Alan Turing/ }),
+      );
+    });
+    expect(
+      screen.getByRole("button", { name: "Open Alan Turing" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Open Ada Lovelace" }),
+    ).not.toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    });
+    expect(useGalleryStore.getState().updateGalleryImage).toHaveBeenCalledWith(
+      IMAGE.id,
+      expect.objectContaining({
+        memberLinks: [
+          { memberId: UNLINKED_MEMBER.id, x: null, y: null, w: null, h: null },
+        ],
+      }),
+    );
+  });
+
   it("clears the photo date with the partial date picker and saves it as null", async () => {
     render(<ImageSheet isOpen onClose={vi.fn()} image={IMAGE} />);
 
