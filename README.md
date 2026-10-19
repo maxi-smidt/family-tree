@@ -1,5 +1,4 @@
-# Family Tree Application
-
+# Family Tree
 > A self-hostable web application for building and exploring your family history through an interactive visual interface.
 
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
@@ -20,17 +19,6 @@ runs as a self-hosted web application.
 - Multi-language support (English, German)
 - Optional AI integration for document transcription
 
-loyment**: Docker Compose (frontend served by nginx, which proxies `/api`)
-
-### Project structure
-
-```
-frontend/   React single-page app (its own Dockerfile + nginx config)
-backend/    FastAPI service (uv + Alembic; its own Dockerfile)
-docker-compose.yml, .env.example   the deployment stack
-package.json (root)   repo-level tooling only (prettier + git hooks)
-```
-
 ### Local Development / Building from source
 
 ```bash
@@ -40,6 +28,14 @@ cd family-tree
 cp .env.example .env
 # Edit .env: set a strong SECRET_KEY, a FIRST_ADMIN_PASSWORD and the POSTGRES_*
 # connection values for your database.
+
+cd frontend
+npm install && npm run dev
+
+cd backend
+uv sync && uv run fastapi dev
+
+# or
 
 docker compose up -d --build
 ```
