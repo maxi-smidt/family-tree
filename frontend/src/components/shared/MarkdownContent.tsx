@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
 
-// The react-markdown/remark/rehype pipeline is heavy (~40 kB gzip) and only
+// The react-markdown/remark/rehype pipeline (including KaTeX) is heavy and only
 // needed when Markdown is actually shown, so it loads on demand. Keeping it out
 // of the eager bundle spares login, the public tree and other lightweight
 // routes from downloading it. React.lazy caches the module, so the renderer is
@@ -41,6 +41,7 @@ export function MarkdownContent({ content, className }: Props) {
         "[&_code]:bg-muted [&_code]:rounded [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-xs [&_code]:font-mono",
         "[&_pre]:bg-muted [&_pre]:rounded [&_pre]:p-2 [&_pre]:my-1 [&_pre]:overflow-x-auto",
         "[&_hr]:border-muted-foreground/20 [&_hr]:my-2",
+        "[&_.katex-display]:overflow-x-auto [&_.katex-display]:overflow-y-hidden",
         className ?? "",
       ]
         .join(" ")
