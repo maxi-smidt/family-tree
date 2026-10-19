@@ -889,6 +889,10 @@ export class WorkspaceService {
     return api.get<ActivityPageDB>(`${base(workspaceId)}/activity`, params);
   }
 
+  static clearActivity(workspaceId: string) {
+    return api.del(`${base(workspaceId)}/activity`);
+  }
+
   static undoActivity(workspaceId: string, entryId: string) {
     return api.post<ActivityUndoDB>(
       `${base(workspaceId)}/activity/${entryId}/undo`,

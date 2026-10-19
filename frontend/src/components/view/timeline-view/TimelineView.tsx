@@ -617,7 +617,7 @@ export const TimelineView = () => {
                 aria-label={group.label}
                 className="mb-6 scroll-mt-2"
               >
-                <h2 className="mb-2 flex items-baseline gap-2 pl-[calc(6.5rem+1.75rem)] max-sm:pl-0">
+                <h2 className="mb-2 flex items-baseline gap-2 pl-[calc(6.5rem+2rem)] max-sm:pl-0">
                   <span className="text-xl font-bold tracking-tight">
                     {group.label}
                   </span>
@@ -625,15 +625,11 @@ export const TimelineView = () => {
                     {t("entries", { count: group.items.length })}
                   </span>
                 </h2>
-                <ol className="relative">
-                  <span
-                    aria-hidden="true"
-                    className="absolute top-2 bottom-2 left-[calc(6.5rem+0.75rem)] w-px bg-border max-sm:hidden"
-                  />
+                <ol>
                   {group.items.map((item) => (
                     <li
                       key={item.data.id}
-                      className="relative grid grid-cols-[6.5rem_1.5rem_minmax(0,1fr)] items-start gap-x-1 py-1.5 max-sm:grid-cols-1"
+                      className="group/timeline grid grid-cols-[6.5rem_1.5rem_minmax(0,1fr)] items-start gap-x-1 py-1.5 max-sm:grid-cols-1"
                     >
                       <span className="pt-1 text-right text-[12.5px] text-muted-foreground tabular-nums max-sm:text-left">
                         {item.data.date
@@ -644,11 +640,16 @@ export const TimelineView = () => {
                       </span>
                       <span
                         aria-hidden="true"
-                        className="flex justify-center pt-2 max-sm:hidden"
+                        className="relative flex self-stretch justify-center pt-2 max-sm:hidden"
                       >
                         <span
+                          data-slot="timeline-connector"
+                          className="absolute -inset-y-1.5 left-1/2 w-px -translate-x-1/2 bg-border group-first/timeline:top-[0.8125rem] group-last/timeline:bottom-[calc(100%-0.8125rem)]"
+                        />
+                        <span
+                          data-slot="timeline-dot"
                           className={cn(
-                            "relative size-2.5 rounded-full ring-4 ring-background",
+                            "relative size-2.5 shrink-0 rounded-full ring-4 ring-background",
                             DOT[itemType(item)],
                           )}
                         />

@@ -32,6 +32,7 @@ interface ActivityState {
   clearFilters: (workspaceId?: string) => Promise<void>;
   retry: (workspaceId?: string) => Promise<void>;
   undo: (entryId: string, workspaceId?: string) => Promise<ActivityUndoDB>;
+  clearActivities: (workspaceId?: string) => Promise<void>;
   clear: () => void;
 }
 
@@ -133,6 +134,26 @@ export const useActivityStore = create<ActivityState>((set, get) => {
       // explicit reload here.
       await get().refreshActivity(workspaceId);
       return report;
+    },
+
+    clearActivities: async (workspaceId = activeTreeId()) => {
+      if (!workspaceId) throw new Error("No active workspace");
+      await WorkspaceService.clearActivity(workspaceId);
+      if (!isActiveTree(workspaceId)) return;
+      requestId++;
+      set({
+        activities: [],
+        actors: [],
+        total: 0,
+        page: 0,
+        filterActor: "",
+        filterAction: "",
+        filterTargetType: "",
+        initialized: true,
+        loading: false,
+        error: null,
+      });
+      await get().load(workspaceId, 0);
     },
 
     // Invalidate any in-flight request so its late response can't repopulate a

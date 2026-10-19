@@ -13,7 +13,9 @@ Every event type published anywhere in the backend has a variant below, so
 from typing import Literal, NotRequired, TypedDict
 
 
-class ActivityEntryAddedData(TypedDict):
+class ActivityChangedData(TypedDict):
+    """Payload for activity.entry_added and activity.cleared."""
+
     workspace_id: str
 
 
@@ -134,7 +136,7 @@ class DocumentTranscriptionFinishedData(TypedDict):
 
 
 EventPayload = (
-    ActivityEntryAddedData
+    ActivityChangedData
     | WorkspaceContentChangedData
     | WorkspaceAccessChangedData
     | WorkspaceDeletedData

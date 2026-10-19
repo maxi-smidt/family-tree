@@ -175,7 +175,9 @@ describe("realtime", () => {
     startRealtime();
     await waitForEventSource();
 
-    FakeEventSource.instance!.dispatch("workspace.deleted", { workspace_id: "t1" });
+    FakeEventSource.instance!.dispatch("workspace.deleted", {
+      workspace_id: "t1",
+    });
 
     expect(loadTrees).toHaveBeenCalled();
     stopRealtime();
@@ -343,5 +345,33 @@ describe("realtime", () => {
 
     expect(onFailed).toHaveBeenCalledWith("job-1", "quota exceeded");
     stopRealtime();
+  });
+});
+
+describe("activity history events", () => {
+  it("returns other sessions to the first page after a clear, ignoring other workspaces", async () => {
+    const { useActivityStore } = await import("@/hooks/useActivityStore");
+    const { isActiveTree } = await import("@/hooks/useWorkspaceStore");
+    const setPage = vi
+      .spyOn(useActivityStore.getState(), "setPage")
+      .mockResolvedValue(undefined);
+    vi.stubGlobal("EventSource", FakeEventSource);
+    FakeEventSource.instance = null;
+    const { startRealtime, stopRealtime } = await import("./realtime");
+    try {
+      startRealtime();
+      const source = await waitForEventSource();
+      vi.mocked(isActiveTree)
+        .mockReturnValueOnce(false)
+        .mockReturnValueOnce(true);
+      source.dispatch("activity.cleared", { workspace_id: "other" });
+      expect(setPage).not.toHaveBeenCalled();
+      source.dispatch("activity.cleared", { workspace_id: "active" });
+      expect(setPage).toHaveBeenCalledExactlyOnceWith(0, "active");
+    } finally {
+      stopRealtime();
+      setPage.mockRestore();
+      vi.unstubAllGlobals();
+    }
   });
 });

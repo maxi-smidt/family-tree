@@ -287,3 +287,68 @@ test("the empty-workspace prompt sits in the middle of the canvas", async ({
   expect(Math.abs(p.x + p.width / 2 - (c.x + c.width / 2))).toBeLessThan(2);
   expect(Math.abs(p.y + p.height / 2 - (c.y + c.height / 2))).toBeLessThan(2);
 });
+
+test("timeline connectors meet dot centers across variable-height rows", async ({
+  adminPage: page,
+  adminApi,
+  seedTree,
+}) => {
+  const tree = await seedTree("Timeline alignment");
+  for (const [index, date] of [
+    "2024-06-01",
+    "2024-05-01",
+    "2024-04-01",
+    "1999-01-01",
+  ].entries()) {
+    await adminApi.post(`/workspaces/${tree.id}/events`, {
+      id: crypto.randomUUID(),
+      event_type: "marriage",
+      date,
+      description: "A timeline entry with details. ".repeat(index * 10 + 1),
+      created_at: "2026-01-01T00:00:00Z",
+    });
+  }
+  await page.reload();
+  await selectTree(page, tree.name);
+  await openView(page, "Timeline");
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const panel = page.getByRole("tabpanel");
+  await expect(panel.getByRole("listitem")).toHaveCount(4);
+  for (const expanded of [false, true]) {
+    if (expanded)
+      await panel.getByRole("button", { name: "Show details" }).click();
+    for (const list of await panel.locator("ol").all()) {
+      const dots = await list.locator('[data-slot="timeline-dot"]').all();
+      const lines = await list
+        .locator('[data-slot="timeline-connector"]')
+        .all();
+      const boxes = await Promise.all(
+        dots.map(async (dot, i) => ({
+          dot: (await dot.boundingBox())!,
+          line: (await lines[i].boundingBox())!,
+        })),
+      );
+      for (const { dot, line } of boxes) {
+        expect(line.x + line.width / 2).toBeCloseTo(dot.x + dot.width / 2, 1);
+      }
+      const first = boxes[0];
+      const last = boxes[boxes.length - 1];
+      expect(first.line.y).toBeCloseTo(first.dot.y + first.dot.height / 2, 1);
+      expect(last.line.y + last.line.height).toBeCloseTo(
+        last.dot.y + last.dot.height / 2,
+        1,
+      );
+      boxes.slice(1).forEach(({ line }, index) => {
+        const previous = boxes[index].line;
+        expect(previous.y + previous.height).toBeCloseTo(line.y, 1);
+      });
+    }
+  }
+  await page.setViewportSize({ width: 375, height: 812 });
+  for (const dot of await panel.locator('[data-slot="timeline-dot"]').all()) {
+    await expect(dot).toBeHidden();
+  }
+  expect(
+    await panel.evaluate((el) => el.scrollWidth - el.clientWidth),
+  ).toBeLessThanOrEqual(1);
+});

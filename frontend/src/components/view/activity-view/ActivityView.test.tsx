@@ -131,3 +131,98 @@ describe("ActivityView undo", () => {
     await vi.waitFor(() => expect(toast.error).toHaveBeenCalled());
   });
 });
+
+describe("ActivityView clear history", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useWorkspaceStore.setState({
+      selectedTree: { id: "tree-1", role: "owner" } as never,
+    });
+    setActivityState({ clearActivities: vi.fn().mockResolvedValue(undefined) });
+  });
+
+  it.each(["editor", "viewer"])("hides clear activity for %s", (role) => {
+    useWorkspaceStore.setState({
+      selectedTree: { id: "tree-1", role } as never,
+    });
+    renderWithProviders(<ActivityView />);
+    expect(
+      screen.queryByRole("button", { name: "Clear activity" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("requires confirmation and allows canceling", () => {
+    renderWithProviders(<ActivityView />);
+    fireEvent.click(screen.getByRole("button", { name: "Clear activity" }));
+    const dialog = screen.getByRole("alertdialog");
+    expect(dialog).toHaveTextContent("including entries hidden by filters");
+    expect(useActivityStore.getState().clearActivities).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(useActivityStore.getState().clearActivities).not.toHaveBeenCalled();
+  });
+
+  it("prevents duplicate submissions while clearing and reports success", async () => {
+    let resolve!: () => void;
+    const clearActivities = vi.fn(
+      () =>
+        new Promise<void>((res) => {
+          resolve = res;
+        }),
+    );
+    setActivityState({ clearActivities });
+    renderWithProviders(<ActivityView />);
+    fireEvent.click(screen.getByRole("button", { name: "Clear activity" }));
+    const dialog = screen.getByRole("alertdialog");
+    const confirm = within(dialog).getByRole("button", {
+      name: "Clear activity",
+    });
+    fireEvent.click(confirm);
+    expect(confirm).toBeDisabled();
+    expect(dialog).toBeInTheDocument();
+    resolve();
+    await vi.waitFor(() =>
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument(),
+    );
+    expect(clearActivities).toHaveBeenCalledTimes(1);
+    expect(toast.success).toHaveBeenCalledWith("Activity cleared.");
+  });
+
+  it("keeps confirmation open after failure so owners can retry", async () => {
+    setActivityState({
+      clearActivities: vi.fn().mockRejectedValue(new Error("offline")),
+    });
+    renderWithProviders(<ActivityView />);
+    fireEvent.click(screen.getByRole("button", { name: "Clear activity" }));
+    fireEvent.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", {
+        name: "Clear activity",
+      }),
+    );
+    await vi.waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith("Could not clear activity."),
+    );
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+  });
+
+  it("renders AI submissions and lets people filter them", () => {
+    const setFilter = vi.fn();
+    setActivityState({
+      setFilter,
+      activities: [
+        {
+          ...DELETE_ENTRY,
+          action: "send_to_ai",
+          targetType: "document_file",
+          targetLabel: "letter.jpg",
+          details: null,
+        },
+      ],
+    });
+    renderWithProviders(<ActivityView />);
+    expect(screen.getByText(/sent to AI: document file/)).toBeInTheDocument();
+    expect(screen.getByText("letter.jpg")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: "Sent to AI" }));
+    expect(setFilter).toHaveBeenCalledWith("filterAction", "send_to_ai");
+  });
+});

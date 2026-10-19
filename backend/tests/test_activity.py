@@ -2,9 +2,12 @@
 
 import base64
 import json
+from unittest.mock import patch
 
+import pytest
 from sqlalchemy import select
 
+from app.models import Member
 from app.models.activity import ActivityLog
 from app.models.content import (
     Document,
@@ -986,3 +989,62 @@ def test_delete_document_link_file_has_no_trashed_media(client, db):
     snapshot = _delete_details(db, tree.id)["snapshot"]
     assert snapshot["document_file"]["kind"] == "link"
     assert snapshot["trashed_media"] == []
+
+
+# Clearing history is workspace-scoped and reserved for owners/admins.
+def test_owner_clears_all_activity_and_undo_snapshots(client, db, tree, headers):
+    other = make_tree(db, make_user(db, "other-owner"))
+    add_member(db, tree, "kept-member")
+    for workspace in (tree, other):
+        db.add(
+            ActivityLog(
+                workspace_id=workspace.id,
+                action="delete",
+                target_type="document",
+                details=json.dumps({"snapshot": {"version": 1}}),
+            )
+        )
+    db.commit()
+    with patch("app.api.routes.activity.publish_workspace_event") as publish:
+        response = client.delete(f"{API}/workspaces/{tree.id}/activity", headers=headers)
+    assert response.status_code == 204
+    assert response.content == b""
+    assert _activity_rows(db, tree.id) == []
+    assert len(_activity_rows(db, other.id)) == 1
+    assert db.get(Member, "kept-member") is not None
+    assert publish.call_count == 1
+    assert publish.call_args.args[2:] == ("activity.cleared", {"workspace_id": tree.id})
+    assert client.get(f"{API}/workspaces/{tree.id}/activity", headers=headers).json() == {
+        "entries": [],
+        "total": 0,
+        "actors": [],
+    }
+    # Empty history can be cleared again.
+    assert (
+        client.delete(f"{API}/workspaces/{tree.id}/activity", headers=headers).status_code
+        == 204
+    )
+
+
+@pytest.mark.parametrize("role", ["editor", "viewer", "outsider", "anonymous"])
+def test_nonowners_cannot_clear_activity(client, db, tree, role):
+    user = make_user(db, "nonowner")
+    if role in ("editor", "viewer"):
+        share(db, tree, user, role=role)
+    db.add(ActivityLog(workspace_id=tree.id, action="create", target_type="member"))
+    db.commit()
+    response = client.delete(
+        f"{API}/workspaces/{tree.id}/activity",
+        headers={} if role == "anonymous" else auth(user),
+    )
+    assert response.status_code == (401 if role == "anonymous" else 403)
+    assert len(_activity_rows(db, tree.id)) == 1
+
+
+def test_admin_can_clear_activity(client, db, tree):
+    admin = make_user(db, "admin", is_admin=True)
+    db.add(ActivityLog(workspace_id=tree.id, action="create", target_type="member"))
+    db.commit()
+    response = client.delete(f"{API}/workspaces/{tree.id}/activity", headers=auth(admin))
+    assert response.status_code == 204
+    assert _activity_rows(db, tree.id) == []
