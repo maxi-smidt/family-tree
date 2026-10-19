@@ -1,6 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useMemberStore } from "@/hooks/useMemberStore";
+import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import type { GalleryImage } from "@/types/gallery";
 import type { Member } from "@/types/member";
 import { ImageLightbox } from "./ImageLightbox";
@@ -43,6 +45,22 @@ const IMAGE: GalleryImage = {
 describe("ImageLightbox", () => {
   beforeEach(() => {
     useMemberStore.setState({ members: [MEMBER] });
+    useMemberSheetStore.setState({ openSheets: {} });
+    useWorkspaceStore.setState({
+      selectedTree: { id: "tree-1", name: "Workspace", role: "viewer" },
+    });
+  });
+
+  it("opens the profile of a linked person", () => {
+    const onClose = vi.fn();
+    render(<ImageLightbox images={[IMAGE]} startIndex={0} onClose={onClose} />);
+    fireEvent.click(screen.getByRole("button", { name: "Ada Lovelace" }));
+    expect(onClose).toHaveBeenCalled();
+    expect(useMemberSheetStore.getState().openSheets["tree-1"]).toEqual({
+      memberId: MEMBER.id,
+      tab: "identity",
+      mode: "view",
+    });
   });
 
   it("shows the linked people and their face regions", () => {

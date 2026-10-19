@@ -60,6 +60,8 @@ export const ImageCard = ({ image, onClick }: Props) => {
         <AuthenticatedImage
           src={image.imageData}
           alt=""
+          loading="lazy"
+          decoding="async"
           className="pointer-events-none size-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
           fallback={
             <span className="grid size-full place-items-center text-muted-foreground">

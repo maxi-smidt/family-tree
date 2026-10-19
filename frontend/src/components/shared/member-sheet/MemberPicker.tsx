@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, ChevronDown, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -36,6 +36,8 @@ type Props = {
   className?: string;
   /** Leading icon in the trigger, e.g. a person icon for a filter. */
   icon?: React.ReactNode;
+  /** Open and focus search as soon as this picker mounts (e.g. after drawing a face). */
+  autoOpen?: boolean;
 };
 
 export const MemberPicker = ({
@@ -47,11 +49,23 @@ export const MemberPicker = ({
   size = "sm",
   className,
   icon,
+  autoOpen = false,
 }: Props) => {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [portalContainer, setPortalContainer] = useState<HTMLElement>();
   const triggerContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (autoOpen) {
+      setPortalContainer(
+        triggerContainerRef.current?.closest<HTMLElement>(
+          '[data-slot="sheet-content"], [data-slot="dialog-content"]',
+        ) ?? undefined,
+      );
+      setOpen(true);
+    }
+  }, [autoOpen]);
 
   const selected = members.find((m) => m.id === value) ?? null;
   const label = selected ? `${selected.firstName} ${selected.lastName}` : null;

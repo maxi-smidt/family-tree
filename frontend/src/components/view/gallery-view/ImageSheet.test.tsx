@@ -1,9 +1,10 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import i18n from "@/i18n/i18n";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
+import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import type { GalleryImage } from "@/types/gallery";
 import type { Member } from "@/types/member";
 import { ImageSheet } from "./ImageSheet";
@@ -89,6 +90,7 @@ describe("ImageSheet", () => {
       toJSON: () => {},
     }));
     useMemberStore.setState({ members: [MEMBER, UNLINKED_MEMBER] });
+    useMemberSheetStore.setState({ openSheets: {} });
     useWorkspaceStore.setState({
       selectedTree: { id: "tree-1", name: "Workspace", role: "owner" },
     });
@@ -193,11 +195,11 @@ describe("ImageSheet", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Identify this person" }),
     );
-    fireEvent.click(screen.getAllByRole("combobox")[0]);
-    fireEvent.click(await screen.findByRole("option", { name: /Alan Turing/ }));
-    fireEvent.click(
-      screen.getByRole("button", { name: "Confirm identification" }),
-    );
+    await act(async () => {
+      fireEvent.click(
+        await screen.findByRole("option", { name: /Alan Turing/ }),
+      );
+    });
 
     const { resolveUnknownFace } = useGalleryStore.getState();
     await vi.waitFor(() => {
@@ -206,6 +208,194 @@ describe("ImageSheet", () => {
         UNLINKED_MEMBER.id,
       );
     });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await vi.waitFor(() => {
+      expect(
+        useGalleryStore.getState().updateGalleryImage,
+      ).toHaveBeenCalledWith(
+        IMAGE.id,
+        expect.objectContaining({
+          memberLinks: expect.arrayContaining([
+            expect.objectContaining({
+              memberId: UNLINKED_MEMBER.id,
+              x: 0.4,
+              y: 0.4,
+              w: 0.2,
+              h: 0.2,
+            }),
+          ]),
+        }),
+      );
+    });
+  });
+
+  it("opens linked profiles for readers as well as editors", () => {
+    useWorkspaceStore.setState({
+      selectedTree: { id: "tree-1", name: "Workspace", role: "viewer" },
+    });
+    const onClose = vi.fn();
+    render(<ImageSheet isOpen onClose={onClose} image={IMAGE} />);
+    fireEvent.click(screen.getByRole("button", { name: "Ada Lovelace" }));
+    expect(onClose).toHaveBeenCalled();
+    expect(useMemberSheetStore.getState().openSheets["tree-1"]).toEqual({
+      memberId: MEMBER.id,
+      tab: "identity",
+      mode: "view",
+    });
+    expect(
+      useGalleryStore.getState().updateGalleryImage,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("can identify an unknown face as someone already linked to the whole photo", async () => {
+    render(
+      <ImageSheet isOpen onClose={vi.fn()} image={IMAGE_WITH_UNKNOWN_FACE} />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Identify this person" }),
+    );
+    await act(async () => {
+      fireEvent.click(
+        await screen.findByRole("option", { name: /Ada Lovelace/ }),
+      );
+    });
+    expect(useGalleryStore.getState().resolveUnknownFace).toHaveBeenCalledWith(
+      "face-1",
+      MEMBER.id,
+    );
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    });
+    expect(useGalleryStore.getState().updateGalleryImage).toHaveBeenCalledWith(
+      IMAGE.id,
+      expect.objectContaining({
+        memberLinks: [{ memberId: MEMBER.id, x: 0.4, y: 0.4, w: 0.2, h: 0.2 }],
+      }),
+    );
+  });
+
+  it("preserves the drawn region if marking an unknown person fails", async () => {
+    useGalleryStore.setState({
+      addUnknownFace: vi.fn().mockRejectedValue(new Error("Offline")),
+    });
+    render(
+      <ImageSheet isOpen onClose={vi.fn()} image={IMAGE} initialTagMode />,
+    );
+    const overlay = document.querySelector(".cursor-crosshair") as Element;
+    fireEvent.pointerDown(overlay, { clientX: 10, clientY: 10, button: 0 });
+    fireEvent.pointerUp(overlay, { clientX: 40, clientY: 40 });
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole("button", { name: "Mark as unknown person" }),
+      );
+    });
+    expect(
+      screen.getByRole("button", { name: "Mark as unknown person" }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Cancel tag edit" }),
+    ).toBeInTheDocument();
+    expect(useGalleryStore.getState().addUnknownFace).toHaveBeenCalledWith(
+      IMAGE.id,
+      expect.objectContaining({
+        x: 0.1,
+        y: 0.1,
+        w: expect.closeTo(0.3),
+        h: expect.closeTo(0.3),
+      }),
+      expect.anything(),
+    );
+  });
+
+  it("links a person on selection and saves edits before opening their profile", async () => {
+    const onClose = vi.fn();
+    render(<ImageSheet isOpen onClose={onClose} image={IMAGE} />);
+    fireEvent.click(screen.getByRole("combobox"));
+    await act(async () => {
+      fireEvent.click(
+        await screen.findByRole("option", { name: /Alan Turing/ }),
+      );
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Alan Turing" }));
+    await vi.waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(useGalleryStore.getState().updateGalleryImage).toHaveBeenCalledWith(
+      IMAGE.id,
+      expect.objectContaining({
+        linkedMemberIds: [MEMBER.id, UNLINKED_MEMBER.id],
+      }),
+    );
+    expect(useMemberSheetStore.getState().openSheets["tree-1"].memberId).toBe(
+      UNLINKED_MEMBER.id,
+    );
+  });
+
+  it("stays on the photo if saving before opening a person fails", async () => {
+    useGalleryStore.setState({
+      updateGalleryImage: vi.fn().mockRejectedValue(new Error("Save failed")),
+    });
+    const onClose = vi.fn();
+    render(<ImageSheet isOpen onClose={onClose} image={IMAGE} />);
+    fireEvent.change(screen.getByPlaceholderText("Image Title"), {
+      target: { value: "Edited title" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Ada Lovelace" }));
+    await vi.waitFor(() =>
+      expect(useGalleryStore.getState().updateGalleryImage).toHaveBeenCalled(),
+    );
+    expect(onClose).not.toHaveBeenCalled();
+    expect(useMemberSheetStore.getState().openSheets).toEqual({});
+  });
+
+  it("opens search after drawing, assigns on selection, and stays ready for another face", async () => {
+    render(
+      <ImageSheet isOpen onClose={vi.fn()} image={IMAGE} initialTagMode />,
+    );
+    const overlay = document.querySelector(".cursor-crosshair") as Element;
+    fireEvent.pointerDown(overlay, { clientX: 10, clientY: 10, button: 0 });
+    fireEvent.pointerMove(overlay, { clientX: 40, clientY: 40 });
+    expect(screen.queryByRole("option")).not.toBeInTheDocument();
+    fireEvent.pointerUp(overlay, { clientX: 40, clientY: 40 });
+    fireEvent.click(
+      await screen.findByRole("option", { name: /Ada Lovelace/ }),
+    );
+    expect(
+      screen.getByLabelText("Face tag for Ada Lovelace"),
+    ).toBeInTheDocument();
+    expect(document.querySelector(".cursor-crosshair")).toBeInTheDocument();
+    fireEvent.pointerDown(overlay, { clientX: 60, clientY: 60, button: 0 });
+    fireEvent.pointerUp(overlay, { clientX: 90, clientY: 90 });
+    expect(
+      screen.queryByRole("option", { name: /Ada Lovelace/ }),
+    ).not.toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(
+        await screen.findByRole("option", { name: /Alan Turing/ }),
+      );
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    });
+    expect(useGalleryStore.getState().updateGalleryImage).toHaveBeenCalledWith(
+      IMAGE.id,
+      expect.objectContaining({
+        memberLinks: [
+          {
+            memberId: MEMBER.id,
+            x: 0.1,
+            y: 0.1,
+            w: expect.closeTo(0.3),
+            h: expect.closeTo(0.3),
+          },
+          {
+            memberId: UNLINKED_MEMBER.id,
+            x: 0.6,
+            y: 0.6,
+            w: expect.closeTo(0.3),
+            h: expect.closeTo(0.3),
+          },
+        ],
+      }),
+    );
   });
 
   it("deletes an unknown face", async () => {
