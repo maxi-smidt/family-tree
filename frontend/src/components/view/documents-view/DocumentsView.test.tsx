@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useDocumentStore } from "@/hooks/useDocumentStore";
 import { useEventStore } from "@/hooks/useEventStore";
@@ -137,6 +137,84 @@ describe("DocumentsView", () => {
     expect(await screen.findByText("In index.png, p. 2:")).toBeInTheDocument();
     expect(screen.getByText("Archive index")).toBeInTheDocument();
     expect(screen.queryByText("Birth certificate")).not.toBeInTheDocument();
+  });
+
+  it("filters out a document when any of its files has a transcription", async () => {
+    const transcribed: Document = {
+      ...documents[0],
+      id: "transcribed",
+      title: "Transcribed letter",
+      files: [
+        ...documents[0].files,
+        { ...documents[0].files[0], id: "text-file", hasText: true },
+      ],
+    };
+    useDocumentStore.setState({ documents: [...documents, transcribed] });
+    render(<DocumentsView />);
+
+    const filter = screen.getByRole("radio", { name: /Without transcription/ });
+    expect(filter).toHaveTextContent("2");
+    fireEvent.click(filter);
+    expect(screen.getByText("Birth certificate")).toBeInTheDocument();
+    expect(screen.getByText("Archive index")).toBeInTheDocument();
+    expect(screen.queryByText("Transcribed letter")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText("Search documents…"), {
+      target: { value: "certificate" },
+    });
+    expect(screen.getByText("Birth certificate")).toBeInTheDocument();
+    expect(screen.queryByText("Archive index")).not.toBeInTheDocument();
+
+    // Completing a transcription updates both the count and the results.
+    act(() =>
+      useDocumentStore.setState({
+        documents: [
+          {
+            ...documents[0],
+            files: [{ ...documents[0].files[0], hasText: true }],
+          },
+          documents[1],
+          transcribed,
+        ],
+      }),
+    );
+    expect(
+      screen.getByRole("radio", { name: /Without transcription/ }),
+    ).toHaveTextContent("1");
+    expect(screen.queryByText("Birth certificate")).not.toBeInTheDocument();
+    expect(
+      await screen.findByText("No documents match these filters."),
+    ).toBeInTheDocument();
+  });
+
+  it("clears the transcription filter when focusing a document from search", async () => {
+    useDocumentStore.setState({
+      documents: [
+        {
+          ...documents[0],
+          files: [{ ...documents[0].files[0], hasText: true }],
+        },
+        documents[1],
+      ],
+    });
+    render(<DocumentsView />);
+    fireEvent.click(
+      screen.getByRole("radio", { name: /Without transcription/ }),
+    );
+    expect(screen.queryByText("Birth certificate")).not.toBeInTheDocument();
+
+    act(() =>
+      useDocumentStore.getState().setFocus({
+        documentId: "linked-document",
+        fileId: null,
+        words: [],
+      }),
+    );
+    expect(await screen.findByText("Birth certificate")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /^All/ })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
   });
 
   it("opens the file text of a document picked in search", async () => {

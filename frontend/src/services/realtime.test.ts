@@ -97,7 +97,7 @@ vi.mock("@/hooks/usePresenceStore", () => {
 });
 
 vi.mock("sonner", () => ({
-  toast: { error: vi.fn(), info: vi.fn(), warning: vi.fn() },
+  toast: { error: vi.fn(), info: vi.fn(), warning: vi.fn(), success: vi.fn() },
 }));
 
 // ---------------------------------------------------------------------------
@@ -255,6 +255,37 @@ describe("realtime", () => {
     expect(markActivity).toHaveBeenCalledWith("editor-1");
     stopRealtime();
   });
+
+  it.each(["done", "failed"])(
+    "refreshes document state and notifies when a transcription is %s",
+    async (status) => {
+      const { useDocumentStore } = await import("@/hooks/useDocumentStore");
+      const refresh = vi
+        .spyOn(useDocumentStore.getState(), "refreshDocuments")
+        .mockResolvedValue(undefined);
+      const { toast } = await import("sonner");
+      const { startRealtime, stopRealtime } = await import("./realtime");
+      startRealtime();
+      const eventSource = await waitForEventSource();
+
+      eventSource.dispatch("document.transcription_finished", {
+        workspace_id: "t1",
+        document_id: "d1",
+        file_id: "f1",
+        filename: "letter.png",
+        status,
+        error: status === "failed" ? "empty_result" : null,
+      });
+
+      expect(refresh).toHaveBeenCalledWith("t1");
+      const notification = status === "done" ? toast.success : toast.error;
+      expect(notification).toHaveBeenCalledWith(
+        expect.stringContaining("letter.png"),
+      );
+      stopRealtime();
+      refresh.mockRestore();
+    },
+  );
 
   it("stopRealtime closes the EventSource", async () => {
     const { startRealtime, stopRealtime } = await import("./realtime");

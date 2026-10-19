@@ -418,6 +418,7 @@
     "search-placeholder": "Search documents…",
     "filter-all": "All",
     "filter-unlinked": "Not linked",
+    "filter-without-transcription": "Without transcription",
     "empty-title": "No documents yet",
     "empty-description": "Add a document to build this workspace's archive.",
     "no-results": "No documents match these filters.",
