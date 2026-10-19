@@ -1,0 +1,74 @@
+.image-editor-body {
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  gap: 1.5rem;
+  overflow-y: auto;
+  align-content: start;
+}
+
+.image-editor-image {
+  max-height: min(45dvh, 28rem);
+}
+
+.image-editor-people-list {
+  max-height: 24rem;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
+}
+
+@media (min-width: 900px) {
+  .image-editor-body {
+    grid-template-columns: minmax(0, 1.2fr) minmax(22rem, 1fr);
+    gap: 2rem;
+  }
+
+  .image-editor-preview {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    min-height: 20rem;
+  }
+
+  .image-editor-image {
+    max-height: calc(100dvh - 9rem);
+  }
+}
+
+/* Keep metadata and actions in place when the viewport can accommodate them.
+   The fields may still scroll as a fallback for zoom or expanded tagging tools. */
+@media (min-width: 900px) and (min-height: 640px) {
+  .image-editor-body {
+    overflow: hidden;
+    align-content: stretch;
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .image-editor-preview {
+    align-self: stretch;
+    min-height: 0;
+  }
+
+  .image-editor-form,
+  .image-editor-fields {
+    min-height: 0;
+  }
+
+  .image-editor-fields {
+    flex: 1;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+  }
+
+  .image-editor-people {
+    flex: 1 0 12rem;
+    min-height: 12rem;
+  }
+
+  .image-editor-people-list {
+    flex: 1 1 0;
+    min-height: 0;
+    max-height: none;
+  }
+}

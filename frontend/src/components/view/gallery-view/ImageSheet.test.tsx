@@ -103,6 +103,17 @@ describe("ImageSheet", () => {
     });
   });
 
+  it("shows linked people with the same avatar, name and lifespan chip used for relatives", () => {
+    render(<ImageSheet isOpen onClose={vi.fn()} image={IMAGE} />);
+    const chip = screen.getByRole("button", { name: "Open Ada Lovelace" });
+    expect(chip).toHaveTextContent("AL");
+    expect(chip).toHaveTextContent("Ada Lovelace");
+    expect(chip).toHaveTextContent("1815");
+    expect(
+      screen.getByRole("region", { name: "Linked Members 1" }),
+    ).toContainElement(chip);
+  });
+
   it("clears the photo date with the partial date picker and saves it as null", async () => {
     render(<ImageSheet isOpen onClose={vi.fn()} image={IMAGE} />);
 
@@ -235,7 +246,7 @@ describe("ImageSheet", () => {
     });
     const onClose = vi.fn();
     render(<ImageSheet isOpen onClose={onClose} image={IMAGE} />);
-    fireEvent.click(screen.getByRole("button", { name: "Ada Lovelace" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open Ada Lovelace" }));
     expect(onClose).toHaveBeenCalled();
     expect(useMemberSheetStore.getState().openSheets["tree-1"]).toEqual({
       memberId: MEMBER.id,
@@ -316,7 +327,7 @@ describe("ImageSheet", () => {
         await screen.findByRole("option", { name: /Alan Turing/ }),
       );
     });
-    fireEvent.click(screen.getByRole("button", { name: "Alan Turing" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open Alan Turing" }));
     await vi.waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(useGalleryStore.getState().updateGalleryImage).toHaveBeenCalledWith(
       IMAGE.id,
@@ -338,7 +349,7 @@ describe("ImageSheet", () => {
     fireEvent.change(screen.getByPlaceholderText("Image Title"), {
       target: { value: "Edited title" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Ada Lovelace" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open Ada Lovelace" }));
     await vi.waitFor(() =>
       expect(useGalleryStore.getState().updateGalleryImage).toHaveBeenCalled(),
     );

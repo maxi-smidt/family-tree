@@ -2035,7 +2035,18 @@
       "confirm-remove-cancel": "Abbrechen",
       "new-request": "Neue Freundschaftsanfrage von {{name}}",
       "your-friends": "Deine Freunde",
-      "no-friends-hint": "Suche oben nach einem Benutzernamen, um eine Anfrage zu senden."
+      "no-friends-hint": "Suche nach einem Benutzernamen, um eine Anfrage zu senden.",
+      "filter-placeholder": "Deine Freunde durchsuchen…",
+      "no-matching-friends": "Keine Freunde passen zu deiner Suche.",
+      "friend-actions": "Aktionen für {{name}}",
+      "cancel-request-for": "Anfrage an {{name}} zurückziehen",
+      "search-hint": "Finde jemanden über den Benutzernamen und sende eine Freundschaftsanfrage.",
+      "searching": "Suche läuft…",
+      "search-results": "Suchergebnisse",
+      "search-error": "Benutzer konnten nicht gesucht werden. Bitte versuche es erneut.",
+      "loading": "Freunde werden geladen…",
+      "load-error": "Deine Freunde konnten nicht geladen werden.",
+      "retry": "Erneut versuchen"
     },
     "delete-account": {
       "title": "Konto löschen",

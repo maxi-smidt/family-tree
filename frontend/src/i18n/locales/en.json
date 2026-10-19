@@ -2035,7 +2035,18 @@
       "confirm-remove-cancel": "Cancel",
       "new-request": "New friend request from {{name}}",
       "your-friends": "Your friends",
-      "no-friends-hint": "Search for someone’s username above to send a request."
+      "no-friends-hint": "Search for someone’s username to send a request.",
+      "filter-placeholder": "Search your friends…",
+      "no-matching-friends": "No friends match your search.",
+      "friend-actions": "Actions for {{name}}",
+      "cancel-request-for": "Cancel request to {{name}}",
+      "search-hint": "Find someone by username to send a friend request.",
+      "searching": "Searching…",
+      "search-results": "Search results",
+      "search-error": "Could not search for users. Please try again.",
+      "loading": "Loading friends…",
+      "load-error": "Could not load your friends.",
+      "retry": "Try again"
     },
     "delete-account": {
       "title": "Delete my account",

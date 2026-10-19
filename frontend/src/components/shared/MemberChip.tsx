@@ -28,6 +28,7 @@ interface MemberChipProps {
   hideLife?: boolean;
   onOpen?: (memberId: string) => void;
   className?: string;
+  title?: string;
 }
 
 /**
@@ -41,6 +42,7 @@ export function MemberChip({
   hideLife = false,
   onOpen,
   className,
+  title,
 }: MemberChipProps) {
   const { t } = useTranslation();
   const name = memberFullName(member);
@@ -62,7 +64,7 @@ export function MemberChip({
     "inline-flex h-8 max-w-full min-w-0 items-center gap-1.5 rounded-full border bg-card py-0 pr-3 pl-1 text-[13px]";
   if (!onOpen) {
     return (
-      <span title={name} className={cn(base, className)}>
+      <span title={title ?? name} className={cn(base, className)}>
         {content}
       </span>
     );
@@ -70,7 +72,7 @@ export function MemberChip({
   return (
     <button
       type="button"
-      title={name}
+      title={title ?? name}
       aria-label={t("common.open-person", { name })}
       className={cn(
         base,
