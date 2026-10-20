@@ -292,6 +292,7 @@
   },
   "gallery-view": {
     "view": {
+      "edit-image": "Edit {{title}}",
       "title": "Gallery",
       "search-placeholder": "Search photos…",
       "select-date-uploaded": "Date Uploaded",
@@ -345,6 +346,7 @@
       "no-matches": "No photos match."
     },
     "image-sheet": {
+      "close-editor": "Close editor",
       "save-and-open-member": "Save changes and open {{name}}",
       "face-tags-save-hint": "Choose a person to add their tag. Save when you have finished tagging.",
       "toast-success": "Image details saved",
@@ -400,9 +402,12 @@
       "resolve-unknown-face": "Identify this person",
       "resolve-placeholder": "Choose the member shown here",
       "redraw-unknown-face": "Redraw unknown-person tag",
-      "delete-unknown-face": "Delete unknown-person tag"
+      "delete-unknown-face": "Delete unknown-person tag",
+      "add-face-tag": "Add face tag for {{name}}",
+      "face-tags-add-hint": "Draw a rectangle around {{name}}'s face, or choose another member below."
     },
     "image-lightbox": {
+      "edit": "Edit photo",
       "image-alt": "Gallery image",
       "close": "Close image",
       "previous": "Previous image",
@@ -2035,7 +2040,18 @@
       "confirm-remove-cancel": "Cancel",
       "new-request": "New friend request from {{name}}",
       "your-friends": "Your friends",
-      "no-friends-hint": "Search for someone’s username above to send a request."
+      "no-friends-hint": "Search for someone’s username to send a request.",
+      "filter-placeholder": "Search your friends…",
+      "no-matching-friends": "No friends match your search.",
+      "friend-actions": "Actions for {{name}}",
+      "cancel-request-for": "Cancel request to {{name}}",
+      "search-hint": "Find someone by username to send a friend request.",
+      "searching": "Searching…",
+      "search-results": "Search results",
+      "search-error": "Could not search for users. Please try again.",
+      "loading": "Loading friends…",
+      "load-error": "Could not load your friends.",
+      "retry": "Try again"
     },
     "delete-account": {
       "title": "Delete my account",

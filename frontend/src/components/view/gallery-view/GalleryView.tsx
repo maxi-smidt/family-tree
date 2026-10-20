@@ -8,6 +8,8 @@ import {
   useRef,
   useState,
 } from "react";
+import { ImageLightbox } from "@/components/shared/member-sheet/ImageLightbox";
+import { canEditArea } from "@/utils/accessLevels";
 import { ImageSheet } from "@/components/view/gallery-view/ImageSheet";
 import { GalleryImage } from "@/types/gallery";
 import { Button } from "@/components/ui/button";
@@ -77,7 +79,10 @@ export const GalleryView = () => {
 
   useDeferredStoreLoad(initialized, refreshGalleryImages);
 
+  const selectedTree = useWorkspaceStore((state) => state.selectedTree);
+  const canWrite = canEditArea(selectedTree, "gallery");
   const [selectedImage, setSelectedImage] = useState<GalleryImage | null>(null);
+  const [viewingImageId, setViewingImageId] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("uploadedAt");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [searchTerm, setSearchTerm] = useState("");
@@ -379,7 +384,8 @@ export const GalleryView = () => {
                 <ImageCard
                   key={image.id}
                   image={image}
-                  onClick={() => setSelectedImage(image)}
+                  onClick={() => setViewingImageId(image.id)}
+                  onEdit={canWrite ? () => setSelectedImage(image) : undefined}
                 />
               ))}
               <button
@@ -425,6 +431,18 @@ export const GalleryView = () => {
           </div>
         </div>
       )}
+      {viewingImageId &&
+        filteredAndSortedImages.some(
+          (image) => image.id === viewingImageId,
+        ) && (
+          <ImageLightbox
+            images={filteredAndSortedImages}
+            startIndex={filteredAndSortedImages.findIndex(
+              (image) => image.id === viewingImageId,
+            )}
+            onClose={() => setViewingImageId(null)}
+          />
+        )}
       {selectedImage && (
         <ImageSheet
           isOpen={!!selectedImage}

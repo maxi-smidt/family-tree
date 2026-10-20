@@ -1,4 +1,5 @@
 # Family Tree
+
 > A self-hostable web application for building and exploring your family history through an interactive visual interface.
 
 ![License](https://img.shields.io/badge/license-MIT-green.svg)

@@ -48,7 +48,9 @@ const IMAGE: GalleryImageDB = {
   uploadedAt: "2024-01-01T00:00:00Z",
 };
 
-type AddGalleryImage = ReturnType<typeof useGalleryStore.getState>["addGalleryImage"];
+type AddGalleryImage = ReturnType<
+  typeof useGalleryStore.getState
+>["addGalleryImage"];
 
 describe("MemberPhotos", () => {
   let addGalleryImage: AddGalleryImage;
@@ -87,6 +89,33 @@ describe("MemberPhotos", () => {
     });
     useMemberStore.setState({ members: [MEMBER] });
     useWorkspaceStore.setState({ selectedTree: TREE });
+  });
+
+  it("opens existing photos in the shared read-only viewer from member editing", () => {
+    useGalleryStore.setState({
+      galleryImages: [
+        {
+          ...IMAGE,
+          id: "existing",
+          description: "Member photo description",
+          linkedMemberIds: [MEMBER.id],
+          memberLinks: [
+            { memberId: MEMBER.id, x: 0.1, y: 0.1, w: 0.2, h: 0.2 },
+          ],
+          unknownFaces: [],
+        },
+      ],
+    });
+    render(<MemberPhotos member={MEMBER} />);
+    fireEvent.click(screen.getByRole("button", { name: "Portrait" }));
+    expect(screen.getByRole("dialog")).toBeVisible();
+    expect(screen.getByText("Member photo description")).toBeVisible();
+    expect(screen.getByLabelText("Face tag for Ada Lovelace")).toHaveClass(
+      "opacity-0",
+    );
+    expect(
+      screen.queryByRole("button", { name: "Save" }),
+    ).not.toBeInTheDocument();
   });
 
   it("opens face tagging after an edit-view photo upload", async () => {
