@@ -504,7 +504,7 @@ export const ListView = () => {
             {t("export-csv")}
           </Button>
           {canWrite && (
-            <Button onClick={handleAddPerson}>
+            <Button onClick={handleAddPerson} shortcut="new-person">
               <Plus />
               {t("add-person")}
             </Button>

@@ -319,6 +319,7 @@ export const SavedViewFormDialog = ({
           <Button
             size="sm"
             onClick={() => void handleSubmit()}
+            shortcut="save"
             disabled={!name.trim() || missingSections || submitting}
           >
             {view ? t("save") : t("create")}

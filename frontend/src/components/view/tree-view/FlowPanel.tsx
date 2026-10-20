@@ -73,6 +73,7 @@ import { PresenceChips } from "@/components/layout/PresenceChips";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { requestLocationReplace } from "@/hooks/useUrlLocation";
 import { toast } from "sonner";
+import { shortcutLabel } from "@/lib/keyboardShortcuts";
 import { getGenerationLineGap } from "@/utils/generationLineSpacing";
 import { buildMemberNodes } from "@/utils/memberNodes";
 
@@ -758,6 +759,8 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
                   size="icon"
                   className="text-muted-foreground"
                   aria-label={t("tree-view.mobile.add-person")}
+                  title={`${t("tree-view.mobile.add-person")} (${shortcutLabel("new-person")})`}
+                  shortcut="new-person"
                   data-tutorial="add-member"
                   onClick={addPersonFromHeader}
                 >
@@ -777,6 +780,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
         ref={canvasRef}
         className="relative min-h-0 w-full flex-1 bg-canvas"
         aria-label={t("tree-view.canvas-label")}
+        aria-description={t("tree-view.controls.keyboard-navigation-hint")}
       >
         <ReactFlow
           className={`ft-tree-canvas${inSelectionMode ? " cursor-crosshair" : ""}`}

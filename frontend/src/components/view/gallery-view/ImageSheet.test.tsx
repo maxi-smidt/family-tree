@@ -8,6 +8,7 @@ import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import type { GalleryImage } from "@/types/gallery";
 import type { Member } from "@/types/member";
 import { ImageSheet } from "./ImageSheet";
+import { AppKeyboardShortcuts } from "@/components/layout/AppKeyboardShortcuts";
 
 vi.mock("sonner", () => ({
   toast: {
@@ -277,6 +278,28 @@ describe("ImageSheet", () => {
     const call = vi.mocked(updateGalleryImage).mock.calls[0];
     expect(call[0]).toBe(IMAGE.id);
     expect(call[1]).toEqual(expect.objectContaining({ createdAt: null }));
+  });
+
+  it("saves current image edits with Cmd+S while typing", async () => {
+    const onClose = vi.fn();
+    render(
+      <>
+        <AppKeyboardShortcuts />
+        <ImageSheet isOpen onClose={onClose} image={IMAGE} />
+      </>,
+    );
+    const title = screen.getByPlaceholderText(
+      i18n.t("gallery-view.image-sheet.title-placeholder"),
+    );
+    fireEvent.change(title, { target: { value: "Updated portrait" } });
+    await act(async () => {
+      fireEvent.keyDown(title, { key: "s", metaKey: true });
+    });
+    expect(useGalleryStore.getState().updateGalleryImage).toHaveBeenCalledWith(
+      IMAGE.id,
+      expect.objectContaining({ title: "Updated portrait" }),
+    );
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it("hides already-linked people from candidates while keeping their link visible", async () => {

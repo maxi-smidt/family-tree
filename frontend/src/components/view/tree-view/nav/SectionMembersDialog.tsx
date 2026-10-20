@@ -292,6 +292,7 @@ export const SectionMembersDialog = ({
           <Button
             size="sm"
             onClick={() => void handleSave()}
+            shortcut="save"
             disabled={saving || members === null}
           >
             {saving ? t("saving") : t("save")}

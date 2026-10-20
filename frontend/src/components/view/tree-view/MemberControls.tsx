@@ -51,6 +51,7 @@ import {
 import { CreateSectionDialog } from "@/components/view/tree-view/nav/CreateSectionDialog";
 import { useTranslation } from "react-i18next";
 import { stepNeighborhoodDepth } from "@/types/savedView";
+import { ShortcutHint } from "@/components/ui/shortcut-hint";
 
 type Props = {
   nodes: Node[];
@@ -191,13 +192,16 @@ export const MemberControls = ({
                   onClick={onAddMember}
                   disabled={isLockedScreen}
                   aria-label={t("add-person")}
+                  shortcut="new-person"
                   className="text-primary hover:bg-primary-soft hover:text-primary dark:hover:bg-primary-soft"
                   data-tutorial="add-member"
                 >
                   <UserPlus size={20} />
                 </ToolbarButton>
               </TooltipTrigger>
-              <TooltipContent side="top">{t("add-person")}</TooltipContent>
+              <TooltipContent side="top">
+                {t("add-person")} <ShortcutHint shortcut="new-person" />
+              </TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>

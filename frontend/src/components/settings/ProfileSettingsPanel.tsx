@@ -165,6 +165,7 @@ export function ProfileSettingsPanel() {
 
       <Button
         disabled={savingProfile || !namesChanged}
+        shortcut="save"
         onClick={() => void handleSave()}
       >
         {t("save")}

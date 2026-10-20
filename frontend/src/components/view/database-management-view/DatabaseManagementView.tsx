@@ -40,6 +40,7 @@ import { DuplicateTreeDialog } from "@/components/view/database-management-view/
 import { PasswordDialog } from "@/components/shared/dialog/PasswordDialog";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+import { shortcutLabel } from "@/lib/keyboardShortcuts";
 import { Workspace } from "@/types/workspace";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 
@@ -342,6 +343,8 @@ export const DatabaseManagementView = () => {
                     variant="ghost"
                     size="icon-sm"
                     aria-label={t("rename-save")}
+                    title={`${t("rename-save")} (${shortcutLabel("save")})`}
+                    shortcut="save"
                     onClick={() => handleSaveRename(database)}
                   >
                     <Check />
