@@ -88,8 +88,13 @@ for (const viewport of [
         })
         .toBe("editor");
 
-      // The bottom controls must be reachable by vertical scrolling and
-      // selecting a long username must not widen the transfer row.
+      // Ownership transfer starts collapsed in the People tab. Expand it
+      // before checking that a long username fits its controls.
+      const ownership = dialog.locator("summary", {
+        hasText: "Transfer ownership",
+      });
+      await ownership.scrollIntoViewIfNeeded();
+      await ownership.click();
       const target = dialog.getByRole("combobox", {
         name: "Select a new owner…",
       });
