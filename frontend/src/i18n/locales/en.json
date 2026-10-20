@@ -146,6 +146,14 @@
     "share-tree": {
       "title": "Share \"{{name}}\"",
       "description": "Give other users access to this workspace.",
+      "section-description": "Give friends access to this section in \"{{name}}\".",
+      "sharing-method": "Sharing options",
+      "tabs": {
+        "people": "People",
+        "invite": "Invite link",
+        "public": "Public link"
+      },
+      "done": "Done",
       "shared": "Access updated.",
       "share-error": "Could not share the workspace.",
       "revoke-error": "Could not revoke access.",
@@ -192,6 +200,7 @@
       },
       "scope-label": "Access to",
       "scope-workspace": "Whole workspace",
+      "scope-workspace-inherited": "Via whole workspace",
       "scope-unknown-section": "Unknown section",
       "domains": {
         "tree": "Tree",
@@ -225,6 +234,9 @@
       "transfer-revert-error": "Could not undo the transfer.",
       "invites": {
         "title": "Invite by link",
+        "email-label": "Email address (optional)",
+        "role-label": "Access level",
+        "expiry-label": "Link expires",
         "description": "Anyone with the link can join — no account required to preview, account needed to accept.",
         "email-placeholder": "Email address (optional)",
         "expiry-never": "Never expires",
@@ -2591,6 +2603,7 @@
     "sections": "Sections",
     "no-sections": "No sections yet",
     "section-actions": "Actions for {{name}}",
+    "share-section": "Share section",
     "rename": "Rename",
     "delete": "Delete",
     "saved-views": "Saved views",
@@ -2622,8 +2635,16 @@
       "seed-placeholder": "Choose a person…",
       "seed-no-results": "No matching members",
       "direction-label": "Include",
-      "direction-direct-family": "Direct family",
-      "direction-partnership": "Direct family and partners",
+      "direction-extended-family": "Extended family and partners",
+      "direction-extended-family-hint": "The selected person, their ancestors and descendants, siblings, aunts, uncles, cousins and their descendants, plus all these relatives' partners. Partners' own family branches are not followed.",
+      "direction-lineage": "Direct line and partner",
+      "direction-lineage-hint": "The selected person, all their ancestors and descendants, and their own partners. Siblings, cousins and partners' families stay outside this selection.",
+      "direction-direct-family": "Family of origin",
+      "direction-direct-family-hint": "The selected person, their parents, siblings and relatives on that side. Their own partner and children stay outside the section.",
+      "preview-member-count_one": "{{count}} person in this section",
+      "preview-member-count_other": "{{count}} people in this section",
+      "preview-boundary-count_one": "{{count}} connected person outside the section",
+      "preview-boundary-count_other": "{{count}} connected people outside the section",
       "preview-loading": "Loading preview…",
       "preview-summary": "{{primary}} primary members, {{boundary}} boundary people",
       "preview-overlap": "Connects to \"{{name}}\" ({{count}} shared members)",
@@ -2767,6 +2788,7 @@
     "withdraw": "Withdraw"
   },
   "tree-preview": {
+    "boundary": "Connected, outside section",
     "focus": "Focus person",
     "seed": "Seed person",
     "included": "Included",

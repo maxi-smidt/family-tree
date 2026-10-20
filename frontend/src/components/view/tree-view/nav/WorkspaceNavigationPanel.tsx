@@ -11,6 +11,7 @@ import {
   MoreHorizontal,
   Pencil,
   Plus,
+  Share2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +38,7 @@ import { CreateSectionDialog } from "@/components/view/tree-view/nav/CreateSecti
 import { RenameSectionDialog } from "@/components/view/tree-view/nav/RenameSectionDialog";
 import { DeleteSectionDialog } from "@/components/view/tree-view/nav/DeleteSectionDialog";
 import { SectionMembersDialog } from "@/components/view/tree-view/nav/SectionMembersDialog";
+import { ShareTreeDialog } from "@/components/view/database-management-view/dialog/ShareTreeDialog";
 import { SavedViewFormDialog } from "@/components/view/tree-view/nav/SavedViewFormDialog";
 import { DeleteSavedViewDialog } from "@/components/view/tree-view/nav/DeleteSavedViewDialog";
 import { SectionDB } from "@/types/section";
@@ -75,6 +77,10 @@ export const WorkspaceNavigationPanel = ({
   const [renameTarget, setRenameTarget] = useState<SectionDB | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<SectionDB | null>(null);
   const [membersTarget, setMembersTarget] = useState<SectionDB | null>(null);
+  const [shareTarget, setShareTarget] = useState<SectionDB | null>(null);
+  const workspace = useWorkspaceStore((s) => s.selectedTree);
+  const canShareSections =
+    workspace?.id === workspaceId && workspace.role === "owner";
   // null = closed; { view: null } = create; { view } = edit.
   const [savedViewForm, setSavedViewForm] = useState<{
     view: SavedViewDB | null;
@@ -249,7 +255,6 @@ export const WorkspaceNavigationPanel = ({
                         <Button
                           variant="ghost"
                           size="icon-sm"
-                          className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
                           aria-label={t("section-actions", {
                             name: section.name,
                           })}
@@ -258,6 +263,17 @@ export const WorkspaceNavigationPanel = ({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        {canShareSections && (
+                          <DropdownMenuItem
+                            onSelect={() => {
+                              setMenuOpen(false);
+                              setShareTarget(section);
+                            }}
+                          >
+                            <Share2 className="h-3.5 w-3.5" />
+                            {t("share-section")}
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem
                           onSelect={() => setMembersTarget(section)}
                         >
@@ -336,7 +352,6 @@ export const WorkspaceNavigationPanel = ({
                         <Button
                           variant="ghost"
                           size="icon-sm"
-                          className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
                           aria-label={t("saved-view-actions", {
                             name: view.name,
                           })}
@@ -391,6 +406,16 @@ export const WorkspaceNavigationPanel = ({
         workspaceId={workspaceId}
         onOpenChange={(open) => !open && setMembersTarget(null)}
       />
+      {shareTarget &&
+        workspace &&
+        workspace.id === shareTarget.workspace_id && (
+          <ShareTreeDialog
+            tree={workspace}
+            section={shareTarget}
+            isOpen
+            onClose={() => setShareTarget(null)}
+          />
+        )}
       <SavedViewFormDialog
         open={savedViewForm !== null}
         view={savedViewForm?.view ?? null}

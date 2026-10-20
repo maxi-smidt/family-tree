@@ -103,6 +103,112 @@ def test_create_section_partnership_direction(client, db):
     assert res.json()["member_count"] == 3  # root, partner, child
 
 
+@pytest.mark.parametrize("direction", ["lineage", "extended_family"])
+def test_lineage_and_extended_family_previews_match_created_membership(
+    client, db, direction
+):
+    user = make_user(db)
+    tree = make_tree(db, user)
+    _make_family(db, tree)
+    for member_id in (
+        "grandparent",
+        "grandchild",
+        "other-partner",
+        "partner-parent",
+        "partner-other-child",
+        "child-partner",
+        "parent-partner",
+        "sibling-child",
+        "uncle",
+        "cousin",
+        "uncle-partner",
+        "uncle-partner-parent",
+        "uncle-partner-other-partner",
+        "cousin-partner",
+        "cousin-partner-parent",
+    ):
+        add_member(db, tree, member_id)
+    _add_relation(db, tree, "p1", "grandparent")
+    _add_relation(db, tree, "grandchild", "child")
+    _add_relation(db, tree, "root", "other-partner", "partner")
+    _add_relation(db, tree, "partner", "partner-parent")
+    _add_relation(db, tree, "partner-other-child", "partner")
+    _add_relation(db, tree, "grandchild", "child-partner")
+    _add_relation(db, tree, "child", "child-partner", "partner")
+    _add_relation(db, tree, "p1", "parent-partner", "partner")
+    _add_relation(db, tree, "sibling-child", "sib")
+    _add_relation(db, tree, "uncle", "grandparent")
+    _add_relation(db, tree, "cousin", "uncle")
+    _add_relation(db, tree, "uncle", "uncle-partner", "partner")
+    _add_relation(db, tree, "uncle-partner", "uncle-partner-parent")
+    _add_relation(db, tree, "uncle-partner", "uncle-partner-other-partner", "partner")
+    _add_relation(db, tree, "cousin", "cousin-partner", "partner")
+    _add_relation(db, tree, "cousin-partner", "cousin-partner-parent")
+
+    expected = {"root", "p1", "grandparent", "child", "grandchild"}
+    expected |= {"partner", "other-partner"}
+    boundary = {
+        "sib",
+        "uncle",
+        "partner-parent",
+        "partner-other-child",
+        "child-partner",
+        "parent-partner",
+    }
+    if direction == "extended_family":
+        expected |= {
+            "sib",
+            "sibling-child",
+            "uncle",
+            "cousin",
+            "uncle-partner",
+            "cousin-partner",
+            "child-partner",
+            "parent-partner",
+        }
+        boundary = {
+            "partner-parent",
+            "partner-other-child",
+            "uncle-partner-parent",
+            "uncle-partner-other-partner",
+            "cousin-partner-parent",
+        }
+    preview = client.get(
+        f"{API}/workspaces/{tree.id}/sections/preview",
+        headers=auth(user),
+        params={"root_member_id": "root", "direction": direction},
+    )
+    assert preview.status_code == 200
+    body = preview.json()
+    assert set(body["primary_member_ids"]) == expected
+    assert set(body["boundary_member_ids"]) == boundary
+    created = _create(client, user, tree, root_member_id="root", direction=direction)
+    assert created.status_code == 201
+    assert created.json()["member_count"] == len(expected)
+    actual = db.query(SectionMember).filter_by(section_id=created.json()["id"]).all()
+    assert {member.member_id for member in actual} == expected
+
+
+@pytest.mark.parametrize("direction", ["lineage", "extended_family"])
+def test_family_selection_handles_a_person_without_relatives_and_parent_cycles(
+    client, db, direction
+):
+    user = make_user(db)
+    tree = make_tree(db, user)
+    add_member(db, tree, "root")
+    url = f"{API}/workspaces/{tree.id}/sections/preview"
+    params = {"root_member_id": "root", "direction": direction}
+    result = client.get(url, headers=auth(user), params=params)
+    assert result.status_code == 200
+    assert result.json()["primary_member_ids"] == ["root"]
+    add_member(db, tree, "parent")
+    _add_relation(db, tree, "root", "parent")
+    _add_relation(db, tree, "parent", "root")
+    result = client.get(url, headers=auth(user), params=params)
+    assert result.status_code == 200
+    assert set(result.json()["primary_member_ids"]) == {"root", "parent"}
+
+
 def test_duplicate_name_conflicts_case_insensitively(client, db):
     user = make_user(db)
     tree = make_tree(db, user)

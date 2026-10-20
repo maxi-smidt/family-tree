@@ -146,6 +146,14 @@
     "share-tree": {
       "title": "\"{{name}}\" teilen",
       "description": "Anderen Benutzern Zugriff auf diesen Arbeitsbereich geben.",
+      "section-description": "Freunden Zugriff auf diesen Bereich in \"{{name}}\" geben.",
+      "sharing-method": "Freigabeoptionen",
+      "tabs": {
+        "people": "Personen",
+        "invite": "Einladungslink",
+        "public": "Öffentlich"
+      },
+      "done": "Fertig",
       "shared": "Zugriff aktualisiert.",
       "share-error": "Arbeitsbereich konnte nicht geteilt werden.",
       "revoke-error": "Zugriff konnte nicht entzogen werden.",
@@ -192,6 +200,7 @@
       },
       "scope-label": "Zugriff auf",
       "scope-workspace": "Gesamter Arbeitsbereich",
+      "scope-workspace-inherited": "Über den gesamten Arbeitsbereich",
       "scope-unknown-section": "Unbekannter Bereich",
       "domains": {
         "tree": "Stammbaum",
@@ -225,6 +234,9 @@
       "transfer-revert-error": "Übertragung konnte nicht rückgängig gemacht werden.",
       "invites": {
         "title": "Per Link einladen",
+        "email-label": "E-Mail-Adresse (optional)",
+        "role-label": "Zugriffsrechte",
+        "expiry-label": "Link läuft ab",
         "description": "Jeder mit dem Link kann beitreten — kein Konto nötig zur Vorschau, aber zum Akzeptieren.",
         "email-placeholder": "E-Mail-Adresse (optional)",
         "expiry-never": "Läuft nie ab",
@@ -2591,6 +2603,7 @@
     "sections": "Bereiche",
     "no-sections": "Noch keine Bereiche",
     "section-actions": "Aktionen für {{name}}",
+    "share-section": "Bereich teilen",
     "rename": "Umbenennen",
     "delete": "Löschen",
     "saved-views": "Gespeicherte Ansichten",
@@ -2622,8 +2635,16 @@
       "seed-placeholder": "Person auswählen…",
       "seed-no-results": "Keine passenden Mitglieder",
       "direction-label": "Einschließen",
-      "direction-direct-family": "Direkte Familie",
-      "direction-partnership": "Direkte Familie und Partner",
+      "direction-extended-family": "Erweiterte Familie und Partner",
+      "direction-extended-family-hint": "Die gewählte Person, ihre Vorfahren und Nachkommen, Geschwister, Tanten, Onkel, Cousins und deren Nachkommen sowie die Partner all dieser Verwandten. Eigene Familienzweige der Partner werden nicht weiterverfolgt.",
+      "direction-lineage": "Direkte Linie und Partner",
+      "direction-lineage-hint": "Die gewählte Person, alle ihre Vorfahren und Nachkommen sowie ihre eigenen Partner. Geschwister, Cousins und die Familien der Partner bleiben außerhalb dieser Auswahl.",
+      "direction-direct-family": "Herkunftsfamilie",
+      "direction-direct-family-hint": "Die gewählte Person, ihre Eltern, Geschwister und Verwandten auf dieser Seite. Eigene Partner und Kinder bleiben außerhalb des Bereichs.",
+      "preview-member-count_one": "{{count}} Person in diesem Bereich",
+      "preview-member-count_other": "{{count}} Personen in diesem Bereich",
+      "preview-boundary-count_one": "{{count}} verbundene Person außerhalb des Bereichs",
+      "preview-boundary-count_other": "{{count}} verbundene Personen außerhalb des Bereichs",
       "preview-loading": "Vorschau wird geladen…",
       "preview-summary": "{{primary}} Hauptmitglieder, {{boundary}} Randpersonen",
       "preview-overlap": "Verbindet sich mit \"{{name}}\" ({{count}} gemeinsame Mitglieder)",
@@ -2767,6 +2788,7 @@
     "withdraw": "Zurückziehen"
   },
   "tree-preview": {
+    "boundary": "Verbunden, außerhalb des Bereichs",
     "focus": "Fokusperson",
     "seed": "Ausgangsperson",
     "included": "Enthalten",

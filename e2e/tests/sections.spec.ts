@@ -92,7 +92,7 @@ async function seedFamily(api: ApiClient, workspaceId: string) {
 }
 
 sectionsTest(
-  "create — seeding from a person previews primary/boundary counts and creates the section",
+  "create — seeding from a person previews section members and connected outsiders",
   async ({ page, secondUser, secondApi, ownedTree }) => {
     await seedFamily(secondApi, ownedTree.id);
     await login(page, secondUser);
@@ -108,7 +108,12 @@ sectionsTest(
     // direct_family is the default: Alice has no parents seeded, so the
     // preview's boundary is her partner + child, and primary is just her.
     await expect(
-      dialog.getByText("1 primary members, 2 boundary people"),
+      dialog.getByText("1 person in this section", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      dialog.getByText("2 connected people outside the section", {
+        exact: true,
+      }),
     ).toBeVisible();
 
     await dialog.getByRole("button", { name: "Create", exact: true }).click();

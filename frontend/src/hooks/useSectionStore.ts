@@ -3,6 +3,7 @@ import {
   SectionCreateInput,
   SectionDB,
   SectionDependentsDB,
+  SectionDirection,
   SectionPreviewDB,
   SectionSuggestionDB,
   SectionUpdateInput,
@@ -18,7 +19,7 @@ interface SectionState {
   refreshSections: (workspaceId?: string) => Promise<void>;
   previewSection: (
     rootMemberId: string,
-    direction: "direct_family" | "partnership",
+    direction: SectionDirection,
   ) => Promise<SectionPreviewDB>;
   createSection: (payload: SectionCreateInput) => Promise<SectionDB>;
   updateSection: (

@@ -31,6 +31,8 @@ interface TreePreviewProps {
   included: ReadonlySet<string>;
   /** Dummy nodes outside the chosen sections — drawn dashed. */
   outside?: ReadonlySet<string>;
+  /** Connected context that is not a member of the new section. */
+  boundary?: ReadonlySet<string>;
   /** "view" labels the highlighted node as the focus person, "section" as
    *  the seed person. */
   variant: "view" | "section";
@@ -42,6 +44,7 @@ interface TreePreviewProps {
 export const TreePreview = ({
   included,
   outside,
+  boundary,
   variant,
   className,
 }: TreePreviewProps) => {
@@ -98,6 +101,7 @@ export const TreePreview = ({
           const x = px(n);
           const y = py(n);
           const active = on(n.id);
+          const isBoundary = !!boundary?.has(n.id);
           const dashed = !!outside?.has(n.id);
           if (n.kind === "more") {
             return (
@@ -118,7 +122,7 @@ export const TreePreview = ({
           }
           const isFocus = n.id === PREVIEW_FOCUS_ID;
           return (
-            <g key={n.id} data-included={active}>
+            <g key={n.id} data-included={active} data-boundary={isBoundary}>
               {!dashed && (
                 <circle cx={x} cy={y} r={RADIUS} className="fill-background" />
               )}
@@ -136,16 +140,18 @@ export const TreePreview = ({
                 cy={y}
                 r={RADIUS}
                 strokeWidth={1.5}
-                strokeDasharray={dashed ? "2.5 2" : undefined}
+                strokeDasharray={dashed || isBoundary ? "2.5 2" : undefined}
                 className={cn(
                   "transition-colors",
                   isFocus
                     ? "fill-primary stroke-primary"
                     : active
                       ? "fill-primary/70 stroke-primary"
-                      : dashed
-                        ? "fill-none stroke-muted-foreground/40"
-                        : "fill-background stroke-muted-foreground/35",
+                      : isBoundary
+                        ? "fill-background stroke-primary/60"
+                        : dashed
+                          ? "fill-none stroke-muted-foreground/40"
+                          : "fill-background stroke-muted-foreground/35",
                 )}
               />
             </g>
@@ -166,6 +172,13 @@ export const TreePreview = ({
           label={t("excluded")}
           className="fill-background stroke-muted-foreground/35"
         />
+        {boundary && boundary.size > 0 && (
+          <LegendItem
+            label={t("boundary")}
+            dashed
+            className="fill-background stroke-primary/60"
+          />
+        )}
         {outside && outside.size > 0 && (
           <LegendItem
             label={t("outside-sections")}

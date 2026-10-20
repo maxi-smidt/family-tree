@@ -23,11 +23,14 @@ import { MemberPicker } from "@/components/shared/member-sheet/MemberPicker";
 import { TreePreview } from "@/components/shared/TreePreview";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useSectionStore } from "@/hooks/useSectionStore";
-import { SectionPreviewDB } from "@/types/section";
+import { SectionDirection, SectionPreviewDB } from "@/types/section";
 import { ApiError } from "@/services/api";
-import { previewSectionMembers } from "@/utils/treePreview";
+import {
+  previewSectionMembers,
+  previewSectionBoundaryMembers,
+} from "@/utils/treePreview";
 
-type Direction = "direct_family" | "partnership";
+type CreateSectionDirection = Exclude<SectionDirection, "partnership">;
 
 interface CreateSectionDialogProps {
   open: boolean;
@@ -57,7 +60,8 @@ export const CreateSectionDialog = ({
   const [rootMemberId, setRootMemberId] = useState<string | null>(
     initialRootMemberId,
   );
-  const [direction, setDirection] = useState<Direction>("direct_family");
+  const [direction, setDirection] =
+    useState<CreateSectionDirection>("direct_family");
   const [preview, setPreview] = useState<SectionPreviewDB | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -78,11 +82,13 @@ export const CreateSectionDialog = ({
   }, [open]);
 
   useEffect(() => {
-    if (!rootMemberId) {
+    if (!open || !rootMemberId) {
       setPreview(null);
+      setLoadingPreview(false);
       return;
     }
     let cancelled = false;
+    setPreview(null);
     setLoadingPreview(true);
     previewSection(rootMemberId, direction)
       .then((result) => {
@@ -97,12 +103,21 @@ export const CreateSectionDialog = ({
     return () => {
       cancelled = true;
     };
-  }, [rootMemberId, direction, previewSection]);
+  }, [open, rootMemberId, direction, previewSection]);
 
   const previewIncluded = useMemo(
     () => previewSectionMembers(direction),
     [direction],
   );
+  const previewBoundary = useMemo(
+    () => previewSectionBoundaryMembers(previewIncluded),
+    [previewIncluded],
+  );
+  const directionHint = {
+    extended_family: t("direction-extended-family-hint"),
+    lineage: t("direction-lineage-hint"),
+    direct_family: t("direction-direct-family-hint"),
+  }[direction];
 
   const handleSubmit = async () => {
     const trimmed = name.trim();
@@ -129,12 +144,12 @@ export const CreateSectionDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[90dvh] flex-col gap-0 p-0">
+        <DialogHeader className="shrink-0 px-6 pt-6 pb-4">
           <DialogTitle>{t("title")}</DialogTitle>
           <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
+        <div className="min-h-0 space-y-4 overflow-y-auto px-6 pb-5">
           <div className="space-y-1.5">
             <Label htmlFor="new-section-name">{t("name-label")}</Label>
             <Input
@@ -157,43 +172,68 @@ export const CreateSectionDialog = ({
           </div>
           {rootMemberId && (
             <div className="space-y-1.5">
-              <Label>{t("direction-label")}</Label>
+              <Label htmlFor="new-section-direction">
+                {t("direction-label")}
+              </Label>
               <Select
                 value={direction}
-                onValueChange={(v) => setDirection(v as Direction)}
+                onValueChange={(v) => setDirection(v as CreateSectionDirection)}
               >
-                <SelectTrigger>
+                <SelectTrigger
+                  id="new-section-direction"
+                  className="w-full min-w-0"
+                  aria-describedby="new-section-direction-hint"
+                >
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent
+                  position="popper"
+                  align="start"
+                  className="w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)]"
+                >
+                  <SelectItem value="extended_family">
+                    {t("direction-extended-family")}
+                  </SelectItem>
+                  <SelectItem value="lineage">
+                    {t("direction-lineage")}
+                  </SelectItem>
                   <SelectItem value="direct_family">
                     {t("direction-direct-family")}
                   </SelectItem>
-                  <SelectItem value="partnership">
-                    {t("direction-partnership")}
-                  </SelectItem>
                 </SelectContent>
               </Select>
+              <p
+                id="new-section-direction-hint"
+                className="text-xs text-muted-foreground"
+              >
+                {directionHint}
+              </p>
             </div>
           )}
           {rootMemberId && (
-            <TreePreview variant="section" included={previewIncluded} />
+            <TreePreview
+              variant="section"
+              included={previewIncluded}
+              boundary={previewBoundary}
+            />
           )}
           {rootMemberId && (
             <div className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
               {loadingPreview && t("preview-loading")}
               {!loadingPreview && preview && (
                 <>
-                  {t("preview-summary", {
-                    primary: preview.primary_member_ids.length,
-                    boundary: preview.boundary_member_ids.length,
-                  })}
-                  <br />
-                  {t("preview-people-count", {
-                    count:
-                      preview.primary_member_ids.length +
-                      preview.boundary_member_ids.length,
-                  })}
+                  <p>
+                    {t("preview-member-count", {
+                      count: preview.primary_member_ids.length,
+                    })}
+                  </p>
+                  {preview.boundary_member_ids.length > 0 && (
+                    <p>
+                      {t("preview-boundary-count", {
+                        count: preview.boundary_member_ids.length,
+                      })}
+                    </p>
+                  )}
                   {preview.overlaps.length > 0 && (
                     <ul className="mt-1 ml-4 list-disc">
                       {preview.overlaps.map((overlap) => {
@@ -224,7 +264,7 @@ export const CreateSectionDialog = ({
           )}
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
-        <DialogFooter>
+        <DialogFooter className="shrink-0 border-t px-6 py-4">
           <DialogClose asChild>
             <Button variant="outline" size="sm">
               {t("cancel")}
