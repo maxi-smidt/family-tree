@@ -13,6 +13,7 @@ import type { Workspace } from "@/types/workspace";
 import type { SectionDB } from "@/types/section";
 import type { SavedViewDB } from "@/types/savedView";
 import { GlobalSearch } from "./GlobalSearch";
+import { NEW_PERSON_EVENT } from "@/lib/keyboardShortcuts";
 
 const OPEN: Workspace = { id: "ws-1", name: "Smidt family", role: "owner" };
 const OTHER: Workspace = { id: "ws-2", name: "Smith cousins", role: "viewer" };
@@ -152,5 +153,27 @@ describe("GlobalSearch", () => {
     openPalette("cousins");
     fireEvent.click(screen.getByText("Smith cousins"));
     expect(useWorkspaceStore.getState().selectTree).toHaveBeenCalledWith(OTHER);
+  });
+
+  it("offers a global new-person action as a fallback for browser-reserved Cmd+N", () => {
+    useWorkspaceStore.setState({ isReady: true });
+    const openPerson = vi.fn();
+    window.addEventListener(NEW_PERSON_EVENT, openPerson);
+    openPalette("new person");
+    fireEvent.click(screen.getByRole("option", { name: "New person" }));
+    expect(openPerson).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    window.removeEventListener(NEW_PERSON_EVENT, openPerson);
+  });
+
+  it("hides person creation for a viewer", () => {
+    useWorkspaceStore.setState({
+      isReady: true,
+      selectedTree: { ...OPEN, role: "viewer" },
+    });
+    openPalette("new person");
+    expect(
+      screen.queryByRole("option", { name: "New person" }),
+    ).not.toBeInTheDocument();
   });
 });

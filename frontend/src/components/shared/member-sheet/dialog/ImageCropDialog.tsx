@@ -95,6 +95,7 @@ export const ImageCropDialog = ({
             variant="default"
             size="sm"
             onClick={handleConfirm}
+            shortcut="save"
             disabled={!crop || isLoading}
           >
             {isLoading && <Spinner />}

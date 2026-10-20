@@ -7,7 +7,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Member } from "@/types/member";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { ViewMode } from "./ViewMode";
 import { EditMode, SaveStatus } from "./EditMode";
 import { Button } from "@/components/ui/button";
@@ -41,6 +41,8 @@ type Props = {
   onSaveNewMember?: (data: Member) => Promise<void> | void;
   /** Switch the panel to another member (family chips in view mode). */
   onOpenMember?: (memberId: string) => void;
+  /** Standalone creation panels leave the background profile's URL alone. */
+  syncNavigation?: boolean;
 };
 
 export const MemberSheet = ({
@@ -53,6 +55,7 @@ export const MemberSheet = ({
   onDiscardNewMember,
   onSaveNewMember,
   onOpenMember,
+  syncNavigation = true,
 }: Props) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.member-sheet",
@@ -76,6 +79,7 @@ export const MemberSheet = ({
   const setOpenSheet = useMemberSheetStore((s) => s.setOpenSheet);
   const clearOpenSheet = useMemberSheetStore((s) => s.clearOpenSheet);
   const [isEditMode, setIsEditMode] = useState(initialEditMode);
+  const editFormId = useId();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isUnsavedDialogOpen, setIsUnsavedDialogOpen] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
@@ -190,13 +194,17 @@ export const MemberSheet = ({
 
   const closeSheet = async () => {
     if (!isNewMember) await flushAutosaveRef.current();
-    if (workspaceId) clearOpenSheet(workspaceId);
+    if (workspaceId && syncNavigation) clearOpenSheet(workspaceId);
     onClose();
   };
 
   const handleDelete = async () => {
-    await flushAutosaveRef.current();
-    await removeMember(member.id);
+    if (isNewMember) {
+      await onDiscardNewMember?.();
+    } else {
+      await flushAutosaveRef.current();
+      await removeMember(member.id);
+    }
     setIsDeleteDialogOpen(false);
     await closeSheet();
   };
@@ -225,9 +233,7 @@ export const MemberSheet = ({
   };
 
   const handleSaveAndClose = () => {
-    const form = document.getElementById(
-      "edit-member-form",
-    ) as HTMLFormElement | null;
+    const form = document.getElementById(editFormId) as HTMLFormElement | null;
     form?.requestSubmit();
     setIsUnsavedDialogOpen(false);
   };
@@ -258,6 +264,7 @@ export const MemberSheet = ({
       }}
     >
       <SheetContent
+        data-new-person={isNewMember ? "" : undefined}
         className="w-full max-w-full gap-0 sm:w-[30rem] sm:max-w-none"
         showCloseButton={false}
         overlayClassName="bg-foreground/5"
@@ -373,6 +380,7 @@ export const MemberSheet = ({
               <EditMode
                 key={`${workspaceId ?? "no-tree"}:${member.id}`}
                 member={member}
+                formId={editFormId}
                 isNew={isNewMember}
                 onSaved={async (data) => {
                   if (isNewMember && onSaveNewMember) {
@@ -418,7 +426,9 @@ export const MemberSheet = ({
                 </Button>
                 <Button
                   type="submit"
-                  form="edit-member-form"
+                  form={editFormId}
+                  shortcut="save"
+                  disabled={saveStatus === "saving"}
                   className="flex-1"
                   size="sm"
                 >

@@ -29,7 +29,9 @@ export const EmptyTreeState = ({ onAddFirstMember }: Props) => {
         <EmptyDescription>{t("description")}</EmptyDescription>
       </EmptyHeader>
       <EmptyContent>
-        <Button onClick={onAddFirstMember}>{t("cta")}</Button>
+        <Button onClick={onAddFirstMember} shortcut="new-person">
+          {t("cta")}
+        </Button>
       </EmptyContent>
     </Empty>
   );

@@ -254,7 +254,12 @@ export const EventDialog = ({
             >
               {tDialog("cancel")}
             </Button>
-            <Button type="submit" size="sm" disabled={isSubmitDisabled}>
+            <Button
+              type="submit"
+              size="sm"
+              shortcut="save"
+              disabled={isSubmitDisabled}
+            >
               {event ? tDialog("update") : tDialog("add")}
             </Button>
           </DialogFooter>

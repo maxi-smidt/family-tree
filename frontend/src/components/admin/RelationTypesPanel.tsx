@@ -30,6 +30,7 @@ import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { Check, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+import { shortcutAria, shortcutLabel } from "@/lib/keyboardShortcuts";
 
 // Mirrors the backend id rule (RelationTypeCreate): ids double as i18n keys.
 const ID_PATTERN = /^[a-z0-9][a-z0-9_-]*$/;
@@ -391,7 +392,9 @@ export const RelationTypesPanel = () => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          title={t("save-row")}
+                          title={`${t("save-row")} (${shortcutLabel("save")})`}
+                          data-shortcut="save"
+                          aria-keyshortcuts={shortcutAria("save")}
                           aria-label={t("save-row")}
                           onClick={() => handleSave(type)}
                         >

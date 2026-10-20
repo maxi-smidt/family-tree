@@ -172,7 +172,12 @@ export const BackupPanel = ({
             </div>
           )}
           <div className="flex justify-end">
-            <Button size="sm" variant="outline" onClick={onSaveSettings}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onSaveSettings}
+              shortcut="save"
+            >
               {t("settings-saved")}
             </Button>
           </div>

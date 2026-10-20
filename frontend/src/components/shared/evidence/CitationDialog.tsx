@@ -589,7 +589,12 @@ export const CitationDialog = ({
           >
             {t("editor.cancel")}
           </Button>
-          <Button type="button" onClick={() => void save()} disabled={!canSave}>
+          <Button
+            type="button"
+            onClick={() => void save()}
+            disabled={!canSave}
+            shortcut="save"
+          >
             {saving && <Spinner />}
             {citation ? t("editor.save") : t("add")}
           </Button>

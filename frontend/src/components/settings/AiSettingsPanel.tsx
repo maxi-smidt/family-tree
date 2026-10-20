@@ -213,6 +213,7 @@ export function AiSettingsPanel() {
         <Button
           type="button"
           disabled={!canSave}
+          shortcut="save"
           onClick={() => void handleSave()}
         >
           {busy && <Spinner />}

@@ -687,6 +687,7 @@ export const DocumentDialog = ({
             </Button>
             <Button
               type="submit"
+              shortcut="save"
               size="sm"
               disabled={submitting || !formData.title.trim()}
             >
