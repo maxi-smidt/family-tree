@@ -672,7 +672,10 @@ export const EditMode = ({
           <TabsContent value="identity">
             <FieldGroup className="gap-4">
               <Field>
-                <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                <FieldLabel
+                  htmlFor={fieldId("academicTitle")}
+                  className="text-[12px] font-semibold text-muted-foreground uppercase"
+                >
                   {t("academic-title-field")}
                 </FieldLabel>
                 <Input
@@ -787,7 +790,10 @@ export const EditMode = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <Field>
-                  <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                  <FieldLabel
+                    htmlFor={fieldId("middleNames")}
+                    className="text-[12px] font-semibold text-muted-foreground uppercase"
+                  >
                     {t("middle-names-field")}
                   </FieldLabel>
                   {withEvidence(
@@ -807,7 +813,10 @@ export const EditMode = ({
                 </Field>
 
                 <Field>
-                  <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                  <FieldLabel
+                    htmlFor={fieldId("maidenName")}
+                    className="text-[12px] font-semibold text-muted-foreground uppercase"
+                  >
                     {t("maiden-field")}
                   </FieldLabel>
                   {withEvidence(
@@ -828,7 +837,10 @@ export const EditMode = ({
               </div>
 
               <Field>
-                <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                <FieldLabel
+                  htmlFor={fieldId("baptismalName")}
+                  className="text-[12px] font-semibold text-muted-foreground uppercase"
+                >
                   {t("baptismal-name-field")}
                 </FieldLabel>
                 {withEvidence(
@@ -877,7 +889,10 @@ export const EditMode = ({
                 </Field>
 
                 <Field>
-                  <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                  <FieldLabel
+                    htmlFor={fieldId("birthplace")}
+                    className="text-[12px] font-semibold text-muted-foreground uppercase"
+                  >
                     {t("birthplace-field")}
                   </FieldLabel>
                   {withEvidence(
@@ -937,7 +952,10 @@ export const EditMode = ({
 
                   {mapEnabled && (
                     <Field>
-                      <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                      <FieldLabel
+                        htmlFor={fieldId("cemetery")}
+                        className="text-[12px] font-semibold text-muted-foreground uppercase"
+                      >
                         {t("cemetery-field")}
                       </FieldLabel>
                       <LocationInput
@@ -968,7 +986,10 @@ export const EditMode = ({
 
               {mapEnabled && (
                 <Field>
-                  <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                  <FieldLabel
+                    htmlFor={fieldId("hometown")}
+                    className="text-[12px] font-semibold text-muted-foreground uppercase"
+                  >
                     {t("hometown-field")}
                   </FieldLabel>
                   <LocationInput
@@ -1077,7 +1098,10 @@ export const EditMode = ({
 
               {biographyEnabled && (
                 <Field>
-                  <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                  <FieldLabel
+                    htmlFor={fieldId("additionalData")}
+                    className="text-[12px] font-semibold text-muted-foreground uppercase"
+                  >
                     {t("notes-field")}
                   </FieldLabel>
                   <MarkdownEditor

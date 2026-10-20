@@ -83,8 +83,8 @@ canvasTest(
     await page.getByRole("button", { name: "Add first person" }).click();
     const sheet = page.locator('[data-slot="sheet-content"]');
     await expect(sheet.getByText("Edit Member")).toBeVisible();
-    await sheet.locator("#firstName").fill("Ada");
-    await sheet.locator("#lastName").fill("Lovelace");
+    await sheet.getByLabel("First Name", { exact: true }).fill("Ada");
+    await sheet.getByLabel("Last Name", { exact: true }).fill("Lovelace");
     await sheet.getByLabel("Female").click();
 
     const createResponse = page.waitForResponse(
@@ -127,21 +127,23 @@ canvasTest(
       .getByRole("button", { name: "Edit member" })
       .click();
     const sheet = page.locator('[data-slot="sheet-content"]');
-    await sheet.locator("#firstName").fill("After");
-    await sheet.locator("#middleNames").fill("Grace");
-    await sheet.locator("#lastName").fill("Hopper");
+    await sheet.getByLabel("First Name", { exact: true }).fill("After");
+    await sheet
+      .getByLabel("Second / Middle Names", { exact: true })
+      .fill("Grace");
+    await sheet.getByLabel("Last Name", { exact: true }).fill("Hopper");
     await sheet.getByLabel("Female").click();
 
     await sheet.getByRole("tab", { name: "Life" }).click();
-    await sheet.locator("#birthplace").fill("New York");
-    await sheet.locator("#hometown").fill("Arlington");
+    await sheet.getByLabel("Birthplace", { exact: true }).fill("New York");
+    await sheet
+      .getByLabel("Hometown / Where They Grew Up", { exact: true })
+      .fill("Arlington");
 
     const birthField = sheet
       .locator('[data-slot="field"]')
       .filter({ hasText: "Date of Birth" });
-    await birthField
-      .getByRole("button", { name: "Open date picker" })
-      .click();
+    await birthField.getByRole("button", { name: "Open date picker" }).click();
     let popover = page.locator('[data-slot="popover-content"]');
     await popover.getByRole("button", { name: "Y", exact: true }).click();
     await popover.getByRole("button", { name: "2020", exact: true }).click();
@@ -159,9 +161,7 @@ canvasTest(
     const deathField = sheet
       .locator('[data-slot="field"]')
       .filter({ hasText: "Date of Death" });
-    await deathField
-      .getByRole("button", { name: "Open date picker" })
-      .click();
+    await deathField.getByRole("button", { name: "Open date picker" }).click();
     popover = page.locator('[data-slot="popover-content"]');
     await popover.getByRole("button", { name: "Y", exact: true }).click();
     await popover.getByRole("button", { name: "2024", exact: true }).click();
@@ -184,7 +184,9 @@ canvasTest(
       } | null;
       return body?.additionalData === "Compiler pioneer";
     });
-    await sheet.locator("#additionalData").fill("Compiler pioneer");
+    await sheet
+      .getByLabel("Notes / Biography", { exact: true })
+      .fill("Compiler pioneer");
     await updateResponse;
 
     await expect(memberNode(page, member.id)).toContainText("After");
@@ -290,7 +292,11 @@ interface RelationRecord {
   relation_type: string;
 }
 
-async function deleteEdgeViaCanvas(page: Page, workspaceId: string, edgeId: string) {
+async function deleteEdgeViaCanvas(
+  page: Page,
+  workspaceId: string,
+  edgeId: string,
+) {
   const deleteResponse = page.waitForResponse(
     (response) =>
       response.request().method() === "DELETE" &&
@@ -548,7 +554,9 @@ canvasTest(
     const collapseResponse = page.waitForResponse(
       (response) =>
         response.request().method() === "PATCH" &&
-        response.url().endsWith(`/api/workspaces/${ownedTree.id}/members/collapsed`),
+        response
+          .url()
+          .endsWith(`/api/workspaces/${ownedTree.id}/members/collapsed`),
     );
     await collapse.click();
     await collapseResponse;
@@ -567,7 +575,9 @@ canvasTest(
     const expandResponse = page.waitForResponse(
       (response) =>
         response.request().method() === "PATCH" &&
-        response.url().endsWith(`/api/workspaces/${ownedTree.id}/members/collapsed`),
+        response
+          .url()
+          .endsWith(`/api/workspaces/${ownedTree.id}/members/collapsed`),
     );
     await expand.click();
     await expandResponse;
@@ -642,7 +652,9 @@ canvasTest(
     await deleteResponse;
     await expect(diseases).not.toContainText("Hemophilia A");
     expect(
-      await secondApi.get<DiseaseRecord[]>(`/workspaces/${ownedTree.id}/diseases`),
+      await secondApi.get<DiseaseRecord[]>(
+        `/workspaces/${ownedTree.id}/diseases`,
+      ),
     ).toHaveLength(0);
   },
 );

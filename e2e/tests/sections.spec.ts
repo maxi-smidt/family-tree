@@ -157,7 +157,7 @@ sectionsTest(
           `/api/workspaces/${ownedTree.id}/members/${alice.id}`,
         ),
     );
-    await sheet.locator("#firstName").fill("Alicia");
+    await sheet.getByLabel("First Name", { exact: true }).fill("Alicia");
     await updateResponse;
     await expect(memberNode(page, alice.id)).toContainText("Alicia");
     await page.keyboard.press("Escape");
