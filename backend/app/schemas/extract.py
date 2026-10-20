@@ -15,4 +15,8 @@ from typing import Literal
 # exact algorithm.
 # "partnership": the root's partner(s), the partner's family, and the
 # children the root shares with them.
-Direction = Literal["direct_family", "partnership"]
+# "lineage": the root's ancestors and descendants on their direct lines,
+# plus the root's own partner(s). Other branches and partners are not traversed.
+# "extended_family": all ancestors and their descendants (including siblings,
+# uncles/aunts and cousins), plus one hop of partners of everyone selected.
+Direction = Literal["direct_family", "partnership", "lineage", "extended_family"]

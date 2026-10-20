@@ -59,6 +59,7 @@ import {
   SectionCreateInput,
   SectionDB,
   SectionDependentsDB,
+  SectionDirection,
   SectionPreviewDB,
   SectionSuggestionDB,
   SectionUpdateInput,
@@ -974,7 +975,7 @@ export class WorkspaceService {
   static previewSection(
     workspaceId: string,
     rootMemberId: string,
-    direction: "direct_family" | "partnership",
+    direction: SectionDirection,
   ) {
     return api.get<SectionPreviewDB>(`${base(workspaceId)}/sections/preview`, {
       root_member_id: rootMemberId,

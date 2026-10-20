@@ -6,6 +6,9 @@ import { useSavedViewStore } from "@/hooks/useSavedViewStore";
 import { useWorkspaceNavStore } from "@/hooks/useWorkspaceNavStore";
 import { SavedViewDB } from "@/types/savedView";
 import { WorkspaceNavigationPanel } from "./WorkspaceNavigationPanel";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
+import { useWorkspaceSharingStore } from "@/hooks/useWorkspaceSharingStore";
+import { SectionDB } from "@/types/section";
 
 // jsdom doesn't implement matchMedia; useIsMobile needs it to mount.
 beforeEach(() => {
@@ -15,6 +18,16 @@ beforeEach(() => {
     removeEventListener: vi.fn(),
   }) as unknown as typeof window.matchMedia;
 });
+
+const SECTION: SectionDB = {
+  id: "section-1",
+  workspace_id: "tree-1",
+  name: "Smith branch",
+  position: 0,
+  created_at: "2026-01-01T00:00:00Z",
+  member_count: 3,
+  can_write: true,
+};
 
 function makeView(overrides: Partial<SavedViewDB> = {}): SavedViewDB {
   return {
@@ -41,6 +54,17 @@ function makeView(overrides: Partial<SavedViewDB> = {}): SavedViewDB {
 describe("WorkspaceNavigationPanel — saved view create/edit focus", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useWorkspaceStore.setState({
+      selectedTree: { id: "tree-1", name: "Our family", role: "owner" },
+    });
+    useWorkspaceSharingStore.setState({
+      workspaceId: "tree-1",
+      access: [],
+      candidates: [],
+      sections: [SECTION],
+      invitations: [],
+      load: vi.fn().mockResolvedValue(undefined),
+    });
     useSectionStore.setState({ sections: [], initialized: true });
     useSavedViewStore.setState({ views: [], initialized: true });
     useWorkspaceNavStore.getState().clear();
@@ -53,6 +77,54 @@ describe("WorkspaceNavigationPanel — saved view create/edit focus", () => {
       focusSection: vi.fn().mockResolvedValue(undefined),
       exitFocus: vi.fn().mockResolvedValue(undefined),
     });
+  });
+
+  it("opens section sharing from the options menu and closes navigation", async () => {
+    useSectionStore.setState({ sections: [SECTION] });
+    render(<WorkspaceNavigationPanel workspaceId="tree-1" canWrite />);
+    const trigger = screen.getByRole("button", { name: /saved views/i });
+    fireEvent.click(trigger);
+    fireEvent.keyDown(
+      await screen.findByRole("button", { name: "Actions for Smith branch" }),
+      { key: "Enter" },
+    );
+    fireEvent.click(
+      await screen.findByRole("menuitem", { name: "Share section" }),
+    );
+    expect(
+      await screen.findByRole("dialog", { name: 'Share "Smith branch"' }),
+    ).toBeInTheDocument();
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(useWorkspaceNavStore.getState().selectedSectionId).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: 'Share "Smith branch"' }),
+      ).not.toBeInTheDocument(),
+    );
+    fireEvent.click(trigger);
+    expect(
+      await screen.findByRole("button", { name: "Actions for Smith branch" }),
+    ).toBeInTheDocument();
+  });
+
+  it("does not offer section sharing to editors", async () => {
+    useWorkspaceStore.setState({
+      selectedTree: { id: "tree-1", name: "Our family", role: "editor" },
+    });
+    useSectionStore.setState({ sections: [SECTION] });
+    render(<WorkspaceNavigationPanel workspaceId="tree-1" canWrite />);
+    fireEvent.click(screen.getByRole("button", { name: /saved views/i }));
+    fireEvent.keyDown(
+      await screen.findByRole("button", { name: "Actions for Smith branch" }),
+      { key: "Enter" },
+    );
+    expect(
+      await screen.findByRole("menuitem", { name: "Rename" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("menuitem", { name: "Share section" }),
+    ).not.toBeInTheDocument();
   });
 
   it("focuses a newly created view's focus member even though the store's list hasn't caught up yet", async () => {

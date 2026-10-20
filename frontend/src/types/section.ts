@@ -14,10 +14,13 @@ export interface SectionDB {
   can_write: boolean;
 }
 
+export type SectionDirection =
+  "direct_family" | "partnership" | "lineage" | "extended_family";
+
 export interface SectionCreateInput {
   name: string;
   root_member_id?: string | null;
-  direction?: "direct_family" | "partnership";
+  direction?: SectionDirection;
 }
 
 export interface SectionUpdateInput {

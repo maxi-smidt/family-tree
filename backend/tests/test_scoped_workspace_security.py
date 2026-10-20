@@ -319,7 +319,9 @@ def test_quality_report_and_dismissals_respect_member_visibility(
 
 
 @pytest.mark.parametrize("role", ["viewer", "editor"])
-@pytest.mark.parametrize("direction", ["direct_family", "partnership"])
+@pytest.mark.parametrize(
+    "direction", ["direct_family", "partnership", "lineage", "extended_family"]
+)
 def test_scoped_readers_cannot_preview_workspace_branches(
     client, db, tree, scoped, role, direction
 ):

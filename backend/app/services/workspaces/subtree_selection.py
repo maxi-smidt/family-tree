@@ -155,6 +155,83 @@ def _collect_partnership_ids(db: Session, workspace_id: str, root_id: str) -> se
     return moved
 
 
+def _collect_lineage_ids(db: Session, workspace_id: str, root_id: str) -> set[str]:
+    """Follow ancestors and descendants independently; add only root's partners.
+
+    Switching from upward to downward traversal at an ancestor would also
+    include siblings and cousins. Likewise, traversing upward from a child
+    would include their other parent's family. Neither belongs to this mode.
+    """
+    parents: MemberIdSet = {}
+    children: MemberIdSet = {}
+    selected: set[str] = set()
+    for relation in _load_relations(db, workspace_id):
+        child, parent = relation.from_member_id, relation.to_member_id
+        if relation.relation_type == "parent":
+            parents.setdefault(child, set()).add(parent)
+            children.setdefault(parent, set()).add(child)
+        elif child == root_id:
+            selected.add(parent)
+        elif parent == root_id:
+            selected.add(child)
+
+    for adjacency in (parents, children):
+        seen = {root_id}
+        queue = deque([root_id])
+        while queue:
+            for relative in adjacency.get(queue.popleft(), ()):
+                if relative in seen:
+                    continue
+                seen.add(relative)
+                selected.add(relative)
+                queue.append(relative)
+    selected.discard(root_id)
+    return selected
+
+
+def _collect_extended_family_ids(
+    db: Session, workspace_id: str, root_id: str
+) -> set[str]:
+    """Take the root's ancestors, their descendant branches, and their partners.
+
+    Walk up only from the root, then down from that set. Partners are added
+    afterwards without traversing their own unrelated families.
+    """
+    relations = _load_relations(db, workspace_id)
+    parents: MemberIdSet = {}
+    children: MemberIdSet = {}
+    for relation in relations:
+        if relation.relation_type == "parent":
+            child, parent = relation.from_member_id, relation.to_member_id
+            parents.setdefault(child, set()).add(parent)
+            children.setdefault(parent, set()).add(child)
+
+    selected = {root_id}
+    queue = deque([root_id])
+    while queue:
+        for parent in parents.get(queue.popleft(), ()):
+            if parent not in selected:
+                selected.add(parent)
+                queue.append(parent)
+
+    queue = deque(selected)
+    while queue:
+        for child in children.get(queue.popleft(), ()):
+            if child not in selected:
+                selected.add(child)
+                queue.append(child)
+
+    partners: set[str] = set()
+    for relation in relations:
+        if relation.relation_type == "parent":
+            continue
+        if relation.from_member_id in selected:
+            partners.add(relation.to_member_id)
+        if relation.to_member_id in selected:
+            partners.add(relation.from_member_id)
+    return (selected | partners) - {root_id}
+
+
 def collect_member_ids(
     db: Session, workspace_id: str, root_id: str, direction: str
 ) -> set[str]:
@@ -167,4 +244,8 @@ def collect_member_ids(
 
     if direction == "partnership":
         return _collect_partnership_ids(db, workspace_id, root_id)
+    if direction == "lineage":
+        return _collect_lineage_ids(db, workspace_id, root_id)
+    if direction == "extended_family":
+        return _collect_extended_family_ids(db, workspace_id, root_id)
     return _collect_direct_family_ids(db, workspace_id, root_id)

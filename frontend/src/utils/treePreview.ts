@@ -11,6 +11,8 @@
  *  - section creation: `subtree_selection.py`'s "direct family" and
  *    "partnership" selections. */
 
+import type { SectionDirection } from "@/types/section";
+
 export type PreviewNodeKind = "person" | "more";
 
 export interface PreviewNode {
@@ -45,6 +47,7 @@ export const PREVIEW_NODES: PreviewNode[] = [
   { id: "gp3", x: 3.25, generation: 2, kind: "person" },
   { id: "gp4", x: 4.25, generation: 2, kind: "person" },
   { id: "uncle", x: 1, generation: 1, kind: "person" },
+  { id: "uncle-partner", x: 0, generation: 1, kind: "person" },
   { id: "father", x: 2.5, generation: 1, kind: "person" },
   { id: "mother", x: 3.5, generation: 1, kind: "person" },
   { id: "in-law1", x: 4.75, generation: 1, kind: "person" },
@@ -64,6 +67,7 @@ export const PREVIEW_COUPLES: PreviewCouple[] = [
   { a: "gp1", b: "gp2" },
   { a: "gp3", b: "gp4" },
   { a: "father", b: "mother" },
+  { a: "uncle-partner", b: "uncle" },
   { a: "in-law1", b: "in-law2" },
   { a: PREVIEW_FOCUS_ID, b: "partner" },
   { a: "child-partner", b: "child1" },
@@ -75,7 +79,7 @@ export const PREVIEW_CHILD_LINKS: PreviewChildLink[] = [
   { child: "uncle", parents: ["gp1", "gp2"] },
   { child: "father", parents: ["gp1", "gp2"] },
   { child: "mother", parents: ["gp3", "gp4"] },
-  { child: "cousin", parents: ["uncle"] },
+  { child: "cousin", parents: ["uncle-partner", "uncle"] },
   { child: "sibling", parents: ["father", "mother"] },
   { child: PREVIEW_FOCUS_ID, parents: ["father", "mother"] },
   { child: "partner", parents: ["in-law1", "in-law2"] },
@@ -188,13 +192,43 @@ function familyWalk({
   return new Set(generation.keys());
 }
 
-export type SectionPreviewDirection = "direct_family" | "partnership";
+export type SectionPreviewDirection = SectionDirection;
 
 /** Which dummy nodes a section seeded from the focus would contain (the seed
  *  itself included, as the backend does). */
 export function previewSectionMembers(
   direction: SectionPreviewDirection,
 ): Set<string> {
+  if (direction === "extended_family") {
+    const included = lineageWalk({
+      up: Infinity,
+      down: 0,
+      includePartners: false,
+      sectionScoped: false,
+    });
+    const queue = [...included];
+    for (let index = 0; index < queue.length; index++) {
+      for (const child of neighbours(childrenOf, queue[index])) {
+        if (!included.has(child)) {
+          included.add(child);
+          queue.push(child);
+        }
+      }
+    }
+    for (const id of [...included])
+      neighbours(partnersOf, id).forEach((partner) => included.add(partner));
+    return included;
+  }
+  if (direction === "lineage") {
+    const included = lineageWalk({
+      up: Infinity,
+      down: Infinity,
+      includePartners: false,
+      sectionScoped: false,
+    });
+    neighbours(partnersOf, PREVIEW_FOCUS_ID).forEach((id) => included.add(id));
+    return included;
+  }
   const moved = new Set<string>();
   const queue: string[] = [];
   const visit = (id: string) => {
@@ -227,4 +261,20 @@ export function previewSectionMembers(
   }
   moved.add(PREVIEW_FOCUS_ID);
   return moved;
+}
+
+/** Connected people remain outside section membership, matching the backend's
+ *  boundary preview. They are context, not additional section members. */
+export function previewSectionBoundaryMembers(
+  included: ReadonlySet<string>,
+): Set<string> {
+  const boundary = new Set<string>();
+  const connect = (a: string, b: string) => {
+    if (included.has(a) && !included.has(b)) boundary.add(b);
+    if (included.has(b) && !included.has(a)) boundary.add(a);
+  };
+  for (const { child, parents } of PREVIEW_CHILD_LINKS)
+    for (const parent of parents) connect(child, parent);
+  for (const { a, b } of PREVIEW_COUPLES) connect(a, b);
+  return boundary;
 }

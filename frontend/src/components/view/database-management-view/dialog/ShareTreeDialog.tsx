@@ -4,12 +4,14 @@ import { formatDate } from "@/utils/dateUtils";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -44,18 +46,21 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Check,
+  ChevronDown,
   ChevronsUpDown,
   Copy,
   Crown,
   Globe,
   Link,
   UserPlus,
+  Users,
   X,
 } from "lucide-react";
 import { useWorkspaceSharingStore } from "@/hooks/useWorkspaceSharingStore";
 import { ACCESS_PRESETS, levelsOf } from "@/utils/accessLevels";
 import { AccessLevelsPicker } from "./AccessLevelsPicker";
 import { cn } from "@/lib/utils";
+import { SectionDB } from "@/types/section";
 import {
   AccessLevels,
   ShareCandidate,
@@ -69,6 +74,7 @@ import { useTranslation } from "react-i18next";
 
 type Props = {
   tree: Workspace;
+  section?: SectionDB;
   isOpen: boolean;
   onClose: () => void;
   onTreeUpdated?: (tree: Workspace) => void;
@@ -84,12 +90,15 @@ const WHOLE_WORKSPACE = "__workspace__";
 
 export const ShareTreeDialog = ({
   tree,
+  section,
   isOpen,
   onClose,
   onTreeUpdated,
 }: Props) => {
   const { t } = useTranslation(undefined, { keyPrefix: "dialog.share-tree" });
   const isOwner = tree.role === "owner";
+  const sectionId = section?.id ?? null;
+  const canShareWorkspace = isOwner && !sectionId;
 
   // Hold the latest tree props so the open-time effect can initialize from them
   // without re-running (and re-fetching) when the tree object changes while the
@@ -126,6 +135,7 @@ export const ShareTreeDialog = ({
   const setPublicPassword = useWorkspaceSharingStore(
     (state) => state.setPublicPassword,
   );
+  const [activeTab, setActiveTab] = useState("people");
   const [staged, setStaged] = useState<StagedUser[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [transferTo, setTransferTo] = useState("");
@@ -161,6 +171,18 @@ export const ShareTreeDialog = ({
     return null;
   }, [publicPasswordInput, t]);
 
+  const visibleAccess = sectionId
+    ? access.filter(
+        (grant) => !grant.section_id || grant.section_id === sectionId,
+      )
+    : access;
+  const availableCandidates = sectionId
+    ? candidates.filter(
+        (candidate) =>
+          !visibleAccess.some((grant) => grant.user_id === candidate.user_id),
+      )
+    : candidates;
+
   // Any active user other than the current owner is an eligible new owner:
   // existing members plus the share candidates (users without access yet).
   const transferTargets = useMemo(
@@ -176,12 +198,14 @@ export const ShareTreeDialog = ({
 
   const reload = useCallback(async () => {
     await loadSharing(tree.id, {
-      includeInvitations: isOwner,
+      includeInvitations: canShareWorkspace,
     });
-  }, [tree.id, isOwner, loadSharing]);
+  }, [tree.id, canShareWorkspace, loadSharing]);
 
   useEffect(() => {
     if (isOpen) {
+      setActiveTab("people");
+      setPickerOpen(false);
       setStaged([]);
       setTransferTo("");
       setRetainAccess(false);
@@ -196,16 +220,13 @@ export const ShareTreeDialog = ({
       setPublicPasswordInput("");
       void reload();
     }
-  }, [isOpen, reload]);
+  }, [isOpen, reload, sectionId]);
 
   const toggleStaged = (candidate: ShareCandidate) => {
     setStaged((prev) =>
       prev.some((s) => s.user_id === candidate.user_id)
         ? prev.filter((s) => s.user_id !== candidate.user_id)
-        : [
-            ...prev,
-            { ...candidate, levels: ACCESS_PRESETS.editor, sectionId: null },
-          ],
+        : [...prev, { ...candidate, levels: ACCESS_PRESETS.editor, sectionId }],
     );
   };
 
@@ -475,7 +496,7 @@ export const ShareTreeDialog = ({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
-        className="grid-cols-1 max-h-[90vh] overflow-y-auto sm:min-w-[600px]"
+        className="flex h-[600px] max-h-[85dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-[560px]"
         onInteractOutside={(e) => {
           // The public-access / transfer confirmations render as sibling
           // AlertDialog portals. Radix treats a pointer-down or focus change
@@ -490,457 +511,593 @@ export const ShareTreeDialog = ({
           }
         }}
       >
-        <DialogHeader>
-          <DialogTitle>{t("title", { name: tree.name })}</DialogTitle>
-          <DialogDescription>{t("description")}</DialogDescription>
+        <DialogHeader className="shrink-0 px-6 pt-6 pb-5 text-left">
+          <DialogTitle className="pr-6 leading-snug break-words">
+            {t("title", { name: section?.name ?? tree.name })}
+          </DialogTitle>
+          <DialogDescription>
+            {section
+              ? t("section-description", { name: tree.name })
+              : t("description")}
+          </DialogDescription>
         </DialogHeader>
 
-        {/* People who already have access */}
-        <div className="space-y-2">
-          <p className="text-sm font-medium">{t("current-access")}</p>
-          {access.map((a) => (
-            <div
-              key={`${a.user_id}:${a.section_id ?? ""}`}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-2"
-            >
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium">{a.username}</p>
-                {a.role !== "owner" &&
-                  (sections.length > 0 || a.section_id) && (
-                    <p className="truncate text-xs text-muted-foreground">
-                      {a.section_id
-                        ? sectionName(a.section_id)
-                        : t("scope-workspace")}
-                    </p>
-                  )}
-              </div>
-              {a.role === "owner" ? (
-                <Badge variant="secondary">{t("role-owner")}</Badge>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <AccessLevelsPicker
-                    levels={levelsOf(a)}
-                    onChange={(levels) => handleLevelsChange(a, levels)}
-                    disabled={!isOwner}
-                  />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleRevoke(a)}
-                    title={t("revoke")}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* Add new people */}
-        <div className="space-y-2 border-t pt-4">
-          <p className="text-sm font-medium">{t("add-people")}</p>
-          <p className="text-xs text-muted-foreground">
-            {t("friends-only-hint")}
-          </p>
-
-          <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                role="combobox"
-                aria-expanded={pickerOpen}
-                className="w-full justify-between font-normal"
-                disabled={candidates.length === 0}
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="min-h-0 flex-1 gap-0"
+        >
+          <div hidden={!canShareWorkspace} className="shrink-0 px-6 pb-4">
+            <TabsList className="w-full" aria-label={t("sharing-method")}>
+              <TabsTrigger
+                value="people"
+                className="px-1 text-xs sm:px-2 sm:text-sm [&_svg]:hidden sm:[&_svg]:block"
               >
-                <span className="flex items-center gap-2 text-muted-foreground">
-                  <UserPlus className="h-4 w-4" />
-                  {candidates.length === 0
-                    ? t("no-candidates")
-                    : t("select-users")}
-                </span>
-                <ChevronsUpDown className="h-4 w-4 opacity-50" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              className="w-[var(--radix-popover-trigger-width)] p-0"
-              align="start"
-            >
-              <Command>
-                <CommandInput placeholder={t("search-placeholder")} />
-                <CommandList>
-                  <CommandEmpty>{t("no-users")}</CommandEmpty>
-                  <CommandGroup>
-                    {candidates.map((c) => {
-                      const isStaged = staged.some(
-                        (s) => s.user_id === c.user_id,
-                      );
-                      return (
-                        <CommandItem
-                          key={c.user_id}
-                          value={c.username}
-                          onSelect={() => toggleStaged(c)}
-                        >
-                          <Check
-                            className={cn(
-                              "mr-2 h-4 w-4",
-                              isStaged ? "opacity-100" : "opacity-0",
-                            )}
-                          />
-                          {c.username}
-                        </CommandItem>
-                      );
-                    })}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
+                <Users />
+                {t("tabs.people")}
+              </TabsTrigger>
+              {canShareWorkspace && (
+                <>
+                  <TabsTrigger
+                    value="invite"
+                    className="px-1 text-xs sm:px-2 sm:text-sm [&_svg]:hidden sm:[&_svg]:block"
+                  >
+                    <Link />
+                    {t("tabs.invite")}
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="public"
+                    className="px-1 text-xs sm:px-2 sm:text-sm [&_svg]:hidden sm:[&_svg]:block"
+                  >
+                    <Globe />
+                    {t("tabs.public")}
+                  </TabsTrigger>
+                </>
+              )}
+            </TabsList>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-5 [scrollbar-gutter:stable]">
+            <TabsContent value="people" className="space-y-5">
+              <div className="space-y-3">
+                <p className="text-sm font-medium">{t("add-people")}</p>
+                <p className="text-xs text-muted-foreground">
+                  {t("friends-only-hint")}
+                </p>
 
-          {staged.length > 0 && (
-            <div className="space-y-2">
-              {staged.map((s) => (
-                <div
-                  key={s.user_id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed p-2"
-                >
-                  <span className="min-w-0 truncate text-sm font-medium">
-                    {s.username}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    {sections.length > 0 && (
+                <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-label={t("select-users")}
+                      aria-expanded={pickerOpen}
+                      className="w-full justify-between font-normal"
+                      disabled={availableCandidates.length === 0}
+                    >
+                      <span className="flex items-center gap-2 text-muted-foreground">
+                        <UserPlus className="h-4 w-4" />
+                        {availableCandidates.length === 0
+                          ? t("no-candidates")
+                          : t("select-users")}
+                      </span>
+                      <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="w-[var(--radix-popover-trigger-width)] p-0"
+                    align="start"
+                  >
+                    <Command>
+                      <CommandInput placeholder={t("search-placeholder")} />
+                      <CommandList>
+                        <CommandEmpty>{t("no-users")}</CommandEmpty>
+                        <CommandGroup>
+                          {availableCandidates.map((c) => {
+                            const isStaged = staged.some(
+                              (s) => s.user_id === c.user_id,
+                            );
+                            return (
+                              <CommandItem
+                                key={c.user_id}
+                                value={c.username}
+                                onSelect={() => toggleStaged(c)}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    isStaged ? "opacity-100" : "opacity-0",
+                                  )}
+                                />
+                                {c.username}
+                              </CommandItem>
+                            );
+                          })}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+
+                {staged.length > 0 && (
+                  <div className="space-y-2">
+                    {staged.map((s) => (
+                      <div
+                        key={s.user_id}
+                        className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed p-2"
+                      >
+                        <span className="min-w-0 truncate text-sm font-medium">
+                          {s.username}
+                        </span>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {!section && sections.length > 0 && (
+                            <Select
+                              value={s.sectionId ?? WHOLE_WORKSPACE}
+                              onValueChange={(v) =>
+                                setStagedSection(
+                                  s.user_id,
+                                  v === WHOLE_WORKSPACE ? null : v,
+                                )
+                              }
+                            >
+                              <SelectTrigger
+                                size="sm"
+                                className="w-40"
+                                aria-label={t("scope-label")}
+                              >
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value={WHOLE_WORKSPACE}>
+                                  {t("scope-workspace")}
+                                </SelectItem>
+                                {sections.map((section) => (
+                                  <SelectItem
+                                    key={section.id}
+                                    value={section.id}
+                                  >
+                                    {section.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                          <AccessLevelsPicker
+                            levels={s.levels}
+                            onChange={(levels) =>
+                              setStagedLevels(s.user_id, levels)
+                            }
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => toggleStaged(s)}
+                            title={t("remove")}
+                            aria-label={t("remove")}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+
+                    <Button className="w-full" onClick={handleShare}>
+                      {t("share-button", { count: staged.length })}
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {/* People who already have access */}
+              <div className="space-y-2 border-t pt-5">
+                <p className="text-sm font-medium">{t("current-access")}</p>
+                <div className="divide-y">
+                  {visibleAccess.map((a) => (
+                    <div
+                      key={`${a.user_id}:${a.section_id ?? ""}`}
+                      className="flex flex-wrap items-center justify-between gap-2 py-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">
+                          {a.username}
+                        </p>
+                        {a.role !== "owner" &&
+                          (section || sections.length > 0 || a.section_id) && (
+                            <p className="truncate text-xs text-muted-foreground">
+                              {a.section_id
+                                ? sectionName(a.section_id)
+                                : t(
+                                    section
+                                      ? "scope-workspace-inherited"
+                                      : "scope-workspace",
+                                  )}
+                            </p>
+                          )}
+                      </div>
+                      {a.role === "owner" ? (
+                        <Badge variant="secondary">{t("role-owner")}</Badge>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <AccessLevelsPicker
+                            levels={levelsOf(a)}
+                            onChange={(levels) => handleLevelsChange(a, levels)}
+                            disabled={
+                              !isOwner || Boolean(section && !a.section_id)
+                            }
+                          />
+                          {(!section || a.section_id) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRevoke(a)}
+                              title={t("revoke")}
+                              aria-label={t("revoke")}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {canShareWorkspace && (
+                <details className="group border-t pt-4">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-sm text-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+                    {t("transfer-title")}
+                    <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180 motion-reduce:transition-none" />
+                  </summary>
+                  <div className="mt-4 space-y-3">
+                    <p className="text-xs text-muted-foreground">
+                      {t("transfer-hint")}
+                    </p>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                       <Select
-                        value={s.sectionId ?? WHOLE_WORKSPACE}
-                        onValueChange={(v) =>
-                          setStagedSection(
-                            s.user_id,
-                            v === WHOLE_WORKSPACE ? null : v,
-                          )
-                        }
+                        value={transferTo}
+                        onValueChange={setTransferTo}
+                        disabled={transferTargets.length === 0}
                       >
                         <SelectTrigger
-                          size="sm"
-                          className="w-40"
-                          aria-label={t("scope-label")}
+                          className="w-full min-w-0 sm:w-auto sm:flex-1"
+                          aria-label={t("transfer-select")}
                         >
-                          <SelectValue />
+                          <SelectValue
+                            className="min-w-0"
+                            placeholder={
+                              transferTargets.length === 0
+                                ? t("transfer-no-targets")
+                                : t("transfer-select")
+                            }
+                          />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value={WHOLE_WORKSPACE}>
-                            {t("scope-workspace")}
-                          </SelectItem>
-                          {sections.map((section) => (
-                            <SelectItem key={section.id} value={section.id}>
-                              {section.name}
+                          {transferTargets.map((u) => (
+                            <SelectItem key={u.user_id} value={u.username}>
+                              {u.username}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                    )}
-                    <AccessLevelsPicker
-                      levels={s.levels}
-                      onChange={(levels) => setStagedLevels(s.user_id, levels)}
-                    />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => toggleStaged(s)}
-                      title={t("remove")}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-
-              <Button className="w-full" onClick={handleShare}>
-                {t("share-button", { count: staged.length })}
-              </Button>
-            </div>
-          )}
-        </div>
-
-        {/* Invite by link (owner only) */}
-        {isOwner && (
-          <div className="space-y-3 border-t pt-4">
-            <div className="flex items-center gap-2">
-              <Link className="h-4 w-4 text-muted-foreground" />
-              <p className="text-sm font-medium">{t("invites.title")}</p>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {t("invites.description")}
-            </p>
-
-            {/* Create invite form */}
-            <div className="space-y-2">
-              <Input
-                placeholder={t("invites.email-placeholder")}
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                type="email"
-              />
-              <div className="flex gap-2">
-                <Select
-                  value={inviteRole}
-                  onValueChange={(v) => setInviteRole(v as ShareRole)}
-                >
-                  <SelectTrigger className="flex-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="editor">{t("role-editor")}</SelectItem>
-                    <SelectItem value="viewer">{t("role-viewer")}</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={inviteExpiry} onValueChange={setInviteExpiry}>
-                  <SelectTrigger className="flex-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="never">
-                      {t("invites.expiry-never")}
-                    </SelectItem>
-                    <SelectItem value="7">{t("invites.expiry-7d")}</SelectItem>
-                    <SelectItem value="30">
-                      {t("invites.expiry-30d")}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button
-                className="w-full"
-                variant="outline"
-                onClick={handleCreateInvite}
-                disabled={creatingInvite}
-              >
-                {t("invites.create-button")}
-              </Button>
-            </div>
-
-            {/* Existing invitations */}
-            {invitations.length > 0 ? (
-              <div className="space-y-2">
-                {invitations.map((inv) => (
-                  <div
-                    key={inv.id}
-                    className="flex items-center justify-between rounded-md border p-2 text-sm"
-                  >
-                    <div className="flex flex-col gap-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        {inviteStatusBadge(inv.status)}
-                        <span className="text-xs text-muted-foreground capitalize">
-                          {inv.role}
-                        </span>
-                        {inv.email && (
-                          <span className="text-xs text-muted-foreground truncate">
-                            {inv.email}
-                          </span>
-                        )}
-                      </div>
-                      {inv.expires_at && inv.status === "pending" && (
-                        <span className="text-xs text-muted-foreground">
-                          {formatDate(inv.expires_at)}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      {inv.token && inv.status === "pending" && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleCopyLink(inv.token!)}
-                          title={t("invites.copy-link")}
-                        >
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {inv.status === "pending" && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleRevokeInvite(inv.id)}
-                          title={t("invites.revoke")}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                {t("invites.none-yet")}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Public access (owner only) */}
-        {isOwner && (
-          <div className="space-y-3 border-t pt-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Globe className="h-4 w-4 text-muted-foreground" />
-                <p className="text-sm font-medium">{t("public.title")}</p>
-              </div>
-              <Switch
-                checked={publicRole === "viewer"}
-                onCheckedChange={handlePublicToggle}
-              />
-            </div>
-            <p className="text-xs text-muted-foreground">{t("public.hint")}</p>
-            {publicRole === "viewer" && (
-              <>
-                <div className="flex w-full items-center gap-2 rounded-md border bg-muted/50 p-2">
-                  <span className="flex-1 min-w-0 truncate text-xs text-muted-foreground">
-                    {publicLink}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      void navigator.clipboard.writeText(publicLink);
-                      toast.success(t("invites.link-copied"));
-                    }}
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground">
-                    {t("public.password.hint")}
-                  </p>
-                  {publicPasswordProtected && (
-                    <div className="flex items-center justify-between rounded-md border bg-muted/50 p-2">
-                      <span className="text-xs font-medium">
-                        {t("public.password.protected")}
-                      </span>
                       <Button
                         variant="outline"
-                        size="sm"
-                        onClick={handleRemovePublicPassword}
+                        className="w-full sm:w-auto"
+                        disabled={!transferTo}
+                        onClick={() => {
+                          setConfirmTransferOpen(true);
+                        }}
                       >
-                        {t("public.password.remove")}
+                        <Crown className="h-4 w-4" />
+                        {t("transfer-button")}
                       </Button>
                     </div>
-                  )}
-                  <div className="flex gap-2">
-                    <Input
-                      type="password"
-                      placeholder={t("public.password.placeholder")}
-                      value={publicPasswordInput}
-                      onChange={(e) => setPublicPasswordInput(e.target.value)}
-                      minLength={8}
-                      maxLength={72}
-                      aria-invalid={Boolean(publicPasswordError)}
-                      aria-describedby={
-                        publicPasswordError
-                          ? "public-password-error"
-                          : undefined
-                      }
-                    />
-                    <Button
-                      variant="outline"
-                      disabled={!publicPasswordInput || !!publicPasswordError}
-                      onClick={handleSetPublicPassword}
-                    >
-                      {publicPasswordProtected
-                        ? t("public.password.update")
-                        : t("public.password.set")}
-                    </Button>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm">{t("transfer-retain-toggle")}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {t("transfer-retain-hint")}
+                        </p>
+                      </div>
+                      <Switch
+                        aria-label={t("transfer-retain-toggle")}
+                        checked={retainAccess}
+                        onCheckedChange={setRetainAccess}
+                      />
+                    </div>
+                    {retainAccess && (
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm flex-1">
+                          {t("transfer-retain-role-label")}
+                        </p>
+                        <Select
+                          value={retainRole}
+                          onValueChange={(v) => setRetainRole(v as ShareRole)}
+                        >
+                          <SelectTrigger className="w-32">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="viewer">
+                              {t("role-viewer")}
+                            </SelectItem>
+                            <SelectItem value="editor">
+                              {t("role-editor")}
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                   </div>
-                  {publicPasswordError ? (
-                    <p
-                      id="public-password-error"
-                      className="text-xs text-destructive"
-                    >
-                      {publicPasswordError}
-                    </p>
-                  ) : (
+                </details>
+              )}
+            </TabsContent>
+            {canShareWorkspace && (
+              <>
+                <TabsContent value="invite">
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Link className="h-4 w-4 text-muted-foreground" />
+                      <p className="text-sm font-medium">
+                        {t("invites.title")}
+                      </p>
+                    </div>
                     <p className="text-xs text-muted-foreground">
-                      {t("public.password.requirements")}
+                      {t("invites.description")}
                     </p>
-                  )}
-                </div>
+
+                    {/* Create invite form */}
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label
+                          htmlFor="invite-email"
+                          className="text-sm font-medium"
+                        >
+                          {t("invites.email-label")}
+                        </label>
+                        <Input
+                          id="invite-email"
+                          placeholder={t("invites.email-placeholder")}
+                          value={inviteEmail}
+                          onChange={(e) => setInviteEmail(e.target.value)}
+                          type="email"
+                        />
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="space-y-2">
+                          <label
+                            htmlFor="invite-role"
+                            className="text-sm font-medium"
+                          >
+                            {t("invites.role-label")}
+                          </label>
+                          <Select
+                            value={inviteRole}
+                            onValueChange={(v) => setInviteRole(v as ShareRole)}
+                          >
+                            <SelectTrigger id="invite-role" className="w-full">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="editor">
+                                {t("role-editor")}
+                              </SelectItem>
+                              <SelectItem value="viewer">
+                                {t("role-viewer")}
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <label
+                            htmlFor="invite-expiry"
+                            className="text-sm font-medium"
+                          >
+                            {t("invites.expiry-label")}
+                          </label>
+                          <Select
+                            value={inviteExpiry}
+                            onValueChange={setInviteExpiry}
+                          >
+                            <SelectTrigger
+                              id="invite-expiry"
+                              className="w-full"
+                            >
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="never">
+                                {t("invites.expiry-never")}
+                              </SelectItem>
+                              <SelectItem value="7">
+                                {t("invites.expiry-7d")}
+                              </SelectItem>
+                              <SelectItem value="30">
+                                {t("invites.expiry-30d")}
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <Button
+                        className="w-full"
+                        onClick={handleCreateInvite}
+                        disabled={creatingInvite}
+                      >
+                        {t("invites.create-button")}
+                      </Button>
+                    </div>
+
+                    {/* Existing invitations */}
+                    {invitations.length > 0 ? (
+                      <div className="space-y-2">
+                        {invitations.map((inv) => (
+                          <div
+                            key={inv.id}
+                            className="flex items-center justify-between rounded-md border p-2 text-sm"
+                          >
+                            <div className="flex flex-col gap-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                {inviteStatusBadge(inv.status)}
+                                <span className="text-xs text-muted-foreground capitalize">
+                                  {t(`role-${inv.role}`)}
+                                </span>
+                                {inv.email && (
+                                  <span className="text-xs text-muted-foreground truncate">
+                                    {inv.email}
+                                  </span>
+                                )}
+                              </div>
+                              {inv.expires_at && inv.status === "pending" && (
+                                <span className="text-xs text-muted-foreground">
+                                  {formatDate(inv.expires_at)}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              {inv.token && inv.status === "pending" && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleCopyLink(inv.token!)}
+                                  title={t("invites.copy-link")}
+                                  aria-label={t("invites.copy-link")}
+                                >
+                                  <Copy className="h-4 w-4" />
+                                </Button>
+                              )}
+                              {inv.status === "pending" && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleRevokeInvite(inv.id)}
+                                  title={t("invites.revoke")}
+                                  aria-label={t("invites.revoke")}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        {t("invites.none-yet")}
+                      </p>
+                    )}
+                  </div>
+                </TabsContent>
+                <TabsContent value="public">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Globe className="h-4 w-4 text-muted-foreground" />
+                        <p className="text-sm font-medium">
+                          {t("public.title")}
+                        </p>
+                      </div>
+                      <Switch
+                        aria-label={t("public.title")}
+                        checked={publicRole === "viewer"}
+                        onCheckedChange={handlePublicToggle}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {t("public.hint")}
+                    </p>
+                    {publicRole === "viewer" && (
+                      <>
+                        <div className="flex w-full items-center gap-2 rounded-md border bg-muted/50 p-2">
+                          <span className="flex-1 min-w-0 truncate text-xs text-muted-foreground">
+                            {publicLink}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              void navigator.clipboard.writeText(publicLink);
+                              toast.success(t("invites.link-copied"));
+                            }}
+                          >
+                            <Copy className="h-4 w-4" />
+                            {t("invites.copy-link")}
+                          </Button>
+                        </div>
+
+                        <div className="space-y-2">
+                          <p className="text-xs text-muted-foreground">
+                            {t("public.password.hint")}
+                          </p>
+                          {publicPasswordProtected && (
+                            <div className="flex items-center justify-between rounded-md border bg-muted/50 p-2">
+                              <span className="text-xs font-medium">
+                                {t("public.password.protected")}
+                              </span>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleRemovePublicPassword}
+                              >
+                                {t("public.password.remove")}
+                              </Button>
+                            </div>
+                          )}
+                          <div className="flex flex-col gap-2 sm:flex-row">
+                            <Input
+                              type="password"
+                              placeholder={t("public.password.placeholder")}
+                              value={publicPasswordInput}
+                              onChange={(e) =>
+                                setPublicPasswordInput(e.target.value)
+                              }
+                              aria-label={t("public.password.placeholder")}
+                              minLength={8}
+                              maxLength={72}
+                              aria-invalid={Boolean(publicPasswordError)}
+                              aria-describedby={
+                                publicPasswordError
+                                  ? "public-password-error"
+                                  : undefined
+                              }
+                            />
+                            <Button
+                              variant="outline"
+                              disabled={
+                                !publicPasswordInput || !!publicPasswordError
+                              }
+                              onClick={handleSetPublicPassword}
+                            >
+                              {publicPasswordProtected
+                                ? t("public.password.update")
+                                : t("public.password.set")}
+                            </Button>
+                          </div>
+                          {publicPasswordError ? (
+                            <p
+                              id="public-password-error"
+                              className="text-xs text-destructive"
+                            >
+                              {publicPasswordError}
+                            </p>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">
+                              {t("public.password.requirements")}
+                            </p>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </TabsContent>
               </>
             )}
           </div>
-        )}
-
-        {/* Transfer ownership */}
-        <div className="space-y-2 border-t pt-4">
-          <p className="text-sm font-medium">{t("transfer-title")}</p>
-          <p className="text-xs text-muted-foreground">{t("transfer-hint")}</p>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <Select
-              value={transferTo}
-              onValueChange={setTransferTo}
-              disabled={transferTargets.length === 0}
-            >
-              <SelectTrigger
-                className="w-full min-w-0 sm:w-auto sm:flex-1"
-                aria-label={t("transfer-select")}
-              >
-                <SelectValue
-                  className="min-w-0"
-                  placeholder={
-                    transferTargets.length === 0
-                      ? t("transfer-no-targets")
-                      : t("transfer-select")
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {transferTargets.map((u) => (
-                  <SelectItem key={u.user_id} value={u.username}>
-                    {u.username}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              variant="outline"
-              className="w-full sm:w-auto"
-              disabled={!transferTo}
-              onClick={() => {
-                setConfirmTransferOpen(true);
-              }}
-            >
-              <Crown className="h-4 w-4" />
-              {t("transfer-button")}
-            </Button>
-          </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm">{t("transfer-retain-toggle")}</p>
-              <p className="text-xs text-muted-foreground">
-                {t("transfer-retain-hint")}
-              </p>
-            </div>
-            <Switch checked={retainAccess} onCheckedChange={setRetainAccess} />
-          </div>
-          {retainAccess && (
-            <div className="flex items-center gap-2">
-              <p className="text-sm flex-1">
-                {t("transfer-retain-role-label")}
-              </p>
-              <Select
-                value={retainRole}
-                onValueChange={(v) => setRetainRole(v as ShareRole)}
-              >
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="viewer">{t("role-viewer")}</SelectItem>
-                  <SelectItem value="editor">{t("role-editor")}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-        </div>
+        </Tabs>
+        <DialogFooter className="shrink-0 border-t px-6 py-4">
+          <Button variant="outline" onClick={onClose}>
+            {t("done")}
+          </Button>
+        </DialogFooter>
       </DialogContent>
 
       {/* Transfer confirmation */}

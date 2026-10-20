@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useWorkspaceSharingStore } from "@/hooks/useWorkspaceSharingStore";
 import { type Workspace, type WorkspaceAccess } from "@/types/workspace";
 import { ShareTreeDialog } from "./ShareTreeDialog";
+import { SectionDB } from "@/types/section";
 
 vi.mock("sonner", () => ({
   toast: {
@@ -25,6 +26,23 @@ const TREE: Workspace = {
   name: "Family Workspace",
   role: "owner",
   public_role: null,
+};
+
+const SECTION: SectionDB = {
+  id: "section-1",
+  workspace_id: TREE.id,
+  name: "Smith branch",
+  position: 0,
+  created_at: "2026-01-01T00:00:00Z",
+  member_count: 3,
+  can_write: true,
+};
+
+const selectTab = (name: string) => {
+  fireEvent.mouseDown(screen.getByRole("tab", { name }), {
+    button: 0,
+    ctrlKey: false,
+  });
 };
 
 const OTHER_USER = {
@@ -78,6 +96,280 @@ describe("ShareTreeDialog", () => {
       grantAccessBatch: vi.fn(),
       revokeAccessBatch: vi.fn(),
     });
+  });
+
+  it("starts with people and reveals one sharing method at a time", () => {
+    render(<ShareTreeDialog tree={TREE} isOpen onClose={vi.fn()} />);
+
+    expect(screen.getByRole("tab", { name: "People" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(
+      screen.getByRole("combobox", { name: /Select users/ }),
+    ).toBeDisabled();
+    expect(
+      screen.queryByRole("button", { name: "Create invite link" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Transfer ownership").closest("details"),
+    ).not.toHaveAttribute("open");
+    expect(
+      screen.queryByRole("switch", { name: "Public read-only access" }),
+    ).not.toBeInTheDocument();
+
+    selectTab("Invite link");
+    expect(
+      screen.getByRole("button", { name: "Create invite link" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("People with access")).not.toBeInTheDocument();
+
+    selectTab("Public link");
+    expect(
+      screen.getByRole("switch", { name: "Public read-only access" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Create invite link" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("preserves invitation settings while switching methods and resets on reopening", async () => {
+    const { rerender } = render(
+      <ShareTreeDialog tree={TREE} isOpen onClose={vi.fn()} />,
+    );
+    selectTab("Invite link");
+    fireEvent.change(screen.getByLabelText("Email address (optional)"), {
+      target: { value: "anna@example.com" },
+    });
+    selectTab("People");
+    selectTab("Invite link");
+    expect(screen.getByLabelText("Email address (optional)")).toHaveValue(
+      "anna@example.com",
+    );
+
+    rerender(<ShareTreeDialog tree={TREE} isOpen={false} onClose={vi.fn()} />);
+    rerender(<ShareTreeDialog tree={TREE} isOpen onClose={vi.fn()} />);
+    expect(screen.getByRole("tab", { name: "People" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    selectTab("Invite link");
+    expect(screen.getByLabelText("Email address (optional)")).toHaveValue("");
+  });
+
+  it("creates an invitation from its dedicated panel", async () => {
+    const createInvitation = vi.fn().mockResolvedValue(undefined);
+    useWorkspaceSharingStore.setState({ createInvitation });
+    render(<ShareTreeDialog tree={TREE} isOpen onClose={vi.fn()} />);
+    selectTab("Invite link");
+    fireEvent.change(screen.getByLabelText("Email address (optional)"), {
+      target: { value: "anna@example.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create invite link" }));
+    await waitFor(() =>
+      expect(createInvitation).toHaveBeenCalledWith(TREE.id, {
+        email: "anna@example.com",
+        role: "editor",
+        expiresInDays: undefined,
+      }),
+    );
+  });
+
+  it("shares a selected friend after switching tabs", async () => {
+    const grantAccess = vi.fn().mockResolvedValue([]);
+    const updateMemberLevels = vi.fn().mockResolvedValue([]);
+    useWorkspaceSharingStore.setState({
+      access: [OWNER_ACCESS],
+      candidates: [OTHER_USER],
+      grantAccess,
+      updateMemberLevels,
+    });
+    render(<ShareTreeDialog tree={TREE} isOpen onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole("combobox", { name: /Select users/ }));
+    fireEvent.click(
+      await screen.findByRole("option", { name: OTHER_USER.username }),
+    );
+    fireEvent.keyDown(screen.getByPlaceholderText("Search users…"), {
+      key: "Escape",
+    });
+    selectTab("Invite link");
+    selectTab("People");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Share with 1 person" }),
+    );
+    await waitFor(() =>
+      expect(grantAccess).toHaveBeenCalledWith(
+        TREE.id,
+        OTHER_USER.username,
+        "editor",
+        undefined,
+      ),
+    );
+    expect(updateMemberLevels).toHaveBeenCalled();
+  });
+
+  it("hides ownership and link settings for non-owners", () => {
+    render(
+      <ShareTreeDialog
+        tree={{ ...TREE, role: "editor" }}
+        isOpen
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("People with access")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("tab", { name: "Invite link" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("tab", { name: "Public link" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Transfer ownership")).not.toBeInTheDocument();
+  });
+
+  it("closes with Done", () => {
+    const onClose = vi.fn();
+    render(<ShareTreeDialog tree={TREE} isOpen onClose={onClose} />);
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("shares only the requested section with a friend who has access to another section", async () => {
+    const grantAccess = vi.fn().mockResolvedValue([]);
+    const updateMemberLevels = vi.fn().mockResolvedValue([]);
+    useWorkspaceSharingStore.setState({
+      access: [OWNER_ACCESS, { ...OTHER_ACCESS, section_id: "other-section" }],
+      candidates: [OTHER_USER],
+      sections: [SECTION],
+      grantAccess,
+      updateMemberLevels,
+    });
+    render(
+      <ShareTreeDialog
+        tree={TREE}
+        section={SECTION}
+        isOpen
+        onClose={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByRole("dialog", { name: 'Share "Smith branch"' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("tab", { name: "Invite link" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("tab", { name: "Public link" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Transfer ownership")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("combobox", { name: /Select users/ }));
+    fireEvent.click(
+      await screen.findByRole("option", { name: OTHER_USER.username }),
+    );
+    fireEvent.keyDown(screen.getByPlaceholderText("Search users…"), {
+      key: "Escape",
+    });
+    expect(
+      screen.queryByRole("combobox", { name: "Access to" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Share with 1 person" }),
+    );
+    await waitFor(() =>
+      expect(grantAccess).toHaveBeenCalledWith(
+        TREE.id,
+        OTHER_USER.username,
+        "editor",
+        [SECTION.id],
+      ),
+    );
+    expect(updateMemberLevels).toHaveBeenCalledWith(
+      TREE.id,
+      OTHER_USER.user_id,
+      expect.any(Object),
+      SECTION.id,
+    );
+    expect(useWorkspaceSharingStore.getState().load).toHaveBeenCalledWith(
+      TREE.id,
+      { includeInvitations: false },
+    );
+  });
+
+  it("shows inherited workspace access without controls and only revokes the selected section", async () => {
+    const revokeAccess = vi.fn().mockResolvedValue(undefined);
+    useWorkspaceSharingStore.setState({
+      access: [
+        OWNER_ACCESS,
+        OTHER_ACCESS,
+        {
+          ...OTHER_ACCESS,
+          user_id: "section-user",
+          username: "section-person",
+          section_id: SECTION.id,
+        },
+        {
+          ...OTHER_ACCESS,
+          user_id: "unrelated-user",
+          username: "other-section-person",
+          section_id: "other-section",
+        },
+      ],
+      sections: [SECTION],
+      candidates: [OTHER_USER],
+      revokeAccess,
+    });
+    render(
+      <ShareTreeDialog
+        tree={TREE}
+        section={SECTION}
+        isOpen
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Via whole workspace")).toBeInTheDocument();
+    expect(screen.getByText("section-person")).toBeInTheDocument();
+    expect(screen.queryByText("other-section-person")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: /Select users/ }),
+    ).toBeDisabled();
+    expect(
+      screen.getAllByRole("button", { name: "Access: Custom" }),
+    ).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Remove access" }));
+    await waitFor(() =>
+      expect(revokeAccess).toHaveBeenCalledWith(
+        TREE.id,
+        "section-user",
+        SECTION.id,
+      ),
+    );
+  });
+
+  it("updates permissions only for the selected section grant", async () => {
+    const access = [OWNER_ACCESS, { ...OTHER_ACCESS, section_id: SECTION.id }];
+    const updateMemberLevels = vi.fn().mockResolvedValue(access);
+    useWorkspaceSharingStore.setState({
+      access,
+      sections: [SECTION],
+      updateMemberLevels,
+    });
+    render(
+      <ShareTreeDialog
+        tree={TREE}
+        section={SECTION}
+        isOpen
+        onClose={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Access: Custom" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Tree only" }));
+    await waitFor(() =>
+      expect(updateMemberLevels).toHaveBeenCalledWith(
+        TREE.id,
+        OTHER_USER.user_id,
+        expect.objectContaining({ tree: "view", gallery: "hidden" }),
+        SECTION.id,
+      ),
+    );
   });
 
   it("applies a preset to a person's access", async () => {
@@ -165,9 +457,10 @@ describe("ShareTreeDialog", () => {
 
     await screen.findByRole("dialog");
 
-    // Toggle the public access switch (first switch in the dialog).
-    const [publicSwitch] = screen.getAllByRole("switch");
-    fireEvent.click(publicSwitch);
+    selectTab("Public link");
+    fireEvent.click(
+      screen.getByRole("switch", { name: "Public read-only access" }),
+    );
 
     // Confirm in the nested alert dialog.
     expect(
@@ -234,6 +527,7 @@ describe("ShareTreeDialog", () => {
       />,
     );
 
+    selectTab("Public link");
     const passwordInput = await screen.findByPlaceholderText("New password");
     fireEvent.change(passwordInput, { target: { value: "short" } });
 
@@ -256,8 +550,10 @@ describe("ShareTreeDialog", () => {
 
     await screen.findByRole("dialog");
 
-    const [publicSwitch] = screen.getAllByRole("switch");
-    fireEvent.click(publicSwitch);
+    selectTab("Public link");
+    fireEvent.click(
+      screen.getByRole("switch", { name: "Public read-only access" }),
+    );
 
     fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
 
@@ -277,7 +573,7 @@ describe("ShareTreeDialog", () => {
       />,
     );
 
-    await screen.findByText("Transfer ownership");
+    fireEvent.click(await screen.findByText("Transfer ownership"));
 
     // Open the transfer select dropdown and pick a target.
     fireEvent.click(
