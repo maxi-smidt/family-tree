@@ -224,6 +224,7 @@ export const StoryDialog = ({
             </Button>
             <Button
               type="submit"
+              shortcut="save"
               size="sm"
               disabled={
                 submitting || !formData.title || selectedMemberIds.length === 0

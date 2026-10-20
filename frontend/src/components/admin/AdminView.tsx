@@ -777,7 +777,9 @@ export const AdminView = () => {
                     />
                   </div>
                   <div className="flex justify-end">
-                    <Button onClick={saveSettings}>{t("save-settings")}</Button>
+                    <Button onClick={saveSettings} shortcut="save">
+                      {t("save-settings")}
+                    </Button>
                   </div>
                 </>
               )}
@@ -880,7 +882,9 @@ export const AdminView = () => {
                     })}
                   </div>
                   <div className="flex justify-end">
-                    <Button onClick={saveSettings}>{t("save-settings")}</Button>
+                    <Button onClick={saveSettings} shortcut="save">
+                      {t("save-settings")}
+                    </Button>
                   </div>
                 </>
               )}
@@ -1029,7 +1033,9 @@ export const AdminView = () => {
             <Button variant="outline" onClick={() => setUserToEditQuota(null)}>
               {t("quota-dialog.cancel")}
             </Button>
-            <Button onClick={saveUserQuotas}>{t("quota-dialog.save")}</Button>
+            <Button onClick={saveUserQuotas} shortcut="save">
+              {t("quota-dialog.save")}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

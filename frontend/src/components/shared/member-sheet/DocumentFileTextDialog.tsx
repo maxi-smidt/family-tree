@@ -615,6 +615,7 @@ export const DocumentFileTextDialog = ({
               <Button
                 type="button"
                 onClick={() => void save()}
+                shortcut="save"
                 disabled={saving}
               >
                 {saving && <Spinner />}

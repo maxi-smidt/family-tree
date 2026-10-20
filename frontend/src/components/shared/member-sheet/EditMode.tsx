@@ -93,7 +93,8 @@ export type SaveStatus = "idle" | "saving" | "saved" | "error";
 type Props = {
   member: Member;
   isNew?: boolean;
-  onSaved?: (data: Member) => void;
+  onSaved?: (data: Member) => Promise<void> | void;
+  formId?: string;
   onDirtyChange?: (dirty: boolean) => void;
   onSaveStatusChange?: (status: SaveStatus) => void;
   onAutosaveFlush?: (flush: () => Promise<void>) => void;
@@ -103,6 +104,7 @@ type Props = {
 
 export const EditMode = ({
   member,
+  formId = "edit-member-form",
   isNew = false,
   onSaved,
   onDirtyChange,
@@ -114,22 +116,21 @@ export const EditMode = ({
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.edit-mode",
   });
+  const fieldId = (name: string) => `${formId}-${name}`;
   const { updateMemberPartial, members } = useMemberStore();
   const { galleryImages } = useGalleryStore();
-  const restrictions = useWorkspaceStore(
-    (s) => s.selectedTree?.restrictions ?? [],
-  );
+  const restrictions = useWorkspaceStore((s) => s.selectedTree?.restrictions);
   const currentTreeId = useWorkspaceStore((s) => s.selectedTree?.id);
   // Portraits belong to the Photos area (#1101).
   const canEditPhotos = useWorkspaceStore((s) =>
     canEditArea(s.selectedTree, "gallery"),
   );
-  const eventsEnabled = !restrictions.includes("events");
-  const storiesEnabled = !restrictions.includes("stories");
-  const documentsEnabled = !restrictions.includes("sources");
-  const galleryEnabled = !restrictions.includes("gallery");
-  const tasksEnabled = !restrictions.includes("tasks");
-  const diseasesEnabled = !restrictions.includes("diseases");
+  const eventsEnabled = !restrictions?.includes("events");
+  const storiesEnabled = !restrictions?.includes("stories");
+  const documentsEnabled = !restrictions?.includes("sources");
+  const galleryEnabled = !restrictions?.includes("gallery");
+  const tasksEnabled = !restrictions?.includes("tasks");
+  const diseasesEnabled = !restrictions?.includes("diseases");
   // The map follows events, and the notes follow stories (#1101).
   const mapEnabled = eventsEnabled;
   const biographyEnabled = storiesEnabled;
@@ -156,6 +157,7 @@ export const EditMode = ({
   const formDataRef = useRef(formData);
   const isDirtyRef = useRef(isDirty);
   const saveChainRef = useRef<Promise<void>>(Promise.resolve());
+  const newMemberCreatedRef = useRef(false);
   const latestSaveRevisionRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const firstNameRef = useRef<HTMLInputElement>(null);
@@ -166,6 +168,7 @@ export const EditMode = ({
   isDirtyRef.current = isDirty;
 
   useEffect(() => {
+    newMemberCreatedRef.current = false;
     setFormData(member);
     setInitialData(member);
     setEvidenceBaseline(member);
@@ -374,13 +377,15 @@ export const EditMode = ({
       }
       if (isCurrent()) lastDuplicateSignatureRef.current = null;
 
-      if (isNew) {
-        onSaved?.(snapshot);
-        return true;
-      }
-
       setSaveStatus("saving");
       try {
+        if (isNew) {
+          if (!newMemberCreatedRef.current) {
+            await onSaved?.(snapshot);
+            newMemberCreatedRef.current = true;
+          }
+          return true;
+        }
         const workspaceId = editorTreeIdRef.current;
         if (!workspaceId) return false;
         await updateMemberPartial(
@@ -523,7 +528,7 @@ export const EditMode = ({
   // existing members autosave and flush any pending change on unmount, so
   // there's never an unsaved change to interrupt navigation for.
   useUnsavedGuard(
-    "member-edit",
+    `member-edit-${formId}`,
     isNew && isDirty,
     useCallback(() => save(), [save]),
   );
@@ -582,7 +587,12 @@ export const EditMode = ({
     !isNew && galleryEnabled && linkedGalleryImages.length > 0;
 
   return (
-    <form id="edit-member-form" onSubmit={handleSave} className="flex flex-col">
+    <form
+      id={formId}
+      data-save-shortcut
+      onSubmit={handleSave}
+      className="flex flex-col"
+    >
       <div className="nodrag">
         <div className="relative mb-4 w-fit mx-auto group">
           {avatarImage}
@@ -662,12 +672,15 @@ export const EditMode = ({
           <TabsContent value="identity">
             <FieldGroup className="gap-4">
               <Field>
-                <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                <FieldLabel
+                  htmlFor={fieldId("academicTitle")}
+                  className="text-[12px] font-semibold text-muted-foreground uppercase"
+                >
                   {t("academic-title-field")}
                 </FieldLabel>
                 <Input
                   size="sm"
-                  id="academicTitle"
+                  id={fieldId("academicTitle")}
                   value={formData.academicTitle || ""}
                   className="shadow-none"
                   placeholder={t("academic-title-placeholder")}
@@ -704,7 +717,7 @@ export const EditMode = ({
               <div className="grid grid-cols-2 gap-3">
                 <Field data-invalid={!!errors.firstName}>
                   <FieldLabel
-                    htmlFor="firstName"
+                    htmlFor={fieldId("firstName")}
                     className="text-[12px] font-semibold text-muted-foreground uppercase"
                   >
                     {t("firstname-field")}
@@ -714,12 +727,14 @@ export const EditMode = ({
                     <Input
                       size="sm"
                       ref={firstNameRef}
-                      id="firstName"
+                      id={fieldId("firstName")}
                       required
                       aria-required="true"
                       aria-invalid={!!errors.firstName}
                       aria-describedby={
-                        errors.firstName ? "firstName-error" : undefined
+                        errors.firstName
+                          ? fieldId("firstName-error")
+                          : undefined
                       }
                       value={formData.firstName}
                       className="shadow-none"
@@ -732,14 +747,14 @@ export const EditMode = ({
                     />,
                   )}
                   {evidenceWarning("first_name")}
-                  <FieldError id="firstName-error">
+                  <FieldError id={fieldId("firstName-error")}>
                     {errors.firstName}
                   </FieldError>
                 </Field>
 
                 <Field data-invalid={!!errors.lastName}>
                   <FieldLabel
-                    htmlFor="lastName"
+                    htmlFor={fieldId("lastName")}
                     className="text-[12px] font-semibold text-muted-foreground uppercase"
                   >
                     {t("lastname-field")}
@@ -749,12 +764,12 @@ export const EditMode = ({
                     <Input
                       size="sm"
                       ref={lastNameRef}
-                      id="lastName"
+                      id={fieldId("lastName")}
                       required
                       aria-required="true"
                       aria-invalid={!!errors.lastName}
                       aria-describedby={
-                        errors.lastName ? "lastName-error" : undefined
+                        errors.lastName ? fieldId("lastName-error") : undefined
                       }
                       value={formData.lastName}
                       className="shadow-none"
@@ -767,20 +782,25 @@ export const EditMode = ({
                     />,
                   )}
                   {evidenceWarning("last_name")}
-                  <FieldError id="lastName-error">{errors.lastName}</FieldError>
+                  <FieldError id={fieldId("lastName-error")}>
+                    {errors.lastName}
+                  </FieldError>
                 </Field>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <Field>
-                  <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                  <FieldLabel
+                    htmlFor={fieldId("middleNames")}
+                    className="text-[12px] font-semibold text-muted-foreground uppercase"
+                  >
                     {t("middle-names-field")}
                   </FieldLabel>
                   {withEvidence(
                     "middle_names",
                     <Input
                       size="sm"
-                      id="middleNames"
+                      id={fieldId("middleNames")}
                       value={formData.middleNames || ""}
                       className="shadow-none"
                       placeholder={t("middle-names-field")}
@@ -793,14 +813,17 @@ export const EditMode = ({
                 </Field>
 
                 <Field>
-                  <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                  <FieldLabel
+                    htmlFor={fieldId("maidenName")}
+                    className="text-[12px] font-semibold text-muted-foreground uppercase"
+                  >
                     {t("maiden-field")}
                   </FieldLabel>
                   {withEvidence(
                     "maiden_name",
                     <Input
                       size="sm"
-                      id="maidenName"
+                      id={fieldId("maidenName")}
                       value={formData.maidenName || ""}
                       className="shadow-none"
                       placeholder={t("lastname-field")}
@@ -814,14 +837,17 @@ export const EditMode = ({
               </div>
 
               <Field>
-                <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                <FieldLabel
+                  htmlFor={fieldId("baptismalName")}
+                  className="text-[12px] font-semibold text-muted-foreground uppercase"
+                >
                   {t("baptismal-name-field")}
                 </FieldLabel>
                 {withEvidence(
                   "baptismal_name",
                   <Input
                     size="sm"
-                    id="baptismalName"
+                    id={fieldId("baptismalName")}
                     value={formData.baptismalName || ""}
                     className="shadow-none"
                     placeholder={t("baptismal-name-field")}
@@ -863,13 +889,16 @@ export const EditMode = ({
                 </Field>
 
                 <Field>
-                  <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                  <FieldLabel
+                    htmlFor={fieldId("birthplace")}
+                    className="text-[12px] font-semibold text-muted-foreground uppercase"
+                  >
                     {t("birthplace-field")}
                   </FieldLabel>
                   {withEvidence(
                     "birthplace",
                     <LocationInput
-                      id="birthplace"
+                      id={fieldId("birthplace")}
                       value={formData.birthplace}
                       size="sm"
                       placeholder={t("location-placeholder")}
@@ -923,11 +952,14 @@ export const EditMode = ({
 
                   {mapEnabled && (
                     <Field>
-                      <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                      <FieldLabel
+                        htmlFor={fieldId("cemetery")}
+                        className="text-[12px] font-semibold text-muted-foreground uppercase"
+                      >
                         {t("cemetery-field")}
                       </FieldLabel>
                       <LocationInput
-                        id="cemetery"
+                        id={fieldId("cemetery")}
                         value={formData.cemetery}
                         size="sm"
                         placeholder={t("location-placeholder")}
@@ -954,11 +986,14 @@ export const EditMode = ({
 
               {mapEnabled && (
                 <Field>
-                  <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                  <FieldLabel
+                    htmlFor={fieldId("hometown")}
+                    className="text-[12px] font-semibold text-muted-foreground uppercase"
+                  >
                     {t("hometown-field")}
                   </FieldLabel>
                   <LocationInput
-                    id="hometown"
+                    id={fieldId("hometown")}
                     value={formData.hometown}
                     size="sm"
                     placeholder={t("location-placeholder")}
@@ -1063,11 +1098,14 @@ export const EditMode = ({
 
               {biographyEnabled && (
                 <Field>
-                  <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                  <FieldLabel
+                    htmlFor={fieldId("additionalData")}
+                    className="text-[12px] font-semibold text-muted-foreground uppercase"
+                  >
                     {t("notes-field")}
                   </FieldLabel>
                   <MarkdownEditor
-                    id="additionalData"
+                    id={fieldId("additionalData")}
                     value={formData.additionalData || ""}
                     placeholder={t("notes-placeholder")}
                     onChange={(value) => handleChange("additionalData", value)}

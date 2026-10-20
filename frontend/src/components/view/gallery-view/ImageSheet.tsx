@@ -935,6 +935,7 @@ export const ImageSheet = ({
         <div className="mt-4 flex shrink-0 justify-end gap-2 border-t pt-4">
           <Button
             onClick={handleSave}
+            shortcut="save"
             disabled={isSaving || faceOperationPending}
           >
             {t("save")}

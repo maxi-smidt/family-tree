@@ -9,6 +9,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useTranslation } from "react-i18next";
+import { ShortcutHint } from "@/components/ui/shortcut-hint";
+import { shortcutAria } from "@/lib/keyboardShortcuts";
 
 type Props = {
   open: boolean;
@@ -42,8 +44,11 @@ export const UnsavedChangesDialog = ({
             variant="secondary"
             className="order-last sm:order-none"
             onClick={onSave}
+            data-shortcut="save"
+            aria-keyshortcuts={shortcutAria("save")}
           >
             {t("save")}
+            <ShortcutHint shortcut="save" />
           </AlertDialogAction>
           <AlertDialogAction variant="destructive" onClick={onDiscard}>
             {t("discard")}

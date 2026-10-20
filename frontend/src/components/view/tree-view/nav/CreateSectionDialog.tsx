@@ -273,6 +273,7 @@ export const CreateSectionDialog = ({
           <Button
             size="sm"
             onClick={() => void handleSubmit()}
+            shortcut="save"
             disabled={!name.trim() || submitting}
           >
             {t("create")}

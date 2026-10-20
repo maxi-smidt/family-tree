@@ -33,6 +33,8 @@ import { useTranslation } from "react-i18next";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useTreeExport } from "@/hooks/useTreeExport";
 import { fitViewToAllNodes } from "@/utils/flowFit";
+import { ShortcutHint } from "@/components/ui/shortcut-hint";
+import { useTreeNavigationShortcuts } from "@/hooks/useTreeNavigationShortcuts";
 
 type Props = {
   navigationOnly?: boolean;
@@ -66,6 +68,7 @@ export const FlowPanelControls = ({
     keyPrefix: "tree-view.controls",
   });
   const reactFlow = useReactFlow();
+  useTreeNavigationShortcuts(reactFlow);
   const undo = useMemberStore((s) => s.undo);
   const redo = useMemberStore((s) => s.redo);
   const undoStack = useMemberStore((s) => s.undoStack);
@@ -111,22 +114,28 @@ export const FlowPanelControls = ({
             <ToolbarButton
               onClick={() => reactFlow.zoomIn()}
               aria-label={t("zoom-in")}
+              shortcut="zoom-in"
             >
               <Plus />
             </ToolbarButton>
           </TooltipTrigger>
-          <TooltipContent side="top">{t("zoom-in")}</TooltipContent>
+          <TooltipContent side="top">
+            {t("zoom-in")} <ShortcutHint shortcut="zoom-in" />
+          </TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
             <ToolbarButton
               onClick={() => reactFlow.zoomOut()}
               aria-label={t("zoom-out")}
+              shortcut="zoom-out"
             >
               <Minus />
             </ToolbarButton>
           </TooltipTrigger>
-          <TooltipContent side="top">{t("zoom-out")}</TooltipContent>
+          <TooltipContent side="top">
+            {t("zoom-out")} <ShortcutHint shortcut="zoom-out" />
+          </TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -137,7 +146,10 @@ export const FlowPanelControls = ({
               <Maximize />
             </ToolbarButton>
           </TooltipTrigger>
-          <TooltipContent side="top">{t("fit-view")}</TooltipContent>
+          <TooltipContent side="top">
+            {t("fit-view")}
+            <p className="mt-1 opacity-70">{t("keyboard-navigation-hint")}</p>
+          </TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>

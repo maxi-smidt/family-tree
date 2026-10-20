@@ -175,7 +175,12 @@ export const TaskDialog = ({
             >
               {t("cancel")}
             </Button>
-            <Button type="submit" size="sm" disabled={submitting || !title}>
+            <Button
+              type="submit"
+              size="sm"
+              shortcut="save"
+              disabled={submitting || !title}
+            >
               {task ? t("update") : t("add")}
             </Button>
           </DialogFooter>

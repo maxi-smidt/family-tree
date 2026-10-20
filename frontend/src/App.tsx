@@ -34,6 +34,7 @@ import { ReloginDialog } from "@/components/auth/ReloginDialog";
 import { Spinner } from "@/components/ui/spinner";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AppKeyboardShortcuts } from "@/components/layout/AppKeyboardShortcuts";
 
 export const App = () => {
   const status = useAuthStore((s) => s.status);
@@ -199,6 +200,9 @@ export const App = () => {
             <MainPanel />
           </Layout>
         )}
+        <AppKeyboardShortcuts
+          enabled={!user?.legal_acceptance_required || !!user?.legal_accepted}
+        />
       </ErrorBoundary>
     );
   }

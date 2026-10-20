@@ -8,6 +8,7 @@ import {
   FolderTree,
   MapPin,
   Search,
+  UserPlus,
 } from "lucide-react";
 import {
   Command,
@@ -50,6 +51,9 @@ import { getEventTypeLabel } from "@/types/eventTypes";
 import { memberMatchesSearch } from "@/utils/memberUtils";
 import { formatDate } from "@/utils/dateUtils";
 import { cn } from "@/lib/utils";
+import { canEditArea } from "@/utils/accessLevels";
+import { NEW_PERSON_EVENT } from "@/lib/keyboardShortcuts";
+import { ShortcutHint } from "@/components/ui/shortcut-hint";
 
 const MAX_PEOPLE = 8;
 const MAX_PLACES = 5;
@@ -79,6 +83,9 @@ export function GlobalSearch({ className }: { className?: string }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const workspaceId = useWorkspaceStore((s) => s.selectedTree?.id);
+  const canCreatePerson = useWorkspaceStore((s) =>
+    Boolean(s.isReady && s.selectedTree && canEditArea(s.selectedTree, "tree")),
+  );
   const members = useMemberStore((s) => s.members);
   const setPendingLocateMemberId = useMemberStore(
     (s) => s.setPendingLocateMemberId,
@@ -331,6 +338,26 @@ export function GlobalSearch({ className }: { className?: string }) {
             />
             <CommandList className="max-h-[min(60vh,28rem)]">
               <CommandEmpty>{t("empty")}</CommandEmpty>
+              {canCreatePerson &&
+                (!q || t("new-person").toLowerCase().includes(q)) && (
+                  <CommandGroup heading={t("actions")}>
+                    <CommandItem
+                      value="action-new-person"
+                      onSelect={() => {
+                        setOpen(false);
+                        window.dispatchEvent(new Event(NEW_PERSON_EVENT));
+                      }}
+                    >
+                      <span className="grid size-8 place-items-center rounded-full bg-primary-soft text-primary">
+                        <UserPlus className="size-4" />
+                      </span>
+                      <span className="flex-1 font-medium">
+                        {t("new-person")}
+                      </span>
+                      <ShortcutHint shortcut="new-person" />
+                    </CommandItem>
+                  </CommandGroup>
+                )}
               {people.length > 0 && (
                 <CommandGroup heading={t("people")}>
                   {people.map((m) => (

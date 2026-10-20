@@ -178,6 +178,7 @@ export const UserSettingsView = () => {
             <div className="flex justify-end max-w-64">
               <Button
                 onClick={handleSave}
+                shortcut="save"
                 disabled={saving || selectedMode === effectiveMode}
               >
                 {t("save")}

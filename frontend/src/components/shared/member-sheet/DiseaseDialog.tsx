@@ -225,7 +225,7 @@ export const DiseaseDialog = ({
             >
               {t("cancel")}
             </Button>
-            <Button type="submit" size="sm">
+            <Button type="submit" size="sm" shortcut="save">
               {disease ? t("update") : t("add")}
             </Button>
           </DialogFooter>
