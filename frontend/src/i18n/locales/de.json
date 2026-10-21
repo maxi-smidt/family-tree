@@ -921,6 +921,10 @@
         "reader": {
           "file": "Originaldatei",
           "text": "Dokumenttext",
+          "view": "Ansicht",
+          "view-document": "Dokument",
+          "view-text": "Text",
+          "view-both": "Beides",
           "resize": "Datei- und Textbereich vergrößern oder verkleinern",
           "pages": "Dokumentseiten",
           "page": "Seite",

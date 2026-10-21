@@ -921,6 +921,10 @@
         "reader": {
           "file": "Original file",
           "text": "Document text",
+          "view": "Viewer layout",
+          "view-document": "Document",
+          "view-text": "Text",
+          "view-both": "Both",
           "resize": "Resize file and text panes",
           "pages": "Document pages",
           "page": "Page",

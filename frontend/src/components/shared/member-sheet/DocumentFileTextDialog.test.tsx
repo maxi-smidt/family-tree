@@ -104,6 +104,73 @@ describe("DocumentFileTextDialog", () => {
     expect(screen.getByText("Written by hand.")).toBeInTheDocument();
   });
 
+  it("switches between document, text and both without losing the split ratio", async () => {
+    loadFileText.mockResolvedValue(TEXT);
+    renderDialog();
+    await screen.findByText("Johann Schmidt");
+    const views = screen.getByRole("radiogroup", { name: "Viewer layout" });
+    const document = screen.getByRole("region", { name: "Original file" });
+    const text = screen.getByRole("region", { name: "Document text" });
+    const divider = screen.getByRole("separator");
+    fireEvent.keyDown(divider, { key: "ArrowRight" });
+    expect(divider).toHaveAttribute("aria-valuenow", "55");
+    fireEvent.click(within(views).getByRole("radio", { name: "Document" }));
+    expect(document).toBeVisible();
+    expect(text).not.toBeVisible();
+    expect(divider).not.toBeVisible();
+    fireEvent.click(within(views).getByRole("radio", { name: "Text" }));
+    expect(document).not.toBeVisible();
+    expect(text).toBeVisible();
+    fireEvent.click(within(views).getByRole("radio", { name: "Both" }));
+    expect(document).toBeVisible();
+    expect(text).toBeVisible();
+    expect(divider).toHaveAttribute("aria-valuenow", "55");
+    // Clicking the selected option must not leave the reader without a view.
+    fireEvent.click(within(views).getByRole("radio", { name: "Both" }));
+    expect(document).toBeVisible();
+    expect(text).toBeVisible();
+  });
+
+  it("keeps hidden document and text pages synchronized", async () => {
+    loadFileText.mockResolvedValue({
+      ...TEXT,
+      markdown: "<!-- page 1 -->\nFirst page\n<!-- page 2 -->\nSecond page",
+    });
+    renderDialog();
+    await screen.findByText("First page");
+    const views = screen.getByRole("radiogroup", { name: "Viewer layout" });
+    fireEvent.click(within(views).getByRole("radio", { name: "Document" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+    expect(screen.getByRole("img", { name: "Original page 2" })).toBeVisible();
+    fireEvent.click(within(views).getByRole("radio", { name: "Text" }));
+    expect(await screen.findByText("Second page")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Previous page" }));
+    fireEvent.click(within(views).getByRole("radio", { name: "Document" }));
+    expect(screen.getByRole("img", { name: "Original page 1" })).toBeVisible();
+    expect(loadFileText).toHaveBeenCalledTimes(1);
+  });
+
+  it("reveals the editor from document-only view and preserves drafts across views", async () => {
+    loadFileText.mockResolvedValue(TEXT);
+    renderDialog();
+    await screen.findByText("Johann Schmidt");
+    const views = screen.getByRole("radiogroup", { name: "Viewer layout" });
+    const documentOnly = within(views).getByRole("radio", {
+      name: "Document",
+    });
+    fireEvent.click(documentOnly);
+    fireEvent.click(screen.getByRole("button", { name: "Edit text" }));
+    const editor = screen.getByRole("textbox");
+    expect(editor).toBeVisible();
+    fireEvent.change(editor, { target: { value: "Corrected text" } });
+    fireEvent.click(documentOnly);
+    expect(editor).not.toBeVisible();
+    fireEvent.click(within(views).getByRole("radio", { name: "Text" }));
+    expect(editor).toBeVisible();
+    expect(editor).toHaveValue("Corrected text");
+    expect(saveFileText).not.toHaveBeenCalled();
+  });
+
   it("clears the running banner and reloads an open preview on completion", async () => {
     useDocumentStore.setState({
       documents: [

@@ -144,7 +144,10 @@ export function DocumentFilePreview({
   useEffect(() => {
     const element = viewport.current;
     if (!element) return;
-    const measure = () => setWidth(Math.max(1, element.clientWidth - 24));
+    const measure = () => {
+      // Keep the preview's size while its pane is hidden by the view switcher.
+      if (element.clientWidth > 24) setWidth(element.clientWidth - 24);
+    };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(element);

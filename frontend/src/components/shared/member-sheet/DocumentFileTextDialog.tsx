@@ -55,7 +55,10 @@ import { getFileKind } from "@/utils/attachmentUtils";
 import { documentTextPages, replaceDocumentPage } from "@/utils/documentPages";
 import { DocumentFileTranscribeButton } from "./DocumentFileTranscribeButton";
 import { DocumentFilePreview } from "./DocumentFilePreview";
-import { DocumentReaderSplit } from "./DocumentReaderSplit";
+import {
+  DocumentReaderSplit,
+  type DocumentReaderView,
+} from "./DocumentReaderSplit";
 import { useCitationStore, useLoadCitations } from "@/hooks/useCitationStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import type { MemberFieldCitation } from "@/types/citation";
@@ -157,6 +160,7 @@ export const DocumentFileTextDialog = ({
   const [confirmRestore, setConfirmRestore] = useState(false);
   const [page, setPage] = useState(1);
   const [pageCount, setPageCount] = useState<number | null>(null);
+  const [view, setView] = useState<DocumentReaderView>("both");
   const contentRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const { t: evidence } = useTranslation(undefined, {
@@ -191,6 +195,7 @@ export const DocumentFileTextDialog = ({
   useEffect(() => {
     setPage(1);
     setPageCount(null);
+    setView("both");
     setEditing(false);
     setSelection(null);
     setFocusedId(open ? (focusCitationId ?? null) : null);
@@ -227,7 +232,8 @@ export const DocumentFileTextDialog = ({
     if (match) setPage(Math.min(match.page, pageCount ?? match.page));
   }, [open, highlight, text, isPdf, pageCount]);
 
-  const showing = open && !loading && !editing && text !== null;
+  const showing =
+    open && view !== "document" && !loading && !editing && text !== null;
   useEffect(() => {
     if (!showing || !highlight?.length || !contentRef.current) return;
     const root = contentRef.current;
@@ -357,6 +363,7 @@ export const DocumentFileTextDialog = ({
   const startEditing = () => {
     setDraft(text?.markdown ?? "");
     setEditing(true);
+    if (view === "document") setView("text");
   };
 
   const isDirty = editing && draft !== (text?.markdown ?? "");
@@ -457,6 +464,11 @@ export const DocumentFileTextDialog = ({
         )}
 
         <DocumentReaderSplit
+          view={view}
+          onViewChange={(next) => {
+            setSelection(null);
+            setView(next);
+          }}
           preview={
             open && (
               <DocumentFilePreview
@@ -530,7 +542,10 @@ export const DocumentFileTextDialog = ({
             citations={fileCitations}
             members={members}
             focusedId={focusedId}
-            onFocus={setFocusedId}
+            onFocus={(id) => {
+              setFocusedId(id);
+              if (view === "document") setView("text");
+            }}
           />
         )}
 

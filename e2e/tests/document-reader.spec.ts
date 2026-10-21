@@ -246,6 +246,35 @@ for (const width of [360, 1280]) {
     await expect(original.getByRole("toolbar").getByRole("status")).toHaveText(
       "125%",
     );
+    const views = dialog.getByRole("radiogroup", { name: "Viewer layout" });
+    await views.getByRole("radio", { name: "Document", exact: true }).click();
+    await expect(original).toBeVisible();
+    await expect(text).toBeHidden();
+    await expect(dialog.getByRole("separator")).toBeHidden();
+    const singleReaderBox = (await dialog
+      .locator('[data-slot="document-reader"]')
+      .boundingBox())!;
+    const documentOnlyBox = (await original.boundingBox())!;
+    expect(documentOnlyBox.width).toBeGreaterThanOrEqual(
+      singleReaderBox.width - 2,
+    );
+    expect(documentOnlyBox.height).toBeGreaterThanOrEqual(
+      singleReaderBox.height - 2,
+    );
+    await views.getByRole("radio", { name: "Text", exact: true }).click();
+    await expect(original).toBeHidden();
+    await expect(text).toBeVisible();
+    const textOnlyBox = (await text.boundingBox())!;
+    expect(textOnlyBox.width).toBeGreaterThanOrEqual(singleReaderBox.width - 2);
+    expect(textOnlyBox.height).toBeGreaterThanOrEqual(
+      singleReaderBox.height - 2,
+    );
+    await views.getByRole("radio", { name: "Both", exact: true }).click();
+    await expect(original).toBeVisible();
+    await expect(text).toBeVisible();
+    await expect(original.getByRole("toolbar").getByRole("status")).toHaveText(
+      "125%",
+    );
     await dialog.getByRole("button", { name: "Fit to width" }).click();
     await dialog.getByRole("button", { name: "Edit text" }).click();
     await dialog
