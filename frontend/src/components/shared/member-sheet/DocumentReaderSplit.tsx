@@ -43,7 +43,7 @@ export function DocumentReaderViewControls({
     <ToggleGroup
       type="single"
       size="sm"
-      spacing={1}
+      variant="outline"
       value={view}
       onValueChange={(value) => {
         if (value === "document" || value === "text" || value === "both")
