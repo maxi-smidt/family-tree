@@ -57,6 +57,7 @@ import { DocumentFileTranscribeButton } from "./DocumentFileTranscribeButton";
 import { DocumentFilePreview } from "./DocumentFilePreview";
 import {
   DocumentReaderSplit,
+  DocumentReaderViewControls,
   type DocumentReaderView,
 } from "./DocumentReaderSplit";
 import { useCitationStore, useLoadCitations } from "@/hooks/useCitationStore";
@@ -417,7 +418,7 @@ export const DocumentFileTextDialog = ({
         className="flex h-[calc(100dvh-1rem)] max-h-[1000px] max-w-[calc(100%-1rem)] flex-col gap-3 overflow-hidden p-3 sm:max-w-7xl sm:p-5"
       >
         <DialogHeader>
-          <DialogTitle className="truncate pr-6">
+          <DialogTitle className="truncate pr-32">
             {t("title", { name })}
           </DialogTitle>
           <DialogDescription>
@@ -428,6 +429,13 @@ export const DocumentFileTextDialog = ({
                 : t("description")}
           </DialogDescription>
         </DialogHeader>
+        <DocumentReaderViewControls
+          view={view}
+          onViewChange={(next) => {
+            setSelection(null);
+            setView(next);
+          }}
+        />
 
         {file.transcriptionStatus === "pending" && !editing && (
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -465,10 +473,6 @@ export const DocumentFileTextDialog = ({
 
         <DocumentReaderSplit
           view={view}
-          onViewChange={(next) => {
-            setSelection(null);
-            setView(next);
-          }}
           preview={
             open && (
               <DocumentFilePreview
