@@ -202,6 +202,51 @@ for (const width of [360, 1280]) {
     await expect
       .poll(() => viewport.evaluate((element) => element.scrollLeft))
       .toBe(0);
+    const textBeforeZoom = await text.boundingBox();
+    const browserBeforeZoom = await page.evaluate(() => ({
+      width: window.innerWidth,
+      density: window.devicePixelRatio,
+      scale: window.visualViewport?.scale,
+    }));
+    expect(
+      await viewport.evaluate((element) => {
+        const box = element.getBoundingClientRect();
+        const pinch = new WheelEvent("wheel", {
+          ctrlKey: true,
+          deltaY: -Math.log(2) * 100,
+          clientX: box.x + 70,
+          clientY: box.y + 70,
+          bubbles: true,
+          cancelable: true,
+        });
+        element.dispatchEvent(pinch);
+        return pinch.defaultPrevented;
+      }),
+    ).toBe(true);
+    await expect(original.getByRole("toolbar").getByRole("status")).toHaveText(
+      "200%",
+    );
+    await expect
+      .poll(async () => (await canvas.boundingBox())?.width ?? 0)
+      .toBeCloseTo(initialWidth * 2, 0);
+    expect(await text.boundingBox()).toEqual(textBeforeZoom);
+    expect(
+      await page.evaluate(() => ({
+        width: window.innerWidth,
+        density: window.devicePixelRatio,
+        scale: window.visualViewport?.scale,
+      })),
+    ).toEqual(browserBeforeZoom);
+    await viewport.focus();
+    await page.keyboard.press("Control+0");
+    await expect(original.getByRole("toolbar").getByRole("status")).toHaveText(
+      "100%",
+    );
+    await page.keyboard.press("Control+=");
+    await expect(original.getByRole("toolbar").getByRole("status")).toHaveText(
+      "125%",
+    );
+    await dialog.getByRole("button", { name: "Fit to width" }).click();
     await dialog.getByRole("button", { name: "Edit text" }).click();
     await dialog
       .getByRole("textbox")
