@@ -16,6 +16,8 @@ import {
   Pencil,
   RotateCcw,
   Sparkles,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Slot } from "@radix-ui/react-slot";
@@ -41,11 +43,17 @@ import {
 } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { Input } from "@/components/ui/input";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { MarkdownContent } from "@/components/shared/MarkdownContent";
 import { MarkdownEditor } from "@/components/shared/member-sheet/MarkdownEditor";
 import { useDocumentStore } from "@/hooks/useDocumentStore";
 import { downloadMedia, openMedia } from "@/hooks/useMediaUrl";
 import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
+import { useNativeFullscreen } from "@/hooks/useNativeFullscreen";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import type { DocumentFile, DocumentFileText } from "@/types/document";
 import { canEditArea } from "@/utils/accessLevels";
@@ -162,6 +170,11 @@ export const DocumentFileTextDialog = ({
   const [page, setPage] = useState(1);
   const [pageCount, setPageCount] = useState<number | null>(null);
   const [view, setView] = useState<DocumentReaderView>("both");
+  const {
+    fullscreen,
+    supported: fullscreenSupported,
+    toggle: toggleFullscreen,
+  } = useNativeFullscreen(open);
   const contentRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const { t: evidence } = useTranslation(undefined, {
@@ -415,10 +428,17 @@ export const DocumentFileTextDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         ref={dialogRef}
-        className="flex h-[calc(100dvh-1rem)] max-h-[1000px] max-w-[calc(100%-1rem)] flex-col gap-3 overflow-hidden p-3 sm:max-w-7xl sm:p-5"
+        className={cn(
+          "flex h-[calc(100dvh-1rem)] max-h-[1000px] max-w-[calc(100%-1rem)] flex-col gap-3 overflow-hidden p-3 sm:max-w-7xl sm:p-5",
+          fullscreen &&
+            "top-0 left-0 h-dvh max-h-none max-w-none translate-x-0 translate-y-0 rounded-none border-0 sm:max-w-none",
+        )}
+        onEscapeKeyDown={(event) => {
+          if (fullscreen) event.preventDefault();
+        }}
       >
         <DialogHeader>
-          <DialogTitle className="truncate pr-32">
+          <DialogTitle className="truncate py-0.5 pr-40 leading-normal">
             {t("title", { name })}
           </DialogTitle>
           <DialogDescription>
@@ -436,6 +456,34 @@ export const DocumentFileTextDialog = ({
             setView(next);
           }}
         />
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              size="icon-xs"
+              variant="ghost"
+              className="absolute top-2.5 right-10 size-7 text-muted-foreground"
+              aria-label={reader(fullscreen ? "exit-fullscreen" : "fullscreen")}
+              disabled={!fullscreenSupported}
+              onClick={() => {
+                void toggleFullscreen().catch(() =>
+                  toast.error(reader("fullscreen-error")),
+                );
+              }}
+            >
+              {fullscreen ? <Minimize2 /> : <Maximize2 />}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            {reader(
+              !fullscreenSupported
+                ? "fullscreen-unavailable"
+                : fullscreen
+                  ? "exit-fullscreen"
+                  : "fullscreen",
+            )}
+          </TooltipContent>
+        </Tooltip>
 
         {file.transcriptionStatus === "pending" && !editing && (
           <p className="flex items-center gap-2 text-sm text-muted-foreground">

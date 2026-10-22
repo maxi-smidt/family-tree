@@ -246,6 +246,36 @@ for (const width of [360, 1280]) {
     await expect(original.getByRole("toolbar").getByRole("status")).toHaveText(
       "125%",
     );
+    await dialog
+      .getByRole("button", { name: "Enter fullscreen", exact: true })
+      .click();
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => document.fullscreenElement === document.documentElement,
+        ),
+      )
+      .toBe(true);
+    const fullscreenBox = (await dialog.boundingBox())!;
+    const windowSize = await page.evaluate(() => ({
+      width: innerWidth,
+      height: innerHeight,
+    }));
+    expect(fullscreenBox).toMatchObject({ x: 0, y: 0, ...windowSize });
+    await page.keyboard.press("Escape");
+    await expect
+      .poll(() => page.evaluate(() => document.fullscreenElement === null))
+      .toBe(true);
+    await expect(dialog).toBeVisible();
+    await dialog
+      .getByRole("button", { name: "Enter fullscreen", exact: true })
+      .click();
+    await dialog
+      .getByRole("button", { name: "Exit fullscreen", exact: true })
+      .click();
+    await expect
+      .poll(() => page.evaluate(() => document.fullscreenElement === null))
+      .toBe(true);
     const views = dialog.getByRole("radiogroup", { name: "Viewer layout" });
     await views.getByRole("radio", { name: "Document", exact: true }).click();
     await expect(original).toBeVisible();

@@ -50,7 +50,7 @@ export function DocumentReaderViewControls({
           onViewChange(value);
       }}
       aria-label={t("view")}
-      className="absolute top-2.5 right-10 text-muted-foreground"
+      className="absolute top-2.5 right-18 text-muted-foreground"
     >
       {options.map(({ value, label, Icon }) => (
         <Tooltip key={value}>
