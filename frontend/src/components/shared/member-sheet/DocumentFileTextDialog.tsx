@@ -471,9 +471,6 @@ export const DocumentFileTextDialog = ({
             >
               {name}
             </DialogTitle>
-            {editing && (
-              <p className="text-sm text-muted-foreground">{t("hint")}</p>
-            )}
           </DialogHeader>
           <DocumentFileTranscribeAction
             documentId={documentId}
