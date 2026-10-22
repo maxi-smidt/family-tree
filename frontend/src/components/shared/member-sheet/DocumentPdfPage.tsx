@@ -64,6 +64,10 @@ export function DocumentPdfPage({
   }, [url, onPageCount]);
 
   useEffect(() => {
+    surface.current?.replaceChildren();
+  }, [pdf, page]);
+
+  useEffect(() => {
     if (!pdf || !surface.current) return;
     let cancelled = false;
     let task: RenderTask | undefined;
@@ -92,8 +96,8 @@ export function DocumentPdfPage({
         const viewport = pdfPage.getViewport({ scale: scale * density });
         canvas.width = Math.ceil(viewport.width);
         canvas.height = Math.ceil(viewport.height);
-        canvas.style.width = `${width}px`;
-        canvas.style.height = `${viewport.height / density}px`;
+        canvas.style.width = "100%";
+        canvas.style.height = "auto";
         task = pdfPage.render({ canvas, viewport });
         await task.promise;
         if (!cancelled) {
@@ -110,22 +114,27 @@ export function DocumentPdfPage({
     return () => {
       cancelled = true;
       task?.cancel();
-      root.replaceChildren();
-      canvas.width = 0;
-      canvas.height = 0;
+      // Keep the last completed page visible and scaled during zoom renders.
+      // Clearing it here collapses the scroll area on every pinch event.
+      if (!canvas.isConnected) {
+        canvas.width = 0;
+        canvas.height = 0;
+      }
     };
   }, [pdf, page, width, t]);
 
   return (
-    <>
+    <div className="relative mx-auto" style={{ width }}>
       {error ? (
         <p role="alert" className="p-4 text-sm text-destructive">
           {t("error")}
         </p>
       ) : (
-        rendering && <Spinner className="mx-auto size-5" />
+        rendering && (
+          <Spinner className="absolute top-0 left-1/2 size-5 -translate-x-1/2" />
+        )
       )}
       <div ref={surface} aria-busy={rendering && !error} />
-    </>
+    </div>
   );
 }

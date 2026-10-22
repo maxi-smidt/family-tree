@@ -26,7 +26,7 @@ TRANSCRIPTION_PROMPT = (
     "language. Do not translate, summarize, modernize or correct anything.\n"
     "Return the transcription as meaningful Markdown: keep the document's "
     "structure with headings, paragraphs, lists and tables where the original "
-    "has them.\n"
+    "has them. For mathematical expressions, use KaTeX-compatible LaTeX.\n"
     "Mark words you cannot read as [?]. Never guess or invent names, dates or "
     "places.\n"
     "If the document has several pages, put <!-- page N --> on its own line "

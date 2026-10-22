@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Sparkles } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -27,21 +27,23 @@ import { canEditArea } from "@/utils/accessLevels";
 import { transcriptionErrorMessage } from "@/utils/transcriptionErrors";
 import { cn } from "@/lib/utils";
 
-/** Sends a file to the person's own AI provider for transcription, after
- *  they confirm the data leaves the instance. Editors only, and only once AI
- *  is set up in their settings. As an `icon` next to a file it stays visible
- *  while the file has no text (or a run is busy or failed); a file with a
- *  text is transcribed again from its text dialog (`button`). */
-export const DocumentFileTranscribeButton = ({
+interface TranscribeAction {
+  available: boolean;
+  pending: boolean;
+  label: string;
+  buttonLabel: string;
+  request: () => void;
+}
+
+/** Keep the confirmation mounted independently of transient menu triggers. */
+export const DocumentFileTranscribeAction = ({
   documentId,
   file,
-  className,
-  variant = "icon",
+  children,
 }: {
   documentId: string;
   file: DocumentFile;
-  className?: string;
-  variant?: "icon" | "button";
+  children: (action: TranscribeAction) => ReactNode;
 }) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.member-sheet.documents.ai",
@@ -59,16 +61,10 @@ export const DocumentFileTranscribeButton = ({
   }, [canEdit, loadSettings]);
 
   const provider = activeAiProvider(settings);
-  if (
-    !canEdit ||
-    file.kind !== "file" ||
-    !canTranscribe(provider, file.mimeType)
-  )
-    return null;
-
+  const available =
+    canEdit && file.kind === "file" && canTranscribe(provider, file.mimeType);
   const pending = file.transcriptionStatus === "pending";
   const failed = file.transcriptionStatus === "failed";
-  if (variant === "icon" && file.hasText && !pending && !failed) return null;
   const label = pending
     ? t("running")
     : failed
@@ -94,37 +90,19 @@ export const DocumentFileTranscribeButton = ({
 
   return (
     <>
-      {variant === "button" ? (
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => setConfirming(true)}
-          disabled={pending}
-          title={label}
-        >
-          {pending ? <Spinner /> : <Sparkles />}
-          {pending ? t("running") : file.hasText ? t("again") : t("start")}
-        </Button>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setConfirming(true)}
-          disabled={pending}
-          className={cn(
-            "shrink-0 hover:text-foreground disabled:cursor-default",
-            failed ? "text-destructive" : "text-muted-foreground",
-            className,
-          )}
-          title={label}
-          aria-label={label}
-        >
-          {pending ? (
-            <Spinner className="w-4 h-4" />
-          ) : (
-            <Sparkles className="w-4 h-4" />
-          )}
-        </button>
-      )}
+      {children({
+        available,
+        pending,
+        label,
+        buttonLabel: pending
+          ? t("running")
+          : file.hasText
+            ? t("again")
+            : t("start"),
+        request: () => {
+          if (available && !pending) setConfirming(true);
+        },
+      })}
       <AlertDialog open={confirming} onOpenChange={setConfirming}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -163,3 +141,59 @@ export const DocumentFileTranscribeButton = ({
     </>
   );
 };
+
+/** Row and standalone triggers share the reader's transcription flow. */
+export const DocumentFileTranscribeButton = ({
+  documentId,
+  file,
+  className,
+  variant = "icon",
+}: {
+  documentId: string;
+  file: DocumentFile;
+  className?: string;
+  variant?: "icon" | "button";
+}) => (
+  <DocumentFileTranscribeAction documentId={documentId} file={file}>
+    {({ available, pending, label, buttonLabel, request }) => {
+      const failed = file.transcriptionStatus === "failed";
+      if (
+        !available ||
+        (variant === "icon" && file.hasText && !pending && !failed)
+      )
+        return null;
+      return variant === "button" ? (
+        <Button
+          type="button"
+          variant="outline"
+          onClick={request}
+          disabled={pending}
+          title={label}
+          className={className}
+        >
+          {pending ? <Spinner /> : <Sparkles />}
+          {buttonLabel}
+        </Button>
+      ) : (
+        <button
+          type="button"
+          onClick={request}
+          disabled={pending}
+          className={cn(
+            "shrink-0 hover:text-foreground disabled:cursor-default",
+            failed ? "text-destructive" : "text-muted-foreground",
+            className,
+          )}
+          title={label}
+          aria-label={label}
+        >
+          {pending ? (
+            <Spinner className="w-4 h-4" />
+          ) : (
+            <Sparkles className="w-4 h-4" />
+          )}
+        </button>
+      );
+    }}
+  </DocumentFileTranscribeAction>
+);

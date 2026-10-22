@@ -6,16 +6,78 @@ import {
   useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { Columns2, FileImage, FileText } from "lucide-react";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
+import { DocumentReaderDock } from "./DocumentReaderControls";
+
+export type DocumentReaderView = "document" | "text" | "both";
 
 interface DocumentReaderSplitProps {
   preview: ReactNode;
   children: ReactNode;
+  view: DocumentReaderView;
+  textNavigation?: ReactNode;
+}
+
+/** Compact layout actions beside the reader dialog's close button. */
+export function DocumentReaderViewControls({
+  view,
+  onViewChange,
+}: {
+  view: DocumentReaderView;
+  onViewChange: (view: DocumentReaderView) => void;
+}) {
+  const { t } = useTranslation(undefined, {
+    keyPrefix: "sheet.member-sheet.documents.reader",
+  });
+  const options = [
+    { value: "document", label: t("view-document"), Icon: FileImage },
+    { value: "both", label: t("view-both"), Icon: Columns2 },
+    { value: "text", label: t("view-text"), Icon: FileText },
+  ];
+  return (
+    <ToggleGroup
+      type="single"
+      size="sm"
+      variant="outline"
+      value={view}
+      onValueChange={(value) => {
+        if (value === "document" || value === "text" || value === "both")
+          onViewChange(value);
+      }}
+      aria-label={t("view")}
+      className="shrink-0 text-muted-foreground"
+    >
+      {options.map(({ value, label, Icon }) => (
+        <Tooltip key={value}>
+          <TooltipTrigger asChild>
+            <ToggleGroupItem
+              value={value}
+              aria-label={label}
+              className="size-6 p-0 sm:size-7 aria-checked:bg-muted aria-checked:text-foreground"
+            >
+              <Icon aria-hidden="true" />
+            </ToggleGroupItem>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">{label}</TooltipContent>
+        </Tooltip>
+      ))}
+    </ToggleGroup>
+  );
 }
 
 /** A keyboard- and pointer-resizable reader, stacked on phones. */
 export function DocumentReaderSplit({
   preview,
   children,
+  view,
+  textNavigation,
 }: DocumentReaderSplitProps) {
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.member-sheet.documents.reader",
@@ -28,7 +90,13 @@ export function DocumentReaderSplit({
     <div
       ref={root}
       data-slot="document-reader"
-      className="grid min-h-0 flex-1 grid-cols-1 grid-rows-2 overflow-hidden rounded-lg border md:grid-cols-[var(--reader-columns)] md:grid-rows-1"
+      data-view={view}
+      className={cn(
+        "grid min-h-0 flex-1 grid-cols-1 overflow-hidden rounded-lg border",
+        view === "both"
+          ? "grid-rows-2 md:grid-cols-[var(--reader-columns)] md:grid-rows-1"
+          : "grid-rows-1",
+      )}
       style={
         {
           "--reader-columns": `${ratio}fr 12px ${100 - ratio}fr`,
@@ -38,7 +106,11 @@ export function DocumentReaderSplit({
       <section
         id={filePaneId}
         aria-label={t("file")}
-        className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-muted/30"
+        hidden={view === "text"}
+        className={cn(
+          "min-h-0 min-w-0 flex-col overflow-hidden bg-muted/30",
+          view === "text" ? "hidden" : "flex",
+        )}
       >
         {preview}
       </section>
@@ -51,7 +123,11 @@ export function DocumentReaderSplit({
         aria-valuemax={75}
         aria-valuenow={Math.round(ratio)}
         aria-controls={filePaneId}
-        className="hidden touch-none cursor-col-resize items-center justify-center bg-muted outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset md:flex"
+        hidden={view !== "both"}
+        className={cn(
+          "hidden touch-none cursor-col-resize items-center justify-center bg-muted outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+          view === "both" && "md:flex",
+        )}
         onKeyDown={(event) => {
           if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key))
             return;
@@ -88,9 +164,24 @@ export function DocumentReaderSplit({
       </div>
       <section
         aria-label={t("text")}
-        className="min-h-0 min-w-0 overflow-y-auto overscroll-contain border-t p-3 md:border-t-0 md:p-4"
+        hidden={view === "document"}
+        className={cn(
+          "relative flex min-h-0 min-w-0 flex-col overflow-hidden",
+          view === "both" && "border-t md:border-t-0",
+          view === "document" && "hidden",
+        )}
       >
-        {children}
+        <div
+          className={cn(
+            "min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 md:p-4",
+            view === "text" && textNavigation && "pb-16 md:pb-16",
+          )}
+        >
+          {children}
+        </div>
+        {view === "text" && textNavigation && (
+          <DocumentReaderDock>{textNavigation}</DocumentReaderDock>
+        )}
       </section>
     </div>
   );

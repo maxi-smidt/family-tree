@@ -112,26 +112,34 @@ for (const width of [360, 1280]) {
     await expect(
       dialog.getByRole("button", { name: "Previous page" }),
     ).toBeDisabled();
-    const footer = dialog.locator('[data-slot="dialog-footer"]');
-    const pagination = footer.getByRole("group", { name: "Document pages" });
+    const controls = original.getByRole("toolbar", {
+      name: "Document controls",
+    });
+    const pagination = controls.getByRole("group", { name: "Document pages" });
     await expect(pagination).toBeVisible();
-    const paginationBox = (await pagination.boundingBox())!;
-    const footerBox = (await footer.boundingBox())!;
+    const controlsBox = (await controls.boundingBox())!;
+    const originalBox = (await original.boundingBox())!;
+    expect(controlsBox.x).toBeGreaterThanOrEqual(originalBox.x);
+    expect(controlsBox.x + controlsBox.width).toBeLessThanOrEqual(
+      originalBox.x + originalBox.width,
+    );
+    expect(controlsBox.y + controlsBox.height).toBeLessThan(
+      originalBox.y + originalBox.height,
+    );
     expect(
       Math.abs(
-        paginationBox.x +
-          paginationBox.width / 2 -
-          (footerBox.x + footerBox.width / 2),
+        controlsBox.x +
+          controlsBox.width / 2 -
+          originalBox.x -
+          originalBox.width / 2,
       ),
     ).toBeLessThanOrEqual(1);
-    const readerBox = (await dialog
-      .locator('[data-slot="document-reader"]')
-      .boundingBox())!;
-    expect(paginationBox.y).toBeGreaterThanOrEqual(
-      readerBox.y + readerBox.height - 1,
-    );
+    expect(await dialog.locator('[data-slot="dialog-footer"]').count()).toBe(0);
     const downloadEvent = page.waitForEvent("download");
-    await dialog.getByRole("button", { name: "Download", exact: true }).click();
+    await dialog
+      .getByRole("button", { name: "File options", exact: true })
+      .click();
+    await page.getByRole("menuitem", { name: "Download", exact: true }).click();
     const download = await downloadEvent;
     expect(download.suggestedFilename()).toBe("register.pdf");
     expect(await download.failure()).toBeNull();
@@ -202,6 +210,127 @@ for (const width of [360, 1280]) {
     await expect
       .poll(() => viewport.evaluate((element) => element.scrollLeft))
       .toBe(0);
+    const textBeforeZoom = await text.boundingBox();
+    const browserBeforeZoom = await page.evaluate(() => ({
+      width: window.innerWidth,
+      density: window.devicePixelRatio,
+      scale: window.visualViewport?.scale,
+    }));
+    expect(
+      await viewport.evaluate((element) => {
+        const box = element.getBoundingClientRect();
+        const pinch = new WheelEvent("wheel", {
+          ctrlKey: true,
+          deltaY: -Math.log(2) * 100,
+          clientX: box.x + 70,
+          clientY: box.y + 70,
+          bubbles: true,
+          cancelable: true,
+        });
+        element.dispatchEvent(pinch);
+        return pinch.defaultPrevented;
+      }),
+    ).toBe(true);
+    await expect(original.getByRole("toolbar").getByRole("status")).toHaveText(
+      "200%",
+    );
+    await expect
+      .poll(async () => (await canvas.boundingBox())?.width ?? 0)
+      .toBeCloseTo(initialWidth * 2, 0);
+    expect(await text.boundingBox()).toEqual(textBeforeZoom);
+    expect(
+      await page.evaluate(() => ({
+        width: window.innerWidth,
+        density: window.devicePixelRatio,
+        scale: window.visualViewport?.scale,
+      })),
+    ).toEqual(browserBeforeZoom);
+    await viewport.focus();
+    await page.keyboard.press("Control+0");
+    await expect(original.getByRole("toolbar").getByRole("status")).toHaveText(
+      "100%",
+    );
+    await page.keyboard.press("Control+=");
+    await expect(original.getByRole("toolbar").getByRole("status")).toHaveText(
+      "125%",
+    );
+    await dialog
+      .getByRole("button", { name: "Enter fullscreen", exact: true })
+      .click();
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => document.fullscreenElement === document.documentElement,
+        ),
+      )
+      .toBe(true);
+    // Native fullscreen can resolve before the dialog's animation settles.
+    // Poll the rendered edges, allowing subpixel rounding in browser geometry.
+    await expect
+      .poll(() =>
+        dialog.evaluate((element) => {
+          const box = element.getBoundingClientRect();
+          return Math.max(
+            Math.abs(box.left),
+            Math.abs(box.top),
+            Math.abs(box.right - innerWidth),
+            Math.abs(box.bottom - innerHeight),
+          );
+        }),
+      )
+      .toBeLessThanOrEqual(1);
+    await page.keyboard.press("Escape");
+    await expect
+      .poll(() => page.evaluate(() => document.fullscreenElement === null))
+      .toBe(true);
+    await expect(dialog).toBeVisible();
+    await dialog
+      .getByRole("button", { name: "Enter fullscreen", exact: true })
+      .click();
+    await dialog
+      .getByRole("button", { name: "Exit fullscreen", exact: true })
+      .click();
+    await expect
+      .poll(() => page.evaluate(() => document.fullscreenElement === null))
+      .toBe(true);
+    const views = dialog.getByRole("radiogroup", { name: "Viewer layout" });
+    await views.getByRole("radio", { name: "Document", exact: true }).click();
+    await expect(original).toBeVisible();
+    await expect(text).toBeHidden();
+    await expect(dialog.getByRole("separator")).toBeHidden();
+    const singleReaderBox = (await dialog
+      .locator('[data-slot="document-reader"]')
+      .boundingBox())!;
+    const documentOnlyBox = (await original.boundingBox())!;
+    expect(documentOnlyBox.width).toBeGreaterThanOrEqual(
+      singleReaderBox.width - 2,
+    );
+    expect(documentOnlyBox.height).toBeGreaterThanOrEqual(
+      singleReaderBox.height - 2,
+    );
+    await views.getByRole("radio", { name: "Text", exact: true }).click();
+    await expect(original).toBeHidden();
+    await expect(text).toBeVisible();
+    await text.getByRole("spinbutton", { name: "Page" }).fill("1");
+    await expect(
+      text.getByRole("heading", { name: "Birth register" }),
+    ).toBeVisible();
+    await text.getByRole("spinbutton", { name: "Page" }).fill("2");
+    await expect(
+      text.getByRole("heading", { name: "Marriage register" }),
+    ).toBeVisible();
+    const textOnlyBox = (await text.boundingBox())!;
+    expect(textOnlyBox.width).toBeGreaterThanOrEqual(singleReaderBox.width - 2);
+    expect(textOnlyBox.height).toBeGreaterThanOrEqual(
+      singleReaderBox.height - 2,
+    );
+    await views.getByRole("radio", { name: "Both", exact: true }).click();
+    await expect(original).toBeVisible();
+    await expect(text).toBeVisible();
+    await expect(original.getByRole("toolbar").getByRole("status")).toHaveText(
+      "125%",
+    );
+    await dialog.getByRole("button", { name: "Fit to width" }).click();
     await dialog.getByRole("button", { name: "Edit text" }).click();
     await dialog
       .getByRole("textbox")
