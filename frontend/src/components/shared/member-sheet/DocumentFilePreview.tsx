@@ -7,14 +7,16 @@ import {
   useRef,
   useState,
   type KeyboardEvent,
+  type ReactNode,
 } from "react";
-import { Maximize, ZoomIn, ZoomOut } from "lucide-react";
+import { Maximize, Plus, Minus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useMediaUrl } from "@/hooks/useMediaUrl";
 import type { DocumentFile } from "@/types/document";
 import { getFileKind } from "@/utils/attachmentUtils";
+import { DocumentReaderDock } from "./DocumentReaderControls";
 
 const PdfPage = lazy(() =>
   import("./DocumentPdfPage").then((m) => ({ default: m.DocumentPdfPage })),
@@ -24,6 +26,7 @@ interface DocumentFilePreviewProps {
   file: DocumentFile;
   page: number;
   onPageCount: (count: number) => void;
+  navigation?: ReactNode;
 }
 
 /** Preview protected uploads through the same authenticated media hook as images. */
@@ -31,6 +34,7 @@ export function DocumentFilePreview({
   file,
   page,
   onPageCount,
+  navigation,
 }: DocumentFilePreviewProps) {
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.member-sheet.documents.reader",
@@ -38,6 +42,7 @@ export function DocumentFilePreview({
   const kind = getFileKind(file.filename ?? "", file.mimeType);
   const supported = kind === "pdf" || kind === "image";
   const url = useMediaUrl(supported ? file.url : undefined);
+  const preview = useRef<HTMLDivElement>(null);
   const viewport = useRef<HTMLDivElement>(null);
   const drag = useRef<{
     x: number;
@@ -83,7 +88,7 @@ export function DocumentFilePreview({
   }, [zoom]);
 
   useEffect(() => {
-    const element = viewport.current;
+    const element = preview.current;
     if (!element || !supported) return;
     let gestureZoom: number | null = null;
     const wheel = (event: WheelEvent) => {
@@ -127,17 +132,24 @@ export function DocumentFilePreview({
     };
     // React's wheel listeners are passive, so use a local native listener to
     // cancel browser zoom only while the gesture is over the document.
-    element.addEventListener("wheel", wheel, { passive: false });
-    element.addEventListener("gesturestart", gestureStart, { passive: false });
+    element.addEventListener("wheel", wheel, { passive: false, capture: true });
+    element.addEventListener("gesturestart", gestureStart, {
+      passive: false,
+      capture: true,
+    });
     element.addEventListener("gesturechange", gestureChange, {
       passive: false,
+      capture: true,
     });
-    element.addEventListener("gestureend", gestureEnd, { passive: false });
+    element.addEventListener("gestureend", gestureEnd, {
+      passive: false,
+      capture: true,
+    });
     return () => {
-      element.removeEventListener("wheel", wheel);
-      element.removeEventListener("gesturestart", gestureStart);
-      element.removeEventListener("gesturechange", gestureChange);
-      element.removeEventListener("gestureend", gestureEnd);
+      element.removeEventListener("wheel", wheel, true);
+      element.removeEventListener("gesturestart", gestureStart, true);
+      element.removeEventListener("gesturechange", gestureChange, true);
+      element.removeEventListener("gestureend", gestureEnd, true);
     };
   }, [supported, changeZoom]);
 
@@ -177,54 +189,60 @@ export function DocumentFilePreview({
     else changeZoom(zoomRef.current + (event.key === "-" ? -0.25 : 0.25));
   };
   return (
-    <>
-      {supported && (
-        <div
-          role="toolbar"
-          aria-label={t("zoom")}
-          onKeyDown={zoomShortcut}
-          className="flex shrink-0 flex-wrap items-center justify-center gap-1 border-b p-1"
-        >
-          <Button
-            type="button"
-            size="icon-sm"
-            variant="ghost"
-            aria-label={t("zoom-out")}
-            disabled={zoom <= 0.5}
-            onClick={() => changeZoom(zoomRef.current - 0.25)}
-          >
-            <ZoomOut />
-          </Button>
-          <output
-            className="w-12 text-center text-sm tabular-nums"
-            aria-live="polite"
-          >
-            {Math.round(zoom * 100)}%
-          </output>
-          <Button
-            type="button"
-            size="icon-sm"
-            variant="ghost"
-            aria-label={t("zoom-in")}
-            disabled={zoom >= 4}
-            onClick={() => changeZoom(zoomRef.current + 0.25)}
-          >
-            <ZoomIn />
-          </Button>
-          <Button
-            type="button"
-            size="icon-sm"
-            variant="ghost"
-            aria-label={t("fit-width")}
-            onClick={reset}
-          >
-            <Maximize />
-          </Button>
-        </div>
+    <div ref={preview} className="relative flex min-h-0 flex-1 flex-col">
+      {(supported || navigation) && (
+        <DocumentReaderDock onKeyDown={zoomShortcut}>
+          {navigation}
+          {navigation && supported && (
+            <span aria-hidden="true" className="mx-0.5 h-4 w-px bg-border" />
+          )}
+          {supported && (
+            <div className="flex shrink-0 items-center gap-0.5">
+              <Button
+                type="button"
+                size="icon-xs"
+                className="size-6 sm:size-7"
+                variant="ghost"
+                aria-label={t("zoom-out")}
+                disabled={zoom <= 0.5}
+                onClick={() => changeZoom(zoomRef.current - 0.25)}
+              >
+                <Minus />
+              </Button>
+              <output
+                className="w-9 text-center text-xs tabular-nums sm:w-10"
+                aria-live="polite"
+              >
+                {Math.round(zoom * 100)}%
+              </output>
+              <Button
+                type="button"
+                size="icon-xs"
+                className="size-6 sm:size-7"
+                variant="ghost"
+                aria-label={t("zoom-in")}
+                disabled={zoom >= 4}
+                onClick={() => changeZoom(zoomRef.current + 0.25)}
+              >
+                <Plus />
+              </Button>
+              <Button
+                type="button"
+                size="icon-xs"
+                className="size-6 sm:size-7"
+                variant="ghost"
+                aria-label={t("fit-width")}
+                onClick={reset}
+              >
+                <Maximize />
+              </Button>
+            </div>
+          )}
+        </DocumentReaderDock>
       )}
       <div
         ref={viewport}
-        className="min-h-0 flex-1 touch-pan-x touch-pan-y overflow-auto overscroll-contain p-3"
+        className="min-h-0 flex-1 touch-pan-x touch-pan-y overflow-auto overscroll-contain p-3 pb-16"
         data-slot="document-file-viewport"
         tabIndex={supported ? 0 : undefined}
         aria-label={t("file")}
@@ -288,6 +306,6 @@ export function DocumentFilePreview({
           />
         )}
       </div>
-    </>
+    </div>
   );
 }

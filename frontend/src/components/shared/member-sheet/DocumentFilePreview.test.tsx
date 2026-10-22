@@ -86,6 +86,20 @@ describe("DocumentFilePreview zoom", () => {
     expect(screen.getByRole("status")).toHaveTextContent("100%");
   });
 
+  it("keeps pinch zoom local when the pointer is over the floating controls", () => {
+    preview();
+    const wheel = new WheelEvent("wheel", {
+      ctrlKey: true,
+      deltaY: -Math.log(2) * 100,
+      bubbles: true,
+      cancelable: true,
+    });
+    fireEvent(screen.getByRole("button", { name: "Zoom in" }), wheel);
+    expect(wheel.defaultPrevented).toBe(true);
+    expect(screen.getByRole("status")).toHaveTextContent("200%");
+    expect(screen.getByRole("img")).toHaveStyle({ width: "800px" });
+  });
+
   it("supports local Ctrl/Cmd zoom shortcuts and resets to fit width", () => {
     const { viewport } = preview();
     expect(fireEvent.keyDown(viewport, { ctrlKey: true, key: "+" })).toBe(

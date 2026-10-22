@@ -10,14 +10,14 @@ import {
 import {
   ExternalLink,
   Download,
-  ChevronLeft,
-  ChevronRight,
   FileCheck,
   Pencil,
   RotateCcw,
   Sparkles,
   Maximize2,
   Minimize2,
+  Ellipsis,
+  X,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Slot } from "@radix-ui/react-slot";
@@ -37,12 +37,18 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
+  DialogClose,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
-import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Tooltip,
   TooltipContent,
@@ -61,7 +67,8 @@ import { cn } from "@/lib/utils";
 import { foldForSearch, SEARCH_WORD } from "@/utils/searchFold";
 import { getFileKind } from "@/utils/attachmentUtils";
 import { documentTextPages, replaceDocumentPage } from "@/utils/documentPages";
-import { DocumentFileTranscribeButton } from "./DocumentFileTranscribeButton";
+import { DocumentFileTranscribeAction } from "./DocumentFileTranscribeButton";
+import { DocumentReaderPagination } from "./DocumentReaderControls";
 import { DocumentFilePreview } from "./DocumentFilePreview";
 import {
   DocumentReaderSplit,
@@ -154,6 +161,9 @@ export const DocumentFileTextDialog = ({
   });
   const { t: fileText } = useTranslation(undefined, {
     keyPrefix: "sheet.member-sheet.documents.file",
+  });
+  const { t: ai } = useTranslation(undefined, {
+    keyPrefix: "sheet.member-sheet.documents.ai",
   });
   const loadFileText = useDocumentStore((s) => s.loadFileText);
   const saveFileText = useDocumentStore((s) => s.saveFileText);
@@ -423,11 +433,24 @@ export const DocumentFileTextDialog = ({
   };
 
   const name = file.filename || t("untitled");
+  const hasText = !!text?.markdown.trim();
+  const pagination = isPdf ? (
+    <DocumentReaderPagination
+      page={page}
+      count={totalPages}
+      onPageChange={setPage}
+    />
+  ) : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         ref={dialogRef}
+        showCloseButton={false}
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          dialogRef.current?.focus();
+        }}
         className={cn(
           "flex h-[calc(100dvh-1rem)] max-h-[1000px] max-w-[calc(100%-1rem)] flex-col gap-3 overflow-hidden p-3 sm:max-w-7xl sm:p-5",
           fullscreen &&
@@ -437,53 +460,181 @@ export const DocumentFileTextDialog = ({
           if (fullscreen) event.preventDefault();
         }}
       >
-        <DialogHeader>
-          <DialogTitle className="truncate py-0.5 pr-40 leading-normal">
-            {t("title", { name })}
-          </DialogTitle>
-          <DialogDescription>
-            {editing
-              ? t("hint")
-              : text
-                ? sourceLine(t, text)
-                : t("description")}
-          </DialogDescription>
-        </DialogHeader>
-        <DocumentReaderViewControls
-          view={view}
-          onViewChange={(next) => {
-            setSelection(null);
-            setView(next);
-          }}
-        />
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              type="button"
-              size="icon-xs"
-              variant="ghost"
-              className="absolute top-2.5 right-10 size-7 text-muted-foreground"
-              aria-label={reader(fullscreen ? "exit-fullscreen" : "fullscreen")}
-              disabled={!fullscreenSupported}
-              onClick={() => {
-                void toggleFullscreen().catch(() =>
-                  toast.error(reader("fullscreen-error")),
-                );
-              }}
+        <div
+          data-slot="document-reader-header"
+          className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2"
+        >
+          <DialogHeader className="min-w-0 flex-1 basis-full text-left md:basis-0">
+            <DialogTitle
+              aria-label={t("title", { name })}
+              title={name}
+              className="truncate py-0.5 leading-normal"
             >
-              {fullscreen ? <Minimize2 /> : <Maximize2 />}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">
-            {reader(
-              !fullscreenSupported
-                ? "fullscreen-unavailable"
-                : fullscreen
-                  ? "exit-fullscreen"
-                  : "fullscreen",
+              {name}
+            </DialogTitle>
+            <DialogDescription>
+              {editing
+                ? t("hint")
+                : text
+                  ? sourceLine(t, text)
+                  : reader("no-text")}
+            </DialogDescription>
+          </DialogHeader>
+          <DocumentFileTranscribeAction
+            documentId={documentId}
+            file={{ ...file, hasText }}
+          >
+            {(transcription) => (
+              <div className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-1">
+                <DocumentReaderViewControls
+                  view={view}
+                  onViewChange={(next) => {
+                    setSelection(null);
+                    setView(next);
+                  }}
+                />
+                {canEdit &&
+                  !editing &&
+                  !loading &&
+                  (canRestore ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 max-w-28 px-2 text-xs sm:max-w-none"
+                      aria-label={t("restore-ai")}
+                      title={t("restore-ai")}
+                      disabled={saving}
+                      onClick={() => setConfirmRestore(true)}
+                    >
+                      <RotateCcw />
+                      <span className="min-w-0 truncate">
+                        {reader("restore-short")}
+                      </span>
+                    </Button>
+                  ) : !hasText && transcription.available ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 max-w-28 px-2 text-xs sm:max-w-none"
+                      aria-label={transcription.buttonLabel}
+                      title={transcription.label}
+                      disabled={transcription.pending}
+                      onClick={transcription.request}
+                    >
+                      {transcription.pending ? <Spinner /> : <Sparkles />}
+                      <span className="hidden sm:inline">
+                        {transcription.buttonLabel}
+                      </span>
+                      <span className="min-w-0 truncate sm:hidden">
+                        {transcription.pending
+                          ? ai("running-short")
+                          : ai("start-short")}
+                      </span>
+                    </Button>
+                  ) : null)}
+                <DropdownMenu modal={false}>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      size="icon-xs"
+                      variant="ghost"
+                      className="size-6 text-muted-foreground sm:size-7"
+                      aria-label={reader("options")}
+                    >
+                      <Ellipsis />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onSelect={openFile}>
+                      <ExternalLink />
+                      {t("open-file")}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={downloadFile}
+                      disabled={downloading}
+                    >
+                      {downloading ? <Spinner /> : <Download />}
+                      {fileText("download")}
+                    </DropdownMenuItem>
+                    {canEdit && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          disabled={!canRestore || editing || saving || loading}
+                          onSelect={() => setConfirmRestore(true)}
+                        >
+                          <RotateCcw />
+                          {t("restore-ai")}
+                        </DropdownMenuItem>
+                        {hasText && transcription.available && (
+                          <DropdownMenuItem
+                            disabled={editing || transcription.pending}
+                            onSelect={transcription.request}
+                          >
+                            {transcription.pending ? <Spinner /> : <Sparkles />}
+                            {transcription.buttonLabel}
+                          </DropdownMenuItem>
+                        )}
+                        {view === "document" && !editing && (
+                          <DropdownMenuItem
+                            disabled={loading}
+                            onSelect={startEditing}
+                          >
+                            <Pencil />
+                            {text ? t("edit") : t("add")}
+                          </DropdownMenuItem>
+                        )}
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      size="icon-xs"
+                      variant="ghost"
+                      className="size-6 text-muted-foreground sm:size-7"
+                      aria-label={reader(
+                        fullscreen ? "exit-fullscreen" : "fullscreen",
+                      )}
+                      disabled={!fullscreenSupported}
+                      onClick={() => {
+                        void toggleFullscreen().catch(() =>
+                          toast.error(reader("fullscreen-error")),
+                        );
+                      }}
+                    >
+                      {fullscreen ? <Minimize2 /> : <Maximize2 />}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    {reader(
+                      !fullscreenSupported
+                        ? "fullscreen-unavailable"
+                        : fullscreen
+                          ? "exit-fullscreen"
+                          : "fullscreen",
+                    )}
+                  </TooltipContent>
+                </Tooltip>
+                <DialogClose asChild>
+                  <Button
+                    type="button"
+                    size="icon-xs"
+                    variant="ghost"
+                    className="size-6 text-muted-foreground sm:size-7"
+                    aria-label={reader("close")}
+                  >
+                    <X />
+                  </Button>
+                </DialogClose>
+              </div>
             )}
-          </TooltipContent>
-        </Tooltip>
+          </DocumentFileTranscribeAction>
+        </div>
 
         {file.transcriptionStatus === "pending" && !editing && (
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -521,6 +672,7 @@ export const DocumentFileTextDialog = ({
 
         <DocumentReaderSplit
           view={view}
+          textNavigation={pagination}
           preview={
             open && (
               <DocumentFilePreview
@@ -528,10 +680,57 @@ export const DocumentFileTextDialog = ({
                 file={file}
                 page={page}
                 onPageCount={setPageCount}
+                navigation={pagination}
               />
             )
           }
         >
+          <div
+            data-slot="document-text-actions"
+            className="mb-3 flex items-center justify-between gap-2"
+          >
+            <span className="text-xs text-muted-foreground">
+              {reader("text")}
+            </span>
+            {canEdit &&
+              !loading &&
+              (editing ? (
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-xs"
+                    disabled={saving}
+                    onClick={() => setEditing(false)}
+                  >
+                    {t("cancel")}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    shortcut="save"
+                    disabled={saving}
+                    onClick={() => void save()}
+                  >
+                    {saving && <Spinner />}
+                    {t("save")}
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2 text-xs text-muted-foreground"
+                  onClick={startEditing}
+                >
+                  <Pencil />
+                  {text ? t("edit") : t("add")}
+                </Button>
+              ))}
+          </div>
           {loading ? (
             <div className="flex justify-center py-8">
               <Spinner className="size-5 text-muted-foreground" />
@@ -600,123 +799,6 @@ export const DocumentFileTextDialog = ({
             }}
           />
         )}
-
-        <DialogFooter className="grid shrink-0 grid-cols-1 items-center gap-2 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
-          <div className="order-2 flex flex-wrap justify-center gap-2 md:order-1 md:justify-start">
-            <Button type="button" variant="outline" onClick={openFile}>
-              <ExternalLink />
-              {t("open-file")}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={downloadFile}
-              disabled={downloading}
-            >
-              {downloading ? <Spinner /> : <Download />}
-              {fileText("download")}
-            </Button>
-          </div>
-          {isPdf && (
-            <div
-              role="group"
-              aria-label={reader("pages")}
-              className="order-1 flex items-center justify-center gap-2 md:order-2 md:col-start-2"
-            >
-              <Button
-                type="button"
-                size="icon-sm"
-                variant="outline"
-                aria-label={reader("previous")}
-                disabled={page <= 1}
-                onClick={() => setPage((current) => current - 1)}
-              >
-                <ChevronLeft />
-              </Button>
-              <label className="flex items-center gap-2 text-sm">
-                {reader("page")}
-                <Input
-                  size="sm"
-                  type="number"
-                  min={1}
-                  max={totalPages}
-                  value={page}
-                  className="w-16"
-                  aria-label={reader("page")}
-                  onChange={(event) => {
-                    const value = event.currentTarget.valueAsNumber;
-                    if (
-                      Number.isInteger(value) &&
-                      value >= 1 &&
-                      value <= totalPages
-                    )
-                      setPage(value);
-                  }}
-                />
-              </label>
-              <span className="text-sm tabular-nums text-muted-foreground">
-                {reader("of", { count: totalPages })}
-              </span>
-              <Button
-                type="button"
-                size="icon-sm"
-                variant="outline"
-                aria-label={reader("next")}
-                disabled={page >= totalPages}
-                onClick={() => setPage((current) => current + 1)}
-              >
-                <ChevronRight />
-              </Button>
-            </div>
-          )}
-          {editing ? (
-            <div className="order-3 flex flex-wrap justify-center gap-2 md:col-start-3 md:justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setEditing(false)}
-                disabled={saving}
-              >
-                {t("cancel")}
-              </Button>
-              <Button
-                type="button"
-                onClick={() => void save()}
-                shortcut="save"
-                disabled={saving}
-              >
-                {saving && <Spinner />}
-                {t("save")}
-              </Button>
-            </div>
-          ) : (
-            canEdit &&
-            !loading && (
-              <div className="order-3 flex flex-wrap justify-center gap-2 md:col-start-3 md:justify-end">
-                {canRestore && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={saving}
-                    onClick={() => setConfirmRestore(true)}
-                  >
-                    <RotateCcw />
-                    {t("restore-ai")}
-                  </Button>
-                )}
-                <DocumentFileTranscribeButton
-                  documentId={documentId}
-                  file={file}
-                  variant="button"
-                />
-                <Button type="button" onClick={startEditing}>
-                  <Pencil />
-                  {text ? t("edit") : t("add")}
-                </Button>
-              </div>
-            )
-          )}
-        </DialogFooter>
       </DialogContent>
       {citing && (
         <CitationDialog

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
 import {
   act,
   fireEvent,
@@ -8,6 +8,7 @@ import {
   waitFor,
   within,
 } from "@/test/utils";
+import { useAiSettingsStore } from "@/hooks/useAiSettingsStore";
 import { useDocumentStore } from "@/hooks/useDocumentStore";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useCitationStore } from "@/hooks/useCitationStore";
@@ -61,12 +62,19 @@ vi.mock("./DocumentFilePreview", () => ({
   DocumentFilePreview: ({
     page,
     onPageCount,
+    navigation,
   }: {
     page: number;
     onPageCount: (count: number) => void;
+    navigation?: ReactNode;
   }) => {
     useEffect(() => onPageCount(3), [onPageCount]);
-    return <div role="img" aria-label={`Original page ${page}`} />;
+    return (
+      <>
+        <div role="img" aria-label={`Original page ${page}`} />
+        {navigation}
+      </>
+    );
   },
 }));
 
@@ -81,11 +89,39 @@ function renderDialog() {
   );
 }
 
+function enableAi() {
+  useAiSettingsStore.setState({
+    settings: {
+      configured: true,
+      provider: "gemini",
+      model: "gemini-test",
+      base_url: null,
+      has_api_key: true,
+      api_key_hint: "test",
+      api_key_unreadable: false,
+      providers: [
+        {
+          id: "gemini",
+          label: "Google Gemini",
+          default_model: "gemini-test",
+          needs_api_key: true,
+          custom_base_url: false,
+          supports_pdf: true,
+        },
+      ],
+    },
+  });
+}
+
 describe("DocumentFileTextDialog", () => {
   beforeEach(() => {
     loadFileText.mockReset();
     saveFileText.mockReset();
     useDocumentStore.setState({ loadFileText, saveFileText });
+    useAiSettingsStore.setState({
+      settings: null,
+      load: vi.fn().mockResolvedValue(undefined),
+    });
     useWorkspaceStore.setState({
       selectedTree: { id: "tree-1", name: "Tree", role: "owner" },
     });
@@ -102,6 +138,76 @@ describe("DocumentFileTextDialog", () => {
     ).toBeInTheDocument();
     expect(loadFileText).toHaveBeenCalledWith("doc-1", "file-1");
     expect(screen.getByText("Written by hand.")).toBeInTheDocument();
+  });
+
+  it("promotes transcription to the header only when text is missing", async () => {
+    enableAi();
+    loadFileText.mockResolvedValue(null);
+    renderDialog();
+    await screen.findByText("No text yet.");
+    const header = document.querySelector(
+      '[data-slot="document-reader-header"]',
+    )! as HTMLElement;
+    expect(
+      within(header).getByRole("button", { name: "Transcribe with AI" }),
+    ).toBeVisible();
+    fireEvent.click(
+      within(header).getByRole("button", { name: "Transcribe with AI" }),
+    );
+    expect(await screen.findByRole("alertdialog")).toHaveTextContent(
+      "Send this file to Google Gemini?",
+    );
+  });
+
+  it("opens the transcription confirmation from the menu after it closes", async () => {
+    enableAi();
+    const transcribeFile = vi.fn().mockResolvedValue(undefined);
+    useDocumentStore.setState({ transcribeFile });
+    loadFileText.mockResolvedValue(TEXT);
+    renderDialog();
+    await screen.findByText("Johann Schmidt");
+    expect(
+      screen.queryByRole("button", { name: "Transcribe again" }),
+    ).not.toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole("button", { name: "File options" }), {
+      key: "Enter",
+    });
+    fireEvent.click(
+      await screen.findByRole("menuitem", { name: "Transcribe again" }),
+    );
+    const confirm = await screen.findByRole("alertdialog");
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(transcribeFile).not.toHaveBeenCalled();
+    fireEvent.click(
+      within(confirm).getByRole("button", { name: "Send to Google Gemini" }),
+    );
+    await waitFor(() =>
+      expect(transcribeFile).toHaveBeenCalledWith("doc-1", "file-1"),
+    );
+  });
+
+  it("promotes restore ahead of transcription when an AI version is available", async () => {
+    enableAi();
+    loadFileText.mockResolvedValue({
+      ...TEXT,
+      markdown: "",
+      machineMarkdown: "Saved AI text",
+    });
+    renderDialog();
+    expect(
+      await screen.findByRole("button", { name: "Restore AI version" }),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "Transcribe with AI" }),
+    ).not.toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole("button", { name: "File options" }), {
+      key: "Enter",
+    });
+    expect(
+      await screen.findByRole("menuitem", { name: "Restore AI version" }),
+    ).toBeEnabled();
+    expect(screen.getByRole("menuitem", { name: "Open file" })).toBeVisible();
+    expect(screen.getByRole("menuitem", { name: "Download" })).toBeVisible();
   });
 
   it("switches between document, text and both without losing the split ratio", async () => {
@@ -159,7 +265,10 @@ describe("DocumentFileTextDialog", () => {
       name: "Document",
     });
     fireEvent.click(documentOnly);
-    fireEvent.click(screen.getByRole("button", { name: "Edit text" }));
+    fireEvent.keyDown(screen.getByRole("button", { name: "File options" }), {
+      key: "Enter",
+    });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Edit text" }));
     const editor = screen.getByRole("textbox");
     expect(editor).toBeVisible();
     fireEvent.change(editor, { target: { value: "Corrected text" } });
@@ -224,7 +333,11 @@ describe("DocumentFileTextDialog", () => {
   it("downloads the original file from the reader", async () => {
     loadFileText.mockResolvedValue(TEXT);
     renderDialog();
-    fireEvent.click(screen.getByRole("button", { name: "Download" }));
+    await screen.findByText("Johann Schmidt");
+    fireEvent.keyDown(screen.getByRole("button", { name: "File options" }), {
+      key: "Enter",
+    });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Download" }));
     await waitFor(() =>
       expect(downloadMedia).toHaveBeenCalledWith(FILE.url, FILE.filename),
     );

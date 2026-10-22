@@ -14,6 +14,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { DocumentReaderDock } from "./DocumentReaderControls";
 
 export type DocumentReaderView = "document" | "text" | "both";
 
@@ -21,6 +22,7 @@ interface DocumentReaderSplitProps {
   preview: ReactNode;
   children: ReactNode;
   view: DocumentReaderView;
+  textNavigation?: ReactNode;
 }
 
 /** Compact layout actions beside the reader dialog's close button. */
@@ -50,7 +52,7 @@ export function DocumentReaderViewControls({
           onViewChange(value);
       }}
       aria-label={t("view")}
-      className="absolute top-2.5 right-18 text-muted-foreground"
+      className="shrink-0 text-muted-foreground"
     >
       {options.map(({ value, label, Icon }) => (
         <Tooltip key={value}>
@@ -58,7 +60,7 @@ export function DocumentReaderViewControls({
             <ToggleGroupItem
               value={value}
               aria-label={label}
-              className="size-7 p-0 data-[state=on]:bg-muted data-[state=on]:text-foreground"
+              className="size-6 p-0 sm:size-7 aria-checked:bg-muted aria-checked:text-foreground"
             >
               <Icon aria-hidden="true" />
             </ToggleGroupItem>
@@ -75,6 +77,7 @@ export function DocumentReaderSplit({
   preview,
   children,
   view,
+  textNavigation,
 }: DocumentReaderSplitProps) {
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.member-sheet.documents.reader",
@@ -163,12 +166,22 @@ export function DocumentReaderSplit({
         aria-label={t("text")}
         hidden={view === "document"}
         className={cn(
-          "min-h-0 min-w-0 overflow-y-auto overscroll-contain p-3 md:p-4",
+          "relative flex min-h-0 min-w-0 flex-col overflow-hidden",
           view === "both" && "border-t md:border-t-0",
           view === "document" && "hidden",
         )}
       >
-        {children}
+        <div
+          className={cn(
+            "min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 md:p-4",
+            view === "text" && textNavigation && "pb-16 md:pb-16",
+          )}
+        >
+          {children}
+        </div>
+        {view === "text" && textNavigation && (
+          <DocumentReaderDock>{textNavigation}</DocumentReaderDock>
+        )}
       </section>
     </div>
   );
