@@ -264,12 +264,21 @@ for (const width of [360, 1280]) {
         ),
       )
       .toBe(true);
-    const fullscreenBox = (await dialog.boundingBox())!;
-    const windowSize = await page.evaluate(() => ({
-      width: innerWidth,
-      height: innerHeight,
-    }));
-    expect(fullscreenBox).toMatchObject({ x: 0, y: 0, ...windowSize });
+    // Native fullscreen can resolve before the dialog's animation settles.
+    // Poll the rendered edges, allowing subpixel rounding in browser geometry.
+    await expect
+      .poll(() =>
+        dialog.evaluate((element) => {
+          const box = element.getBoundingClientRect();
+          return Math.max(
+            Math.abs(box.left),
+            Math.abs(box.top),
+            Math.abs(box.right - innerWidth),
+            Math.abs(box.bottom - innerHeight),
+          );
+        }),
+      )
+      .toBeLessThanOrEqual(1);
     await page.keyboard.press("Escape");
     await expect
       .poll(() => page.evaluate(() => document.fullscreenElement === null))

@@ -287,7 +287,7 @@ test("last-opened: the most recently selected tree is restored after reload", as
       })
       .toBe(treeA.id);
 
-    await page.reload({ waitUntil: "networkidle" });
+    await page.reload({ waitUntil: "domcontentloaded" });
     await expect(page.locator('[data-testid="tree-selector"]')).toContainText(
       treeA.name,
       { timeout: 15_000 },
