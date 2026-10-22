@@ -137,7 +137,7 @@ describe("DocumentFileTextDialog", () => {
       await screen.findByText("Johann Schmidt", {}, { timeout: 5000 }),
     ).toBeInTheDocument();
     expect(loadFileText).toHaveBeenCalledWith("doc-1", "file-1");
-    expect(screen.getByText("Written by hand.")).toBeInTheDocument();
+    expect(screen.queryByText("Written by hand.")).not.toBeInTheDocument();
   });
 
   it("promotes transcription to the header only when text is missing", async () => {

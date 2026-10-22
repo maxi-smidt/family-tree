@@ -36,7 +36,6 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogClose,
   DialogHeader,
   DialogTitle,
@@ -137,7 +136,6 @@ function sourceLine(
   t: (key: string, options?: Record<string, unknown>) => string,
   text: DocumentFileText,
 ): string {
-  if (text.source !== "ai") return t("source-manual");
   return text.model
     ? t("source-ai-model", { model: text.model })
     : t("source-ai");
@@ -446,6 +444,7 @@ export const DocumentFileTextDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         ref={dialogRef}
+        aria-describedby={undefined}
         showCloseButton={false}
         onOpenAutoFocus={(event) => {
           event.preventDefault();
@@ -472,13 +471,9 @@ export const DocumentFileTextDialog = ({
             >
               {name}
             </DialogTitle>
-            <DialogDescription>
-              {editing
-                ? t("hint")
-                : text
-                  ? sourceLine(t, text)
-                  : reader("no-text")}
-            </DialogDescription>
+            {editing && (
+              <p className="text-sm text-muted-foreground">{t("hint")}</p>
+            )}
           </DialogHeader>
           <DocumentFileTranscribeAction
             documentId={documentId}
@@ -687,49 +682,56 @@ export const DocumentFileTextDialog = ({
         >
           <div
             data-slot="document-text-actions"
-            className="mb-3 flex items-center justify-between gap-2"
+            className="mb-3 flex flex-wrap items-center gap-2"
           >
             <span className="text-xs text-muted-foreground">
               {reader("text")}
             </span>
-            {canEdit &&
-              !loading &&
-              (editing ? (
-                <div className="flex items-center gap-1">
+            {!loading && text?.source === "ai" && (
+              <span className="text-xs text-muted-foreground">
+                {sourceLine(t, text)}
+              </span>
+            )}
+            <div className="ml-auto flex items-center">
+              {canEdit &&
+                !loading &&
+                (editing ? (
+                  <div className="flex items-center gap-1">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2 text-xs"
+                      disabled={saving}
+                      onClick={() => setEditing(false)}
+                    >
+                      {t("cancel")}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      shortcut="save"
+                      disabled={saving}
+                      onClick={() => void save()}
+                    >
+                      {saving && <Spinner />}
+                      {t("save")}
+                    </Button>
+                  </div>
+                ) : (
                   <Button
                     type="button"
                     size="sm"
                     variant="ghost"
-                    className="h-7 px-2 text-xs"
-                    disabled={saving}
-                    onClick={() => setEditing(false)}
+                    className="h-7 px-2 text-xs text-muted-foreground"
+                    onClick={startEditing}
                   >
-                    {t("cancel")}
+                    <Pencil />
+                    {text ? t("edit") : t("add")}
                   </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="h-7 px-2 text-xs"
-                    shortcut="save"
-                    disabled={saving}
-                    onClick={() => void save()}
-                  >
-                    {saving && <Spinner />}
-                    {t("save")}
-                  </Button>
-                </div>
-              ) : (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 px-2 text-xs text-muted-foreground"
-                  onClick={startEditing}
-                >
-                  <Pencil />
-                  {text ? t("edit") : t("add")}
-                </Button>
-              ))}
+                ))}
+            </div>
           </div>
           {loading ? (
             <div className="flex justify-center py-8">

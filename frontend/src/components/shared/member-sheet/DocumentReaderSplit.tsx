@@ -38,8 +38,8 @@ export function DocumentReaderViewControls({
   });
   const options = [
     { value: "document", label: t("view-document"), Icon: FileImage },
-    { value: "text", label: t("view-text"), Icon: FileText },
     { value: "both", label: t("view-both"), Icon: Columns2 },
+    { value: "text", label: t("view-text"), Icon: FileText },
   ];
   return (
     <ToggleGroup
