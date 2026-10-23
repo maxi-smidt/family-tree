@@ -1,5 +1,7 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { toast } from "sonner";
+import { downloadMedia } from "@/hooks/useMediaUrl";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
@@ -7,6 +9,11 @@ import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import type { GalleryImage } from "@/types/gallery";
 import type { Member } from "@/types/member";
 import { ImageLightbox } from "./ImageLightbox";
+
+vi.mock("@/hooks/useMediaUrl", () => ({
+  useMediaUrl: (src: string | null | undefined) => src,
+  downloadMedia: vi.fn(),
+}));
 
 const MEMBER: Member = {
   id: "member-1",
@@ -45,6 +52,7 @@ const IMAGE: GalleryImage = {
 
 describe("ImageLightbox", () => {
   beforeEach(() => {
+    vi.mocked(downloadMedia).mockReset().mockResolvedValue(undefined);
     useGalleryStore.setState({
       galleryImages: [IMAGE],
       updateGalleryImage: vi.fn().mockResolvedValue(undefined),
@@ -232,80 +240,87 @@ describe("ImageLightbox", () => {
     }
   });
 
-  it("disables fullscreen when the browser does not support it", () => {
-    render(<ImageLightbox images={[IMAGE]} startIndex={0} onClose={vi.fn()} />);
+  it("downloads the currently navigated photo with its stored format without closing the viewer", async () => {
+    const onClose = vi.fn();
+    const secondImage = {
+      ...IMAGE,
+      id: "second",
+      title: "Family portrait.jpg",
+      imageData: "/api/media/tree-1/second.webp",
+    };
+    render(
+      <ImageLightbox
+        images={[IMAGE, secondImage]}
+        startIndex={0}
+        onClose={onClose}
+      />,
+    );
     expect(
-      screen.getByRole("button", { name: "Enter fullscreen" }),
-    ).toBeDisabled();
+      screen.queryByRole("button", { name: /fullscreen/i }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Next image" }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Download photo" }));
+    });
+    expect(downloadMedia).toHaveBeenCalledExactlyOnceWith(
+      secondImage.imageData,
+      "Family portrait.webp",
+    );
+    expect(onClose).not.toHaveBeenCalled();
   });
 
-  it("toggles native fullscreen, exits it before dismissing with Escape, and cleans up on close", async () => {
-    const root = document.documentElement;
-    const originals = [
-      [document, "fullscreenEnabled"],
-      [document, "fullscreenElement"],
-      [document, "exitFullscreen"],
-      [root, "requestFullscreen"],
-    ] as const;
-    const descriptors = originals.map(([object, key]) =>
-      Object.getOwnPropertyDescriptor(object, key),
+  it("uses the image ID and data URL format for untitled photos", async () => {
+    render(
+      <ImageLightbox
+        images={[{ ...IMAGE, title: null }]}
+        startIndex={0}
+        onClose={vi.fn()}
+      />,
     );
-    let fullscreenElement: Element | null = null;
-    const change = (element: Element | null) => {
-      fullscreenElement = element;
-      document.dispatchEvent(new Event("fullscreenchange"));
-    };
-    const request = vi.fn(async () => change(root));
-    const exit = vi.fn(async () => change(null));
-    Object.defineProperties(document, {
-      fullscreenEnabled: { configurable: true, value: true },
-      fullscreenElement: { configurable: true, get: () => fullscreenElement },
-      exitFullscreen: { configurable: true, value: exit },
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Download photo" }));
     });
-    Object.defineProperty(root, "requestFullscreen", {
-      configurable: true,
-      value: request,
-    });
+    expect(downloadMedia).toHaveBeenCalledWith(IMAGE.imageData, "image-1.png");
+  });
+
+  it("prevents duplicate downloads while the photo is being fetched", async () => {
+    let complete!: () => void;
+    vi.mocked(downloadMedia).mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          complete = resolve;
+        }),
+    );
+    render(<ImageLightbox images={[IMAGE]} startIndex={0} onClose={vi.fn()} />);
+    const button = screen.getByRole("button", { name: "Download photo" });
+    fireEvent.click(button);
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
+    expect(downloadMedia).toHaveBeenCalledOnce();
+    await act(async () => complete());
+    expect(button).toBeEnabled();
+  });
+
+  it("reports failed downloads and allows retrying without closing the viewer", async () => {
+    vi.mocked(downloadMedia).mockRejectedValueOnce(new Error("Failed"));
+    const error = vi.spyOn(toast, "error").mockReturnValue("download-error");
     const onClose = vi.fn();
-    const view = render(
-      <ImageLightbox images={[IMAGE]} startIndex={0} onClose={onClose} />,
-    );
+    render(<ImageLightbox images={[IMAGE]} startIndex={0} onClose={onClose} />);
     try {
-      const enter = async () => {
-        await act(async () => {
-          fireEvent.click(
-            screen.getByRole("button", { name: "Enter fullscreen" }),
-          );
-        });
-      };
-      await enter();
-      expect(request).toHaveBeenCalledWith({ navigationUI: "hide" });
-      await act(async () => {
-        fireEvent.click(
-          screen.getByRole("button", { name: "Exit fullscreen" }),
-        );
-      });
-      expect(fullscreenElement).toBeNull();
-      await enter();
-      await act(async () => {
-        fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
-      });
-      expect(fullscreenElement).toBeNull();
+      const button = screen.getByRole("button", { name: "Download photo" });
+      await act(async () => fireEvent.click(button));
+      expect(error).toHaveBeenCalledWith(
+        "Could not download the photo. Please try again.",
+      );
+      expect(button).toBeEnabled();
       expect(onClose).not.toHaveBeenCalled();
-      fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
-      expect(onClose).toHaveBeenCalledOnce();
-      await enter();
-      view.unmount();
-      expect(fullscreenElement).toBeNull();
+      await act(async () => fireEvent.click(button));
+      expect(downloadMedia).toHaveBeenCalledTimes(2);
     } finally {
-      view.unmount();
-      originals.forEach(([object, key], index) => {
-        const descriptor = descriptors[index];
-        if (descriptor) Object.defineProperty(object, key, descriptor);
-        else Reflect.deleteProperty(object, key);
-      });
+      error.mockRestore();
     }
   });
+
   it("opens editing beside the currently navigated photo and returns to viewing after saving", async () => {
     useWorkspaceStore.setState({
       selectedTree: { id: "tree-1", name: "Workspace", role: "owner" },

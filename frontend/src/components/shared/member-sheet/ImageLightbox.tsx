@@ -4,8 +4,7 @@ import {
   ChevronRight,
   UserRoundSearch,
   Pencil,
-  Maximize2,
-  Minimize2,
+  Download,
 } from "lucide-react";
 import { type MouseEvent, useLayoutEffect, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
@@ -21,7 +20,7 @@ import { useTranslation } from "react-i18next";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { cn } from "@/lib/utils";
-import { useNativeFullscreen } from "@/hooks/useNativeFullscreen";
+import { downloadMedia } from "@/hooks/useMediaUrl";
 import { toast } from "sonner";
 
 const BACKGROUND_CLOSE_MARGIN = 24;
@@ -58,16 +57,12 @@ export const ImageLightbox = ({ images, startIndex, onClose }: Props) => {
   const editing = editingImage !== null;
   const [currentId, setCurrentId] = useState(images[startIndex]?.id);
   const [hoveredTag, setHoveredTag] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
   const currentIndex = Math.max(
     0,
     images.findIndex((image) => image.id === currentId),
   );
   const currentImage = images[currentIndex];
-  const {
-    fullscreen,
-    supported: fullscreenSupported,
-    toggle: toggleFullscreen,
-  } = useNativeFullscreen(Boolean(currentImage));
   const backgroundPointerDown = useRef(true);
   const layoutRef = useRef<HTMLDivElement>(null);
   const [photoElement, setPhotoElement] = useState<HTMLDivElement | null>(null);
@@ -157,6 +152,24 @@ export const ImageLightbox = ({ images, startIndex, onClose }: Props) => {
 
   if (!currentImage) return null;
 
+  const downloadImage = () => {
+    const extension =
+      currentImage.imageData.match(
+        /\.(jpe?g|png|webp|gif|avif|tiff?|bmp)(?:[?#]|$)/i,
+      )?.[1] ??
+      currentImage.imageData.match(
+        /^data:image\/(jpeg|png|webp|gif|avif|tiff|bmp)[;,]/i,
+      )?.[1];
+    const name = currentImage.title?.trim() || currentImage.id;
+    const filename = extension
+      ? `${name.replace(/\.(jpe?g|png|webp|gif|avif|tiff?|bmp)$/i, "")}.${extension.toLowerCase().replace("jpeg", "jpg")}`
+      : name;
+    setDownloading(true);
+    void downloadMedia(currentImage.imageData, filename)
+      .catch(() => toast.error(t("download-error")))
+      .finally(() => setDownloading(false));
+  };
+
   return (
     <Dialog.Root open onOpenChange={(open) => !open && onClose()}>
       <Dialog.Portal>
@@ -176,9 +189,9 @@ export const ImageLightbox = ({ images, startIndex, onClose }: Props) => {
               onClose();
           }}
           onEscapeKeyDown={(event) => {
-            if (fullscreen || editing) {
+            if (editing) {
               event.preventDefault();
-              if (!fullscreen) setEditingImage(null);
+              setEditingImage(null);
             }
           }}
           onKeyDown={(event) => {
@@ -217,22 +230,12 @@ export const ImageLightbox = ({ images, startIndex, onClose }: Props) => {
               variant="ghost"
               size="icon"
               className="text-white hover:bg-white/20"
-              aria-label={t(fullscreen ? "exit-fullscreen" : "fullscreen")}
-              title={t(
-                !fullscreenSupported
-                  ? "fullscreen-unavailable"
-                  : fullscreen
-                    ? "exit-fullscreen"
-                    : "fullscreen",
-              )}
-              disabled={!fullscreenSupported}
-              onClick={() => {
-                void toggleFullscreen().catch(() =>
-                  toast.error(t("fullscreen-error")),
-                );
-              }}
+              aria-label={t("download")}
+              title={t("download")}
+              disabled={downloading}
+              onClick={downloadImage}
             >
-              {fullscreen ? <Minimize2 /> : <Maximize2 />}
+              <Download />
             </Button>
             <Button
               type="button"
