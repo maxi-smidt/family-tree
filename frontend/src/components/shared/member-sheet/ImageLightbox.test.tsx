@@ -168,6 +168,144 @@ describe("ImageLightbox", () => {
     render(<ImageLightbox images={[]} startIndex={0} onClose={vi.fn()} />);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
+
+  it("dismisses empty background but protects the photo, captions, people and controls with a 24px margin", () => {
+    const onClose = vi.fn();
+    render(
+      <ImageLightbox
+        images={[IMAGE, { ...IMAGE, id: "second" }]}
+        startIndex={0}
+        onClose={onClose}
+      />,
+    );
+    const dialog = screen.getByRole("dialog");
+    const photo = screen.getByRole("img", { name: "Portrait" });
+    const next = screen.getByRole("button", { name: "Next image" });
+    const close = screen.getByRole("button", { name: "Close image" });
+    const regions = [
+      [photo.parentElement!, new DOMRect(300, 200, 400, 300)],
+      [screen.getByRole("heading"), new DOMRect(420, 530, 160, 32)],
+      [screen.getByText("A portrait of Ada."), new DOMRect(400, 570, 200, 24)],
+      [screen.getByText("1 / 2"), new DOMRect(480, 610, 40, 20)],
+      [screen.getByRole("complementary"), new DOMRect(740, 200, 180, 200)],
+      [close.parentElement!, new DOMRect(800, 16, 128, 40)],
+      [next, new DOMRect(940, 450, 40, 40)],
+    ] as const;
+    const originalBounds = HTMLElement.prototype.getBoundingClientRect;
+    const bounds = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockImplementation(function (this: HTMLElement) {
+        return (
+          regions.find(([element]) => element === this)?.[1] ??
+          originalBounds.call(this)
+        );
+      });
+    try {
+      fireEvent.click(photo, { clientX: 500, clientY: 350 });
+      fireEvent.click(screen.getByRole("heading"));
+      fireEvent.click(screen.getByText("A portrait of Ada."));
+      fireEvent.click(screen.getByRole("complementary"));
+      fireEvent.click(screen.getByLabelText("Face tag for Ada Lovelace"));
+      for (const [, region] of regions) {
+        fireEvent.click(dialog, {
+          clientX: region.left - 24,
+          clientY: region.top + region.height / 2,
+        });
+      }
+      expect(onClose).not.toHaveBeenCalled();
+
+      // A gesture that starts on the photo must not dismiss on release outside.
+      fireEvent.pointerDown(photo, { clientX: 500, clientY: 350 });
+      fireEvent.click(dialog, { clientX: 100, clientY: 100 });
+      expect(onClose).not.toHaveBeenCalled();
+
+      fireEvent.pointerDown(dialog, { clientX: 100, clientY: 100 });
+      fireEvent.click(dialog, { clientX: 100, clientY: 100 });
+      expect(onClose).toHaveBeenCalledOnce();
+      fireEvent.click(dialog.querySelector(".image-viewer-layout")!, {
+        clientX: 275,
+        clientY: 350,
+      });
+      expect(onClose).toHaveBeenCalledTimes(2);
+    } finally {
+      bounds.mockRestore();
+    }
+  });
+
+  it("disables fullscreen when the browser does not support it", () => {
+    render(<ImageLightbox images={[IMAGE]} startIndex={0} onClose={vi.fn()} />);
+    expect(
+      screen.getByRole("button", { name: "Enter fullscreen" }),
+    ).toBeDisabled();
+  });
+
+  it("toggles native fullscreen, exits it before dismissing with Escape, and cleans up on close", async () => {
+    const root = document.documentElement;
+    const originals = [
+      [document, "fullscreenEnabled"],
+      [document, "fullscreenElement"],
+      [document, "exitFullscreen"],
+      [root, "requestFullscreen"],
+    ] as const;
+    const descriptors = originals.map(([object, key]) =>
+      Object.getOwnPropertyDescriptor(object, key),
+    );
+    let fullscreenElement: Element | null = null;
+    const change = (element: Element | null) => {
+      fullscreenElement = element;
+      document.dispatchEvent(new Event("fullscreenchange"));
+    };
+    const request = vi.fn(async () => change(root));
+    const exit = vi.fn(async () => change(null));
+    Object.defineProperties(document, {
+      fullscreenEnabled: { configurable: true, value: true },
+      fullscreenElement: { configurable: true, get: () => fullscreenElement },
+      exitFullscreen: { configurable: true, value: exit },
+    });
+    Object.defineProperty(root, "requestFullscreen", {
+      configurable: true,
+      value: request,
+    });
+    const onClose = vi.fn();
+    const view = render(
+      <ImageLightbox images={[IMAGE]} startIndex={0} onClose={onClose} />,
+    );
+    try {
+      const enter = async () => {
+        await act(async () => {
+          fireEvent.click(
+            screen.getByRole("button", { name: "Enter fullscreen" }),
+          );
+        });
+      };
+      await enter();
+      expect(request).toHaveBeenCalledWith({ navigationUI: "hide" });
+      await act(async () => {
+        fireEvent.click(
+          screen.getByRole("button", { name: "Exit fullscreen" }),
+        );
+      });
+      expect(fullscreenElement).toBeNull();
+      await enter();
+      await act(async () => {
+        fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+      });
+      expect(fullscreenElement).toBeNull();
+      expect(onClose).not.toHaveBeenCalled();
+      fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+      expect(onClose).toHaveBeenCalledOnce();
+      await enter();
+      view.unmount();
+      expect(fullscreenElement).toBeNull();
+    } finally {
+      view.unmount();
+      originals.forEach(([object, key], index) => {
+        const descriptor = descriptors[index];
+        if (descriptor) Object.defineProperty(object, key, descriptor);
+        else Reflect.deleteProperty(object, key);
+      });
+    }
+  });
   it("opens editing beside the currently navigated photo and returns to viewing after saving", async () => {
     useWorkspaceStore.setState({
       selectedTree: { id: "tree-1", name: "Workspace", role: "owner" },
@@ -194,6 +332,11 @@ describe("ImageLightbox", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "Title" }), {
       target: { value: "Updated title" },
     });
+    fireEvent.click(screen.getByRole("dialog"), { clientX: 100, clientY: 100 });
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("textbox", { name: "Title" })).toHaveValue(
+      "Updated title",
+    );
     // Arrow keys in a text field must never navigate to a different photo.
     fireEvent.keyDown(screen.getByRole("textbox", { name: "Title" }), {
       key: "ArrowLeft",

@@ -420,6 +420,10 @@
     },
     "image-lightbox": {
       "edit": "Edit photo",
+      "fullscreen": "Enter fullscreen",
+      "exit-fullscreen": "Exit fullscreen",
+      "fullscreen-unavailable": "Fullscreen is unavailable in this browser.",
+      "fullscreen-error": "Could not switch fullscreen mode. Please try again.",
       "image-alt": "Gallery image",
       "close": "Close image",
       "previous": "Previous image",
