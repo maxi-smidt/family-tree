@@ -155,4 +155,67 @@ describe("WorkspaceNavigationPanel — saved view create/edit focus", () => {
     );
     expect(useWorkspaceNavStore.getState().selectedSavedViewId).toBe("v2");
   });
+
+  async function deleteSectionFromMenu(name: string) {
+    fireEvent.click(screen.getByRole("button", { name: /saved views/i }));
+    fireEvent.keyDown(
+      await screen.findByRole("button", { name: `Actions for ${name}` }),
+      { key: "Enter" },
+    );
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Delete" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+  }
+
+  it("switches to the whole family after deleting the open section", async () => {
+    const deleteSection = vi.fn().mockResolvedValue(undefined);
+    useSectionStore.setState({
+      sections: [SECTION],
+      getSectionDependents: vi.fn().mockResolvedValue({
+        section_id: SECTION.id,
+        member_count: 3,
+        content_scope_counts: {},
+        grant_count: 0,
+        invitation_count: 0,
+        public_link_count: 0,
+      }),
+      deleteSection,
+    });
+    useWorkspaceNavStore.getState().selectSection(SECTION.id);
+    useMemberStore.setState({ focusSectionIds: [SECTION.id] });
+    render(<WorkspaceNavigationPanel workspaceId="tree-1" canWrite />);
+
+    await deleteSectionFromMenu("Smith branch");
+
+    await waitFor(() =>
+      expect(useWorkspaceNavStore.getState().mode).toBe("explore"),
+    );
+    expect(deleteSection).toHaveBeenCalledWith(SECTION.id);
+    expect(useWorkspaceNavStore.getState().selectedSectionId).toBeNull();
+    expect(useMemberStore.getState().exitFocus).toHaveBeenCalled();
+  });
+
+  it("keeps the open section when a different section is deleted", async () => {
+    const other: SectionDB = { ...SECTION, id: "section-2", name: "Other" };
+    const deleteSection = vi.fn().mockResolvedValue(undefined);
+    useSectionStore.setState({
+      sections: [SECTION, other],
+      getSectionDependents: vi.fn().mockResolvedValue({
+        section_id: other.id,
+        member_count: 1,
+        content_scope_counts: {},
+        grant_count: 0,
+        invitation_count: 0,
+        public_link_count: 0,
+      }),
+      deleteSection,
+    });
+    useWorkspaceNavStore.getState().selectSection(SECTION.id);
+    render(<WorkspaceNavigationPanel workspaceId="tree-1" canWrite />);
+
+    await deleteSectionFromMenu("Other");
+
+    await waitFor(() => expect(deleteSection).toHaveBeenCalledWith(other.id));
+    expect(useWorkspaceNavStore.getState().selectedSectionId).toBe(SECTION.id);
+    expect(useMemberStore.getState().exitFocus).not.toHaveBeenCalled();
+  });
 });
