@@ -206,6 +206,8 @@ jobs:
           FRONTEND_URL=http://sentinel-frontend
           CORS_ORIGINS=http://sentinel-cors
           ALLOW_SELF_REGISTRATION=true
+          MATRICULA_MAX_REQUESTS=12
+          MATRICULA_RATE_LIMIT_WINDOW_SECONDS=90
           FIRST_ADMIN_USERNAME=sentinel-admin-user
           FIRST_ADMIN_PASSWORD=sentinel-admin-password
           FIRST_ADMIN_EMAIL=sentinel@example.com
@@ -279,7 +281,15 @@ jobs:
   # Aggregate gate exposed to callers as outputs.passed / outputs.frontend_result.
   result:
     name: "Aggregate result"
-    needs: [changes, frontend, backend, backend-postgres, compose-config, version-policy]
+    needs:
+      [
+        changes,
+        frontend,
+        backend,
+        backend-postgres,
+        compose-config,
+        version-policy,
+      ]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5

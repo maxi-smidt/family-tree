@@ -58,6 +58,8 @@ services:
         condition: service_healthy
     environment:
       ENVIRONMENT: development
+      MATRICULA_MAX_REQUESTS: ${MATRICULA_MAX_REQUESTS:-10}
+      MATRICULA_RATE_LIMIT_WINDOW_SECONDS: ${MATRICULA_RATE_LIMIT_WINDOW_SECONDS:-60}
       SECRET_KEY: dev-secret-change-me
       POSTGRES_HOST: db
       POSTGRES_USER: familytree

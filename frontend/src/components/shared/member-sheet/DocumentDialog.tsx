@@ -43,6 +43,10 @@ import {
 import { downloadMedia } from "@/hooks/useMediaUrl";
 import { Document, DocumentFileOps, DocumentInput } from "@/types/document";
 import { FilePreview } from "./DocumentFiles";
+import { DocumentImageCropDialog } from "./DocumentImageCropDialog";
+import { MatriculaImagePrompt } from "./MatriculaImagePrompt";
+import { DocumentLinkAttachment } from "./DocumentLinkAttachment";
+import { isMatriculaUrl } from "@/utils/matricula";
 
 interface Props {
   open: boolean;
@@ -71,6 +75,12 @@ interface PendingLink {
   tempId: string;
   url: string;
   label: string;
+}
+
+interface MatriculaSource {
+  key: string;
+  url: string;
+  draftLink?: { url: string; label: string };
 }
 
 const EMPTY_INPUT: DocumentInput = {
@@ -105,6 +115,11 @@ export const DocumentDialog = ({
   const [showLinkForm, setShowLinkForm] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
   const [linkLabel, setLinkLabel] = useState("");
+  const [matriculaSourceKey, setMatriculaSourceKey] = useState("");
+  const [imageToCrop, setImageToCrop] = useState<{
+    file: File;
+    draftLink?: { url: string; label: string };
+  } | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [failedTempIds, setFailedTempIds] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
@@ -135,6 +150,8 @@ export const DocumentDialog = ({
     setShowLinkForm(false);
     setLinkUrl("");
     setLinkLabel("");
+    setMatriculaSourceKey("");
+    setImageToCrop(null);
     if (!open) {
       setInitialSnapshot(null);
       return;
@@ -177,15 +194,17 @@ export const DocumentDialog = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [document, initialMemberIdsKey, open]);
 
-  const handleFilesPicked = (fileList: FileList | null) => {
+  const handleFilesPicked = (fileList: FileList | File[] | null) => {
     if (!fileList) return;
     setFileError(null);
     setFailedTempIds(new Set());
     let shouldDefaultTitle = !formData.title.trim();
+    let rejected: string | undefined;
     for (const file of Array.from(fileList)) {
       const err = attachmentError(file, maxFileBytes);
       if (err) {
-        setFileError(t(`files.error-${err}`, { max: maxFileSize ?? "" }));
+        rejected = t(`files.error-${err}`, { max: maxFileSize ?? "" });
+        setFileError(rejected);
         continue;
       }
       setAdded((prev) => [
@@ -198,6 +217,7 @@ export const DocumentDialog = ({
       }
     }
     if (fileInputRef.current) fileInputRef.current.value = "";
+    return rejected;
   };
 
   const addLink = () => {
@@ -338,6 +358,31 @@ export const DocumentDialog = ({
     i18n.t("common.nee", { name, context: birthNameContext(gender) }),
   );
 
+  const linkSources: MatriculaSource[] = [
+    ...existing
+      .filter((file) => file.kind === "link")
+      .map((file) => ({ key: file.id, url: file.url })),
+    ...addedLinks.map((link) => ({ key: link.tempId, url: link.url })),
+    ...(showLinkForm
+      ? [
+          {
+            key: "draft",
+            url: linkUrl.trim(),
+            draftLink: { url: linkUrl.trim(), label: linkLabel.trim() },
+          },
+        ]
+      : []),
+  ];
+  const matriculaSources = linkSources.filter((link) =>
+    isMatriculaUrl(link.url),
+  );
+  const matriculaSource =
+    added.length === 0 && !existing.some((file) => file.kind === "file")
+      ? (matriculaSources.find((source) => source.key === matriculaSourceKey) ??
+        matriculaSources[0] ??
+        null)
+      : null;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-150 max-h-[80vh] flex flex-col">
@@ -449,63 +494,82 @@ export const DocumentDialog = ({
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {existing.map((f) => (
-                    <div key={f.id} className="flex items-center gap-2">
-                      {f.kind === "link" ? (
-                        <span className="w-9 h-9 rounded border flex items-center justify-center shrink-0">
-                          <LinkIcon className="w-4 h-4 text-muted-foreground" />
-                        </span>
-                      ) : (
-                        <FilePreview
-                          filename={f.filename}
-                          mimeType={f.mimeType}
-                          src={f.url}
-                        />
-                      )}
-                      <Input
-                        value={f.filename}
-                        onChange={(e) =>
+                  {existing.map((f) =>
+                    f.kind === "link" ? (
+                      <DocumentLinkAttachment
+                        key={f.id}
+                        url={f.url}
+                        label={f.filename}
+                        disabled={submitting}
+                        onLabelChange={(filename) =>
                           setExisting((prev) =>
-                            prev.map((x) =>
-                              x.id === f.id
-                                ? { ...x, filename: e.target.value }
-                                : x,
+                            prev.map((file) =>
+                              file.id === f.id ? { ...file, filename } : file,
                             ),
                           )
                         }
-                        className="h-8 flex-1"
-                        aria-label={t("files.filename")}
-                      />
-                      {f.kind === "file" && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void downloadMedia(f.url, f.filename).catch(() =>
-                              toast.error(t("files.error-open")),
-                            )
-                          }
-                          className="text-muted-foreground hover:text-foreground"
-                          title={t("files.download")}
-                          aria-label={t("files.download")}
-                        >
-                          <Download className="w-4 h-4" />
-                        </button>
-                      )}
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        title={t("files.remove")}
-                        onClick={() =>
+                        onRemove={() =>
                           setExisting((prev) =>
-                            prev.filter((x) => x.id !== f.id),
+                            prev.filter((file) => file.id !== f.id),
                           )
                         }
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  ))}
+                      />
+                    ) : (
+                      <div key={f.id} className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <FilePreview
+                            filename={f.filename}
+                            mimeType={f.mimeType}
+                            src={f.url}
+                          />
+                          <div className="flex-1 min-w-0 space-y-1">
+                            <Input
+                              value={f.filename}
+                              onChange={(e) =>
+                                setExisting((prev) =>
+                                  prev.map((x) =>
+                                    x.id === f.id
+                                      ? { ...x, filename: e.target.value }
+                                      : x,
+                                  ),
+                                )
+                              }
+                              className="h-8"
+                              aria-label={t("files.filename")}
+                            />
+                          </div>
+                          {f.kind === "file" && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void downloadMedia(f.url, f.filename).catch(
+                                  () => toast.error(t("files.error-open")),
+                                )
+                              }
+                              className="text-muted-foreground hover:text-foreground"
+                              title={t("files.download")}
+                              aria-label={t("files.download")}
+                            >
+                              <Download className="w-4 h-4" />
+                            </button>
+                          )}
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            title={t("files.remove")}
+                            onClick={() =>
+                              setExisting((prev) =>
+                                prev.filter((x) => x.id !== f.id),
+                              )
+                            }
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ),
+                  )}
 
                   {added.map((a, i) => (
                     <div key={a.tempId} className="flex items-center gap-2">
@@ -568,30 +632,27 @@ export const DocumentDialog = ({
                   ))}
 
                   {addedLinks.map((l) => (
-                    <div key={l.tempId} className="flex items-center gap-2">
-                      <span className="w-9 h-9 rounded border flex items-center justify-center shrink-0">
-                        <LinkIcon className="w-4 h-4 text-muted-foreground" />
-                      </span>
-                      <span className="flex-1 min-w-0 truncate text-sm">
-                        {l.label || l.url}
-                      </span>
-                      <span className="text-xs text-muted-foreground shrink-0">
-                        {t("files.new")}
-                      </span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        title={t("files.remove")}
-                        onClick={() =>
-                          setAddedLinks((prev) =>
-                            prev.filter((x) => x.tempId !== l.tempId),
-                          )
-                        }
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
+                    <DocumentLinkAttachment
+                      key={l.tempId}
+                      url={l.url}
+                      label={l.label}
+                      isNew
+                      disabled={submitting}
+                      onLabelChange={(label) =>
+                        setAddedLinks((prev) =>
+                          prev.map((link) =>
+                            link.tempId === l.tempId
+                              ? { ...link, label }
+                              : link,
+                          ),
+                        )
+                      }
+                      onRemove={() =>
+                        setAddedLinks((prev) =>
+                          prev.filter((link) => link.tempId !== l.tempId),
+                        )
+                      }
+                    />
                   ))}
                 </div>
               )}
@@ -625,6 +686,44 @@ export const DocumentDialog = ({
                       {t("cancel")}
                     </Button>
                   </div>
+                </div>
+              )}
+
+              {matriculaSource && (
+                <div className="space-y-2">
+                  {matriculaSources.length > 1 && (
+                    <div className="space-y-1">
+                      <Label htmlFor="doc-matricula-source">
+                        {t("files.matricula-source")}
+                      </Label>
+                      <select
+                        id="doc-matricula-source"
+                        value={matriculaSource.key}
+                        onChange={(event) =>
+                          setMatriculaSourceKey(event.target.value)
+                        }
+                        disabled={submitting || imageToCrop !== null}
+                        className="h-8 w-full min-w-0 rounded-md border border-input bg-background px-2 text-sm"
+                      >
+                        {matriculaSources.map((source) => (
+                          <option key={source.key} value={source.key}>
+                            {source.url}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  <MatriculaImagePrompt
+                    key={matriculaSource.key}
+                    url={matriculaSource.url}
+                    disabled={submitting || imageToCrop !== null}
+                    onChooseImage={(file) =>
+                      setImageToCrop({
+                        file,
+                        draftLink: matriculaSource.draftLink,
+                      })
+                    }
+                  />
                 </div>
               )}
 
@@ -696,6 +795,28 @@ export const DocumentDialog = ({
           </DialogFooter>
         </form>
       </DialogContent>
+      {open && imageToCrop && (
+        <DocumentImageCropDialog
+          image={imageToCrop.file}
+          maxFileBytes={maxFileBytes}
+          onCancel={() => setImageToCrop(null)}
+          onConfirm={(file) => {
+            const error = handleFilesPicked([file]);
+            if (error) return error;
+            if (imageToCrop.draftLink) {
+              const { url, label } = imageToCrop.draftLink;
+              setAddedLinks((prev) => [
+                ...prev,
+                { tempId: crypto.randomUUID(), url, label },
+              ]);
+              setLinkUrl("");
+              setLinkLabel("");
+              setShowLinkForm(false);
+            }
+            setImageToCrop(null);
+          }}
+        />
+      )}
     </Dialog>
   );
 };

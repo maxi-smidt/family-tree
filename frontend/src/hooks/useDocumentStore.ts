@@ -47,6 +47,7 @@ export interface DocumentFocus {
 }
 
 interface DocumentState {
+  fetchMatriculaImage: (url: string, signal?: AbortSignal) => Promise<File>;
   documents: Document[];
   initialized: boolean;
   focus: DocumentFocus | null;
@@ -205,6 +206,17 @@ function syncTranscriptionPolling(): void {
 }
 
 export const useDocumentStore = create<DocumentState>((set, get) => ({
+  fetchMatriculaImage: async (url, signal) => {
+    const workspaceId = activeTreeId();
+    if (!workspaceId) throw new Error("No active workspace");
+    const originArgs = contentOriginArgs(workspaceId);
+    return WorkspaceService.fetchMatriculaImage(
+      workspaceId,
+      url,
+      signal,
+      ...originArgs,
+    );
+  },
   documents: [],
   initialized: false,
   focus: null,

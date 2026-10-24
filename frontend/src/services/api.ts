@@ -206,8 +206,11 @@ export const api = {
     request<T>("DELETE", path, { params }),
   postForm: <T>(path: string, formData: FormData, timeoutMs?: number) =>
     request<T>("POST", path, { formData, timeoutMs }),
-  getRaw: (path: string, params?: RequestOptions["params"]) =>
-    request<Response>("GET", path, { params, raw: true }),
+  getRaw: (
+    path: string,
+    params?: RequestOptions["params"],
+    signal?: AbortSignal,
+  ) => request<Response>("GET", path, { params, signal, raw: true }),
   postRaw: (path: string, body?: unknown) =>
     request<Response>("POST", path, { body, raw: true }),
 };

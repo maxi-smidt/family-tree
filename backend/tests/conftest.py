@@ -19,6 +19,7 @@ from app.api.router import api_router
 from app.core.config import settings
 from app.core.rate_limit import (
     login_rate_limiter,
+    matricula_rate_limiter,
     neighborhood_rate_limiter,
     public_unlock_aggregate_rate_limiter,
     public_unlock_rate_limiter,
@@ -118,6 +119,7 @@ def client(session_factory) -> TestClient:
     public_unlock_aggregate_rate_limiter.clear()
     neighborhood_rate_limiter.clear()
     search_rate_limiter.clear()
+    matricula_rate_limiter.clear()
     return TestClient(app)
 
 

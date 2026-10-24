@@ -1,5 +1,5 @@
 import type { KeyboardEventHandler, ReactNode } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Maximize, Minus, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -88,6 +88,68 @@ export function DocumentReaderPagination({
         onClick={() => onPageChange(page + 1)}
       >
         <ChevronRight />
+      </Button>
+    </div>
+  );
+}
+
+/** Identical zoom affordances for reading and selecting a document excerpt. */
+export function DocumentReaderZoomControls({
+  zoom,
+  onZoomOut,
+  onZoomIn,
+  onReset,
+  disabled = false,
+}: {
+  zoom: number;
+  onZoomOut: () => void;
+  onZoomIn: () => void;
+  onReset: () => void;
+  disabled?: boolean;
+}) {
+  const { t } = useTranslation(undefined, {
+    keyPrefix: "sheet.member-sheet.documents.reader",
+  });
+  return (
+    <div className="flex shrink-0 items-center gap-0.5">
+      <Button
+        type="button"
+        size="icon-xs"
+        className="size-6 sm:size-7"
+        variant="ghost"
+        aria-label={t("zoom-out")}
+        disabled={disabled || zoom <= 0.5}
+        onClick={onZoomOut}
+      >
+        <Minus />
+      </Button>
+      <output
+        className="w-9 text-center text-xs tabular-nums sm:w-10"
+        aria-live="polite"
+      >
+        {Math.round(zoom * 100)}%
+      </output>
+      <Button
+        type="button"
+        size="icon-xs"
+        className="size-6 sm:size-7"
+        variant="ghost"
+        aria-label={t("zoom-in")}
+        disabled={disabled || zoom >= 4}
+        onClick={onZoomIn}
+      >
+        <Plus />
+      </Button>
+      <Button
+        type="button"
+        size="icon-xs"
+        className="size-6 sm:size-7"
+        variant="ghost"
+        aria-label={t("fit-width")}
+        disabled={disabled}
+        onClick={onReset}
+      >
+        <Maximize />
       </Button>
     </div>
   );

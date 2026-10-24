@@ -8,7 +8,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Annotated
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 # Load the repo-root .env regardless of the process working directory — the
@@ -146,6 +146,10 @@ class Settings(BaseSettings):
     # Same throttle, for GET .../search (#1024), keyed the same way.
     SEARCH_MAX_REQUESTS: int = 120
     SEARCH_RATE_LIMIT_WINDOW_SECONDS: int = 60
+
+    # Matricula scan imports, keyed by authenticated user across workspaces.
+    MATRICULA_MAX_REQUESTS: int = Field(default=10, gt=0)
+    MATRICULA_RATE_LIMIT_WINDOW_SECONDS: int = Field(default=60, gt=0)
 
     # Identity-link proposals (#985): how long a proposed link waits for the
     # other workspace's owner before a background sweep marks it expired.

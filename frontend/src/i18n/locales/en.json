@@ -906,6 +906,7 @@
             "link-url-placeholder": "https://...",
             "link-label-placeholder": "Label (optional)",
             "link-add": "Add",
+            "matricula-source": "Matricula source",
             "hint": "Images, PDF and documents up to {{max}}.",
             "hint-without-limit": "Images, PDF and documents.",
             "error-type": "Unsupported file type",
@@ -919,6 +920,28 @@
           "cancel": "Cancel",
           "save": "Save",
           "error-save": "Could not save the document."
+        },
+        "matricula": {
+          "prompt": "Attach an image from this Matricula page?",
+          "fetch": "Fetch image and crop",
+          "fetching": "Fetching image…",
+          "cancel": "Cancel import",
+          "error-fetch": "Could not fetch this scan. Check that the link opens a specific page, or open Matricula and choose a saved scan or screenshot.",
+          "open": "Open Matricula",
+          "choose": "Choose scan to crop",
+          "error-type": "Choose a PNG, JPEG, WebP or GIF image."
+        },
+        "image-crop": {
+          "title": "Crop document image",
+          "preview": "Document image to crop",
+          "select-area": "Select crop area",
+          "pan": "Pan image",
+          "reset": "Reset",
+          "cancel": "Cancel",
+          "attach": "Attach image",
+          "error-load": "Could not read this image. Try a different image file.",
+          "error-export": "Could not crop this image. Try a smaller selection or a different image.",
+          "error-size": "The cropped image is too large (max {{max}}). Select a smaller area."
         },
         "reader": {
           "file": "Original file",

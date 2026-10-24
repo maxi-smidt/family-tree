@@ -16,6 +16,7 @@ from fastapi import (
     Form,
     HTTPException,
     Query,
+    Response,
     UploadFile,
 )
 from sqlalchemy import select
@@ -33,7 +34,7 @@ from app.api.pagination import Pagination, apply_pagination, pagination_params
 from app.core.config import settings
 from app.core.db_timeout import statement_timeout
 from app.core.exceptions import QuotaExceeded
-from app.core.rate_limit import search_rate_limiter
+from app.core.rate_limit import matricula_rate_limiter, search_rate_limiter
 from app.db.base import utcnow_iso
 from app.db.session import get_db
 from app.models import (
@@ -85,6 +86,10 @@ from app.services.documents.document_service import (
     save_document,
 )
 from app.services.documents.file_text import files_with_text
+from app.services.documents.matricula import (
+    MatriculaImportError,
+    fetch_matricula_image,
+)
 from app.services.documents.text_search import search_documents
 from app.services.event_bus import publish_workspace_event
 from app.services.media.storage import (
@@ -304,6 +309,39 @@ def search_documents_route(
         truncated=result.truncated,
         fuzzy=result.fuzzy,
         terms=result.terms,
+    )
+
+
+@router.get("/matricula-image")
+def import_matricula_image(
+    url: str = Query(..., min_length=1, max_length=2048),
+    tree: Workspace = Depends(get_writable_workspace),
+    user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
+    db: Session = Depends(get_db),
+):
+    """Return a public scan for local cropping; saving later attaches the crop."""
+    context.require_write_scope(origin_section(db), domain=DOMAIN)
+    key = user.id
+    retry_after = matricula_rate_limiter.retry_after(key)
+    if retry_after is not None:
+        raise HTTPException(
+            status_code=429,
+            detail="matricula_rate_limited",
+            headers={"Retry-After": str(int(retry_after) + 1)},
+        )
+    matricula_rate_limiter.record_hit(key)
+    try:
+        image = fetch_matricula_image(url)
+    except MatriculaImportError as exc:
+        raise HTTPException(status_code=exc.status, detail=exc.code) from exc
+    return Response(
+        content=image.content,
+        media_type=image.media_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{image.filename}"',
+            "Cache-Control": "no-store",
+        },
     )
 
 

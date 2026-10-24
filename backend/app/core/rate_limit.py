@@ -141,6 +141,11 @@ search_rate_limiter = RateLimiter(
     settings.SEARCH_RATE_LIMIT_WINDOW_SECONDS,
 )
 
+matricula_rate_limiter = RateLimiter(
+    settings.MATRICULA_MAX_REQUESTS,
+    settings.MATRICULA_RATE_LIMIT_WINDOW_SECONDS,
+)
+
 # Identity-link proposals (#985), keyed by proposer + target workspace, so
 # spamming one target with proposals is bounded without limiting a proposer
 # who is legitimately linking members across several different workspaces.
