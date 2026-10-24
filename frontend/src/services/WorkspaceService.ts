@@ -638,6 +638,25 @@ export class WorkspaceService {
     return api.get<DocumentDB[]>(`${base(workspaceId)}/documents`);
   }
 
+  static async fetchMatriculaImage(
+    workspaceId: string,
+    url: string,
+    signal?: AbortSignal,
+    originSectionId?: string,
+  ): Promise<File> {
+    const response = await api.getRaw(
+      `${base(workspaceId)}/documents/matricula-image`,
+      { url, origin_section_id: originSectionId },
+      signal,
+    );
+    const blob = await response.blob();
+    const filename =
+      /filename="([^"]+)"/.exec(
+        response.headers.get("Content-Disposition") ?? "",
+      )?.[1] ?? "matricula-scan.jpg";
+    return new File([blob], filename, { type: blob.type });
+  }
+
   static addDocument(
     workspaceId: string,
     input: DocumentInput,

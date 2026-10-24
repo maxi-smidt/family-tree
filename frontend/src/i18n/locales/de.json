@@ -906,6 +906,7 @@
             "link-url-placeholder": "https://...",
             "link-label-placeholder": "Bezeichnung (optional)",
             "link-add": "Hinzufügen",
+            "matricula-source": "Matricula-Quelle",
             "hint": "Bilder, PDF und Dokumente bis {{max}}.",
             "hint-without-limit": "Bilder, PDF und Dokumente.",
             "error-type": "Nicht unterstützter Dateityp",
@@ -919,6 +920,28 @@
           "cancel": "Abbrechen",
           "save": "Speichern",
           "error-save": "Dokument konnte nicht gespeichert werden."
+        },
+        "matricula": {
+          "prompt": "Ein Bild dieser Matricula-Seite anhängen?",
+          "fetch": "Bild laden und zuschneiden",
+          "fetching": "Bild wird geladen…",
+          "cancel": "Import abbrechen",
+          "error-fetch": "Der Scan konnte nicht geladen werden. Prüfe, ob der Link eine bestimmte Seite öffnet, oder öffne Matricula und wähle einen gespeicherten Scan oder Screenshot aus.",
+          "open": "Matricula öffnen",
+          "choose": "Scan zum Zuschneiden auswählen",
+          "error-type": "Wähle ein Bild im Format PNG, JPEG, WebP oder GIF."
+        },
+        "image-crop": {
+          "title": "Dokumentbild zuschneiden",
+          "preview": "Dokumentbild zum Zuschneiden",
+          "select-area": "Ausschnitt auswählen",
+          "pan": "Bild verschieben",
+          "reset": "Zurücksetzen",
+          "cancel": "Abbrechen",
+          "attach": "Bild anhängen",
+          "error-load": "Das Bild konnte nicht gelesen werden. Versuche eine andere Bilddatei.",
+          "error-export": "Das Bild konnte nicht zugeschnitten werden. Versuche einen kleineren Ausschnitt oder ein anderes Bild.",
+          "error-size": "Das zugeschnittene Bild ist zu groß (max. {{max}}). Wähle einen kleineren Ausschnitt."
         },
         "reader": {
           "file": "Originaldatei",
