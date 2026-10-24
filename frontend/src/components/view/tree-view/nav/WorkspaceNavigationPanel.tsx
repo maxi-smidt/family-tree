@@ -162,6 +162,14 @@ export const WorkspaceNavigationPanel = ({
     }
   };
 
+  // Leaving the deleted section for the whole family — otherwise the canvas
+  // and URL stay scoped to a section that no longer exists.
+  const handleSectionDeleted = (sectionId: string) => {
+    if (mode === "section" && selectedSectionId === sectionId) {
+      handleSelectExplore();
+    }
+  };
+
   const handleSavedViewDeleted = (viewId: string) => {
     if (mode === "saved-view" && selectedSavedViewId === viewId) {
       handleSelectExplore();
@@ -400,6 +408,7 @@ export const WorkspaceNavigationPanel = ({
       <DeleteSectionDialog
         section={deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
+        onDeleted={handleSectionDeleted}
       />
       <SectionMembersDialog
         section={membersTarget}

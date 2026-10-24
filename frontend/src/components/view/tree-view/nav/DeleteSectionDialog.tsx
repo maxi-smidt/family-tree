@@ -16,6 +16,7 @@ import { SectionDB, SectionDependentsDB } from "@/types/section";
 interface DeleteSectionDialogProps {
   section: SectionDB | null;
   onOpenChange: (open: boolean) => void;
+  onDeleted?: (sectionId: string) => void;
 }
 
 /** Deleting a section never widens the audience of what it held (#982):
@@ -25,6 +26,7 @@ interface DeleteSectionDialogProps {
 export const DeleteSectionDialog = ({
   section,
   onOpenChange,
+  onDeleted,
 }: DeleteSectionDialogProps) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "workspace-nav.delete-section",
@@ -88,6 +90,7 @@ export const DeleteSectionDialog = ({
     try {
       await deleteSection(section.id);
       onOpenChange(false);
+      onDeleted?.(section.id);
     } catch {
       setError(t("delete-error"));
     } finally {
