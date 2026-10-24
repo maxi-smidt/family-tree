@@ -2,7 +2,7 @@ import { filterSavedViewMembers } from "@/utils/savedViewProjection";
 import {
   SavedViewDB,
   SavedViewPositionDB,
-  stepNeighborhoodDepth,
+  ALL_GENERATIONS,
 } from "@/types/savedView";
 import { contentOriginArgs } from "@/hooks/contentOrigin";
 import { create } from "zustand";
@@ -37,6 +37,10 @@ import {
 } from "@/hooks/memberStoreLayout";
 
 const WINDOWED_MODE_THRESHOLD = 2_000;
+
+// Focus and section views show every generation by default; the node budget
+// and continuation cursor still bound what one page loads.
+const DEFAULT_NEIGHBORHOOD_DEPTH = ALL_GENERATIONS;
 
 // Ceiling on how many members inline expansion (#989) may accumulate on the
 // canvas across repeated "expand"/"load more" actions, mirroring the
@@ -299,9 +303,6 @@ interface MemberState {
   savedViewPositions: SavedViewPositionDB[];
   savedViewFilters: Record<string, unknown>;
   neighborhoodTruncated: boolean;
-  // Whether one more generation up or down would reach anyone new — gates
-  // the "Expand next generation" control so it never offers a no-op.
-  neighborhoodExpandable: boolean;
   totalMemberCount: number;
   // Raw rows/relations accumulated across inline expansion pages (#989) for
   // the current windowed session — the source `refreshMembers`/`expand*`
@@ -357,10 +358,6 @@ interface MemberState {
   // view (full load or an unscoped windowed neighborhood, whichever the
   // workspace size calls for).
   exitFocus: () => Promise<void>;
-  // Inline expansion (#989): grow the current focus by one more generation in
-  // both directions, merging the result into the canvas instead of reloading
-  // it. No-op once EXPANSION_NODE_BUDGET is reached.
-  expandGeneration: () => Promise<void>;
   // Fetch the next page of the current windowed query via its continuation
   // cursor and merge it in. No-op with nothing left to load, or once
   // EXPANSION_NODE_BUDGET is reached.
@@ -420,8 +417,8 @@ export const useMemberStore = create<MemberState>((set, get) => ({
   focusSectionIds: null,
   focusPending: false,
   windowedForTreeId: null,
-  neighborhoodUp: 3,
-  neighborhoodDown: 3,
+  neighborhoodUp: DEFAULT_NEIGHBORHOOD_DEPTH,
+  neighborhoodDown: DEFAULT_NEIGHBORHOOD_DEPTH,
   neighborhoodPartners: true,
   activeSavedViewId: null,
   savedViewPositions: [],
@@ -431,7 +428,6 @@ export const useMemberStore = create<MemberState>((set, get) => ({
   neighborhoodCursor: null,
   continuations: [],
   neighborhoodTruncated: false,
-  neighborhoodExpandable: false,
   totalMemberCount: 0,
   pendingLocateMemberId: null,
   setPendingLocateMemberId: (id: string | null) =>
@@ -583,7 +579,6 @@ export const useMemberStore = create<MemberState>((set, get) => ({
           detailLoadedIds: new Set<string>(),
           focusRootId: nb.root_id || null,
           neighborhoodTruncated: nb.truncated,
-          neighborhoodExpandable: nb.expandable ?? false,
           totalMemberCount: nb.total_member_count,
         });
       } catch {
@@ -639,7 +634,6 @@ export const useMemberStore = create<MemberState>((set, get) => ({
           detailLoadedIds: new Set<string>(),
           focusRootId: nb.root_id || null,
           neighborhoodTruncated: nb.truncated,
-          neighborhoodExpandable: nb.expandable ?? false,
           totalMemberCount: nb.total_member_count,
         });
         return;
@@ -715,8 +709,8 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       activeSavedViewId: null,
       savedViewPositions: [],
       savedViewFilters: {},
-      neighborhoodUp: 3,
-      neighborhoodDown: 3,
+      neighborhoodUp: DEFAULT_NEIGHBORHOOD_DEPTH,
+      neighborhoodDown: DEFAULT_NEIGHBORHOOD_DEPTH,
       neighborhoodPartners: true,
       focusPending: true,
       windowed: true,
@@ -734,8 +728,8 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       activeSavedViewId: null,
       savedViewPositions: [],
       savedViewFilters: {},
-      neighborhoodUp: 3,
-      neighborhoodDown: 3,
+      neighborhoodUp: DEFAULT_NEIGHBORHOOD_DEPTH,
+      neighborhoodDown: DEFAULT_NEIGHBORHOOD_DEPTH,
       neighborhoodPartners: true,
       focusPending: true,
       windowed: true,
@@ -755,8 +749,8 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       activeSavedViewId: null,
       savedViewPositions: [],
       savedViewFilters: {},
-      neighborhoodUp: 3,
-      neighborhoodDown: 3,
+      neighborhoodUp: DEFAULT_NEIGHBORHOOD_DEPTH,
+      neighborhoodDown: DEFAULT_NEIGHBORHOOD_DEPTH,
       neighborhoodPartners: true,
       focusPending: true,
       windowed: false,
@@ -775,63 +769,6 @@ export const useMemberStore = create<MemberState>((set, get) => ({
   setNeighborhoodDepth: async (up: number, down: number) => {
     set({ neighborhoodUp: up, neighborhoodDown: down });
     await get().refreshMembers();
-  },
-
-  expandGeneration: async () => {
-    const workspaceId = activeTreeId();
-    if (!workspaceId) return;
-    const {
-      neighborhoodUp,
-      neighborhoodDown,
-      neighborhoodPartners,
-      focusRootId,
-      focusSectionIds,
-      neighborhoodMemberRows,
-      neighborhoodRelations,
-    } = get();
-    if (neighborhoodMemberRows.length >= EXPANSION_NODE_BUDGET) return;
-
-    const nextUp = stepNeighborhoodDepth(neighborhoodUp, 1, 20);
-    const nextDown = stepNeighborhoodDepth(neighborhoodDown, 1, 20);
-    const version = ++memberRefreshVersion;
-    const stale = () =>
-      !isActiveTree(workspaceId) || version !== memberRefreshVersion;
-
-    try {
-      const nb = await WorkspaceService.getNeighborhood(
-        workspaceId,
-        focusRootId ?? undefined,
-        nextUp,
-        nextDown,
-        neighborhoodPartners,
-        focusSectionIds ?? undefined,
-      );
-      if (stale()) return;
-      const { rows: mergedRows, relations: mergedRelations } =
-        capNeighborhoodBuffer(
-          mergeMemberRows(neighborhoodMemberRows, nb.members),
-          mergeRelations(neighborhoodRelations, nb.relations),
-          EXPANSION_NODE_BUDGET,
-        );
-      set({
-        neighborhoodUp: nextUp,
-        neighborhoodDown: nextDown,
-        neighborhoodMemberRows: mergedRows,
-        neighborhoodRelations: mergedRelations,
-        members: filterSavedViewMembers(
-          buildAppMembers(mergedRows, mergedRelations, workspaceId),
-          get().savedViewFilters,
-        ),
-        neighborhoodTruncated: nb.truncated,
-        neighborhoodExpandable: nb.expandable ?? false,
-        totalMemberCount: nb.total_member_count,
-        neighborhoodCursor: nb.next_cursor ?? null,
-        continuations: nb.continuations ?? [],
-      });
-      await get().updateLayout();
-    } catch {
-      // Transient error: leave the existing depth/members unchanged.
-    }
   },
 
   loadMoreNeighborhood: async () => {
@@ -871,19 +808,27 @@ export const useMemberStore = create<MemberState>((set, get) => ({
           mergeRelations(neighborhoodRelations, nb.relations),
           EXPANSION_NODE_BUDGET,
         );
+      // Members keep their stored positions (plus the saved view's overlay),
+      // exactly like the first page — loading more never re-runs the
+      // auto-layout over people already placed (#1167).
       set({
         neighborhoodMemberRows: mergedRows,
         neighborhoodRelations: mergedRelations,
-        members: filterSavedViewMembers(
-          buildAppMembers(mergedRows, mergedRelations, workspaceId),
-          get().savedViewFilters,
+        members: applyPositionState(
+          filterSavedViewMembers(
+            buildAppMembers(mergedRows, mergedRelations, workspaceId),
+            get().savedViewFilters,
+          ),
+          get().savedViewPositions.map((p) => ({
+            id: p.node_id,
+            x: p.position_x,
+            y: p.position_y,
+          })),
         ),
-        neighborhoodExpandable: nb.expandable ?? false,
         totalMemberCount: nb.total_member_count,
         neighborhoodCursor: nb.next_cursor ?? null,
         continuations: nb.continuations ?? [],
       });
-      await get().updateLayout();
     } catch (error) {
       if (!isActiveTree(workspaceId)) return;
       if (error instanceof ApiError && error.status === 409) {
@@ -977,8 +922,8 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       activeSavedViewId: null,
       savedViewPositions: [],
       savedViewFilters: {},
-      neighborhoodUp: 3,
-      neighborhoodDown: 3,
+      neighborhoodUp: DEFAULT_NEIGHBORHOOD_DEPTH,
+      neighborhoodDown: DEFAULT_NEIGHBORHOOD_DEPTH,
       neighborhoodPartners: true,
       members: [],
       detailLoadedIds: new Set<string>(),
@@ -992,7 +937,6 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       neighborhoodCursor: null,
       continuations: [],
       neighborhoodTruncated: false,
-      neighborhoodExpandable: false,
       totalMemberCount: 0,
       pendingLocateMemberId: null,
       undoStack: [],

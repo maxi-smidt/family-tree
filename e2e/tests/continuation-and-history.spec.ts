@@ -1,6 +1,6 @@
 /**
- * E2E tests: inline generation expansion inside a focused section, and
- * browser back/forward restoring the previous focus (#989/#992).
+ * E2E tests: focusing a person shows every generation, and browser
+ * back/forward restores the previous focus (#989/#992).
  */
 
 import type { Page } from "@playwright/test";
@@ -41,15 +41,15 @@ function memberNode(page: Page, memberId: string) {
   return page.locator(`.react-flow__node[data-id="${memberId}"]`);
 }
 
-test("expand next generation reveals an ancestor outside the default depth window", async ({
+test("focusing a person shows ancestors more than 3 generations away", async ({
   page,
   secondUser,
   secondApi,
   ownedTree: tree,
 }) => {
-  // A vertical chain 4 generations above the focus. The default windowed
-  // neighborhood only reaches 3 generations up/down from the focus, so
-  // "ancestor" (4 up) starts outside it and only appears once expanded.
+  // A vertical chain 4 generations above the focus. Focus loads every
+  // generation, so "ancestor" (4 up) is there right away, with no
+  // "expand next generation" step (#1167/#1169).
   const ancestor = await createMember(secondApi, tree.id, {
     firstName: "Ancestor",
     lastName: "Chain",
@@ -83,10 +83,10 @@ test("expand next generation reveals an ancestor outside the default depth windo
   await expect(memberNode(page, gen3.id)).toBeVisible();
   await expect(memberNode(page, gen2.id)).toBeVisible();
   await expect(memberNode(page, gen1.id)).toBeVisible();
-  await expect(memberNode(page, ancestor.id)).toHaveCount(0);
-
-  await page.getByRole("button", { name: "Expand next generation" }).click();
   await expect(memberNode(page, ancestor.id)).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Expand next generation" }),
+  ).toHaveCount(0);
 });
 
 test("browser back/forward restores the previously focused section", async ({

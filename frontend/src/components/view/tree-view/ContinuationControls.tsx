@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { ChevronsDown, MoveRight, RotateCcw } from "lucide-react";
+import { MoveRight, RotateCcw } from "lucide-react";
 import { Panel } from "@xyflow/react";
 import { Button } from "@/components/ui/button";
 import { NeighborhoodContinuationDB } from "@/services/WorkspaceService";
@@ -7,24 +7,18 @@ import { NeighborhoodContinuationDB } from "@/services/WorkspaceService";
 interface ContinuationControlsProps {
   continuations: NeighborhoodContinuationDB[];
   atBudget: boolean;
-  canExpandGeneration: boolean;
-  onExpandGeneration: () => void;
   onLoadMore: () => void;
   onReset: () => void;
 }
 
 /**
- * Continuation controls at the graph edge (#989): "Expand next generation"
- * grows the current focus by one more level in both directions; each
- * "Continue into ..." row advances the same continuation cursor the
+ * Continuation controls at the graph edge (#989): each "Continue into ..." row advances the same continuation cursor the
  * neighborhood endpoint returned, merging the next page into the canvas
  * in place. Only rendered in windowed mode, where these concepts apply.
  */
 export const ContinuationControls = ({
   continuations,
   atBudget,
-  canExpandGeneration,
-  onExpandGeneration,
   onLoadMore,
   onReset,
 }: ContinuationControlsProps) => {
@@ -32,8 +26,7 @@ export const ContinuationControls = ({
     keyPrefix: "tree-view.continuation",
   });
 
-  if (continuations.length === 0 && !canExpandGeneration && !atBudget)
-    return null;
+  if (continuations.length === 0 && !atBudget) return null;
 
   return (
     <Panel position="bottom-center" className="!mb-20">
@@ -74,17 +67,6 @@ export const ContinuationControls = ({
               </Button>
             ))}
           </div>
-        )}
-        {!atBudget && canExpandGeneration && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="bg-background/90 shadow-md"
-            onClick={onExpandGeneration}
-          >
-            <ChevronsDown className="mr-1.5 h-3.5 w-3.5" />
-            {t("expand-generation")}
-          </Button>
         )}
       </div>
     </Panel>

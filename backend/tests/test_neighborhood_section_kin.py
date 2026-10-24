@@ -9,9 +9,12 @@ import pytest
 
 from app.models import Relation, Section, SectionMember
 from app.services.workspaces.neighborhood import (
+    ALL_GENERATIONS,
     NeighborhoodQuery,
     collect_neighborhood_page,
+    pick_default_root,
 )
+from app.services.workspaces.subtree_selection import collect_member_ids
 from tests.conftest import add_member, make_tree, make_user
 
 # child -> parents
@@ -101,3 +104,61 @@ def test_section_focus_does_not_walk_through_members_outside_it(db, simpsons):
     # parents' side and Homer's: the walk stays on Patty's side.
     assert "marge" not in page.member_ids
     assert sorted(page.member_ids) == ["clancy", "jackie", "patty", "selma"]
+
+
+def test_extended_family_section_at_full_depth_shows_the_origins_children(db):
+    """#1169: the default root of a deep extended-family section can sit far
+    above the person it was made from; at full depth (what the canvas now
+    asks for) their children are still on screen."""
+    user = make_user(db, "bob")
+    tree = make_tree(db, user)
+    parents = {
+        "a": ("z1", "z2"),
+        "b": ("a", "a2"),
+        "c": ("b", "b2"),
+        "p": ("c", "c2"),
+        "k": ("p", "p2"),
+    }
+    couples = [("a", "a2"), ("a", "a3"), ("b", "b2"), ("c", "c2"), ("p", "p2")]
+    members = sorted({*parents, *(x for ps in parents.values() for x in ps), "a3"})
+    for member_id in members:
+        add_member(db, tree, member_id)
+    for child, pair in parents.items():
+        for parent in pair:
+            db.add(
+                Relation(
+                    workspace_id=tree.id,
+                    from_member_id=child,
+                    to_member_id=parent,
+                    relation_type="parent",
+                )
+            )
+    for a, b in couples:
+        db.add(
+            Relation(
+                workspace_id=tree.id,
+                from_member_id=a,
+                to_member_id=b,
+                relation_type="married",
+            )
+        )
+    db.commit()
+    section_members = collect_member_ids(db, tree.id, "p", "extended_family") | {"p"}
+    section = Section(workspace_id=tree.id, name="P's family")
+    db.add(section)
+    db.commit()
+    db.add_all(SectionMember(section_id=section.id, member_id=m) for m in section_members)
+    db.commit()
+
+    root = pick_default_root(db, tree.id, [section.id])
+    assert root == "a"
+    # Three generations down from "a" stops at "p": the old default hid "k".
+    shallow = collect_neighborhood_page(db, tree.id, _query(root, section.id), 0)
+    assert "k" not in shallow.member_ids
+    full = collect_neighborhood_page(
+        db,
+        tree.id,
+        _query(root, section.id, up=ALL_GENERATIONS, down=ALL_GENERATIONS),
+        0,
+    )
+    assert sorted(full.member_ids) == sorted(section_members)

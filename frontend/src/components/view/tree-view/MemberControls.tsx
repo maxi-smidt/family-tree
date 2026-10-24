@@ -50,7 +50,7 @@ import {
 } from "@/components/view/tree-view/CanvasToolbar";
 import { CreateSectionDialog } from "@/components/view/tree-view/nav/CreateSectionDialog";
 import { useTranslation } from "react-i18next";
-import { stepNeighborhoodDepth } from "@/types/savedView";
+import { isAllGenerations, stepNeighborhoodDepth } from "@/types/savedView";
 import { ShortcutHint } from "@/components/ui/shortcut-hint";
 
 type Props = {
@@ -258,7 +258,14 @@ export const MemberControls = ({
         )}
         {windowed && (
           <>
-            <DropdownMenuItem inset onSelect={adjustNeighborhoodDepth(1)}>
+            <DropdownMenuItem
+              inset
+              onSelect={adjustNeighborhoodDepth(1)}
+              disabled={
+                isAllGenerations(neighborhoodUp) &&
+                isAllGenerations(neighborhoodDown)
+              }
+            >
               <Plus />
               {t("depth-increase")}
             </DropdownMenuItem>

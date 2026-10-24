@@ -1372,7 +1372,6 @@
       "banner": "{{count}} von {{total}} Mitgliedern in der Nachbarschaft"
     },
     "continuation": {
-      "expand-generation": "Nächste Generation einblenden",
       "continue-into": "Weiter zu \"{{name}}\" · {{count}} Personen",
       "continue-generic": "Weiter · {{count}} weitere Personen",
       "budget-reached": "Knotenlimit erreicht — Ansicht zurücksetzen, um weiter zu erkunden.",
