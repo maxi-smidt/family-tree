@@ -17,12 +17,9 @@ from urllib.parse import parse_qs, urljoin, urlsplit, urlunsplit
 import httpx
 from PIL import Image, UnidentifiedImageError
 
-from app.core.rate_limit import RateLimiter
-
 MAX_PAGE_BYTES = 4 * 1024 * 1024
 MAX_IMAGE_BYTES = 50 * 1024 * 1024
 HTTP_TRANSPORT: httpx.BaseTransport | None = None
-matricula_rate_limiter = RateLimiter(10, 60)
 
 
 class MatriculaImportError(Exception):
@@ -118,7 +115,11 @@ def fetch_matricula_image(value: str) -> MatriculaImage:
             transport=HTTP_TRANSPORT,
             headers={"User-Agent": "FamilyTree Matricula image importer"},
         ) as client:
-            html = _get(client, url, image=False, deadline=deadline).decode("utf-8")
+            page_content = _get(client, url, image=False, deadline=deadline)
+            try:
+                html = page_content.decode("utf-8")
+            except UnicodeDecodeError as exc:
+                raise MatriculaImportError("matricula_page_not_found", 422) from exc
             match = re.search(r'"files"\s*:\s*(\[[^\]]*\])', html)
             if not match:
                 raise MatriculaImportError("matricula_page_not_found", 422)

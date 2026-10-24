@@ -1,13 +1,15 @@
-/** Match Matricula itself and its subdomains, never lookalike hosts. */
+/** Keep detection aligned with the viewer host accepted by the import endpoint. */
 export function isMatriculaUrl(value: string): boolean {
   try {
-    const url = new URL(value.trim());
+    const input = value.trim();
+    if (/[\u0000-\u001f\\]/.test(input)) return false;
+    const url = new URL(input);
     return (
       ["https:", "http:"].includes(url.protocol) &&
       !url.username &&
       !url.password &&
-      (url.hostname === "matricula-online.eu" ||
-        url.hostname.endsWith(".matricula-online.eu"))
+      ["", "80", "443"].includes(url.port) &&
+      url.hostname === "data.matricula-online.eu"
     );
   } catch {
     return false;

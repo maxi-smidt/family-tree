@@ -34,7 +34,7 @@ from app.api.pagination import Pagination, apply_pagination, pagination_params
 from app.core.config import settings
 from app.core.db_timeout import statement_timeout
 from app.core.exceptions import QuotaExceeded
-from app.core.rate_limit import search_rate_limiter
+from app.core.rate_limit import matricula_rate_limiter, search_rate_limiter
 from app.db.base import utcnow_iso
 from app.db.session import get_db
 from app.models import (
@@ -89,7 +89,6 @@ from app.services.documents.file_text import files_with_text
 from app.services.documents.matricula import (
     MatriculaImportError,
     fetch_matricula_image,
-    matricula_rate_limiter,
 )
 from app.services.documents.text_search import search_documents
 from app.services.event_bus import publish_workspace_event

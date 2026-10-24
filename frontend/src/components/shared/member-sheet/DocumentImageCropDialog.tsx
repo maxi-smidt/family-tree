@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { cropDocumentImage } from "@/utils/documentImageCrop";
-import { formatFileSize, getBaseName } from "@/utils/attachmentUtils";
+import { formatFileSize } from "@/utils/attachmentUtils";
 import { useDocumentViewport } from "@/hooks/useDocumentViewport";
 import {
   DocumentReaderDock,
@@ -30,11 +30,11 @@ const FULL_IMAGE: PercentCrop = {
 interface Props {
   image: File;
   maxFileBytes?: number;
-  onConfirm: (file: File) => void;
+  onConfirm: (file: File) => string | void;
   onCancel: () => void;
 }
 
-/** Free rectangular crops for document scans, with no portrait-size reduction. */
+/** Free rectangular crops, preserving original files when the whole scan is kept. */
 export function DocumentImageCropDialog({
   image,
   maxFileBytes,
@@ -82,14 +82,15 @@ export function DocumentImageCropDialog({
       const file = await cropDocumentImage(
         imageRef.current,
         crop ?? FULL_IMAGE,
-        `${getBaseName(image.name)}-crop.jpg`,
+        image,
       );
       if (!activeRef.current) return;
       if (maxFileBytes !== undefined && file.size > maxFileBytes) {
         setError(t("error-size", { max: formatFileSize(maxFileBytes) }));
         return;
       }
-      onConfirm(file);
+      const rejection = onConfirm(file);
+      if (rejection) setError(rejection);
     } catch {
       if (activeRef.current) setError(t("error-export"));
     } finally {

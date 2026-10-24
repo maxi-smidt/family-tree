@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useDocumentStore } from "@/hooks/useDocumentStore";
 import { isMatriculaUrl } from "@/utils/matricula";
+import { externalLinkHref } from "@/utils/externalLink";
 
 interface Props {
   url: string;
@@ -98,7 +99,11 @@ export function MatriculaImagePrompt({ url, disabled, onChooseImage }: Props) {
           </p>
           <div className="flex flex-wrap gap-2">
             <Button type="button" size="sm" variant="outline" asChild>
-              <a href={url.trim()} target="_blank" rel="noopener noreferrer">
+              <a
+                href={externalLinkHref(url)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <ExternalLink />
                 {t("open")}
               </a>

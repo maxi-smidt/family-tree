@@ -8,6 +8,8 @@ import httpx
 import pytest
 from PIL import Image
 
+from app.core.config import Settings
+from app.core.rate_limit import matricula_rate_limiter
 from app.models import Document, DocumentUpload
 from app.services.documents import matricula
 from tests.conftest import API, auth, make_user, share
@@ -32,7 +34,7 @@ def _jpeg():
 
 @pytest.fixture(autouse=True)
 def reset_limiter():
-    matricula.matricula_rate_limiter.clear()
+    matricula_rate_limiter.clear()
 
 
 def _transport(monkeypatch, handler):
@@ -199,15 +201,37 @@ def test_requires_authenticated_write_access(client, db, tree, monkeypatch):
 
 
 def test_rate_limits_imports(client, tree, headers, monkeypatch):
+    monkeypatch.setattr(matricula_rate_limiter, "max_attempts", 2)
     _transport(monkeypatch, lambda _: httpx.Response(503))
     path = f"{API}/workspaces/{tree.id}/documents/matricula-image"
-    for _ in range(10):
+    for _ in range(2):
         assert (
             client.get(path, params={"url": VIEWER}, headers=headers).status_code == 502
         )
     response = client.get(path, params={"url": VIEWER}, headers=headers)
     assert response.status_code == 429
     assert "retry-after" in response.headers
+
+
+def test_invalid_utf8_page_is_reported_as_missing_page(monkeypatch):
+    _transport(
+        monkeypatch,
+        lambda _: httpx.Response(
+            200, content=b"\xff\xfe not UTF-8", headers={"Content-Type": "text/html"}
+        ),
+    )
+    with pytest.raises(matricula.MatriculaImportError) as error:
+        matricula.fetch_matricula_image(VIEWER)
+    assert error.value.code == "matricula_page_not_found"
+    assert error.value.status == 422
+
+
+def test_import_budget_can_be_configured_from_environment(monkeypatch):
+    monkeypatch.setenv("MATRICULA_MAX_REQUESTS", "3")
+    monkeypatch.setenv("MATRICULA_RATE_LIMIT_WINDOW_SECONDS", "120")
+    configured = Settings(_env_file=None)
+    assert configured.MATRICULA_MAX_REQUESTS == 3
+    assert configured.MATRICULA_RATE_LIMIT_WINDOW_SECONDS == 120
 
 
 def test_rejects_non_images_even_when_upstream_claims_jpeg(monkeypatch):

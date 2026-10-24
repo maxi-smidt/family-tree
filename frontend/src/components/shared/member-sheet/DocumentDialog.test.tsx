@@ -577,4 +577,53 @@ describe("DocumentDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "Attach image" }));
     await waitFor(() => expect(onConfirm).toHaveBeenCalledWith(smaller));
   });
+
+  it("keeps the source draft unchanged if its cropped file is rejected", async () => {
+    const addDocument = vi.fn().mockResolvedValue({ id: "created" });
+    useDocumentStore.setState({
+      addDocument,
+      fetchMatriculaImage: vi
+        .fn()
+        .mockResolvedValue(
+          new File(["scan"], "scan.jpg", { type: "image/jpeg" }),
+        ),
+    });
+    vi.mocked(cropDocumentImage).mockResolvedValue(
+      new File(["bad"], "scan.exe", { type: "image/jpeg" }),
+    );
+    render(<DocumentDialog open onOpenChange={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("Title *"), {
+      target: { value: "Archive index" },
+    });
+    enterLink();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Fetch image and crop" }),
+    );
+    const cropper = await screen.findByRole("dialog", {
+      name: "Crop document image",
+    });
+    fireEvent.load(within(cropper).getByAltText("Document image to crop"));
+    fireEvent.click(
+      within(cropper).getByRole("button", { name: "Attach image" }),
+    );
+    expect(await within(cropper).findByRole("alert")).toHaveTextContent(
+      "Unsupported file type",
+    );
+    fireEvent.click(within(cropper).getByRole("button", { name: "Cancel" }));
+    expect(screen.getByPlaceholderText("https://...")).toHaveValue(
+      matriculaUrl,
+    );
+    expect(
+      screen.queryByRole("link", { name: matriculaUrl }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(addDocument).toHaveBeenCalledWith(
+        expect.anything(),
+        [],
+        expect.objectContaining({ addedFiles: [], addedLinks: [] }),
+        expect.any(Function),
+      ),
+    );
+  });
 });

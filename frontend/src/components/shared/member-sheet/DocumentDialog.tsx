@@ -199,10 +199,12 @@ export const DocumentDialog = ({
     setFileError(null);
     setFailedTempIds(new Set());
     let shouldDefaultTitle = !formData.title.trim();
+    let rejected: string | undefined;
     for (const file of Array.from(fileList)) {
       const err = attachmentError(file, maxFileBytes);
       if (err) {
-        setFileError(t(`files.error-${err}`, { max: maxFileSize ?? "" }));
+        rejected = t(`files.error-${err}`, { max: maxFileSize ?? "" });
+        setFileError(rejected);
         continue;
       }
       setAdded((prev) => [
@@ -215,6 +217,7 @@ export const DocumentDialog = ({
       }
     }
     if (fileInputRef.current) fileInputRef.current.value = "";
+    return rejected;
   };
 
   const addLink = () => {
@@ -798,7 +801,8 @@ export const DocumentDialog = ({
           maxFileBytes={maxFileBytes}
           onCancel={() => setImageToCrop(null)}
           onConfirm={(file) => {
-            handleFilesPicked([file]);
+            const error = handleFilesPicked([file]);
+            if (error) return error;
             if (imageToCrop.draftLink) {
               const { url, label } = imageToCrop.draftLink;
               setAddedLinks((prev) => [

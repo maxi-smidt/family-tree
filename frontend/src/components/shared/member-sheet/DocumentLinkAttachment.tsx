@@ -2,6 +2,7 @@ import { ExternalLink, Link as LinkIcon, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { externalLinkHref } from "@/utils/externalLink";
 
 interface Props {
   url: string;
@@ -24,6 +25,7 @@ export function DocumentLinkAttachment({
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.member-sheet.documents.dialog.files",
   });
+  const href = externalLinkHref(url);
 
   return (
     <div className="flex items-start gap-2">
@@ -40,7 +42,7 @@ export function DocumentLinkAttachment({
           className="h-8"
         />
         <a
-          href={url}
+          href={href}
           target="_blank"
           rel="noopener noreferrer"
           className="flex w-fit max-w-full items-center gap-1 text-xs text-muted-foreground hover:text-primary hover:underline underline-offset-2"
