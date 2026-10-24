@@ -1,5 +1,7 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { toast } from "sonner";
+import { downloadMedia } from "@/hooks/useMediaUrl";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
@@ -7,6 +9,11 @@ import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import type { GalleryImage } from "@/types/gallery";
 import type { Member } from "@/types/member";
 import { ImageLightbox } from "./ImageLightbox";
+
+vi.mock("@/hooks/useMediaUrl", () => ({
+  useMediaUrl: (src: string | null | undefined) => src,
+  downloadMedia: vi.fn(),
+}));
 
 const MEMBER: Member = {
   id: "member-1",
@@ -45,6 +52,7 @@ const IMAGE: GalleryImage = {
 
 describe("ImageLightbox", () => {
   beforeEach(() => {
+    vi.mocked(downloadMedia).mockReset().mockResolvedValue(undefined);
     useGalleryStore.setState({
       galleryImages: [IMAGE],
       updateGalleryImage: vi.fn().mockResolvedValue(undefined),
@@ -168,6 +176,151 @@ describe("ImageLightbox", () => {
     render(<ImageLightbox images={[]} startIndex={0} onClose={vi.fn()} />);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
+
+  it("dismisses empty background but protects the photo, captions, people and controls with a 24px margin", () => {
+    const onClose = vi.fn();
+    render(
+      <ImageLightbox
+        images={[IMAGE, { ...IMAGE, id: "second" }]}
+        startIndex={0}
+        onClose={onClose}
+      />,
+    );
+    const dialog = screen.getByRole("dialog");
+    const photo = screen.getByRole("img", { name: "Portrait" });
+    const next = screen.getByRole("button", { name: "Next image" });
+    const close = screen.getByRole("button", { name: "Close image" });
+    const regions = [
+      [photo.parentElement!, new DOMRect(300, 200, 400, 300)],
+      [screen.getByRole("heading"), new DOMRect(420, 530, 160, 32)],
+      [screen.getByText("A portrait of Ada."), new DOMRect(400, 570, 200, 24)],
+      [screen.getByText("1 / 2"), new DOMRect(480, 610, 40, 20)],
+      [screen.getByRole("complementary"), new DOMRect(740, 200, 180, 200)],
+      [close.parentElement!, new DOMRect(800, 16, 128, 40)],
+      [next, new DOMRect(940, 450, 40, 40)],
+    ] as const;
+    const originalBounds = HTMLElement.prototype.getBoundingClientRect;
+    const bounds = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockImplementation(function (this: HTMLElement) {
+        return (
+          regions.find(([element]) => element === this)?.[1] ??
+          originalBounds.call(this)
+        );
+      });
+    try {
+      fireEvent.click(photo, { clientX: 500, clientY: 350 });
+      fireEvent.click(screen.getByRole("heading"));
+      fireEvent.click(screen.getByText("A portrait of Ada."));
+      fireEvent.click(screen.getByRole("complementary"));
+      fireEvent.click(screen.getByLabelText("Face tag for Ada Lovelace"));
+      for (const [, region] of regions) {
+        fireEvent.click(dialog, {
+          clientX: region.left - 24,
+          clientY: region.top + region.height / 2,
+        });
+      }
+      expect(onClose).not.toHaveBeenCalled();
+
+      // A gesture that starts on the photo must not dismiss on release outside.
+      fireEvent.pointerDown(photo, { clientX: 500, clientY: 350 });
+      fireEvent.click(dialog, { clientX: 100, clientY: 100 });
+      expect(onClose).not.toHaveBeenCalled();
+
+      fireEvent.pointerDown(dialog, { clientX: 100, clientY: 100 });
+      fireEvent.click(dialog, { clientX: 100, clientY: 100 });
+      expect(onClose).toHaveBeenCalledOnce();
+      fireEvent.click(dialog.querySelector(".image-viewer-layout")!, {
+        clientX: 275,
+        clientY: 350,
+      });
+      expect(onClose).toHaveBeenCalledTimes(2);
+    } finally {
+      bounds.mockRestore();
+    }
+  });
+
+  it("downloads the currently navigated photo with its stored format without closing the viewer", async () => {
+    const onClose = vi.fn();
+    const secondImage = {
+      ...IMAGE,
+      id: "second",
+      title: "Family portrait.jpg",
+      imageData: "/api/media/tree-1/second.webp",
+    };
+    render(
+      <ImageLightbox
+        images={[IMAGE, secondImage]}
+        startIndex={0}
+        onClose={onClose}
+      />,
+    );
+    expect(
+      screen.queryByRole("button", { name: /fullscreen/i }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Next image" }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Download photo" }));
+    });
+    expect(downloadMedia).toHaveBeenCalledExactlyOnceWith(
+      secondImage.imageData,
+      "Family portrait.webp",
+    );
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("uses the image ID and data URL format for untitled photos", async () => {
+    render(
+      <ImageLightbox
+        images={[{ ...IMAGE, title: null }]}
+        startIndex={0}
+        onClose={vi.fn()}
+      />,
+    );
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Download photo" }));
+    });
+    expect(downloadMedia).toHaveBeenCalledWith(IMAGE.imageData, "image-1.png");
+  });
+
+  it("prevents duplicate downloads while the photo is being fetched", async () => {
+    let complete!: () => void;
+    vi.mocked(downloadMedia).mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          complete = resolve;
+        }),
+    );
+    render(<ImageLightbox images={[IMAGE]} startIndex={0} onClose={vi.fn()} />);
+    const button = screen.getByRole("button", { name: "Download photo" });
+    fireEvent.click(button);
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
+    expect(downloadMedia).toHaveBeenCalledOnce();
+    await act(async () => complete());
+    expect(button).toBeEnabled();
+  });
+
+  it("reports failed downloads and allows retrying without closing the viewer", async () => {
+    vi.mocked(downloadMedia).mockRejectedValueOnce(new Error("Failed"));
+    const error = vi.spyOn(toast, "error").mockReturnValue("download-error");
+    const onClose = vi.fn();
+    render(<ImageLightbox images={[IMAGE]} startIndex={0} onClose={onClose} />);
+    try {
+      const button = screen.getByRole("button", { name: "Download photo" });
+      await act(async () => fireEvent.click(button));
+      expect(error).toHaveBeenCalledWith(
+        "Could not download the photo. Please try again.",
+      );
+      expect(button).toBeEnabled();
+      expect(onClose).not.toHaveBeenCalled();
+      await act(async () => fireEvent.click(button));
+      expect(downloadMedia).toHaveBeenCalledTimes(2);
+    } finally {
+      error.mockRestore();
+    }
+  });
+
   it("opens editing beside the currently navigated photo and returns to viewing after saving", async () => {
     useWorkspaceStore.setState({
       selectedTree: { id: "tree-1", name: "Workspace", role: "owner" },
@@ -194,6 +347,11 @@ describe("ImageLightbox", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "Title" }), {
       target: { value: "Updated title" },
     });
+    fireEvent.click(screen.getByRole("dialog"), { clientX: 100, clientY: 100 });
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("textbox", { name: "Title" })).toHaveValue(
+      "Updated title",
+    );
     // Arrow keys in a text field must never navigate to a different photo.
     fireEvent.keyDown(screen.getByRole("textbox", { name: "Title" }), {
       key: "ArrowLeft",

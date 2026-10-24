@@ -420,6 +420,8 @@
     },
     "image-lightbox": {
       "edit": "Edit photo",
+      "download": "Download photo",
+      "download-error": "Could not download the photo. Please try again.",
       "image-alt": "Gallery image",
       "close": "Close image",
       "previous": "Previous image",

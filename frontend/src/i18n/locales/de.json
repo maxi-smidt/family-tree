@@ -420,6 +420,8 @@
     },
     "image-lightbox": {
       "edit": "Foto bearbeiten",
+      "download": "Foto herunterladen",
+      "download-error": "Das Foto konnte nicht heruntergeladen werden. Bitte versuche es erneut.",
       "image-alt": "Galeriebild",
       "close": "Bild schließen",
       "previous": "Vorheriges Bild",

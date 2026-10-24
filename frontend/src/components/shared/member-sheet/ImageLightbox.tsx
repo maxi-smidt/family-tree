@@ -4,8 +4,9 @@ import {
   ChevronRight,
   UserRoundSearch,
   Pencil,
+  Download,
 } from "lucide-react";
-import { useLayoutEffect, useRef, useState } from "react";
+import { type MouseEvent, useLayoutEffect, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,10 @@ import { useTranslation } from "react-i18next";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { cn } from "@/lib/utils";
+import { downloadMedia } from "@/hooks/useMediaUrl";
+import { toast } from "sonner";
+
+const BACKGROUND_CLOSE_MARGIN = 24;
 
 type Props = {
   images: GalleryImage[];
@@ -52,11 +57,13 @@ export const ImageLightbox = ({ images, startIndex, onClose }: Props) => {
   const editing = editingImage !== null;
   const [currentId, setCurrentId] = useState(images[startIndex]?.id);
   const [hoveredTag, setHoveredTag] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
   const currentIndex = Math.max(
     0,
     images.findIndex((image) => image.id === currentId),
   );
   const currentImage = images[currentIndex];
+  const backgroundPointerDown = useRef(true);
   const layoutRef = useRef<HTMLDivElement>(null);
   const [photoElement, setPhotoElement] = useState<HTMLDivElement | null>(null);
   const [peoplePosition, setPeoplePosition] = useState<{
@@ -122,8 +129,46 @@ export const ImageLightbox = ({ images, startIndex, onClose }: Props) => {
       mode: "view",
     });
   };
+  const isDismissibleBackground = (event: MouseEvent<HTMLDivElement>) => {
+    if (editing || !(event.target instanceof Element)) return false;
+    if (event.target.closest("[data-image-viewer-safe]")) return false;
+
+    // Protect nearby empty space too, without making the entire wide layout
+    // block background clicks beside a narrow photo.
+    return !Array.from(
+      event.currentTarget.querySelectorAll<HTMLElement>(
+        "[data-image-viewer-safe]",
+      ),
+    ).some((element) => {
+      const bounds = element.getBoundingClientRect();
+      return (
+        event.clientX >= bounds.left - BACKGROUND_CLOSE_MARGIN &&
+        event.clientX <= bounds.right + BACKGROUND_CLOSE_MARGIN &&
+        event.clientY >= bounds.top - BACKGROUND_CLOSE_MARGIN &&
+        event.clientY <= bounds.bottom + BACKGROUND_CLOSE_MARGIN
+      );
+    });
+  };
 
   if (!currentImage) return null;
+
+  const downloadImage = () => {
+    const extension =
+      currentImage.imageData.match(
+        /\.(jpe?g|png|webp|gif|avif|tiff?|bmp)(?:[?#]|$)/i,
+      )?.[1] ??
+      currentImage.imageData.match(
+        /^data:image\/(jpeg|png|webp|gif|avif|tiff|bmp)[;,]/i,
+      )?.[1];
+    const name = currentImage.title?.trim() || currentImage.id;
+    const filename = extension
+      ? `${name.replace(/\.(jpe?g|png|webp|gif|avif|tiff?|bmp)$/i, "")}.${extension.toLowerCase().replace("jpeg", "jpg")}`
+      : name;
+    setDownloading(true);
+    void downloadMedia(currentImage.imageData, filename)
+      .catch(() => toast.error(t("download-error")))
+      .finally(() => setDownloading(false));
+  };
 
   return (
     <Dialog.Root open onOpenChange={(open) => !open && onClose()}>
@@ -136,6 +181,13 @@ export const ImageLightbox = ({ images, startIndex, onClose }: Props) => {
               : undefined
           }
           className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-y-auto px-12 py-16 outline-none sm:px-20"
+          onPointerDown={(event) => {
+            backgroundPointerDown.current = isDismissibleBackground(event);
+          }}
+          onClick={(event) => {
+            if (backgroundPointerDown.current && isDismissibleBackground(event))
+              onClose();
+          }}
           onEscapeKeyDown={(event) => {
             if (editing) {
               event.preventDefault();
@@ -153,33 +205,54 @@ export const ImageLightbox = ({ images, startIndex, onClose }: Props) => {
             }
           }}
         >
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute top-4 right-4 text-white hover:bg-white/20"
-            onClick={onClose}
-            aria-label={t("close")}
+          <div
+            data-image-viewer-safe
+            className="absolute top-4 right-4 flex items-center gap-2"
           >
-            <X className="h-6 w-6" />
-          </Button>
-          {canWrite && !editing && (
+            {canWrite && !editing && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="text-white hover:bg-white/20"
+                aria-label={t("edit")}
+                title={t("edit")}
+                onClick={() => {
+                  setHoveredTag(null);
+                  setEditingImage(currentImage);
+                }}
+              >
+                <Pencil />
+              </Button>
+            )}
             <Button
               type="button"
               variant="ghost"
-              size="sm"
-              className="absolute right-16 top-4 text-white hover:bg-white/20"
-              onClick={() => {
-                setHoveredTag(null);
-                setEditingImage(currentImage);
-              }}
+              size="icon"
+              className="text-white hover:bg-white/20"
+              aria-label={t("download")}
+              title={t("download")}
+              disabled={downloading}
+              onClick={downloadImage}
             >
-              <Pencil />
-              {t("edit")}
+              <Download />
             </Button>
-          )}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="text-white hover:bg-white/20"
+              onClick={onClose}
+              aria-label={t("close")}
+              title={t("close")}
+            >
+              <X className="h-6 w-6" />
+            </Button>
+          </div>
           {images.length > 1 && !editing && (
             <>
               <Button
+                data-image-viewer-safe
                 variant="ghost"
                 size="icon"
                 className="absolute left-1 top-1/2 -translate-y-1/2 text-white hover:bg-white/20 sm:left-4"
@@ -189,6 +262,7 @@ export const ImageLightbox = ({ images, startIndex, onClose }: Props) => {
                 <ChevronLeft className="h-8 w-8" />
               </Button>
               <Button
+                data-image-viewer-safe
                 variant="ghost"
                 size="icon"
                 className="absolute right-1 top-1/2 -translate-y-1/2 text-white hover:bg-white/20 sm:right-4"
@@ -225,6 +299,7 @@ export const ImageLightbox = ({ images, startIndex, onClose }: Props) => {
               <>
                 <div className="image-viewer-photo">
                   <div
+                    data-image-viewer-safe
                     ref={setPhotoElement}
                     className="relative inline-flex max-w-full shrink-0"
                   >
@@ -303,24 +378,33 @@ export const ImageLightbox = ({ images, startIndex, onClose }: Props) => {
                       );
                     })}
                   </div>
-                  <Dialog.Title className="text-center text-lg font-medium text-white">
+                  <Dialog.Title
+                    data-image-viewer-safe
+                    className="text-center text-lg font-medium text-white"
+                  >
                     {currentImage.title || t("image-alt")}
                   </Dialog.Title>
                   {currentImage.description && (
                     <Dialog.Description
+                      data-image-viewer-safe
                       id="image-viewer-description"
                       className="max-w-2xl whitespace-pre-wrap text-center text-sm text-white/80"
                     >
                       {currentImage.description}
                     </Dialog.Description>
                   )}
-                  <p className="text-sm text-white/60" aria-live="polite">
+                  <p
+                    data-image-viewer-safe
+                    className="text-sm text-white/60"
+                    aria-live="polite"
+                  >
                     {currentIndex + 1} / {images.length}
                   </p>
                 </div>
                 {(currentImage.memberLinks.length > 0 ||
                   currentImage.unknownFaces.length > 0) && (
                   <aside
+                    data-image-viewer-safe
                     aria-label={t("linked-people")}
                     className={cn(
                       "image-viewer-people",
