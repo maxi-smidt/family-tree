@@ -6,6 +6,7 @@ import { WorkspaceService } from "@/services/WorkspaceService";
 import { ApiError } from "@/services/api";
 import { treeProcessorClient } from "@/workers/treeProcessorClient";
 import { MemberDB } from "@/types/member";
+import { ALL_GENERATIONS } from "@/types/savedView";
 import { Workspace } from "@/types/workspace";
 import { toast } from "sonner";
 
@@ -289,8 +290,8 @@ describe("useMemberStore — inline expansion (#989)", () => {
     expect(WorkspaceService.getNeighborhood).toHaveBeenCalledWith(
       TREE_ID,
       undefined,
-      3,
-      3,
+      ALL_GENERATIONS,
+      ALL_GENERATIONS,
       true,
       ["sec-1"],
     );
@@ -303,50 +304,52 @@ describe("useMemberStore — inline expansion (#989)", () => {
     expect(state.members[0].id).toBe("m2");
   });
 
-  it("expandGeneration merges the deeper page into the existing members instead of replacing them", async () => {
-    vi.mocked(WorkspaceService.getNeighborhood).mockResolvedValueOnce({
-      members: [MEMBER_2],
-      relations: [],
-      root_id: "m1",
-      truncated: false,
-      total_member_count: 2,
-      next_cursor: null,
-      continuations: [],
-    });
+  it("focusSection and setFocusRoot load every generation by default", async () => {
+    await useMemberStore.getState().focusSection("sec-1");
+    expect(WorkspaceService.getNeighborhood).toHaveBeenLastCalledWith(
+      TREE_ID,
+      undefined,
+      ALL_GENERATIONS,
+      ALL_GENERATIONS,
+      true,
+      ["sec-1"],
+    );
 
-    await useMemberStore.getState().expandGeneration();
-
-    expect(WorkspaceService.getNeighborhood).toHaveBeenCalledWith(
+    await useMemberStore.getState().setFocusRoot("m1");
+    expect(WorkspaceService.getNeighborhood).toHaveBeenLastCalledWith(
       TREE_ID,
       "m1",
-      4,
-      4,
+      ALL_GENERATIONS,
+      ALL_GENERATIONS,
       true,
       undefined,
     );
-    const state = useMemberStore.getState();
-    expect(state.neighborhoodUp).toBe(4);
-    expect(state.neighborhoodDown).toBe(4);
-    const ids = state.members.map((m) => m.id).sort();
-    expect(ids).toEqual(["m1", "m2"]);
   });
 
-  it("expandGeneration records whether yet another generation would reach anyone", async () => {
-    useMemberStore.setState({ neighborhoodExpandable: true });
+  it("loadMoreNeighborhood keeps stored positions instead of re-running the layout", async () => {
+    useMemberStore.setState({
+      neighborhoodMemberRows: [
+        { ...MEMBER_DB_ROW, positionX: 5000, positionY: -3000 },
+      ],
+    });
     vi.mocked(WorkspaceService.getNeighborhood).mockResolvedValueOnce({
-      members: [MEMBER_2],
+      members: [{ ...MEMBER_2, positionX: 50, positionY: 100 }],
       relations: [],
       root_id: "m1",
       truncated: false,
       total_member_count: 2,
       next_cursor: null,
       continuations: [],
-      expandable: false,
     });
 
-    await useMemberStore.getState().expandGeneration();
+    await useMemberStore.getState().loadMoreNeighborhood();
 
-    expect(useMemberStore.getState().neighborhoodExpandable).toBe(false);
+    expect(WorkspaceService.updateMemberPositions).not.toHaveBeenCalled();
+    const byId = new Map(
+      useMemberStore.getState().members.map((m) => [m.id, m.position]),
+    );
+    expect(byId.get("m1")).toEqual({ x: 5000, y: -3000 });
+    expect(byId.get("m2")).toEqual({ x: 50, y: 100 });
   });
 
   it("loadMoreNeighborhood replays the stored cursor and merges the next page", async () => {
@@ -398,7 +401,6 @@ describe("useMemberStore — inline expansion (#989)", () => {
     });
 
     await useMemberStore.getState().loadMoreNeighborhood();
-    await useMemberStore.getState().expandGeneration();
 
     expect(WorkspaceService.getNeighborhood).not.toHaveBeenCalled();
   });
@@ -1111,8 +1113,8 @@ describe("saved view graph configuration", () => {
       activeSavedViewId: null,
       savedViewPositions: [],
       focusSectionIds: null,
-      neighborhoodUp: 3,
-      neighborhoodDown: 3,
+      neighborhoodUp: ALL_GENERATIONS,
+      neighborhoodDown: ALL_GENERATIONS,
       neighborhoodPartners: true,
     });
   });

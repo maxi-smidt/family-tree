@@ -1372,7 +1372,6 @@
       "banner": "Showing {{count}} of {{total}} members in neighborhood"
     },
     "continuation": {
-      "expand-generation": "Expand next generation",
       "continue-into": "Continue into \"{{name}}\" · {{count}} people",
       "continue-generic": "Continue · {{count}} more people",
       "budget-reached": "Node limit reached — reset the view to keep exploring.",
