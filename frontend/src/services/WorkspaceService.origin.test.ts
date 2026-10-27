@@ -3,7 +3,7 @@ import { WorkspaceService } from "./WorkspaceService";
 import { api } from "./api";
 
 vi.mock("./api", () => ({
-  UPLOAD_STAGE_TIMEOUT_MS: 120000,
+  uploadTimeoutMs: () => 120000,
   api: { post: vi.fn(), put: vi.fn(), postForm: vi.fn() },
 }));
 
