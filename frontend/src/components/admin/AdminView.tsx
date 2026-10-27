@@ -56,6 +56,8 @@ import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
 const MEBIBYTE = 1024 * 1024;
+/** Mirrors the backend's MAX_MAX_DOCUMENT_UPLOAD_MB (1 GiB). */
+const MAX_DOCUMENT_UPLOAD_MB = 1024;
 
 export const AdminView = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "admin" });
@@ -562,13 +564,13 @@ export const AdminView = () => {
                           id="max-document-upload"
                           type="number"
                           min={1}
-                          max={100}
+                          max={MAX_DOCUMENT_UPLOAD_MB}
                           value={settings.max_document_upload_mb}
                           onChange={(e) =>
                             setSettings({
                               ...settings,
                               max_document_upload_mb: Math.min(
-                                100,
+                                MAX_DOCUMENT_UPLOAD_MB,
                                 Math.max(1, Number(e.target.value)),
                               ),
                             })

@@ -8,9 +8,11 @@ MAX_MAX_IMAGE_UPLOAD_MB = 100
 
 DEFAULT_MAX_DOCUMENT_UPLOAD_MB = 25
 MIN_MAX_DOCUMENT_UPLOAD_MB = 1
-# Documents are streamed after multipart parsing, but capping this at 100 MiB
-# keeps temporary disk consumption and concurrent-upload capacity predictable.
-MAX_MAX_DOCUMENT_UPLOAD_MB = 100
+# Documents are streamed to disk in bounded chunks (never held in memory), so
+# admins may allow large scans and recordings. 1 GiB keeps temporary disk use
+# per upload bounded; the frontend nginx document-upload location allows the
+# same ceiling plus multipart overhead.
+MAX_MAX_DOCUMENT_UPLOAD_MB = 1024
 
 DEFAULT_MAX_IMAGE_DIMENSION = 4096
 MIN_MAX_IMAGE_DIMENSION = 256

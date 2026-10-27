@@ -35,9 +35,22 @@ const SEMANTIC_401_DETAILS = new Set([
   "Password required",
 ]);
 
-/** Hang ceiling for a staged file upload — bounds a stalled/dead connection,
- *  not the time a large-but-healthy transfer may take. */
+/** Base hang ceiling for a staged file upload — bounds a stalled/dead
+ *  connection, not the time a large-but-healthy transfer may take. */
 export const UPLOAD_STAGE_TIMEOUT_MS = 120_000;
+
+/** Slowest upload speed still treated as healthy when sizing the timeout. */
+const MIN_UPLOAD_BYTES_PER_SECOND = 256 * 1024;
+
+/** Timeout for uploading `bytes`: the base ceiling plus the time the file
+ *  takes at a slow-but-healthy connection, so a 1 GB document on home upload
+ *  bandwidth isn't aborted while it is still moving. */
+export function uploadTimeoutMs(bytes: number): number {
+  return (
+    UPLOAD_STAGE_TIMEOUT_MS +
+    Math.ceil((bytes / MIN_UPLOAD_BYTES_PER_SECOND) * 1000)
+  );
+}
 
 let authToken: string | null = localStorage.getItem(TOKEN_KEY);
 let unauthorizedHandler: (() => void) | null = null;

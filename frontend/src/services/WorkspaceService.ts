@@ -5,7 +5,7 @@
  * mirrors the backend row shapes (`MemberDB`, `RelationDB`, ...).
  */
 
-import { api, UPLOAD_STAGE_TIMEOUT_MS } from "@/services/api";
+import { api, uploadTimeoutMs } from "@/services/api";
 import {
   Member,
   MemberDB,
@@ -696,7 +696,7 @@ export class WorkspaceService {
     return api.postForm<DocumentUploadDB>(
       contentPath(workspaceId, `documents/uploads`, originSectionId),
       formData,
-      UPLOAD_STAGE_TIMEOUT_MS,
+      uploadTimeoutMs(file.size),
     );
   }
 
@@ -820,6 +820,7 @@ export class WorkspaceService {
     return api.postForm<DocumentFileDB>(
       `${base(workspaceId)}/documents/${documentId}/files`,
       formData,
+      uploadTimeoutMs(file.size),
     );
   }
 
